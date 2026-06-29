@@ -1,5 +1,6 @@
 <script setup>
 import { ref, computed, nextTick, onMounted, onBeforeUnmount, watch } from 'vue'
+import { storeToRefs } from 'pinia'
 import { useResizeObserver, useWindowSize } from '@vueuse/core'
 import { useAppStore } from '@/stores/app'
 import { useConversationsStore } from '@/stores/conversations'
@@ -7,6 +8,7 @@ import { useAgentsStore } from '@/stores/agents'
 import { useWikiStore } from '@/stores/wiki'
 import { useSettingsStore } from '@/stores/settings'
 import { useUserStore } from '@/stores/user'
+import { useWorkchatStore } from '@/stores/workchat'
 import { AgentRuntime } from '@/agents/AgentRuntime'
 import { normalizeFilePath } from '@/utils/fileUrl'
 import { readableGenerationContexts } from '@/utils/generationContext'
@@ -40,6 +42,8 @@ const agentsStore = useAgentsStore()
 const wikiStore = useWikiStore()
 const settingsStore = useSettingsStore()
 const userStore = useUserStore()
+const workchatStore = useWorkchatStore()
+const { ctxItems: globalCtxItems } = storeToRefs(workchatStore)
 const isDark = computed(() => appStore.isDark)
 const msg = useMessage()
 
@@ -175,7 +179,6 @@ function findBuiltinAgentByEnglishName(englishName, fallbackIds = []) {
   ))
 }
 
-const globalCtxItems = ref([])
 const currentCtxItems = computed(() => globalCtxItems.value)
 const selectedWikiIds = ref([])
 const availableWikis = computed(() => wikiStore.wikis || [])
