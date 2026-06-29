@@ -1,0 +1,14 @@
+{
+  "id": "feynman-learning-coach",
+  "name": "费曼学习",
+  "description": "Guide users through the Feynman Technique by asking them to explain a concept in simple language, diagnosing gaps, correcting misunderstandings, simplifying explanations, and retesting understanding. Use for deep learning, concept mastery, document-based study, exam preparation, and teach-back practice.",
+  "icon": "ri-file-text-line",
+  "color": "#6C8AFF",
+  "category": "学习",
+  "source": "platform",
+  "allowedTools": ["kb_search", "file_read"],
+  "outputTypes": ["Markdown", "TXT"],
+  "version": "1.0",
+  "author": "reviva",
+  "license": "MIT"
+}

@@ -1,0 +1,13 @@
+{
+  "scan_dir": "/agents/lab-report-assistant/outputs/{date}/",
+  "file_patterns": [
+    { "ext": "docx", "type": "document", "icon": "ri-file-word-line", "title_template": "{filename}" },
+    { "ext": "md", "type": "document", "icon": "ri-file-text-line", "title_template": "{filename}" },
+    { "ext": "xlsx", "type": "document", "icon": "ri-file-excel-line", "title_template": "{filename}" },
+    { "ext": "png", "type": "image", "icon": "ri-image-line", "title_template": "{filename}" },
+    { "ext": "jpg", "type": "image", "icon": "ri-image-line", "title_template": "{filename}" },
+    { "ext": "jpeg", "type": "image", "icon": "ri-image-line", "title_template": "{filename}" }
+  ],
+  "filter_mtime_after_run": true,
+  "group_id_from_conversation": true
+}

@@ -1,0 +1,20 @@
+{
+  "id": "edu-solid-geometry",
+  "name": "立体几何交互网页生成",
+  "description": "把立体几何题解成自包含的交互教学网页，包含题面、MathJax 分步解析和 Three.js 可交互 3D 模型。适用于线面角、二面角、异面直线夹角、点到平面距离、体积等题型。",
+  "icon": "ri-shape-2-line",
+  "color": "#F97316",
+  "category": "学习",
+  "source": "platform",
+  "allowedTools": [
+    "file_read",
+    "file_write"
+  ],
+  "outputTypes": [
+    "HTML",
+    "Markdown"
+  ],
+  "version": "1.0.0",
+  "author": "reviva",
+  "license": "MIT"
+}

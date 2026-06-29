@@ -1,0 +1,25 @@
+{
+  "mcpServers": {
+    "exa": {
+      "name": "Exa Search",
+      "type": "http",
+      "url": "https://mcp.exa.ai/mcp",
+      "headers": {},
+      "enabled": true
+    },
+    "jina-mcp-server": {
+      "name": "Jina联网搜索/网页爬取",
+      "type": "http",
+      "headers": {},
+      "url": "https://mcp.jina.ai/v1?include_tags=search,read",
+      "enabled": true
+    },
+    "firecrawl-mcp-server": {
+      "name": "Firecrawl联网搜索/网页爬取",
+      "type": "http",
+      "headers": {},
+      "url": "https://mcp.firecrawl.dev/v2/mcp",
+      "enabled": true
+    }
+  }
+}

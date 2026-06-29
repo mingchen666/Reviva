@@ -1,0 +1,14 @@
+{
+  "id": "ppt-creation",
+  "name": "PPT Creation",
+  "description": "Create polished presentations from notes, documents, research, or rough requirements. Plans slide structure, reduces text density, chooses visual patterns, and produces HTML-first decks with optional PPTX export.",
+  "icon": "ri-slideshow-line",
+  "color": "#6C8AFF",
+  "category": "创作",
+  "source": "platform",
+  "allowedTools": ["file_read", "file_write", "kb_search", "mcp:exa", "web_search_bing", "pptx_export_local"],
+  "outputTypes": ["HTML", "PPTX", "Markdown"],
+  "version": "1.0",
+  "author": "reviva",
+  "license": "MIT"
+}

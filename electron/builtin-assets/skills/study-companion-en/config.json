@@ -1,0 +1,27 @@
+{
+  "id": "study-companion-en",
+  "name": "智能学习伙伴",
+  "description": "通用学习助手，用于学习、复习、备考、概念讲解、解题、作业辅导、错误分析、主动回忆、闪卡、学习计划、可视化、动画、模拟、编程练习、语言学习和学术写作。",
+  "icon": "ri-graduation-cap-line",
+  "color": "#14B8A6",
+  "category": "学习",
+  "source": "platform",
+  "allowedTools": [
+    "file_read",
+    "file_write",
+    "kb_search",
+    "web_search"
+  ],
+  "outputTypes": [
+    "Markdown",
+    "TXT",
+    "HTML",
+    "PDF",
+    "TSV",
+    "APKG",
+    "SVG"
+  ],
+  "version": "1.0.0",
+  "author": "reviva",
+  "license": "MIT"
+}

@@ -1,0 +1,20 @@
+{
+  "id": "mock-exam",
+  "name": "模拟考试与批改",
+  "description": "Create realistic mock exams from user-provided materials, syllabi, exam scopes, or searched public information. Supports practice mode, simulation mode, grading mode, diagnostic mode, printable papers, and HTML exam pages with answer keys, explanations, rubrics, and post-exam weakness analysis.",
+  "icon": "ri-file-list-3-line",
+  "color": "#6C8AFF",
+  "category": "学习",
+  "source": "platform",
+  "allowedTools": [
+    "file_read",
+    "file_write"
+  ],
+  "outputTypes": [
+    "Markdown",
+    "TXT"
+  ],
+  "version": "1.0",
+  "author": "reviva",
+  "license": "MIT"
+}

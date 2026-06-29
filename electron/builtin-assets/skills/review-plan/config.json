@@ -1,0 +1,20 @@
+{
+  "id": "review-plan",
+  "name": "复习计划",
+  "description": "Generate structured study plans based on exam dates, subject difficulty, and mastery levels. Supports daily plans, sprint schedules, milestone checkpoints, multi-subject time allocation, and adaptive plan adjustment.",
+  "icon": "ri-calendar-check-line",
+  "color": "#8B5CF6",
+  "category": "学习",
+  "source": "platform",
+  "allowedTools": [
+    "file_read",
+    "file_write"
+  ],
+  "outputTypes": [
+    "Markdown",
+    "TXT"
+  ],
+  "version": "1.0",
+  "author": "reviva",
+  "license": "MIT"
+}

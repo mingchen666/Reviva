@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>交互演示：一次函数 y = a·x + b</title>
+<!-- KaTeX：公式渲染。换主题时不要删这三行。 -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16/dist/contrib/auto-render.min.js"></script>
+<style>
+  /* 布局规范：单列居中；交互区在中间且尺寸小一点；先交互、后讲解 */
+  :root { --bg:#0f1419; --fg:#e6e6e6; --accent:#5b9cff; --accent2:#ffd166; --muted:#9aa4b2; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: system-ui, "PingFang SC", "Microsoft YaHei", sans-serif;
+         background:var(--bg); color:var(--fg); line-height:1.7; }
+  .wrap { max-width:760px; margin:0 auto; padding:22px 20px 44px; }
+  header { text-align:center; margin-bottom:18px; }
+  header h1 { margin:0 0 .25rem; font-size:1.45rem; }
+  header p { color:var(--muted); margin:0; font-size:.92rem; }
+  /* 交互区：居中、尺寸小一点（画布最大 ~420px） */
+  .stage { max-width:420px; margin:0 auto; }
+  canvas { width:100%; aspect-ratio:1/1; background:#11161d; border:1px solid #222b36; border-radius:10px; display:block; }
+  .controls { margin-top:12px; }
+  .controls label { display:block; margin:8px 0 2px; color:var(--muted); font-size:.92rem; }
+  .controls .val { color:var(--accent2); font-weight:600; }
+  input[type=range]{ width:100%; accent-color:var(--accent); }
+  .readout { margin:12px auto 0; max-width:420px; text-align:center; color:var(--accent2); font-weight:600; }
+  /* 讲解区：在交互区下方 */
+  .divider { border:none; border-top:1px solid #222b36; margin:26px auto 0; max-width:680px; }
+  .explain { max-width:680px; margin:0 auto; }
+  .explain h2 { font-size:1.05rem; color:var(--muted); font-weight:600; margin:22px 0 6px; }
+  .explain p { margin:.55rem 0; }
+  .formula { background:#161c24; border:1px solid #222b36; border-radius:10px; padding:12px 16px; margin:12px 0; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>一次函数 y = a·x + b</h1>
+      <p>先动手：拖动滑块，观察斜率 a 与截距 b 如何改变直线。</p>
+    </header>
+
+    <!-- 先交互：交互区放页面中间、尺寸偏小 -->
+    <section class="stage">
+      <canvas id="c"></canvas>
+      <div class="controls">
+        <label>斜率 a = <span id="a-val" class="val"></span>
+          <input id="a" type="range" min="-5" max="5" step="0.1" value="1"></label>
+        <label>截距 b = <span id="b-val" class="val"></span>
+          <input id="b" type="range" min="-5" max="5" step="0.1" value="0"></label>
+      </div>
+      <div class="readout"><span id="eq-now"></span></div>
+    </section>
+
+    <hr class="divider">
+
+    <!-- 后讲解 -->
+    <section class="explain">
+      <h2>原理讲解</h2>
+      <p>一次函数的图像是一条直线，由两个参数决定：</p>
+      <p>$a$ 是 <b>斜率</b>，决定直线的倾斜程度；$b$ 是 <b>截距</b>，决定直线与 $y$ 轴的交点。</p>
+      <div class="formula">$$ y = a\,x + b $$</div>
+      <p style="color:var(--muted)">试试：把 $a$ 调成负数，直线会向下倾斜；把 $a$ 调到 0，直线变水平。</p>
+    </section>
+  </div>
+
+<script>
+  const cv = document.getElementById('c');
+  const ctx = cv.getContext('2d');
+  const SCALE = 32;                 // 每个数学单位对应的像素
+  const params = { a: 1, b: 0 };    // 可调参数（与滑块对应）
+
+  // 数学坐标 -> 画布像素（原点居中，y 轴向上）
+  function toPx(x, y, w, h) { return [w/2 + x*SCALE, h/2 - y*SCALE]; }
+
+  function drawAxes(w, h) {
+    ctx.strokeStyle = '#2a3340'; ctx.lineWidth = 1;
+    for (let gx = -Math.floor(w/2/SCALE); gx <= w/2/SCALE; gx++) {
+      const [sx] = toPx(gx, 0, w, h);
+      ctx.beginPath(); ctx.moveTo(sx, 0); ctx.lineTo(sx, h); ctx.stroke();
+    }
+    for (let gy = -Math.floor(h/2/SCALE); gy <= h/2/SCALE; gy++) {
+      const [, sy] = toPx(0, gy, w, h);
+      ctx.beginPath(); ctx.moveTo(0, sy); ctx.lineTo(w, sy); ctx.stroke();
+    }
+    ctx.strokeStyle = '#5a6678'; ctx.lineWidth = 2;
+    const [ox, oy] = toPx(0, 0, w, h);
+    ctx.beginPath(); ctx.moveTo(0, oy); ctx.lineTo(w, oy);
+    ctx.moveTo(ox, 0); ctx.lineTo(ox, h); ctx.stroke();
+  }
+
+  function draw() {
+    const w = cv.clientWidth, h = cv.clientHeight;
+    ctx.clearRect(0, 0, w, h);
+    drawAxes(w, h);
+    // 画直线 y = a x + b
+    ctx.strokeStyle = '#5b9cff'; ctx.lineWidth = 3; ctx.beginPath();
+    let started = false;
+    for (let px = 0; px <= w; px++) {
+      const x = (px - w/2) / SCALE;
+      const y = params.a * x + params.b;
+      const [sx, sy] = toPx(x, y, w, h);
+      started ? ctx.lineTo(sx, sy) : (ctx.moveTo(sx, sy), started = true);
+    }
+    ctx.stroke();
+    // 标出与 y 轴交点 (0, b)
+    const [bx, by] = toPx(0, params.b, w, h);
+    ctx.fillStyle = '#ffd166'; ctx.beginPath(); ctx.arc(bx, by, 5, 0, 7); ctx.fill();
+    document.getElementById('eq-now').textContent =
+      `y = ${params.a.toFixed(1)}·x + ${params.b.toFixed(1)}`;
+  }
+
+  function resize() {
+    const dpr = window.devicePixelRatio || 1;
+    const rect = cv.getBoundingClientRect();
+    cv.width = rect.width * dpr; cv.height = rect.height * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    draw();
+  }
+
+  function bindSlider(id, key) {
+    const el = document.getElementById(id), out = document.getElementById(id + '-val');
+    const update = () => { params[key] = parseFloat(el.value); out.textContent = el.value; draw(); };
+    el.addEventListener('input', update); update();
+  }
+
+  window.addEventListener('resize', resize);
+  window.addEventListener('load', () => {
+    if (window.renderMathInElement) {
+      renderMathInElement(document.body, {
+        delimiters: [{left:'$$',right:'$$',display:true}, {left:'$',right:'$',display:false}]
+      });
+    }
+    bindSlider('a', 'a'); bindSlider('b', 'b');
+    resize();
+  });
+</script>
+</body>
+</html>

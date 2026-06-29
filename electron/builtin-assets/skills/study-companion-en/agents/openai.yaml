@@ -1,0 +1,4 @@
+interface:
+  display_name: "Study Companion"
+  short_description: "General study tutor for any level or subject."
+  default_prompt: "请帮我学习或复习一个知识点/课程。默认用中文回答；除非我明确要求英文、正在学英语/外语，或交付物必须是英文。"

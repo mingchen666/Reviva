@@ -1,0 +1,24 @@
+{
+  "id": "quiz-agent",
+  "name": "测验生成器",
+  "english_name": "Quiz",
+  "description": "一个面向学习场景的测验生成 Agent，可以根据知识点、教材或文档生成不同难度的题目、答案和解析，帮助用户检测掌握程度并巩固学习效果。",
+  "icon": "ri-chat-quote-line",
+  "color": "#6C8AFF",
+
+  "architecture": "react",
+  "model": "",
+  "temperature": 0.7,
+  "top_p": 1.0,
+  "max_tokens": 16000,
+  "max_iterations": 100,
+  "tool_call_limit": 0,
+  "model_call_limit": 0,
+  "thinking_mode": "auto",
+  "thinking_intensity": "medium",
+
+  "tools": ["web_search_tavily"],
+  "skills": ["quiz-generator"],
+  "sub_agents": [],
+  "permissions": {}
+}

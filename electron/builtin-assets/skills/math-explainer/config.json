@@ -1,0 +1,22 @@
+{
+  "id": "math-explainer",
+  "name": "数学讲解视频和交互式网页生成",
+  "description": "Generate math explanation videos (animated with Manim) and interactive web pages from a user's request. Use when the user asks to explain, teach, visualize, or animate a math/physics concept, wants a 'math video', '讲解视频', '数学动画', '动画演示', a Manim animation, an interactive math demo, an interactive webpage/可视化/网页演示, or to turn a formula/theorem/problem into a visual explainer. By default produces BOTH a Manim-rendered MP4 video and a paired self-contained interactive HTML page sharing the same concept, notation, parameters, and palette. Covers planning the script, writing Manim scenes, rendering to MP4, and building the interactive HTML..",
+  "icon": "ri-compass-discover-line",
+  "color": "#EF4444",
+  "category": "学习",
+  "source": "platform",
+  "allowedTools": [
+    "file_read",
+    "file_write",
+    "manim:*",
+    "ffmpeg:*"
+  ],
+  "outputTypes": [
+    "Markdown",
+    "TXT"
+  ],
+  "version": "1.0.1",
+  "author": "reviva",
+  "license": "MIT"
+}

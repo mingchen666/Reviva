@@ -1,0 +1,847 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>学习演示模板 - Study Companion</title>
+
+  <!-- Reveal.js Core CSS -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5/dist/reveal.css" />
+  <!-- Reveal.js Theme -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5/dist/theme/white.css" />
+  <!-- Reveal.js Code Highlight Theme -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5/plugin/highlight/monokai.css" />
+
+  <!-- KaTeX CSS -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css" />
+
+  <!-- Mermaid CSS (minimal override for Reveal compatibility) -->
+  <style>
+    /* ---- Educational Template Custom Styles ---- */
+    :root {
+      --edu-primary: #2c3e50;
+      --edu-accent: #3498db;
+      --edu-success: #27ae60;
+      --edu-warning: #f39c12;
+      --edu-danger: #e74c3c;
+      --edu-light-bg: #f8f9fa;
+    }
+
+    .reveal {
+      font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans SC", sans-serif;
+      color: var(--edu-primary);
+    }
+
+    .reveal h1, .reveal h2, .reveal h3, .reveal h4 {
+      color: var(--edu-primary);
+      font-weight: 700;
+      text-transform: none;
+    }
+
+    .reveal h1 { font-size: 2.2em; }
+    .reveal h2 { font-size: 1.6em; }
+    .reveal h3 { font-size: 1.2em; }
+
+    /* Title slide */
+    .title-slide h1 {
+      font-size: 2.6em;
+      margin-bottom: 0.3em;
+    }
+    .title-slide .subtitle {
+      font-size: 1.2em;
+      color: var(--edu-accent);
+      margin-bottom: 0.8em;
+    }
+    .title-slide .author {
+      font-size: 0.9em;
+      color: #7f8c8d;
+    }
+    .title-slide .date {
+      font-size: 0.8em;
+      color: #95a5a6;
+    }
+
+    /* Concept markers */
+    .concept-marker {
+      display: inline-block;
+      font-size: 1.4em;
+      margin-right: 0.3em;
+      vertical-align: middle;
+    }
+    .concept-item {
+      display: flex;
+      align-items: flex-start;
+      text-align: left;
+      margin-bottom: 0.8em;
+      font-size: 0.85em;
+      line-height: 1.6;
+    }
+    .concept-item .concept-marker {
+      min-width: 2em;
+      text-align: center;
+      flex-shrink: 0;
+    }
+    .concept-item .concept-text {
+      flex: 1;
+    }
+    .concept-item .concept-text strong {
+      color: var(--edu-primary);
+    }
+
+    /* Step indicators */
+    .step-number {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 2em;
+      height: 2em;
+      border-radius: 50%;
+      background: var(--edu-accent);
+      color: #fff;
+      font-weight: 700;
+      font-size: 0.9em;
+      margin-right: 0.6em;
+      flex-shrink: 0;
+    }
+    .step-item {
+      display: flex;
+      align-items: flex-start;
+      text-align: left;
+      margin-bottom: 0.7em;
+      font-size: 0.85em;
+      line-height: 1.6;
+    }
+    .step-item .step-content {
+      flex: 1;
+      padding-top: 0.2em;
+    }
+
+    /* Comparison table */
+    .reveal table {
+      font-size: 0.75em;
+      border-collapse: collapse;
+      width: 100%;
+    }
+    .reveal table th {
+      background: var(--edu-primary);
+      color: #fff;
+      padding: 0.6em 0.8em;
+      text-align: center;
+      font-weight: 600;
+    }
+    .reveal table td {
+      padding: 0.5em 0.8em;
+      border: 1px solid #ddd;
+      text-align: center;
+    }
+    .reveal table tr:nth-child(even) td {
+      background: var(--edu-light-bg);
+    }
+    .reveal table tr:hover td {
+      background: #eaf2f8;
+    }
+
+    /* Code blocks */
+    .reveal pre {
+      width: 100%;
+      font-size: 0.65em;
+      line-height: 1.5;
+      border-radius: 6px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    .reveal pre code {
+      padding: 1em;
+      border-radius: 6px;
+    }
+
+    /* Quiz slide */
+    .quiz-option {
+      display: block;
+      text-align: left;
+      padding: 0.5em 1em;
+      margin: 0.4em 0;
+      border: 2px solid #ddd;
+      border-radius: 8px;
+      font-size: 0.85em;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .quiz-option:hover {
+      border-color: var(--edu-accent);
+      background: #eaf2f8;
+    }
+    .quiz-option.correct {
+      border-color: var(--edu-success);
+      background: #eafaf1;
+    }
+    .quiz-option.wrong {
+      border-color: var(--edu-danger);
+      background: #fdedec;
+    }
+    .quiz-label {
+      display: inline-block;
+      width: 2em;
+      font-weight: 700;
+      color: var(--edu-accent);
+    }
+
+    /* Summary card */
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1em;
+      text-align: left;
+    }
+    .summary-card {
+      background: var(--edu-light-bg);
+      border-radius: 8px;
+      padding: 1em;
+      border-left: 4px solid var(--edu-accent);
+    }
+    .summary-card h4 {
+      font-size: 0.9em;
+      margin: 0 0 0.3em 0;
+      color: var(--edu-accent);
+    }
+    .summary-card p {
+      font-size: 0.75em;
+      margin: 0;
+      line-height: 1.5;
+      color: #555;
+    }
+
+    /* Mermaid diagram container */
+    .mermaid-container {
+      background: #fff;
+      border-radius: 8px;
+      padding: 1em;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    }
+    .mermaid {
+      font-size: 0.7em;
+    }
+
+    /* Fragment animation overrides for smoother learning experience */
+    .reveal .slides section .fragment {
+      opacity: 0;
+      visibility: hidden;
+      transition: all 0.4s ease;
+    }
+    .reveal .slides section .fragment.visible {
+      opacity: 1;
+      visibility: inherit;
+    }
+
+    /* KaTeX display math sizing */
+    .katex-display {
+      font-size: 1.1em;
+    }
+
+    /* Slide number style */
+    .reveal .slide-number {
+      font-size: 0.6em;
+      padding: 6px 10px;
+      background: rgba(44,62,80,0.8);
+      color: #fff;
+      border-radius: 4px 0 0 0;
+    }
+
+    /* Progress bar */
+    .reveal .progress {
+      height: 4px;
+      background: rgba(52,152,219,0.2);
+    }
+    .reveal .progress span {
+      background: var(--edu-accent);
+    }
+
+    /* Controls */
+    .reveal .controls button {
+      color: var(--edu-accent);
+    }
+
+    /* Two-column layout helper */
+    .two-col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.5em;
+      text-align: left;
+      align-items: start;
+    }
+
+    /* Highlight box */
+    .highlight-box {
+      background: #fef9e7;
+      border-left: 4px solid var(--edu-warning);
+      padding: 0.8em 1em;
+      border-radius: 4px;
+      font-size: 0.85em;
+      text-align: left;
+      margin: 0.5em 0;
+    }
+
+    /* Key point box */
+    .keypoint-box {
+      background: #eaf2f8;
+      border-left: 4px solid var(--edu-accent);
+      padding: 0.8em 1em;
+      border-radius: 4px;
+      font-size: 0.85em;
+      text-align: left;
+      margin: 0.5em 0;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="reveal">
+    <div class="slides">
+
+      <!-- ============================================ -->
+      <!-- SLIDE 1: Title Slide                         -->
+      <!-- ============================================ -->
+      <section class="title-slide">
+        <h1>{{课程标题}}</h1>
+        <div class="subtitle">{{副标题 / 课程简介}}</div>
+        <div class="author">主讲人：{{作者姓名}}</div>
+        <div class="date">{{日期}}</div>
+        <aside class="notes">
+          欢迎来到本次课程。首先介绍课程主题和学习目标，让学员对整体内容有初步预期。
+          提醒学员可以随时提问，课程结束后会有练习环节。
+        </aside>
+      </section>
+
+      <!-- ============================================ -->
+      <!-- SLIDE 2: Learning Objectives                 -->
+      <!-- ============================================ -->
+      <section>
+        <h2>🎯 学习目标</h2>
+        <div style="text-align:left; max-width:600px; margin:0 auto;">
+          <div class="fragment concept-item">
+            <span class="concept-marker">📖</span>
+            <span class="concept-text"><strong>理解</strong> — 掌握{{核心概念}}的基本定义与原理</span>
+          </div>
+          <div class="fragment concept-item">
+            <span class="concept-marker">🔍</span>
+            <span class="concept-text"><strong>分析</strong> — 能够辨析{{概念A}}与{{概念B}}的异同</span>
+          </div>
+          <div class="fragment concept-item">
+            <span class="concept-marker">🧠</span>
+            <span class="concept-text"><strong>应用</strong> — 运用{{方法/公式}}解决实际问题</span>
+          </div>
+          <div class="fragment concept-item">
+            <span class="concept-marker">⚠️</span>
+            <span class="concept-text"><strong>注意</strong> — 识别常见误区与易错点</span>
+          </div>
+        </div>
+        <aside class="notes">
+          逐条展示学习目标，每展示一条稍作停顿，让学员消化。
+          强调本节课的最终目标是能够"应用"所学知识解决问题，
+          而不仅仅是记忆定义。
+        </aside>
+      </section>
+
+      <!-- ============================================ -->
+      <!-- SLIDE 3: Concept Introduction                -->
+      <!-- ============================================ -->
+      <section>
+        <h2>🔍 核心概念：{{概念名称}}</h2>
+        <div class="two-col">
+          <div>
+            <div class="fragment">
+              <div class="keypoint-box">
+                <strong>定义</strong><br/>
+                {{概念的定义，用简洁的语言描述核心含义。}}
+              </div>
+            </div>
+            <div class="fragment" style="margin-top:0.8em;">
+              <div class="highlight-box">
+                <strong>⚠️ 易错提醒</strong><br/>
+                {{常见的理解误区或容易混淆的地方。}}
+              </div>
+            </div>
+          </div>
+          <div>
+            <div class="fragment">
+              <p style="font-size:0.85em; text-align:left;">
+                <strong>关键特征：</strong>
+              </p>
+              <ul style="font-size:0.8em; text-align:left; line-height:1.8;">
+                <li class="fragment">特征一：{{描述}}</li>
+                <li class="fragment">特征二：{{描述}}</li>
+                <li class="fragment">特征三：{{描述}}</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <aside class="notes">
+          先给出定义，让学员建立初步认知。然后展示关键特征，逐条揭示。
+          特别强调易错提醒部分，这是很多学员容易踩的坑。
+          可以举一个生活中的类比来帮助理解。
+        </aside>
+      </section>
+
+      <!-- ============================================ -->
+      <!-- SLIDE 4: Step-by-Step Explanation            -->
+      <!-- ============================================ -->
+      <section>
+        <h2>📋 推导步骤：{{过程名称}}</h2>
+        <div style="text-align:left; max-width:650px; margin:0 auto;">
+          <div class="fragment step-item">
+            <span class="step-number">1</span>
+            <div class="step-content">
+              <strong>第一步：{{步骤名称}}</strong><br/>
+              {{步骤的详细描述，说明做什么、为什么这样做。}}
+            </div>
+          </div>
+          <div class="fragment step-item">
+            <span class="step-number">2</span>
+            <div class="step-content">
+              <strong>第二步：{{步骤名称}}</strong><br/>
+              {{步骤的详细描述，与上一步的衔接关系。}}
+            </div>
+          </div>
+          <div class="fragment step-item">
+            <span class="step-number">3</span>
+            <div class="step-content">
+              <strong>第三步：{{步骤名称}}</strong><br/>
+              {{步骤的详细描述，关键转换点。}}
+            </div>
+          </div>
+          <div class="fragment step-item">
+            <span class="step-number">4</span>
+            <div class="step-content">
+              <strong>第四步：{{步骤名称}}</strong><br/>
+              {{最终结论或结果，呼应学习目标。}}
+            </div>
+          </div>
+        </div>
+        <aside class="notes">
+          逐步展示推导过程，每一步都要确认学员理解后再进入下一步。
+          第二步到第三步是关键转换，需要重点讲解。
+          可以在白板上同步演示计算过程。
+        </aside>
+      </section>
+
+      <!-- ============================================ -->
+      <!-- SLIDE 5: Visual Diagram (Mermaid)            -->
+      <!-- ============================================ -->
+      <section>
+        <h2>📊 流程图：{{流程/架构名称}}</h2>
+        <div class="mermaid-container">
+          <pre class="mermaid">
+graph TD
+    A[输入/起点] --> B{判断条件}
+    B -->|满足| C[处理路径一]
+    B -->|不满足| D[处理路径二]
+    C --> E[中间结果]
+    D --> F[中间结果]
+    E --> G[最终输出]
+    F --> G
+    G --> H[验证/反馈]
+
+    style A fill:#3498db,color:#fff,stroke:none
+    style B fill:#f39c12,color:#fff,stroke:none
+    style C fill:#27ae60,color:#fff,stroke:none
+    style D fill:#e74c3c,color:#fff,stroke:none
+    style G fill:#2c3e50,color:#fff,stroke:none
+    style H fill:#8e44ad,color:#fff,stroke:none
+          </pre>
+        </div>
+        <aside class="notes">
+          用流程图展示整体逻辑。先从起点开始，讲解判断条件的两种分支。
+          强调两条路径最终汇聚到同一个输出，这是本流程的关键设计。
+          可以让学员尝试自己画出这个流程图，再对照正确答案。
+        </aside>
+      </section>
+
+      <!-- ============================================ -->
+      <!-- SLIDE 6: Math / KaTeX                        -->
+      <!-- ============================================ -->
+      <section>
+        <h2>📐 数学公式：{{公式名称}}</h2>
+        <div style="text-align:left; max-width:650px; margin:0 auto;">
+          <div class="fragment">
+            <p style="font-size:0.9em;"><strong>核心公式：</strong></p>
+            <div style="font-size:1.2em; text-align:center; margin:0.5em 0;">
+              $$f(x) = \frac{1}{\sigma\sqrt{2\pi}} e^{-\frac{(x-\mu)^2}{2\sigma^2}}$$
+            </div>
+          </div>
+          <div class="fragment" style="margin-top:0.8em;">
+            <p style="font-size:0.9em;"><strong>参数说明：</strong></p>
+            <ul style="font-size:0.8em; line-height:1.8;">
+              <li>$\mu$ — 均值（期望值），决定分布的中心位置</li>
+              <li>$\sigma$ — 标准差，决定分布的宽窄程度</li>
+              <li>$\sigma^2$ — 方差</li>
+            </ul>
+          </div>
+          <div class="fragment" style="margin-top:0.8em;">
+            <p style="font-size:0.9em;"><strong>特殊值：</strong></p>
+            <div style="font-size:1em; text-align:center;">
+              $$f(\mu) = \frac{1}{\sigma\sqrt{2\pi}}$$
+            </div>
+          </div>
+        </div>
+        <aside class="notes">
+          先展示完整公式，不要急于解释每个符号。
+          然后逐个参数讲解，用通俗语言解释均值和标准差的直观含义。
+          最后展示在均值处的特殊值，这是常考点。
+        </aside>
+      </section>
+
+      <!-- ============================================ -->
+      <!-- SLIDE 7: Comparison Table                    -->
+      <!-- ============================================ -->
+      <section>
+        <h2>⚖️ 对比分析：{{概念A}} vs {{概念B}}</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>对比维度</th>
+              <th>{{概念A}}</th>
+              <th>{{概念B}}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="fragment">
+              <td><strong>定义</strong></td>
+              <td>{{概念A的定义}}</td>
+              <td>{{概念B的定义}}</td>
+            </tr>
+            <tr class="fragment">
+              <td><strong>适用场景</strong></td>
+              <td>{{概念A的适用场景}}</td>
+              <td>{{概念B的适用场景}}</td>
+            </tr>
+            <tr class="fragment">
+              <td><strong>优势</strong></td>
+              <td>{{概念A的优势}}</td>
+              <td>{{概念B的优势}}</td>
+            </tr>
+            <tr class="fragment">
+              <td><strong>局限</strong></td>
+              <td>{{概念A的局限}}</td>
+              <td>{{概念B的局限}}</td>
+            </tr>
+            <tr class="fragment">
+              <td><strong>关键公式</strong></td>
+              <td>$E_A = mc^2$</td>
+              <td>$E_B = h\nu$</td>
+            </tr>
+          </tbody>
+        </table>
+        <aside class="notes">
+          逐行展示对比，每展示一行就让学员思考两者的差异。
+          最后一行的公式对比是重点，需要详细讲解。
+          可以让学员举例说明在什么情况下选择哪种方法。
+        </aside>
+      </section>
+
+      <!-- ============================================ -->
+      <!-- SLIDE 8: Code Example                        -->
+      <!-- ============================================ -->
+      <section>
+        <h2>💻 代码示例：{{功能名称}}</h2>
+        <div class="two-col">
+          <div>
+            <pre><code class="language-python" data-trim data-line-numbers>
+# {{功能描述}}
+def process_data(input_list):
+    """处理输入数据的函数"""
+    result = []
+    for item in input_list:
+        # 步骤1：过滤无效数据
+        if item is None:
+            continue
+        # 步骤2：转换数据格式
+        transformed = transform(item)
+        # 步骤3：累积结果
+        result.append(transformed)
+    return result
+
+# 调用示例
+data = [1, None, 3, None, 5]
+output = process_data(data)
+print(output)  # [transformed_1, 3, 5]
+</code></pre>
+          </div>
+          <div style="font-size:0.8em; text-align:left;">
+            <div class="fragment">
+              <div class="keypoint-box">
+                <strong>第4-6行</strong>：遍历输入列表
+              </div>
+            </div>
+            <div class="fragment">
+              <div class="keypoint-box">
+                <strong>第8-9行</strong>：过滤空值，避免异常
+              </div>
+            </div>
+            <div class="fragment">
+              <div class="keypoint-box">
+                <strong>第11行</strong>：核心转换逻辑
+              </div>
+            </div>
+            <div class="fragment">
+              <div class="highlight-box">
+                <strong>⚠️ 注意</strong>：None 检查不可省略，否则 transform() 会抛出异常
+              </div>
+            </div>
+          </div>
+        </div>
+        <aside class="notes">
+          先展示完整代码，让学员通读一遍。
+          然后逐段讲解右侧的要点说明。
+          特别强调 None 检查的重要性，这是初学者常犯的错误。
+          可以让学员思考：如果不用 continue，还有什么写法？
+        </aside>
+      </section>
+
+      <!-- ============================================ -->
+      <!-- SLIDE 9: Practice / Quiz                     -->
+      <!-- ============================================ -->
+      <section>
+        <h2>✏️ 练习：{{练习标题}}</h2>
+        <div style="text-align:left; max-width:600px; margin:0 auto;">
+          <p style="font-size:0.9em; margin-bottom:0.8em;">
+            <strong>题目：</strong>{{题目描述，例如：以下哪个选项正确描述了XX概念？}}
+          </p>
+          <div class="fragment">
+            <div class="quiz-option" data-answer="wrong">
+              <span class="quiz-label">A.</span> {{错误选项一，常见干扰项}}
+            </div>
+          </div>
+          <div class="fragment">
+            <div class="quiz-option" data-answer="correct">
+              <span class="quiz-label">B.</span> {{正确选项}}
+            </div>
+          </div>
+          <div class="fragment">
+            <div class="quiz-option" data-answer="wrong">
+              <span class="quiz-label">C.</span> {{错误选项二，概念混淆项}}
+            </div>
+          </div>
+          <div class="fragment">
+            <div class="quiz-option" data-answer="wrong">
+              <span class="quiz-label">D.</span> {{错误选项三，过度推断项}}
+            </div>
+          </div>
+          <div class="fragment" style="margin-top:1em;">
+            <div class="keypoint-box">
+              <strong>💡 解析</strong><br/>
+              {{正确答案的详细解释，说明为什么选B，以及A/C/D错在哪里。}}
+            </div>
+          </div>
+        </div>
+        <aside class="notes">
+          先展示题目，给学员30秒思考时间。
+          然后逐个展示选项，观察学员反应。
+          最后展示解析，重点讲解错误选项的迷惑之处。
+          统计一下选A/C/D的学员数量，了解常见误区。
+        </aside>
+      </section>
+
+      <!-- ============================================ -->
+      <!-- SLIDE 10: Another Mermaid Diagram (Sequence) -->
+      <!-- ============================================ -->
+      <section>
+        <h2>🔄 时序图：{{交互/通信流程}}</h2>
+        <div class="mermaid-container">
+          <pre class="mermaid">
+sequenceDiagram
+    participant S as 学生
+    participant T as 教师
+    participant P as 平台
+
+    S->>P: 提交作业
+    P->>T: 转发作业
+    T->>T: 批改评分
+    T->>P: 提交成绩
+    P->>S: 通知结果
+    S->>T: 提出疑问
+    T->>S: 在线答疑
+          </pre>
+        </div>
+        <aside class="notes">
+          用时序图展示交互流程，注意箭头方向代表信息流向。
+          重点讲解教师批改和平台转发这两个环节的时序关系。
+          可以让学员思考：如果平台转发失败，流程会怎样？
+        </aside>
+      </section>
+
+      <!-- ============================================ -->
+      <!-- SLIDE 11: Key Takeaways / Summary            -->
+      <!-- ============================================ -->
+      <section>
+        <h2>📝 本节要点</h2>
+        <div class="summary-grid">
+          <div class="fragment summary-card">
+            <h4>📖 核心概念</h4>
+            <p>{{本节最重要的概念，一句话概括。}}</p>
+          </div>
+          <div class="fragment summary-card" style="border-left-color: var(--edu-success);">
+            <h4>✅ 关键方法</h4>
+            <p>{{本节介绍的核心方法或步骤。}}</p>
+          </div>
+          <div class="fragment summary-card" style="border-left-color: var(--edu-warning);">
+            <h4>⚠️ 易错点</h4>
+            <p>{{本节强调的常见错误或注意事项。}}</p>
+          </div>
+          <div class="fragment summary-card" style="border-left-color: var(--edu-danger);">
+            <h4>🔗 下节预告</h4>
+            <p>{{下一节课的内容预告，建立学习期待。}}</p>
+          </div>
+        </div>
+        <aside class="notes">
+          快速回顾本节四个要点，每个要点用一句话总结。
+          特别提醒易错点，建议学员课后复习相关内容。
+          预告下节课内容，让学员有准备地进入下次学习。
+        </aside>
+      </section>
+
+      <!-- ============================================ -->
+      <!-- SLIDE 12: Thank You / End                    -->
+      <!-- ============================================ -->
+      <section class="title-slide">
+        <h1>谢谢！</h1>
+        <div class="subtitle">有问题欢迎随时交流 💬</div>
+        <div class="author">{{联系方式 / 邮箱 / 讨论区链接}}</div>
+        <aside class="notes">
+          感谢学员的参与。留出5-10分钟答疑时间。
+          提醒课后作业的截止时间和提交方式。
+          鼓励学员在讨论区继续交流。
+        </aside>
+      </section>
+
+    </div><!-- .slides -->
+  </div><!-- .reveal -->
+
+  <!-- Reveal.js Core -->
+  <script src="https://cdn.jsdelivr.net/npm/reveal.js@5/dist/reveal.js"></script>
+  <!-- Reveal.js Plugins -->
+  <script src="https://cdn.jsdelivr.net/npm/reveal.js@5/plugin/highlight/highlight.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/reveal.js@5/plugin/notes/notes.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/reveal.js@5/plugin/math/math.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/reveal.js@5/plugin/search/search.js"></script>
+
+  <!-- Mermaid.js -->
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+
+  <!-- KaTeX Auto-Render -->
+  <!-- KaTeX is handled by RevealMath.KaTeX plugin -->
+
+  <script>
+    // Initialize Mermaid before Reveal.js
+    mermaid.initialize({
+      startOnLoad: false,
+      theme: 'default',
+      securityLevel: 'loose',
+      fontFamily: '"PingFang SC", "Microsoft YaHei", sans-serif'
+    });
+
+    // Initialize Reveal.js
+    const deck = new Reveal({
+      // Theme & appearance
+      width: 1100,
+      height: 700,
+      margin: 0.04,
+      minScale: 0.2,
+      maxScale: 2.0,
+
+      // Navigation
+      controls: true,
+      controlsTutorial: true,
+
+      // Progress
+      progress: true,
+
+      // Slide numbers
+      slideNumber: 'c/t',
+
+      // Overview mode (Esc key)
+      overview: true,
+
+      // Fragments
+      fragments: true,
+
+      // Transition
+      transition: 'slide',
+      transitionSpeed: 'default',
+      backgroundTransition: 'fade',
+
+      // Keyboard
+      keyboard: true,
+
+      // Touch navigation (mobile)
+      touch: true,
+
+      // Loop
+      loop: false,
+
+      // Right-to-left
+      rtl: false,
+
+      // Plugins
+      plugins: [
+        RevealHighlight,
+        RevealNotes,
+        RevealMath.KaTeX,
+        RevealSearch
+      ]
+    });
+
+    deck.initialize().then(() => {
+      // Render Mermaid diagrams after Reveal is ready
+      const mermaidElements = document.querySelectorAll('.mermaid');
+      if (mermaidElements.length > 0) {
+        mermaid.run({
+          querySelector: '.mermaid'
+        }).then(() => {
+          // Force Reveal to recalculate layout after Mermaid renders
+          deck.layout();
+        }).catch(err => {
+          console.warn('Mermaid render warning:', err);
+          deck.layout();
+        });
+      }
+
+      // Quiz option click handling
+      document.querySelectorAll('.quiz-option').forEach(option => {
+        option.addEventListener('click', function () {
+          // Reset all options in the same slide
+          const siblings = this.closest('section').querySelectorAll('.quiz-option');
+          siblings.forEach(s => {
+            s.classList.remove('correct', 'wrong');
+          });
+
+          // Mark this option
+          if (this.dataset.answer === 'correct') {
+            this.classList.add('correct');
+          } else {
+            this.classList.add('wrong');
+            // Highlight the correct one
+            siblings.forEach(s => {
+              if (s.dataset.answer === 'correct') {
+                s.classList.add('correct');
+              }
+            });
+          }
+        });
+      });
+    });
+
+    // Handle Mermaid in overview mode and after slide changes
+    deck.on('slidechanged', () => {
+      deck.layout();
+    });
+
+    deck.on('overviewshown', () => {
+      deck.layout();
+    });
+
+    deck.on('overviewhidden', () => {
+      deck.layout();
+    });
+  </script>
+
+</body>
+</html>

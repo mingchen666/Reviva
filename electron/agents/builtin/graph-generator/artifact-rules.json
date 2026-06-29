@@ -1,0 +1,7 @@
+{
+  "storage_type": "data",
+  "artifact_type": "graph",
+  "icon": "ri-share-circle-line",
+  "color": "amber",
+  "title_template": "{title}"
+}

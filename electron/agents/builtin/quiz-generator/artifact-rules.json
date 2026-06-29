@@ -1,0 +1,7 @@
+{
+  "storage_type": "data",
+  "artifact_type": "quiz",
+  "icon": "ri-questionnaire-line",
+  "color": "emerald",
+  "title_template": "{title}"
+}

@@ -1,0 +1,14 @@
+{
+  "id": "concept-explainer",
+  "name": "概念解释",
+  "description": "ELI5-style explanations with analogies and multiple examples. Explains concepts at different levels (ELI5, high school, undergraduate, graduate). Uses real-world analogies and visual metaphors. Use when explaining difficult concepts, clarifying confusing topics, or learning new subjects. Triggers - explain concept, ELI5, explain like I'm 5, what is, how does, why does, analogy for, simple explanation.",
+  "icon": "ri-file-text-line",
+  "color": "#6C8AFF",
+  "category": "学习",
+  "source": "platform",
+  "allowedTools": ["kb_search", "file_read"],
+  "outputTypes": ["Markdown", "TXT"],
+  "version": "1.0",
+  "author": "reviva",
+  "license": "MIT"
+}

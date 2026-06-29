@@ -1,0 +1,114 @@
+{
+  "toolsets": [
+    {
+      "id": "ffmpeg",
+      "name": "FFmpeg Toolset",
+      "routerTool": "ffmpeg_tool",
+      "category": "media",
+      "requires": ["ffmpeg", "ffprobe"],
+      "defaultEnabled": false,
+      "operations": [
+        {
+          "id": "probe",
+          "name": "Probe media",
+          "description": "Read audio/video format, duration, bitrate, stream, and metadata information."
+        },
+        {
+          "id": "extract_audio",
+          "name": "Extract audio",
+          "description": "Extract audio from course videos, lectures, or media files."
+        },
+        {
+          "id": "extract_subtitles",
+          "name": "Extract subtitles",
+          "description": "Extract embedded subtitles to srt or vtt files."
+        },
+        {
+          "id": "extract_frames",
+          "name": "Extract frames",
+          "description": "Sample frames from video for slide, board, code, or formula inspection."
+        },
+        {
+          "id": "thumbnail",
+          "name": "Create thumbnail",
+          "description": "Create a still image from a selected timestamp."
+        },
+        {
+          "id": "clip",
+          "name": "Clip segment",
+          "description": "Clip a focused audio/video segment for review."
+        }
+      ]
+    },
+    {
+      "id": "pandoc",
+      "name": "Pandoc Toolset",
+      "routerTool": "pandoc_tool",
+      "category": "document",
+      "requires": ["pandoc"],
+      "defaultEnabled": false,
+      "operations": [
+        {
+          "id": "formats",
+          "name": "List formats",
+          "description": "List supported Pandoc input and output formats."
+        },
+        {
+          "id": "convert",
+          "name": "Convert document",
+          "description": "Convert learning notes, handouts, and reports between allowlisted formats."
+        }
+      ]
+    },
+    {
+      "id": "manim",
+      "name": "Manim Toolset",
+      "routerTool": "manim_tool",
+      "category": "media",
+      "requires": ["manim", "ffmpeg"],
+      "defaultEnabled": false,
+      "operations": [
+        {
+          "id": "check",
+          "name": "Check environment",
+          "description": "Check Manim, FFmpeg, and optional LaTeX availability."
+        },
+        {
+          "id": "list_scenes",
+          "name": "List scenes",
+          "description": "Find renderable Scene classes in a Manim Python script."
+        },
+        {
+          "id": "render",
+          "name": "Render animation",
+          "description": "Render an allowlisted workspace Manim script to MP4."
+        }
+      ]
+    },
+    {
+      "id": "office",
+      "name": "OfficeCLI Write Toolset",
+      "routerTool": "office_write",
+      "category": "document",
+      "requires": ["officecli"],
+      "defaultEnabled": false,
+      "operations": [
+        {
+          "id": "help",
+          "name": "Read OfficeCLI schema",
+          "description": "Read allowlisted OfficeCLI help/schema for docx, pptx, xlsx elements and verbs."
+        },
+        {
+          "id": "create",
+          "name": "Create Office file",
+          "description": "Create a docx, pptx, or xlsx file in the current agent output directory."
+        },
+        {
+          "id": "edit",
+          "name": "Edit Office copy",
+          "description": "Copy an existing workspace Office file to the current agent output directory and apply structured edits."
+        }
+      ]
+    }
+  ]
+}

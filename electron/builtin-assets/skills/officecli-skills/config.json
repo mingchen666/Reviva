@@ -1,0 +1,14 @@
+{
+  "id": "officecli-skills",
+  "name": "OfficeCLI 文档处理",
+  "description": "统一处理 Word、PPT、Excel 文件的 Office 技能，覆盖读取、创建、编辑、表格、图片、图表、批注、字段、表单和公式等常用 Office 场景。",
+  "icon": "ri-file-edit-line",
+  "color": "#3B82F6",
+  "category": "办公",
+  "source": "platform",
+  "allowedTools": ["office_read", "office_write"],
+  "outputTypes": ["DOCX", "PPTX", "XLSX"],
+  "version": "1.0",
+  "author": "reviva",
+  "license": "AGPL-3.0"
+}

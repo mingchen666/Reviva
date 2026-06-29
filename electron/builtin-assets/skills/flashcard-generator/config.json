@@ -1,0 +1,14 @@
+{
+  "id": "flashcard-generator",
+  "name": "闪卡生成器",
+  "description": "Generate educational flashcards from topics, documents, notes, or study materials. Produces structured JSON data and can create polished Tailwind CSS HTML flashcard review pages with interactive card flipping, progress, tags, and difficulty labels.",
+  "icon": "ri-file-text-line",
+  "color": "#6C8AFF",
+  "category": "学习",
+  "source": "platform",
+  "allowedTools": ["kb_search", "file_read"],
+  "outputTypes": ["Markdown", "TXT"],
+  "version": "1.0",
+  "author": "reviva",
+  "license": "MIT"
+}

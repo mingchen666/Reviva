@@ -1,0 +1,14 @@
+{
+  "id": "cet-skill",
+  "name": "四六级备考模拟训练",
+  "description": "CET Skill 是一个面向大学英语四、六级备考的 Skill。它基于 Codex 对 2015–2025 年 CET-4 / CET-6 真题材料的逐份审计与结构化分析，提炼写作、翻译、阅读、听力四大模块的题型结构、主题趋势、难度差异、干扰项逻辑和评分规则，并据此生成贴近真题风格的模拟训练。.",
+  "icon": "ri-file-text-line",
+  "color": "#6C8AFF",
+  "category": "学习",
+  "source": "platform",
+  "allowedTools": ["kb_search", "file_read"],
+  "outputTypes": ["Markdown", "TXT"],
+  "version": "1.0.1",
+  "author": "Liuxiangjian-ai",
+  "license": "MIT"
+}

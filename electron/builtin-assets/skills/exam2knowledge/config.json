@@ -1,0 +1,20 @@
+{
+  "id": "exam2knowledge",
+  "name": "考题转知识点",
+  "description": "Reverse-engineers exam questions into high-frequency test points and reusable solving patterns. Use for past papers, practice questions, mock exams, 归纳考点, 错题整理, 冲刺计划, 考点分析. Triggers: 刷题, 模考, past paper, mock exam, 考点, 高频题, 冲刺, 备考, 题库, 归纳, 错题本. STEM-first.",
+  "icon": "ri-bar-chart-box-line",
+  "color": "#10B981",
+  "category": "学习",
+  "source": "platform",
+  "allowedTools": [
+    "file_read",
+    "kb_search"
+  ],
+  "outputTypes": [
+    "Markdown",
+    "TXT"
+  ],
+  "version": "1.0.0",
+  "author": "reviva",
+  "license": "MIT"
+}

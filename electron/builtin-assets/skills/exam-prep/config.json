@@ -1,0 +1,20 @@
+{
+  "id": "exam-prep",
+  "name": "考前输出",
+  "description": "Generate high-density sprint review materials for last-minute exam preparation, including cheat sheets, formula cards, error checklists, high-frequency exam point lists, answer templates, and 2-hour or 1-day sprint schedules.",
+  "icon": "ri-flashlight-line",
+  "color": "#F59E0B",
+  "category": "学习",
+  "source": "platform",
+  "allowedTools": [
+    "file_read",
+    "file_write"
+  ],
+  "outputTypes": [
+    "Markdown",
+    "TXT"
+  ],
+  "version": "1.0",
+  "author": "reviva",
+  "license": "MIT"
+}

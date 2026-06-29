@@ -1,0 +1,20 @@
+{
+  "id": "practice-quiz",
+  "name": "练习与测验",
+  "description": "Generate educational practice questions by chapter, question type, or difficulty level. Supports multiple choice, fill-in-the-blank, short answer, calculation, and mixed formats with answer keys and detailed explanations.",
+  "icon": "ri-question-answer-line",
+  "color": "#3B82F6",
+  "category": "学习",
+  "source": "platform",
+  "allowedTools": [
+    "file_read",
+    "file_write"
+  ],
+  "outputTypes": [
+    "Markdown",
+    "TXT"
+  ],
+  "version": "1.0",
+  "author": "reviva",
+  "license": "MIT"
+}

@@ -1,0 +1,1499 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>自适应练习 - 智能刷题</title>
+<style>
+/* ===== CSS Variables & Theme ===== */
+:root {
+  --bg-primary: #f8f9fc;
+  --bg-secondary: #ffffff;
+  --bg-tertiary: #f0f2f7;
+  --text-primary: #1a1d2e;
+  --text-secondary: #5a5f7a;
+  --text-muted: #8b8fa8;
+  --border: #e2e5ee;
+  --accent: #6366f1;
+  --accent-hover: #4f46e5;
+  --accent-light: #eef2ff;
+  --success: #22c55e;
+  --success-bg: #f0fdf4;
+  --success-border: #bbf7d0;
+  --error: #ef4444;
+  --error-bg: #fef2f2;
+  --error-border: #fecaca;
+  --warning: #f59e0b;
+  --warning-bg: #fffbeb;
+  --warning-border: #fde68a;
+  --info: #3b82f6;
+  --info-bg: #eff6ff;
+  --hint1: #8b5cf6;
+  --hint2: #6366f1;
+  --hint3: #4f46e5;
+  --shadow-sm: 0 1px 3px rgba(0,0,0,.06);
+  --shadow-md: 0 4px 12px rgba(0,0,0,.08);
+  --shadow-lg: 0 8px 30px rgba(0,0,0,.12);
+  --radius: 12px;
+  --radius-sm: 8px;
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  --transition: .25s cubic-bezier(.4,0,.2,1);
+}
+[data-theme="dark"] {
+  --bg-primary: #0f1117;
+  --bg-secondary: #1a1d2e;
+  --bg-tertiary: #242840;
+  --text-primary: #e8eaf0;
+  --text-secondary: #a0a4be;
+  --text-muted: #6b6f8a;
+  --border: #2e3250;
+  --accent: #818cf8;
+  --accent-hover: #a5b4fc;
+  --accent-light: #1e2345;
+  --success: #34d399;
+  --success-bg: #0d2818;
+  --success-border: #1a4a2e;
+  --error: #f87171;
+  --error-bg: #2d1215;
+  --error-border: #4a1d20;
+  --warning: #fbbf24;
+  --warning-bg: #2d2005;
+  --warning-border: #4a3510;
+  --info: #60a5fa;
+  --info-bg: #0c1a33;
+  --hint1: #a78bfa;
+  --hint2: #818cf8;
+  --hint3: #6366f1;
+  --shadow-sm: 0 1px 3px rgba(0,0,0,.2);
+  --shadow-md: 0 4px 12px rgba(0,0,0,.3);
+  --shadow-lg: 0 8px 30px rgba(0,0,0,.4);
+}
+
+/* ===== Reset & Base ===== */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font);background:var(--bg-primary);color:var(--text-primary);line-height:1.7;min-height:100vh;transition:background var(--transition),color var(--transition);-webkit-font-smoothing:antialiased}
+::-webkit-scrollbar{width:6px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:var(--text-muted)}
+
+/* ===== Layout ===== */
+.app{max-width:800px;margin:0 auto;padding:20px 16px 60px}
+
+/* ===== Header ===== */
+.header{display:flex;align-items:center;justify-content:space-between;padding:14px 0;margin-bottom:12px;flex-wrap:wrap;gap:8px}
+.header-title{font-size:1.3rem;font-weight:800;display:flex;align-items:center;gap:8px}
+.header-title .icon{font-size:1.4rem}
+.header-actions{display:flex;gap:6px;align-items:center}
+.hbtn{padding:6px 12px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg-secondary);color:var(--text-secondary);font-size:.78rem;cursor:pointer;transition:all var(--transition);display:flex;align-items:center;gap:4px;font-family:inherit;white-space:nowrap}
+.hbtn:hover{border-color:var(--accent);color:var(--accent)}
+.hbtn.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+
+/* ===== Config Screen ===== */
+.config-card{background:var(--bg-secondary);border:1px solid var(--border);border-radius:var(--radius);padding:28px;box-shadow:var(--shadow-md)}
+.config-title{font-size:1.15rem;font-weight:700;margin-bottom:20px;display:flex;align-items:center;gap:8px}
+.config-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:600px){.config-grid{grid-template-columns:1fr}}
+.config-field{display:flex;flex-direction:column;gap:5px}
+.config-field.full{grid-column:1/-1}
+.config-label{font-size:.8rem;font-weight:600;color:var(--text-secondary)}
+.config-input,.config-select{padding:9px 12px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg-primary);color:var(--text-primary);font-size:.88rem;font-family:inherit;transition:all var(--transition)}
+.config-input:focus,.config-select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(99,102,241,.12)}
+.config-select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%235a5f7a' d='M6 8L1 3h10z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;padding-right:30px}
+.config-checkbox{display:flex;align-items:center;gap:8px;font-size:.85rem;cursor:pointer}
+.config-checkbox input{width:16px;height:16px;accent-color:var(--accent);cursor:pointer}
+.config-actions{display:flex;gap:10px;margin-top:22px;justify-content:center}
+.btn-start{padding:12px 36px;border-radius:var(--radius-sm);border:none;background:var(--accent);color:#fff;font-size:.95rem;font-weight:600;cursor:pointer;transition:all var(--transition);font-family:inherit}
+.btn-start:hover{background:var(--accent-hover);transform:translateY(-1px);box-shadow:var(--shadow-md)}
+.btn-start:disabled{opacity:.5;cursor:not-allowed;transform:none}
+
+/* ===== Stats Bar ===== */
+.stats-bar{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap}
+.stat-chip{padding:5px 12px;border-radius:20px;background:var(--bg-secondary);border:1px solid var(--border);font-size:.75rem;display:flex;align-items:center;gap:5px;white-space:nowrap}
+.stat-chip .val{font-weight:700;color:var(--accent)}
+.stat-chip.success .val{color:var(--success)}
+.stat-chip.error .val{color:var(--error)}
+.stat-chip.warning .val{color:var(--warning)}
+
+/* ===== Difficulty Meter ===== */
+.diff-meter{display:flex;align-items:center;gap:6px;margin-bottom:14px}
+.diff-label{font-size:.75rem;color:var(--text-muted);font-weight:600;min-width:60px}
+.diff-bar{flex:1;height:8px;background:var(--bg-tertiary);border-radius:4px;overflow:hidden;position:relative}
+.diff-fill{height:100%;border-radius:4px;transition:width .5s ease,background .5s ease}
+.diff-text{font-size:.78rem;font-weight:700;min-width:40px;text-align:right}
+
+/* ===== Question Card ===== */
+.question-card{background:var(--bg-secondary);border:1px solid var(--border);border-radius:var(--radius);padding:24px;box-shadow:var(--shadow-sm);transition:all var(--transition)}
+.question-header{display:flex;align-items:flex-start;gap:12px;margin-bottom:18px}
+.question-number{width:36px;height:36px;border-radius:50%;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-size:.85rem;font-weight:700;flex-shrink:0}
+.question-meta{flex:1}
+.question-type-tag{display:inline-block;padding:2px 8px;border-radius:10px;font-size:.68rem;font-weight:600;margin-right:6px}
+.type-choice{background:#dbeafe;color:#1d4ed8}
+.type-fill{background:#fef3c7;color:#92400e}
+.type-match{background:#d1fae5;color:#065f46}
+.type-tf{background:#ede9fe;color:#5b21b6}
+.type-order{background:#fce7f3;color:#9d174d}
+[data-theme="dark"] .type-choice{background:#1e3a5f;color:#93c5fd}
+[data-theme="dark"] .type-fill{background:#3b2a10;color:#fcd34d}
+[data-theme="dark"] .type-match{background:#0d2818;color:#6ee7b7}
+[data-theme="dark"] .type-tf{background:#2e1065;color:#c4b5fd}
+[data-theme="dark"] .type-order{background:#4a0d2e;color:#f9a8d4}
+.difficulty-badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:.68rem;font-weight:600}
+.diff-1{background:#dcfce7;color:#166534}.diff-2{background:#dbeafe;color:#1e40af}
+.diff-3{background:#fef3c7;color:#92400e}.diff-4{background:#fee2e2;color:#991b1b}
+[data-theme="dark"] .diff-1{background:#0d2818;color:#6ee7b7}[data-theme="dark"] .diff-2{background:#0c1a33;color:#93c5fd}
+[data-theme="dark"] .diff-3{background:#2d2005;color:#fcd34d}[data-theme="dark"] .diff-4{background:#2d1215;color:#fca5a5}
+.question-text{font-size:.95rem;line-height:1.8;margin-top:8px}
+.topic-tag{display:inline-block;padding:1px 6px;border-radius:6px;background:var(--accent-light);color:var(--accent);font-size:.65rem;font-weight:600;margin-left:6px}
+
+/* ===== Options ===== */
+.options-list{display:flex;flex-direction:column;gap:8px;margin-top:14px}
+.option-item{display:flex;align-items:center;gap:10px;padding:11px 14px;border-radius:var(--radius-sm);border:1px solid var(--border);cursor:pointer;transition:all var(--transition)}
+.option-item:hover{border-color:var(--accent);background:var(--accent-light)}
+.option-item.selected{border-color:var(--accent);background:var(--accent-light);box-shadow:0 0 0 2px rgba(99,102,241,.2)}
+.option-item.disabled{cursor:default;opacity:.85}
+.option-item.correct{border-color:var(--success);background:var(--success-bg)}
+.option-item.incorrect{border-color:var(--error);background:var(--error-bg)}
+.option-item.reveal-correct{border-color:var(--success);background:var(--success-bg)}
+.option-radio{width:18px;height:18px;border-radius:50%;border:2px solid var(--border);flex-shrink:0;transition:all var(--transition);display:flex;align-items:center;justify-content:center}
+.option-item.selected .option-radio{border-color:var(--accent);background:var(--accent)}
+.option-item.correct .option-radio{border-color:var(--success);background:var(--success)}
+.option-item.incorrect .option-radio{border-color:var(--error);background:var(--error)}
+.option-radio::after{content:'';width:8px;height:8px;border-radius:50%;background:#fff;opacity:0;transition:opacity var(--transition)}
+.option-item.selected .option-radio::after,.option-item.correct .option-radio::after,.option-item.incorrect .option-radio::after{opacity:1}
+.option-label{font-size:.78rem;font-weight:700;color:var(--text-muted);min-width:20px}
+.option-text{font-size:.88rem;flex:1}
+
+/* ===== Fill Input ===== */
+.fill-input-wrapper{margin-top:14px}
+.fill-input{width:100%;padding:11px 14px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg-primary);color:var(--text-primary);font-size:.9rem;font-family:inherit;transition:all var(--transition)}
+.fill-input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(99,102,241,.12)}
+.fill-input.correct{border-color:var(--success);background:var(--success-bg)}
+.fill-input.incorrect{border-color:var(--error);background:var(--error-bg)}
+
+/* ===== Match ===== */
+.match-container{display:flex;gap:12px;margin-top:14px;align-items:flex-start}
+.match-column{flex:1;display:flex;flex-direction:column;gap:6px}
+.match-column-title{font-size:.72rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:2px;text-align:center}
+.match-item{padding:9px 12px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg-primary);font-size:.82rem;cursor:pointer;transition:all var(--transition);position:relative;text-align:center}
+.match-item:hover{border-color:var(--accent)}
+.match-item.active{border-color:var(--accent);background:var(--accent-light);box-shadow:0 0 0 2px rgba(99,102,241,.2)}
+.match-item.matched{border-color:var(--accent);opacity:.8}
+.match-item.matched::after{content:attr(data-pair);position:absolute;top:-6px;right:-6px;width:18px;height:18px;border-radius:50%;background:var(--accent);color:#fff;font-size:.6rem;display:flex;align-items:center;justify-content:center;font-weight:700}
+.match-item.disabled{cursor:default;pointer-events:none}
+.match-item.correct{border-color:var(--success);background:var(--success-bg)}
+.match-item.incorrect{border-color:var(--error);background:var(--error-bg)}
+.match-connector{display:flex;align-items:center;justify-content:center;min-width:24px;align-self:center;font-size:.8rem;color:var(--text-muted)}
+@media(max-width:500px){.match-container{flex-direction:column}.match-connector{transform:rotate(90deg);min-width:auto;padding:4px 0}}
+
+/* ===== TF ===== */
+.tf-options{display:flex;gap:12px;margin-top:14px}
+.tf-option{flex:1;padding:14px;border-radius:var(--radius-sm);border:2px solid var(--border);cursor:pointer;text-align:center;font-size:.9rem;font-weight:600;transition:all var(--transition)}
+.tf-option:hover{border-color:var(--accent)}
+.tf-option.selected{border-color:var(--accent);background:var(--accent-light)}
+.tf-option.correct{border-color:var(--success);background:var(--success-bg)}
+.tf-option.incorrect{border-color:var(--error);background:var(--error-bg)}
+.tf-option.reveal-correct{border-color:var(--success);background:var(--success-bg)}
+.tf-option.disabled{cursor:default}
+
+/* ===== Order ===== */
+.order-list{display:flex;flex-direction:column;gap:6px;margin-top:14px}
+.order-item{display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg-primary);cursor:grab;transition:all var(--transition);user-select:none}
+.order-item:hover{border-color:var(--accent)}
+.order-item.dragging{opacity:.5;transform:scale(.97)}
+.order-item.drag-over{border-color:var(--accent);border-style:dashed}
+.order-item.correct{border-color:var(--success);background:var(--success-bg)}
+.order-item.incorrect{border-color:var(--error);background:var(--error-bg)}
+.order-grip{color:var(--text-muted);cursor:grab;font-size:1rem}
+.order-number{width:22px;height:22px;border-radius:50%;background:var(--accent-light);color:var(--accent);display:flex;align-items:center;justify-content:center;font-size:.7rem;font-weight:700;flex-shrink:0}
+.order-text{font-size:.85rem;flex:1}
+
+/* ===== Hints ===== */
+.hints-area{margin-top:16px;display:flex;flex-direction:column;gap:6px}
+.hint-btn{display:flex;align-items:center;gap:6px;padding:8px 14px;border-radius:var(--radius-sm);border:1px dashed var(--border);background:transparent;color:var(--text-secondary);font-size:.8rem;cursor:pointer;transition:all var(--transition);font-family:inherit;text-align:left}
+.hint-btn:hover{border-color:var(--hint1);color:var(--hint1);background:rgba(139,92,246,.05)}
+.hint-btn.revealed{border-style:solid;background:var(--accent-light);color:var(--accent)}
+.hint-btn .hint-level{width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.65rem;font-weight:700;flex-shrink:0}
+.hint-btn:nth-child(1) .hint-level{background:#ede9fe;color:#7c3aed}
+.hint-btn:nth-child(2) .hint-level{background:#e0e7ff;color:#4f46e5}
+.hint-btn:nth-child(3) .hint-level{background:#dbeafe;color:#2563eb}
+.hint-content{font-size:.82rem;margin-left:26px;padding:6px 0;color:var(--text-secondary);line-height:1.6;display:none}
+.hint-content.show{display:block}
+
+/* ===== Feedback ===== */
+.feedback{margin-top:18px;padding:16px;border-radius:var(--radius-sm);animation:fadeIn .3s ease}
+.feedback-correct{background:var(--success-bg);border:1px solid var(--success-border)}
+.feedback-incorrect{background:var(--error-bg);border:1px solid var(--error-border)}
+.feedback-partial{background:var(--warning-bg);border:1px solid var(--warning-border)}
+.feedback-title{font-size:.9rem;font-weight:700;margin-bottom:6px;display:flex;align-items:center;gap:6px}
+.feedback-correct .feedback-title{color:var(--success)}
+.feedback-incorrect .feedback-title{color:var(--error)}
+.feedback-partial .feedback-title{color:var(--warning)}
+.feedback-explanation{font-size:.84rem;color:var(--text-secondary);line-height:1.7}
+.feedback-pitfall{margin-top:8px;padding:8px 12px;border-radius:6px;background:var(--warning-bg);border:1px solid var(--warning-border);font-size:.78rem;color:var(--warning)}
+.feedback-score{font-size:.75rem;color:var(--text-muted);margin-top:4px}
+
+/* ===== Navigation ===== */
+.nav-area{display:flex;justify-content:space-between;align-items:center;margin-top:18px;gap:10px}
+.btn-nav{padding:10px 22px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg-secondary);color:var(--text-primary);font-size:.85rem;font-weight:600;cursor:pointer;transition:all var(--transition);font-family:inherit}
+.btn-nav:hover{border-color:var(--accent);color:var(--accent)}
+.btn-nav:disabled{opacity:.4;cursor:not-allowed}
+.btn-nav.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+.btn-nav.primary:hover{background:var(--accent-hover)}
+.btn-submit{padding:10px 28px;border-radius:var(--radius-sm);border:none;background:var(--accent);color:#fff;font-size:.88rem;font-weight:600;cursor:pointer;transition:all var(--transition);font-family:inherit}
+.btn-submit:hover{background:var(--accent-hover);transform:translateY(-1px)}
+.btn-submit:disabled{opacity:.4;cursor:not-allowed;transform:none}
+
+/* ===== Report Screen ===== */
+.report-card{background:var(--bg-secondary);border:1px solid var(--border);border-radius:var(--radius);padding:28px;box-shadow:var(--shadow-md)}
+.report-title{font-size:1.2rem;font-weight:800;margin-bottom:20px;text-align:center}
+.report-overview{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px;margin-bottom:24px}
+.report-stat{padding:14px;border-radius:var(--radius-sm);background:var(--bg-tertiary);text-align:center}
+.report-stat .num{font-size:1.5rem;font-weight:800;color:var(--accent)}
+.report-stat .label{font-size:.72rem;color:var(--text-muted);margin-top:2px}
+.report-stat.success .num{color:var(--success)}
+.report-stat.error .num{color:var(--error)}
+.report-stat.warning .num{color:var(--warning)}
+.report-section{margin-bottom:20px}
+.report-section h3{font-size:.95rem;font-weight:700;margin-bottom:10px;display:flex;align-items:center;gap:6px}
+.topic-bar-row{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+.topic-bar-label{font-size:.78rem;min-width:80px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.topic-bar-track{flex:1;height:10px;background:var(--bg-tertiary);border-radius:5px;overflow:hidden}
+.topic-bar-fill{height:100%;border-radius:5px;transition:width .5s ease}
+.topic-bar-val{font-size:.75rem;font-weight:600;min-width:36px;text-align:right}
+.report-list{list-style:none;padding:0}
+.report-list li{padding:8px 12px;border-radius:6px;margin-bottom:4px;font-size:.82rem;display:flex;align-items:center;gap:8px}
+.report-list li.review{background:var(--warning-bg);color:var(--warning);border:1px solid var(--warning-border)}
+.report-list li.error{background:var(--error-bg);color:var(--error);border:1px solid var(--error-border)}
+.report-list li.mastered{background:var(--success-bg);color:var(--success);border:1px solid var(--success-border)}
+.report-actions{display:flex;gap:10px;justify-content:center;margin-top:22px}
+
+/* ===== Timer ===== */
+.timer-display{font-size:.78rem;color:var(--text-muted);display:flex;align-items:center;gap:4px}
+.timer-display.running{color:var(--accent)}
+
+/* ===== Streak ===== */
+.streak-display{display:flex;align-items:center;gap:4px;font-size:.78rem;font-weight:600;padding:3px 10px;border-radius:12px;background:var(--accent-light);color:var(--accent)}
+.streak-display.hot{background:#fef3c7;color:#d97706}
+.streak-display.fire{background:#fee2e2;color:#dc2626}
+
+/* ===== Animations ===== */
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.fade-in{animation:fadeIn .35s ease}
+.hidden{display:none!important}
+
+/* ===== Responsive ===== */
+@media(max-width:600px){
+  .app{padding:14px 10px 40px}
+  .question-card{padding:16px}
+  .config-grid{grid-template-columns:1fr}
+  .report-overview{grid-template-columns:1fr 1fr}
+}
+</style>
+</head>
+<body>
+
+<div class="app" id="app">
+
+<!-- ===== Config Screen ===== -->
+<div id="configScreen">
+  <div class="header">
+    <div class="header-title"><span class="icon">🎯</span> 自适应练习</div>
+    <div class="header-actions">
+      <button class="hbtn" onclick="toggleTheme()" id="themeBtn">🌙</button>
+    </div>
+  </div>
+  <div class="config-card fade-in">
+    <div class="config-title">📝 练习设置</div>
+    <div class="config-grid">
+      <div class="config-field">
+        <label class="config-label">学科</label>
+        <select class="config-select" id="cfgSubject">
+          <option value="">全部学科</option>
+          <option value="数学">数学</option>
+          <option value="物理">物理</option>
+          <option value="化学">化学</option>
+          <option value="生物">生物</option>
+          <option value="英语">英语</option>
+          <option value="CS">计算机</option>
+          <option value="历史">历史</option>
+          <option value="政治">政治</option>
+          <option value="经济学">经济学</option>
+        </select>
+      </div>
+      <div class="config-field">
+        <label class="config-label">知识点</label>
+        <input class="config-input" id="cfgTopic" placeholder="如：导数、牛顿定律…">
+      </div>
+      <div class="config-field">
+        <label class="config-label">适配考试</label>
+        <select class="config-select" id="cfgExam">
+          <option value="">不限</option>
+          <option value="中考">中考</option>
+          <option value="高考">高考</option>
+          <option value="四六级">四六级</option>
+          <option value="考研">考研</option>
+        </select>
+      </div>
+      <div class="config-field">
+        <label class="config-label">题量</label>
+        <select class="config-select" id="cfgCount">
+          <option value="10">10题</option>
+          <option value="15" selected>15题</option>
+          <option value="20">20题</option>
+          <option value="30">30题</option>
+        </select>
+      </div>
+      <div class="config-field">
+        <label class="config-label">起始难度</label>
+        <select class="config-select" id="cfgStartDiff">
+          <option value="1">1 - 基础</option>
+          <option value="2" selected>2 - 应用</option>
+          <option value="3">3 - 综合</option>
+        </select>
+      </div>
+      <div class="config-field">
+        <label class="config-label">模式</label>
+        <select class="config-select" id="cfgMode">
+          <option value="adaptive">自适应模式</option>
+          <option value="review">错题重练</option>
+          <option value="spaced">间隔复习</option>
+        </select>
+      </div>
+      <div class="config-field full">
+        <label class="config-checkbox">
+          <input type="checkbox" id="cfgHints" checked> 启用渐进提示（3级）
+        </label>
+      </div>
+      <div class="config-field full">
+        <label class="config-checkbox">
+          <input type="checkbox" id="cfgTimer" checked> 显示答题计时
+        </label>
+      </div>
+    </div>
+    <div class="config-actions">
+      <button class="btn-start" onclick="startPractice()">🚀 开始练习</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Practice Screen ===== -->
+<div id="practiceScreen" class="hidden">
+  <div class="header">
+    <div class="header-title"><span class="icon">🎯</span> 自适应练习</div>
+    <div class="header-actions">
+      <div class="streak-display" id="streakDisplay">🔥 0</div>
+      <div class="timer-display" id="timerDisplay">⏱ 0:00</div>
+      <button class="hbtn" onclick="toggleTheme()" id="themeBtn2">🌙</button>
+      <button class="hbtn" onclick="quitPractice()">✕ 退出</button>
+    </div>
+  </div>
+
+  <div class="stats-bar" id="statsBar"></div>
+  <div class="diff-meter" id="diffMeter"></div>
+  <div id="questionArea"></div>
+  <div class="nav-area" id="navArea"></div>
+</div>
+
+<!-- ===== Report Screen ===== -->
+<div id="reportScreen" class="hidden">
+  <div class="header">
+    <div class="header-title"><span class="icon">📊</span> 练习报告</div>
+    <div class="header-actions">
+      <button class="hbtn" onclick="toggleTheme()" id="themeBtn3">🌙</button>
+    </div>
+  </div>
+  <div id="reportArea"></div>
+</div>
+
+</div>
+
+<script>
+/* =====================================================================
+   DATA — 示例题库
+   ===================================================================== */
+const SAMPLE_QUESTIONS = [
+  {
+    type:"choice", difficulty:1, subject:"数学", topic:"函数基础",
+    tags:["函数","定义域","中考"], exam:"中考", cognitiveLevel:2,
+    question:"函数 f(x) = √(x-1) 的定义域是",
+    options:["{x | x ≥ 0}","{x | x ≥ 1}","{x | x > 1}","{x | x > 0}"],
+    answer:1,
+    explanation:"根号内必须非负，即 x-1 ≥ 0，解得 x ≥ 1。",
+    pitfall:"注意 x=1 时 √0=0 是有意义的，所以是 ≥ 而非 >。",
+    hints:["根号内的表达式需要满足什么条件？","需要 x-1 ≥ 0","解不等式 x-1 ≥ 0，得 x ≥ 1"],
+    commonErrors:[{answer:0,reason:"忽略了根号内是x-1而非x"},{answer:2,reason:"误以为x=1时根号为负，实际上√0=0有效"},{answer:3,reason:"混淆了定义域条件，根号内是x-1"}],
+    id:"math-func-domain-001"
+  },
+  {
+    type:"choice", difficulty:2, subject:"数学", topic:"导数",
+    tags:["导数","极值","高考"], exam:"高考", cognitiveLevel:3,
+    question:"函数 f(x) = x³ - 3x 在 x=1 处取得",
+    options:["极大值","极小值","最大值","既非极大也非极小"],
+    answer:1,
+    explanation:"f'(x) = 3x²-3，f'(1) = 0。f''(x) = 6x，f''(1) = 6 > 0，故x=1是极小值点。f(1) = 1-3 = -2。",
+    pitfall:"极小值≠最小值。当x→-∞时f(x)→-∞，无最小值。注意区分极值和最值。",
+    hints:["先求f'(x)并令其等于0，验证x=1是驻点","再求f''(x)，判断驻点处二阶导数的符号","f''(1)=6>0，二阶导大于0为极小值"],
+    commonErrors:[{answer:0,reason:"可能混淆了x=1和x=-1，f''(-1)=-6<0才是极大值"},{answer:2,reason:"混淆极小值和最小值，函数无最小值"},{answer:3,reason:"未验证二阶导数"}],
+    id:"math-calc-extrema-001"
+  },
+  {
+    type:"choice", difficulty:2, subject:"物理", topic:"力学-牛顿定律",
+    tags:["牛顿第三定律","作用力与反作用力","高考"], exam:"高考", cognitiveLevel:2,
+    question:"关于作用力与反作用力，下列说法正确的是",
+    options:["它们大小相等、方向相反，作用在同一物体上，所以合力为零","它们大小相等、方向相反，作用在不同物体上，不能求合力","先有作用力，后有反作用力","当物体静止时才存在作用力与反作用力"],
+    answer:1,
+    explanation:"作用力与反作用力分别作用在两个不同的物体上，不能对同一物体求合力。它们同时产生、同时消失、同时变化，与物体运动状态无关。",
+    pitfall:"最大误区是把作用力与反作用力当作平衡力。平衡力作用在同一物体上，而作用力与反作用力作用在不同物体上。",
+    hints:["想想作用力和反作用力分别作用在谁身上","它们是作用在同一个物体上还是两个不同物体上","作用力与反作用力分别作用在A和B上，不能对A或B单独求合力"],
+    commonErrors:[{answer:0,reason:"混淆作用力反作用力与平衡力"},{answer:2,reason:"误以为作用力先于反作用力"},{answer:3,reason:"误以为只在静止时存在"}],
+    id:"physics-mechanics-newton3-001"
+  },
+  {
+    type:"choice", difficulty:2, subject:"物理", topic:"电磁学-电磁感应",
+    tags:["法拉第电磁感应定律","安培力","能量守恒","高考"], exam:"高考", cognitiveLevel:4,
+    question:"导体棒ab长L=0.5m，在B=0.4T的匀强磁场中沿导轨向右匀速运动，v=5m/s，回路总电阻R=2Ω。感应电流和维持匀速所需外力分别为",
+    options:["I=0.5A，F=0.1N","I=1A，F=0.2N","I=0.5A，F=0.2N","I=1A，F=0.4N"],
+    answer:0,
+    explanation:"ε=BLv=0.4×0.5×5=1V，I=ε/R=1/2=0.5A。F安=BIL=0.4×0.5×0.5=0.1N，匀速时F外=F安=0.1N。",
+    pitfall:"常见错误：①算出I后忘记用I算安培力；②安培力公式F=BIL中漏乘L；③匀速条件F外=F安。",
+    hints:["先算感应电动势，再算电流，最后算安培力","ε=BLv → I=ε/R → F安=BIL","ε=1V，I=0.5A，F安=0.4×0.5×0.5=0.1N"],
+    commonErrors:[{answer:1,reason:"I算错为1A"},{answer:2,reason:"I=0.5A正确但F算错"},{answer:3,reason:"I和F都算错"}],
+    id:"physics-em-induction-001"
+  },
+  {
+    type:"choice", difficulty:1, subject:"化学", topic:"氧化还原",
+    tags:["氧化还原","电子转移","中考"], exam:"中考", cognitiveLevel:2,
+    question:"在反应 2Na + 2H₂O → 2NaOH + H₂↑ 中，还原剂是",
+    options:["Na","H₂O","NaOH","H₂"],
+    answer:0,
+    explanation:"Na从0价升高到+1价，失去电子，是还原剂。H从+1价降低到0价，得到电子，H₂O是氧化剂。",
+    pitfall:"还原剂是失电子的物质（化合价升高），氧化剂是得电子的物质（化合价降低）。'还氧氧还'口诀：还原剂被氧化，氧化剂被还原。",
+    hints:["标出各元素反应前后的化合价","Na: 0→+1，H: +1→0","化合价升高→失电子→还原剂"],
+    commonErrors:[{answer:1,reason:"混淆了氧化剂和还原剂，H₂O是氧化剂"},{answer:2,reason:"NaOH是产物，不是反应物"},{answer:3,reason:"H₂是还原产物，不是还原剂"}],
+    id:"chemistry-redox-001"
+  },
+  {
+    type:"choice", difficulty:2, subject:"化学", topic:"化学平衡",
+    tags:["化学平衡","勒夏特列原理","高考"], exam:"高考", cognitiveLevel:3,
+    question:"对于反应 N₂ + 3H₂ ⇌ 2NH₃ (正反应放热)，下列能提高NH₃产率的措施是",
+    options:["升高温度","减小压强","加入催化剂","增加N₂的量"],
+    answer:3,
+    explanation:"增加N₂的量，平衡向正方向移动，NH₃产率提高。升高温度平衡逆向移动，减小压强平衡逆向移动，催化剂不影响平衡移动。",
+    pitfall:"注意区分'产率'和'反应速率'。催化剂加快速率但不改变平衡位置；升高温度加快速率但降低产率。",
+    hints:["勒夏特列原理：改变条件，平衡向减弱该改变的方向移动","正反应放热，升高温度平衡向吸热（逆）方向移动","增加反应物的量，平衡向消耗该反应物的方向移动"],
+    commonErrors:[{answer:0,reason:"混淆速率和平衡，升温加快反应但降低产率"},{answer:1,reason:"减小压强平衡向气体体积增大的方向移动，即逆向"},{answer:2,reason:"催化剂只改变速率不改平衡"}],
+    id:"chemistry-equilibrium-001"
+  },
+  {
+    type:"choice", difficulty:1, subject:"生物", topic:"细胞生物学",
+    tags:["细胞膜","选择透过性","中考"], exam:"中考", cognitiveLevel:2,
+    question:"细胞膜具有选择透过性，下列物质中能自由通过细胞膜的是",
+    options:["水分子","葡萄糖","蛋白质","Na⁺"],
+    answer:0,
+    explanation:"水分子是极性小分子，可通过自由扩散或水通道蛋白自由通过细胞膜。葡萄糖需载体协助，蛋白质和离子不能自由通过。",
+    pitfall:"'自由通过'≠'能通过'。葡萄糖和离子虽能通过但需要载体（协助扩散或主动运输），不是自由扩散。",
+    hints:["细胞膜的选择透过性取决于什么？分子大小和脂溶性","哪些分子可以自由穿过磷脂双分子层？","小分子、脂溶性物质可自由扩散，水分子是特例（小+水通道）"],
+    commonErrors:[{answer:1,reason:"葡萄糖需载体蛋白协助，不是自由通过"},{answer:2,reason:"蛋白质是大分子，需胞吞胞吐"},{answer:3,reason:"Na⁺是离子，需通道蛋白"}],
+    id:"biology-cell-membrane-001"
+  },
+  {
+    type:"choice", difficulty:3, subject:"生物", topic:"遗传与进化",
+    tags:["减数分裂","同源染色体","高考"], exam:"高考", cognitiveLevel:3,
+    question:"某动物体细胞含4条染色体（2n=4），在减数第一次分裂前期，细胞内含有的染色体和DNA分子数分别为",
+    options:["4条、8个","4条、4个","2条、4个","8条、8个"],
+    answer:0,
+    explanation:"减数第一次分裂前期，DNA已复制（每条染色体含2条姐妹染色单体），但着丝粒未分裂。染色体数=4条（着丝粒数），DNA数=8个（每条染色体含2个DNA）。",
+    pitfall:"染色体数=着丝粒数，DNA数看染色单体。前期DNA已复制，每条染色体含2个DNA，所以4条染色体→8个DNA。",
+    hints:["减I前期DNA是否已复制？","已复制，每条染色体含2条姐妹染色单体，即2个DNA","染色体数看着丝粒（4），DNA数看染色单体（8）"],
+    commonErrors:[{answer:1,reason:"忽略了DNA复制，4条染色体含8个DNA而非4个"},{answer:2,reason:"染色体数也没有减少到2条，减I后期才分离"},{answer:3,reason:"误把DNA分子数当染色体数"}],
+    id:"biology-genetics-meiosis-001"
+  },
+  {
+    type:"fill", difficulty:1, subject:"英语", topic:"词汇",
+    tags:["CET-4","词汇辨析","四六级"], exam:"四六级", cognitiveLevel:1,
+    question:"The company made a substantial _____ (profit/benefit) from the new product. (选择正确词语填入)",
+    answer:"profit",
+    explanation:"make a profit 是固定搭配，意为'获利'。benefit通常用作不可数名词，表示'益处、好处'。",
+    pitfall:"make a profit 是固定搭配，不与benefit搭配。profit强调经济利益，benefit强调一般性的好处。",
+    hints:["哪个词常与make a构成固定搭配？","make a profit 表示'获利'","profit=利润，benefit=益处，经济语境用profit"],
+    commonErrors:[{answer:"benefit",reason:"混淆profit和benefit，经济语境应用profit"}],
+    id:"english-vocab-profit-001"
+  },
+  {
+    type:"choice", difficulty:2, subject:"英语", topic:"语法",
+    tags:["虚拟语气","条件句","四六级"], exam:"四六级", cognitiveLevel:3,
+    question:"If I _____ you, I would accept the offer.",
+    options:["am","was","were","be"],
+    answer:2,
+    explanation:"虚拟语气中，与现在事实相反的假设，if从句动词用过去式，be动词一律用were（不论主语人称）。",
+    pitfall:"虚拟语气中的be动词无论主语是第几人称，都用were，不用was。这是虚拟语气的标志之一。",
+    hints:["这是真实条件句还是虚拟条件句？","虚拟语气与现在事实相反，if从句用什么时态？","虚拟语气中be动词一律用were"],
+    commonErrors:[{answer:0,reason:"am是现在时，虚拟语气应用过去式"},{answer:1,reason:"虚拟语气中不用was，一律用were"},{answer:3,reason:"be不是虚拟语气if从句的动词形式"}],
+    id:"english-grammar-subjunctive-001"
+  },
+  {
+    type:"choice", difficulty:2, subject:"CS", topic:"数据结构",
+    tags:["栈","后进先出","期末"], cognitiveLevel:2,
+    question:"若一个栈的入栈序列为1,2,3,4,5，则下列不可能的出栈序列是",
+    options:["5,4,3,2,1","1,2,3,4,5","3,2,1,4,5","3,1,2,4,5"],
+    answer:3,
+    explanation:"要出栈3，需先入1,2,3。出3后栈中剩[1,2]（2在顶），下一个必须出2而非1。序列3,1,2要求先出1再出2，但2在1上面，不可能先出1。",
+    pitfall:"栈的特点是后进先出(LIFO)。出栈3后栈顶是2，必须先出2才能出1。3,1,2违反了这个顺序。",
+    hints:["栈的特点是什么？","后进先出，出栈3后栈顶元素是几？","栈顶是2，必须先出2再出1，不能跳过2直接出1"],
+    commonErrors:[{answer:0,reason:"全入再全出是合法的"},{answer:1,reason:"入一个出一个是合法的"},{answer:2,reason:"入1,2,3→出3,2,1→入4,5→出4,5，合法"}],
+    id:"cs-ds-stack-001"
+  },
+  {
+    type:"order", difficulty:2, subject:"CS", topic:"算法",
+    tags:["冒泡排序","排序算法","期末"], cognitiveLevel:2,
+    question:"将以下冒泡排序的步骤按正确顺序排列（对数组[5,3,1,4,2]的第一趟排序）",
+    items:["比较5和3，5>3，交换→[3,5,1,4,2]","比较5和1，5>1，交换→[3,1,5,4,2]","比较5和4，5>4，交换→[3,1,4,5,2]","比较5和2，5>2，交换→[3,1,4,2,5]"],
+    answer:[0,1,2,3],
+    explanation:"冒泡排序从左到右依次比较相邻元素，大的往后换。第一趟：5依次与3,1,4,2比较并交换，最终5'冒泡'到最右。",
+    pitfall:"冒泡排序是相邻元素比较，不是和第一个元素比较。每趟把最大的元素移到末尾。",
+    hints:["冒泡排序从哪个方向开始比较？","从左到右依次比较相邻的两个元素","5和3→5和1→5和4→5和2，依次交换"],
+    commonErrors:[],
+    id:"cs-algo-bubble-001"
+  },
+  {
+    type:"choice", difficulty:2, subject:"历史", topic:"中国近现代史",
+    tags:["辛亥革命","高考"], exam:"高考", cognitiveLevel:3,
+    question:"辛亥革命最重要的历史意义在于",
+    options:["推翻了清朝统治","结束了中国两千多年的封建帝制","建立了民主共和国","推动了民族资本主义发展"],
+    answer:1,
+    explanation:"辛亥革命最核心的历史意义是结束了延续两千多年的君主专制制度（封建帝制），这是中国政治制度的根本性变革。",
+    pitfall:"注意区分'封建帝制'和'封建制度'。辛亥革命结束了帝制，但没有彻底结束封建制度（封建土地制度等仍存在）。",
+    hints:["辛亥革命和之前的改革运动有什么本质区别？","洋务运动、戊戌变法都没有改变什么？","帝制——君主专制制度，这是辛亥革命最根本的变革"],
+    commonErrors:[{answer:0,reason:"推翻清朝是直接结果，但不是最核心意义"},{answer:2,reason:"建立了民国但民主共和并未真正实现"},{answer:3,reason:"推动经济发展是影响之一，但不是最重要意义"}],
+    id:"history-xinhai-001"
+  },
+  {
+    type:"choice", difficulty:1, subject:"经济学", topic:"微观经济学",
+    tags:["供需","均衡价格"], cognitiveLevel:2,
+    question:"如果某商品供给不变，需求增加，则该商品的均衡价格和均衡数量将",
+    options:["价格上升，数量增加","价格上升，数量减少","价格下降，数量增加","价格下降，数量减少"],
+    answer:0,
+    explanation:"供给不变、需求增加，需求曲线右移。新均衡点在原均衡点的右上方，均衡价格上升，均衡数量增加。",
+    pitfall:"画图！需求曲线右移，沿供给曲线移动到新的交点，价格和数量同方向变化（都增加）。",
+    hints:["在供需图中，需求增加意味着什么？","需求曲线向右移动","供给不变时，需求曲线右移→沿供给曲线找到新交点→价格↑，数量↑"],
+    commonErrors:[{answer:1,reason:"需求增加时数量不可能减少"},{answer:2,reason:"价格应该上升而非下降"},{answer:3,reason:"两个方向都判断反了"}],
+    id:"economics-supply-demand-001"
+  },
+  {
+    type:"match", difficulty:2, subject:"化学", topic:"元素周期表",
+    tags:["元素周期律","原子结构"], cognitiveLevel:2,
+    question:"将元素与其主要特征配对",
+    left:["Na","Cl","Ar","C"],
+    right:["活泼金属，易失去1个电子","活泼非金属，易得到1个电子","稀有气体，化学性质稳定","非金属，可形成4个共价键"],
+    answer:[0,1,2,3],
+    explanation:"Na是IA族碱金属，Cl是VIIA族卤素，Ar是0族稀有气体，C是IVA族碳族元素。",
+    pitfall:"注意Ar虽然原子序数比Cl大1，但其最外层8电子稳定结构使其化学性质极不活泼。",
+    hints:["看最外层电子数判断元素性质","最外层1电子→活泼金属，7电子→活泼非金属","8电子（满壳层）→稳定，4电子→可形成4个共价键"],
+    commonErrors:[],
+    id:"chemistry-periodic-001"
+  }
+];
+
+/* =====================================================================
+   TYPE LABELS
+   ===================================================================== */
+const TYPE_LABELS = {choice:"选择题",fill:"填空题",match:"配对题",tf:"判断题",order:"排序题"};
+const DIFF_LABELS = {1:"基础",2:"应用",3:"综合",4:"挑战"};
+const DIFF_STARS = {1:"⭐",2:"⭐⭐",3:"⭐⭐⭐",4:"⭐⭐⭐⭐"};
+const ERROR_TYPES = ["概念错误","审题错误","计算失误","逻辑跳跃","知识遗漏"];
+
+/* =====================================================================
+   STATE
+   ===================================================================== */
+let state = {
+  questions: [],
+  currentIdx: 0,
+  answers: {},      // idx → answer value
+  scores: {},       // idx → 0|0.3|0.5|0.8|1
+  submitted: {},    // idx → true
+  hintsUsed: {},    // idx → number of hints revealed
+  matchState: {},   // idx → {pairs:{}, activeLeft:null}
+  orderState: {},   // idx → [itemIdx, ...]
+  currentDiff: 2,
+  streak: 0,
+  maxStreak: 0,
+  correctCount: 0,
+  totalAnswered: 0,
+  topicStats: {},   // topic → {correct, total}
+  timerStart: null,
+  timerInterval: null,
+  sessionStart: null,
+  config: {},
+  sm2Data: {}       // id → {ease, interval, repetitions, nextReview}
+};
+
+const LS_KEY = 'practice_mode_data';
+
+/* =====================================================================
+   UTILITY
+   ===================================================================== */
+function escapeHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function escapeAttr(s) { return String(s).replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+
+function saveState() {
+  const d = {
+    sm2Data: state.sm2Data,
+    topicStats: state.topicStats,
+    theme: document.documentElement.getAttribute('data-theme')
+  };
+  try { localStorage.setItem(LS_KEY, JSON.stringify(d)); } catch(e) {}
+}
+
+function loadState() {
+  try {
+    const d = JSON.parse(localStorage.getItem(LS_KEY));
+    if (d) {
+      state.sm2Data = d.sm2Data || {};
+      state.topicStats = d.topicStats || {};
+      if (d.theme) document.documentElement.setAttribute('data-theme', d.theme);
+    }
+  } catch(e) {}
+}
+
+function getErrorBookData() {
+  try { return JSON.parse(localStorage.getItem('errorBookData')) || []; }
+  catch(e) { return []; }
+}
+
+function saveErrorBookData(data) {
+  try { localStorage.setItem('errorBookData', JSON.stringify(data)); } catch(e) {}
+}
+
+function addToErrorBook(q, userAnswer, score) {
+  if (score >= 0.8) return;
+  const errors = getErrorBookData();
+  const errorType = inferErrorType(q, userAnswer, score);
+  errors.push({
+    id: q.id || 'q-' + Date.now(),
+    question: q.question,
+    userAnswer: formatAnswer(q, userAnswer),
+    correctAnswer: formatCorrectAnswer(q),
+    subject: q.subject || '',
+    topic: q.topic || '',
+    errorType: errorType,
+    difficulty: q.difficulty,
+    explanation: q.explanation || '',
+    pitfall: q.pitfall || '',
+    hints: q.hints || [],
+    commonErrors: q.commonErrors || [],
+    timestamp: Date.now(),
+    reviewCount: 0,
+    mastered: false,
+    rootCauses: []
+  });
+  saveErrorBookData(errors);
+}
+
+function inferErrorType(q, userAnswer, score) {
+  if (score === 0) return '概念错误';
+  if (q.type === 'choice' && q.commonErrors) {
+    const ce = q.commonErrors.find(e => e.answer === userAnswer);
+    if (ce) {
+      if (ce.reason.includes('混淆') || ce.reason.includes('辨析')) return '概念错误';
+      if (ce.reason.includes('计算') || ce.reason.includes('算错')) return '计算失误';
+      if (ce.reason.includes('方向') || ce.reason.includes('判断')) return '逻辑跳跃';
+    }
+  }
+  return '知识遗漏';
+}
+
+function formatAnswer(q, ans) {
+  if (ans === null || ans === undefined) return '未作答';
+  if (q.type === 'choice') return String.fromCharCode(65 + ans) + '. ' + (q.options[ans] || '');
+  if (q.type === 'tf') return ans ? '正确' : '错误';
+  if (q.type === 'fill') return ans;
+  if (q.type === 'match') return JSON.stringify(ans);
+  if (q.type === 'order') return JSON.stringify(ans);
+  return String(ans);
+}
+
+function formatCorrectAnswer(q) {
+  if (q.type === 'choice') return String.fromCharCode(65 + q.answer) + '. ' + q.options[q.answer];
+  if (q.type === 'tf') return q.answer ? '正确' : '错误';
+  if (q.type === 'fill') return q.answer;
+  return JSON.stringify(q.answer);
+}
+
+/* =====================================================================
+   SM-2 SPACED REPETITION
+   ===================================================================== */
+function sm2Update(id, quality) {
+  // quality: 0=complete blackout, 1=wrong, 2=wrong but recognized, 3=correct with effort, 4=correct, 5=perfect
+  let d = state.sm2Data[id] || { ease: 2.5, interval: 0, repetitions: 0, nextReview: 0 };
+  if (quality >= 3) {
+    if (d.repetitions === 0) d.interval = 1;
+    else if (d.repetitions === 1) d.interval = 6;
+    else d.interval = Math.round(d.interval * d.ease);
+    d.repetitions++;
+  } else {
+    d.repetitions = 0;
+    d.interval = 1;
+  }
+  d.ease = Math.max(1.3, d.ease + 0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02));
+  d.nextReview = Date.now() + d.interval * 24 * 60 * 60 * 1000; // days → ms
+  state.sm2Data[id] = d;
+  saveState();
+  return d;
+}
+
+function getDueQuestions() {
+  const now = Date.now();
+  return SAMPLE_QUESTIONS.filter(q => q.id && state.sm2Data[q.id] && state.sm2Data[q.id].nextReview <= now);
+}
+
+/* =====================================================================
+   ADAPTIVE DIFFICULTY ENGINE
+   ===================================================================== */
+function selectNextQuestion() {
+  const cfg = state.config;
+  let pool = [...state.questions];
+
+  // Filter already answered
+  const remaining = pool.filter((_, i) => !state.submitted[i]);
+  if (remaining.length === 0) return -1;
+
+  // Find index in original array
+  const remainingIndices = pool.map((_, i) => i).filter(i => !state.submitted[i]);
+
+  // Adaptive: prioritize questions matching current difficulty
+  if (cfg.mode === 'adaptive') {
+    // Sort by closeness to current difficulty, then by weak topics
+    remainingIndices.sort((a, b) => {
+      const qa = pool[a], qb = pool[b];
+      const diffA = Math.abs(qa.difficulty - state.currentDiff);
+      const diffB = Math.abs(qb.difficulty - state.currentDiff);
+      if (diffA !== diffB) return diffA - diffB;
+      // Prioritize weak topics
+      const tsa = state.topicStats[qa.topic] || { correct: 0, total: 0 };
+      const tsb = state.topicStats[qb.topic] || { correct: 0, total: 0 };
+      const rateA = tsa.total > 0 ? tsa.correct / tsa.total : 0.5;
+      const rateB = tsb.total > 0 ? tsb.correct / tsb.total : 0.5;
+      return rateA - rateB;
+    });
+    return remainingIndices[0];
+  }
+
+  // Spaced: prioritize due items
+  if (cfg.mode === 'spaced') {
+    remainingIndices.sort((a, b) => {
+      const sa = state.sm2Data[pool[a].id] || { nextReview: Infinity };
+      const sb = state.sm2Data[pool[b].id] || { nextReview: Infinity };
+      return sa.nextReview - sb.nextReview;
+    });
+    return remainingIndices[0];
+  }
+
+  // Review: just sequential
+  return remainingIndices[0];
+}
+
+function adjustDifficulty() {
+  // Consecutive correct → increase difficulty
+  if (state.streak >= 2 && state.currentDiff < 4) {
+    state.currentDiff++;
+    state.streak = 0;
+  }
+  // Consecutive wrong → decrease difficulty
+  if (state.totalAnswered >= 2) {
+    const last2 = Object.keys(state.scores).sort((a,b) => b-a).slice(0,2).map(k => state.scores[k]);
+    if (last2.length === 2 && last2.every(s => s < 0.5) && state.currentDiff > 1) {
+      state.currentDiff--;
+    }
+  }
+}
+
+/* =====================================================================
+   START PRACTICE
+   ===================================================================== */
+function startPractice() {
+  const cfg = {
+    subject: document.getElementById('cfgSubject').value,
+    topic: document.getElementById('cfgTopic').value.trim(),
+    exam: document.getElementById('cfgExam').value,
+    count: parseInt(document.getElementById('cfgCount').value),
+    startDiff: parseInt(document.getElementById('cfgStartDiff').value),
+    mode: document.getElementById('cfgMode').value,
+    hints: document.getElementById('cfgHints').checked,
+    timer: document.getElementById('cfgTimer').checked
+  };
+  state.config = cfg;
+  state.currentDiff = cfg.startDiff;
+  state.currentIdx = 0;
+  state.answers = {};
+  state.scores = {};
+  state.submitted = {};
+  state.hintsUsed = {};
+  state.matchState = {};
+  state.orderState = {};
+  state.streak = 0;
+  state.maxStreak = 0;
+  state.correctCount = 0;
+  state.totalAnswered = 0;
+  state.sessionStart = Date.now();
+
+  // Filter questions
+  let pool = [...SAMPLE_QUESTIONS];
+  if (cfg.subject) pool = pool.filter(q => q.subject === cfg.subject);
+  if (cfg.topic) pool = pool.filter(q => q.topic && q.topic.includes(cfg.topic));
+  if (cfg.exam) pool = pool.filter(q => q.exam === cfg.exam);
+
+  // Review mode: load from error book
+  if (cfg.mode === 'review') {
+    const errors = getErrorBookData();
+    if (errors.length > 0) {
+      pool = errors.map(e => ({
+        type: 'choice', difficulty: e.difficulty || 2, subject: e.subject,
+        topic: e.topic, question: e.question, options: e.commonErrors ?
+          (e.commonErrors.map(ce => ce.answer || ce.reason)).concat([e.correctAnswer]).slice(0,4) :
+          [e.correctAnswer, '无法确定', '以上都不是', '以上都是'],
+        answer: 0, explanation: e.explanation, pitfall: e.pitfall,
+        hints: e.hints || [], id: e.id || 'err-' + Date.now() + Math.random()
+      }));
+    }
+  }
+
+  // Spaced mode: prioritize due items
+  if (cfg.mode === 'spaced') {
+    const due = getDueQuestions();
+    if (due.length > 0) {
+      // Put due items first
+      const dueIds = new Set(due.map(q => q.id));
+      pool.sort((a, b) => (dueIds.has(a.id) ? 0 : 1) - (dueIds.has(b.id) ? 0 : 1));
+    }
+  }
+
+  // Fill to desired count, cycling if needed
+  if (pool.length === 0) pool = [...SAMPLE_QUESTIONS];
+  while (pool.length < cfg.count) pool = pool.concat(pool);
+  state.questions = pool.slice(0, cfg.count);
+
+  // Initialize order/match state
+  state.questions.forEach((q, i) => {
+    if (q.type === 'order') {
+      state.orderState[i] = q.items.map((_, j) => j);
+      // Shuffle
+      for (let k = state.orderState[i].length - 1; k > 0; k--) {
+        const r = Math.floor(Math.random() * (k + 1));
+        [state.orderState[i][k], state.orderState[i][r]] = [state.orderState[i][r], state.orderState[i][k]];
+      }
+    }
+    if (q.type === 'match') {
+      state.matchState[i] = { pairs: {}, activeLeft: null };
+    }
+  });
+
+  // Select first question
+  state.currentIdx = selectNextQuestion();
+
+  // Show practice screen
+  document.getElementById('configScreen').classList.add('hidden');
+  document.getElementById('practiceScreen').classList.remove('hidden');
+
+  // Timer
+  if (cfg.timer) {
+    state.timerStart = Date.now();
+    state.timerInterval = setInterval(updateTimer, 1000);
+  }
+
+  renderQuestion();
+  updateStatsBar();
+  updateDiffMeter();
+}
+
+/* =====================================================================
+   RENDER
+   ===================================================================== */
+function renderQuestion() {
+  const idx = state.currentIdx;
+  if (idx < 0 || idx >= state.questions.length) { showReport(); return; }
+  const q = state.questions[idx];
+  const isSubmitted = state.submitted[idx];
+  const area = document.getElementById('questionArea');
+
+  let html = `<div class="question-card fade-in">`;
+  html += `<div class="question-header">`;
+  html += `<div class="question-number">${state.totalAnswered + 1}/${state.questions.length}</div>`;
+  html += `<div class="question-meta">`;
+  html += `<span class="question-type-tag type-${q.type}">${TYPE_LABELS[q.type] || q.type}</span>`;
+  html += `<span class="difficulty-badge diff-${q.difficulty}">${DIFF_STARS[q.difficulty]||''}${DIFF_LABELS[q.difficulty]||''}</span>`;
+  if (q.topic) html += `<span class="topic-tag">${escapeHtml(q.topic)}</span>`;
+  html += `<div class="question-text">${escapeHtml(q.question).replace(/\n/g,'<br>')}</div>`;
+  html += `</div></div>`;
+
+  switch(q.type) {
+    case 'choice': html += renderChoice(q, idx, isSubmitted); break;
+    case 'fill': html += renderFill(q, idx, isSubmitted); break;
+    case 'match': html += renderMatch(q, idx, isSubmitted); break;
+    case 'tf': html += renderTF(q, idx, isSubmitted); break;
+    case 'order': html += renderOrder(q, idx, isSubmitted); break;
+  }
+
+  // Hints
+  if (!isSubmitted && state.config.hints && q.hints && q.hints.length > 0) {
+    html += renderHints(q, idx);
+  }
+
+  // Feedback
+  if (isSubmitted) html += renderFeedback(q, idx);
+
+  html += `</div>`;
+  area.innerHTML = html;
+  bindEvents(q, idx, isSubmitted);
+  updateNav();
+}
+
+function renderChoice(q, idx, isSubmitted) {
+  const answer = state.answers[idx];
+  const labels = ['A','B','C','D'];
+  let html = `<div class="options-list">`;
+  q.options.forEach((opt, i) => {
+    let cls = 'option-item';
+    if (isSubmitted) {
+      cls += ' disabled';
+      if (i === q.answer) cls += answer === i ? ' correct' : ' reveal-correct';
+      else if (answer === i) cls += ' incorrect';
+    } else if (answer === i) cls += ' selected';
+    html += `<div class="${cls}" data-idx="${i}">`;
+    html += `<div class="option-radio"></div>`;
+    html += `<span class="option-label">${labels[i]}</span>`;
+    html += `<span class="option-text">${escapeHtml(opt)}</span>`;
+    html += `</div>`;
+  });
+  html += `</div>`;
+  if (!isSubmitted) html += `<div style="margin-top:14px;text-align:center"><button class="btn-submit" id="btnSubmit">提交答案</button></div>`;
+  return html;
+}
+
+function renderFill(q, idx, isSubmitted) {
+  const answer = state.answers[idx] || '';
+  let inputCls = 'fill-input';
+  if (isSubmitted && state.scores[idx] === 1) inputCls += ' correct';
+  else if (isSubmitted && state.scores[idx] === 0) inputCls += ' incorrect';
+  let disabled = isSubmitted ? 'disabled' : '';
+  let html = `<div class="fill-input-wrapper">`;
+  html += `<input type="text" class="${inputCls}" id="fillInput" value="${escapeAttr(answer)}" placeholder="请输入答案..." ${disabled} autocomplete="off">`;
+  html += `</div>`;
+  if (!isSubmitted) html += `<div style="margin-top:14px;text-align:center"><button class="btn-submit" id="btnSubmit">提交答案</button></div>`;
+  return html;
+}
+
+function renderMatch(q, idx, isSubmitted) {
+  const ms = state.matchState[idx];
+  let html = `<div class="match-container">`;
+  html += `<div class="match-column"><div class="match-column-title">概念</div>`;
+  q.left.forEach((item, i) => {
+    let cls = 'match-item';
+    if (ms.pairs[i] !== undefined) cls += ' matched';
+    else if (ms.activeLeft === i) cls += ' active';
+    if (isSubmitted) cls += ' disabled';
+    const pairLabel = ms.pairs[i] !== undefined ? String.fromCharCode(65+i) : '';
+    html += `<div class="${cls}" data-side="left" data-idx="${i}" data-pair="${pairLabel}">${escapeHtml(item)}</div>`;
+  });
+  html += `</div>`;
+  html += `<div class="match-connector">↔</div>`;
+  html += `<div class="match-column"><div class="match-column-title">描述</div>`;
+  q.right.forEach((item, i) => {
+    let cls = 'match-item';
+    const isMatched = Object.values(ms.pairs).includes(i);
+    if (isMatched) cls += ' matched';
+    if (isSubmitted) cls += ' disabled';
+    const pairKey = Object.keys(ms.pairs).find(k => ms.pairs[k] === i);
+    const pairLabel = pairKey !== undefined ? String.fromCharCode(65+parseInt(pairKey)) : '';
+    html += `<div class="${cls}" data-side="right" data-idx="${i}" data-pair="${pairLabel}">${escapeHtml(item)}</div>`;
+  });
+  html += `</div></div>`;
+  if (!isSubmitted) {
+    const allMatched = Object.keys(ms.pairs).length === q.left.length;
+    html += `<div style="margin-top:10px;display:flex;gap:8px;justify-content:center">`;
+    html += `<button class="hbtn" id="btnResetMatch">重置匹配</button>`;
+    html += `<button class="btn-submit" id="btnSubmit" ${!allMatched?'disabled':''}>提交答案</button>`;
+    html += `</div>`;
+  }
+  return html;
+}
+
+function renderTF(q, idx, isSubmitted) {
+  const answer = state.answers[idx];
+  let html = `<div class="tf-options">`;
+  const trueCls = 'tf-option' + (isSubmitted?' disabled':'') +
+    (answer===true&&!isSubmitted?' selected':'') +
+    (isSubmitted&&q.answer===true?(answer===true?' correct':' reveal-correct'):'') +
+    (isSubmitted&&answer===true&&q.answer===false?' incorrect':'');
+  const falseCls = 'tf-option' + (isSubmitted?' disabled':'') +
+    (answer===false&&!isSubmitted?' selected':'') +
+    (isSubmitted&&q.answer===false?(answer===false?' correct':' reveal-correct'):'') +
+    (isSubmitted&&answer===false&&q.answer===true?' incorrect':'');
+  html += `<div class="${trueCls}" data-val="true">✔ 正确</div>`;
+  html += `<div class="${falseCls}" data-val="false">✘ 错误</div>`;
+  html += `</div>`;
+  if (!isSubmitted && answer !== null && answer !== undefined) {
+    html += `<div style="margin-top:14px;text-align:center"><button class="btn-submit" id="btnSubmit">提交答案</button></div>`;
+  }
+  return html;
+}
+
+function renderOrder(q, idx, isSubmitted) {
+  const order = state.orderState[idx];
+  let html = `<div class="order-list" id="orderList">`;
+  order.forEach((itemIdx, pos) => {
+    let cls = 'order-item';
+    if (isSubmitted) cls += itemIdx === q.answer[pos] ? ' correct' : ' incorrect';
+    html += `<div class="${cls}" draggable="${!isSubmitted}" data-pos="${pos}" data-item-idx="${itemIdx}">`;
+    html += `<span class="order-grip">☰</span>`;
+    html += `<span class="order-number">${pos+1}</span>`;
+    html += `<span class="order-text">${escapeHtml(q.items[itemIdx])}</span>`;
+    html += `</div>`;
+  });
+  html += `</div>`;
+  if (!isSubmitted) html += `<div style="margin-top:14px;text-align:center"><button class="btn-submit" id="btnSubmit">提交答案</button></div>`;
+  return html;
+}
+
+function renderHints(q, idx) {
+  const used = state.hintsUsed[idx] || 0;
+  const labels = ['💡 方向提示','🔍 方法提示','📝 步骤提示'];
+  let html = `<div class="hints-area">`;
+  q.hints.forEach((hint, i) => {
+    const revealed = i < used;
+    html += `<button class="hint-btn${revealed?' revealed':''}" data-hint="${i}">`;
+    html += `<span class="hint-level">${i+1}</span>`;
+    html += `<span>${labels[i]||'提示'+(i+1)}${revealed?' (已揭示)':''}</span>`;
+    html += `</button>`;
+    if (revealed) {
+      html += `<div class="hint-content show">${escapeHtml(hint)}</div>`;
+    }
+  });
+  html += `</div>`;
+  return html;
+}
+
+function renderFeedback(q, idx) {
+  const score = state.scores[idx];
+  let fbCls, title, icon;
+  if (score >= 0.8) { fbCls='feedback-correct'; title='回答正确！'; icon='✅'; }
+  else if (score >= 0.5) { fbCls='feedback-partial'; title='部分正确'; icon='⚠️'; }
+  else { fbCls='feedback-incorrect'; title='回答错误'; icon='❌'; }
+
+  let html = `<div class="feedback ${fbCls}">`;
+  html += `<div class="feedback-title">${icon} ${title}`;
+  if (state.hintsUsed[idx] > 0 && score > 0) {
+    const factor = score >= 1 ? 1 : score >= 0.8 ? 0.8 : score >= 0.5 ? 0.5 : 0.3;
+    html += ` <span class="feedback-score">(使用${state.hintsUsed[idx]}次提示，得分 ${Math.round(factor*100)}%)</span>`;
+  }
+  html += `</div>`;
+  if (q.explanation) html += `<div class="feedback-explanation">${escapeHtml(q.explanation)}</div>`;
+  if (q.pitfall) html += `<div class="feedback-pitfall">⚠️ ${escapeHtml(q.pitfall)}</div>`;
+  html += `</div>`;
+  return html;
+}
+
+/* =====================================================================
+   BIND EVENTS
+   ===================================================================== */
+function bindEvents(q, idx, isSubmitted) {
+  if (isSubmitted) return;
+
+  if (q.type === 'choice') {
+    document.querySelectorAll('.option-item').forEach(el => {
+      el.addEventListener('click', () => {
+        state.answers[idx] = parseInt(el.dataset.idx);
+        renderQuestion();
+      });
+    });
+  }
+
+  if (q.type === 'fill') {
+    const input = document.getElementById('fillInput');
+    if (input) input.addEventListener('input', () => { state.answers[idx] = input.value; });
+  }
+
+  if (q.type === 'tf') {
+    document.querySelectorAll('.tf-option').forEach(el => {
+      el.addEventListener('click', () => {
+        state.answers[idx] = el.dataset.val === 'true';
+        renderQuestion();
+      });
+    });
+  }
+
+  if (q.type === 'match') {
+    document.querySelectorAll('.match-item').forEach(el => {
+      el.addEventListener('click', () => {
+        const side = el.dataset.side;
+        const i = parseInt(el.dataset.idx);
+        const ms = state.matchState[idx];
+        if (side === 'left') {
+          ms.activeLeft = i;
+        } else {
+          if (ms.activeLeft !== null) {
+            ms.pairs[ms.activeLeft] = i;
+            ms.activeLeft = null;
+          }
+        }
+        renderQuestion();
+      });
+    });
+    const resetBtn = document.getElementById('btnResetMatch');
+    if (resetBtn) resetBtn.addEventListener('click', () => {
+      state.matchState[idx] = { pairs: {}, activeLeft: null };
+      renderQuestion();
+    });
+  }
+
+  if (q.type === 'order') {
+    const list = document.getElementById('orderList');
+    if (list) {
+      let dragSrcIdx = null;
+      list.querySelectorAll('.order-item').forEach(el => {
+        el.addEventListener('dragstart', e => {
+          dragSrcIdx = parseInt(el.dataset.pos);
+          el.classList.add('dragging');
+          e.dataTransfer.effectAllowed = 'move';
+        });
+        el.addEventListener('dragend', () => { el.classList.remove('dragging'); });
+        el.addEventListener('dragover', e => { e.preventDefault(); el.classList.add('drag-over'); });
+        el.addEventListener('dragleave', () => { el.classList.remove('drag-over'); });
+        el.addEventListener('drop', e => {
+          e.preventDefault();
+          el.classList.remove('drag-over');
+          const targetIdx = parseInt(el.dataset.pos);
+          if (dragSrcIdx !== null && dragSrcIdx !== targetIdx) {
+            const arr = state.orderState[idx];
+            const [removed] = arr.splice(dragSrcIdx, 1);
+            arr.splice(targetIdx, 0, removed);
+            renderQuestion();
+          }
+          dragSrcIdx = null;
+        });
+        // Touch support
+        el.addEventListener('touchstart', e => { dragSrcIdx = parseInt(el.dataset.pos); }, {passive:true});
+        el.addEventListener('touchend', e => {
+          const touch = e.changedTouches[0];
+          const target = document.elementFromPoint(touch.clientX, touch.clientY);
+          if (target) {
+            const orderEl = target.closest('.order-item');
+            if (orderEl) {
+              const targetIdx = parseInt(orderEl.dataset.pos);
+              if (dragSrcIdx !== null && dragSrcIdx !== targetIdx) {
+                const arr = state.orderState[idx];
+                const [removed] = arr.splice(dragSrcIdx, 1);
+                arr.splice(targetIdx, 0, removed);
+                renderQuestion();
+              }
+            }
+          }
+          dragSrcIdx = null;
+        }, {passive:true});
+      });
+    }
+  }
+
+  // Submit button
+  const submitBtn = document.getElementById('btnSubmit');
+  if (submitBtn) submitBtn.addEventListener('click', () => submitAnswer(idx));
+
+  // Hint buttons
+  document.querySelectorAll('.hint-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const hintIdx = parseInt(btn.dataset.hint);
+      if (!state.hintsUsed[idx]) state.hintsUsed[idx] = 0;
+      if (hintIdx >= state.hintsUsed[idx]) {
+        state.hintsUsed[idx] = hintIdx + 1;
+        renderQuestion();
+      }
+    });
+  });
+}
+
+/* =====================================================================
+   SUBMIT
+   ===================================================================== */
+function submitAnswer(idx) {
+  const q = state.questions[idx];
+  const answer = state.answers[idx];
+  let score = 0;
+
+  if (answer === null || answer === undefined) return;
+
+  switch(q.type) {
+    case 'choice':
+      score = answer === q.answer ? 1 : 0;
+      break;
+    case 'fill': {
+      const userAns = String(answer).trim().toLowerCase();
+      const correctAns = String(q.answer).trim().toLowerCase();
+      score = userAns === correctAns ? 1 : 0;
+      if (!score && userAns && correctAns.includes(userAns)) score = 0.5;
+      break;
+    }
+    case 'match': {
+      const ms = state.matchState[idx];
+      let correct = 0;
+      q.left.forEach((_, i) => { if (ms.pairs[i] === q.answer[i]) correct++; });
+      score = correct / q.left.length;
+      break;
+    }
+    case 'tf':
+      score = answer === q.answer ? 1 : 0;
+      break;
+    case 'order': {
+      const order = state.orderState[idx];
+      let correct = 0;
+      order.forEach((itemIdx, pos) => { if (itemIdx === q.answer[pos]) correct++; });
+      score = correct / q.answer.length;
+      break;
+    }
+  }
+
+  // Adjust score for hints
+  const hintsUsed = state.hintsUsed[idx] || 0;
+  if (hintsUsed > 0 && score > 0) {
+    score = hintsUsed === 1 ? 0.8 : hintsUsed === 2 ? 0.5 : 0.3;
+  }
+
+  state.scores[idx] = score;
+  state.submitted[idx] = true;
+  state.totalAnswered++;
+
+  // Update topic stats
+  if (q.topic) {
+    if (!state.topicStats[q.topic]) state.topicStats[q.topic] = { correct: 0, total: 0 };
+    state.topicStats[q.topic].total++;
+    if (score >= 0.8) state.topicStats[q.topic].correct++;
+  }
+
+  // Streak
+  if (score >= 0.8) {
+    state.streak++;
+    state.correctCount++;
+    if (state.streak > state.maxStreak) state.maxStreak = state.streak;
+  } else {
+    state.streak = 0;
+  }
+
+  // SM-2 update
+  if (q.id) {
+    const quality = score >= 0.8 ? 4 : score >= 0.5 ? 3 : score > 0 ? 2 : 1;
+    sm2Update(q.id, quality);
+  }
+
+  // Error book
+  addToErrorBook(q, answer, score);
+
+  // Adjust difficulty
+  adjustDifficulty();
+
+  saveState();
+  renderQuestion();
+  updateStatsBar();
+  updateDiffMeter();
+}
+
+/* =====================================================================
+   NAVIGATION
+   ===================================================================== */
+function updateNav() {
+  const nav = document.getElementById('navArea');
+  const isSubmitted = state.submitted[state.currentIdx];
+  const allDone = state.totalAnswered >= state.questions.length;
+
+  let html = '';
+  if (isSubmitted && !allDone) {
+    html += `<button class="btn-nav primary" onclick="nextQuestion()">下一题 →</button>`;
+  }
+  if (isSubmitted && allDone) {
+    html += `<button class="btn-nav primary" onclick="showReport()">📊 查看报告</button>`;
+  }
+  if (isSubmitted && !allDone) {
+    html += `<button class="btn-nav" onclick="showReport()">结束练习</button>`;
+  }
+  nav.innerHTML = html;
+}
+
+function nextQuestion() {
+  const nextIdx = selectNextQuestion();
+  if (nextIdx < 0) { showReport(); return; }
+  state.currentIdx = nextIdx;
+  renderQuestion();
+}
+
+function quitPractice() {
+  if (state.timerInterval) clearInterval(state.timerInterval);
+  document.getElementById('practiceScreen').classList.add('hidden');
+  document.getElementById('configScreen').classList.remove('hidden');
+}
+
+/* =====================================================================
+   STATS BAR & DIFF METER
+   ===================================================================== */
+function updateStatsBar() {
+  const bar = document.getElementById('statsBar');
+  const accuracy = state.totalAnswered > 0 ? Math.round(state.correctCount / state.totalAnswered * 100) : 0;
+  let html = `<div class="stat-chip">✅ 正确 <span class="val">${state.correctCount}</span></div>`;
+  html += `<div class="stat-chip error">❌ 错误 <span class="val">${state.totalAnswered - state.correctCount}</span></div>`;
+  html += `<div class="stat-chip success">📈 准确率 <span class="val">${accuracy}%</span></div>`;
+  html += `<div class="stat-chip warning">🔥 连对 <span class="val">${state.streak}</span></div>`;
+  bar.innerHTML = html;
+
+  // Streak display
+  const sd = document.getElementById('streakDisplay');
+  if (state.streak >= 5) { sd.className = 'streak-display fire'; sd.textContent = '🔥 ' + state.streak; }
+  else if (state.streak >= 3) { sd.className = 'streak-display hot'; sd.textContent = '🔥 ' + state.streak; }
+  else { sd.className = 'streak-display'; sd.textContent = '🔥 ' + state.streak; }
+}
+
+function updateDiffMeter() {
+  const meter = document.getElementById('diffMeter');
+  const pct = (state.currentDiff / 4) * 100;
+  const colors = { 1: '#22c55e', 2: '#3b82f6', 3: '#f59e0b', 4: '#ef4444' };
+  const color = colors[state.currentDiff] || '#6366f1';
+  let html = `<span class="diff-label">当前难度</span>`;
+  html += `<div class="diff-bar"><div class="diff-fill" style="width:${pct}%;background:${color}"></div></div>`;
+  html += `<span class="diff-text" style="color:${color}">${DIFF_LABELS[state.currentDiff]||''}</span>`;
+  meter.innerHTML = html;
+}
+
+function updateTimer() {
+  if (!state.timerStart) return;
+  const elapsed = Math.floor((Date.now() - state.timerStart) / 1000);
+  const min = Math.floor(elapsed / 60);
+  const sec = elapsed % 60;
+  const el = document.getElementById('timerDisplay');
+  if (el) { el.textContent = `⏱ ${min}:${String(sec).padStart(2,'0')}`; el.classList.add('running'); }
+}
+
+/* =====================================================================
+   REPORT
+   ===================================================================== */
+function showReport() {
+  if (state.timerInterval) clearInterval(state.timerInterval);
+  document.getElementById('practiceScreen').classList.add('hidden');
+  document.getElementById('reportScreen').classList.remove('hidden');
+
+  const accuracy = state.totalAnswered > 0 ? Math.round(state.correctCount / state.totalAnswered * 100) : 0;
+  const elapsed = state.sessionStart ? Math.floor((Date.now() - state.sessionStart) / 1000) : 0;
+  const min = Math.floor(elapsed / 60);
+  const sec = elapsed % 60;
+
+  let html = `<div class="report-card fade-in">`;
+  html += `<div class="report-title">📊 练习报告</div>`;
+
+  // Overview stats
+  html += `<div class="report-overview">`;
+  html += `<div class="report-stat"><div class="num">${state.totalAnswered}</div><div class="label">答题数</div></div>`;
+  html += `<div class="report-stat success"><div class="num">${state.correctCount}</div><div class="label">正确</div></div>`;
+  html += `<div class="report-stat error"><div class="num">${state.totalAnswered - state.correctCount}</div><div class="label">错误</div></div>`;
+  html += `<div class="report-stat"><div class="num">${accuracy}%</div><div class="label">准确率</div></div>`;
+  html += `<div class="report-stat warning"><div class="num">${state.maxStreak}</div><div class="label">最长连对</div></div>`;
+  html += `<div class="report-stat"><div class="num">${min}:${String(sec).padStart(2,'0')}</div><div class="label">用时</div></div>`;
+  html += `</div>`;
+
+  // Topic breakdown
+  const topics = Object.entries(state.topicStats);
+  if (topics.length > 0) {
+    html += `<div class="report-section"><h3>📈 各知识点表现</h3>`;
+    topics.forEach(([topic, ts]) => {
+      const rate = ts.total > 0 ? Math.round(ts.correct / ts.total * 100) : 0;
+      const color = rate >= 80 ? 'var(--success)' : rate >= 60 ? 'var(--warning)' : 'var(--error)';
+      html += `<div class="topic-bar-row">`;
+      html += `<span class="topic-bar-label" title="${escapeHtml(topic)}">${escapeHtml(topic)}</span>`;
+      html += `<div class="topic-bar-track"><div class="topic-bar-fill" style="width:${rate}%;background:${color}"></div></div>`;
+      html += `<span class="topic-bar-val" style="color:${color}">${rate}% (${ts.correct}/${ts.total})</span>`;
+      html += `</div>`;
+    });
+    html += `</div>`;
+  }
+
+  // Weak points
+  const weakTopics = topics.filter(([_, ts]) => ts.total > 0 && ts.correct / ts.total < 0.6);
+  if (weakTopics.length > 0) {
+    html += `<div class="report-section"><h3>⚠️ 薄弱知识点（准确率 < 60%）</h3>`;
+    html += `<ul class="report-list">`;
+    weakTopics.forEach(([topic, ts]) => {
+      html += `<li class="review">📌 ${escapeHtml(topic)} — ${Math.round(ts.correct/ts.total*100)}% (${ts.correct}/${ts.total})</li>`;
+    });
+    html += `</ul></div>`;
+  }
+
+  // Mastered topics
+  const masterTopics = topics.filter(([_, ts]) => ts.total > 0 && ts.correct / ts.total >= 0.8);
+  if (masterTopics.length > 0) {
+    html += `<div class="report-section"><h3>✅ 已掌握知识点</h3>`;
+    html += `<ul class="report-list">`;
+    masterTopics.forEach(([topic, ts]) => {
+      html += `<li class="mastered">✓ ${escapeHtml(topic)} — ${Math.round(ts.correct/ts.total*100)}%</li>`;
+    });
+    html += `</ul></div>`;
+  }
+
+  // Spaced repetition due
+  const dueIds = Object.entries(state.sm2Data).filter(([_, d]) => d.nextReview <= Date.now());
+  if (dueIds.length > 0) {
+    html += `<div class="report-section"><h3>🔄 待复习项目</h3>`;
+    html += `<ul class="report-list">`;
+    dueIds.slice(0, 8).forEach(([id]) => {
+      html += `<li class="review">📌 ${escapeHtml(id)}</li>`;
+    });
+    if (dueIds.length > 8) html += `<li class="review">...还有 ${dueIds.length - 8} 项</li>`;
+    html += `</ul></div>`;
+  }
+
+  // Error book new entries
+  const errorBook = getErrorBookData();
+  const sessionErrors = errorBook.filter(e => e.timestamp >= (state.sessionStart || 0));
+  if (sessionErrors.length > 0) {
+    html += `<div class="report-section"><h3>❌ 本次新增错题</h3>`;
+    html += `<ul class="report-list">`;
+    sessionErrors.forEach(e => {
+      html += `<li class="error">❌ ${escapeHtml((e.question||'').substring(0,50))}${(e.question||'').length>50?'...':''}</li>`;
+    });
+    html += `</ul></div>`;
+  }
+
+  // Actions
+  html += `<div class="report-actions">`;
+  html += `<button class="btn-start" onclick="restartPractice()">🔄 再练一次</button>`;
+  html += `<button class="hbtn" onclick="goHome()" style="padding:12px 24px">🏠 返回首页</button>`;
+  html += `</div>`;
+
+  html += `</div>`;
+  document.getElementById('reportArea').innerHTML = html;
+}
+
+function restartPractice() {
+  document.getElementById('reportScreen').classList.add('hidden');
+  document.getElementById('configScreen').classList.remove('hidden');
+}
+
+function goHome() {
+  document.getElementById('reportScreen').classList.add('hidden');
+  document.getElementById('configScreen').classList.remove('hidden');
+}
+
+/* =====================================================================
+   THEME
+   ===================================================================== */
+function toggleTheme() {
+  const html = document.documentElement;
+  const next = html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+  html.setAttribute('data-theme', next);
+  document.querySelectorAll('#themeBtn,#themeBtn2,#themeBtn3').forEach(b => b.textContent = next === 'dark' ? '☀️' : '🌙');
+  saveState();
+}
+
+/* =====================================================================
+   INIT
+   ===================================================================== */
+loadState();
+document.querySelectorAll('#themeBtn,#themeBtn2,#themeBtn3').forEach(b => {
+  b.textContent = document.documentElement.getAttribute('data-theme') === 'dark' ? '☀️' : '🌙';
+});
+</script>
+</body>
+</html>

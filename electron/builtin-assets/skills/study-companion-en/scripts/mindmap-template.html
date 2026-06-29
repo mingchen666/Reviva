@@ -1,0 +1,1451 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>学习思维导图模板 - Mermaid.js</title>
+<style>
+/* ========== CSS Variables & Theme ========== */
+:root {
+  --bg-primary: #f8f9fa;
+  --bg-secondary: #ffffff;
+  --bg-sidebar: #f1f3f5;
+  --bg-code: #f8f9fa;
+  --text-primary: #212529;
+  --text-secondary: #495057;
+  --text-muted: #868e96;
+  --border-color: #dee2e6;
+  --accent: #4c6ef5;
+  --accent-hover: #3b5bdb;
+  --accent-light: #edf2ff;
+  --success: #40c057;
+  --warning: #fab005;
+  --danger: #fa5252;
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.08);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.1);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.12);
+  --radius: 8px;
+  --radius-sm: 4px;
+  --transition: 0.25s ease;
+  --sidebar-width: 420px;
+  --header-height: 56px;
+}
+
+[data-theme="dark"] {
+  --bg-primary: #1a1b1e;
+  --bg-secondary: #25262b;
+  --bg-sidebar: #2c2e33;
+  --bg-code: #2c2e33;
+  --text-primary: #e9ecef;
+  --text-secondary: #adb5bd;
+  --text-muted: #868e96;
+  --border-color: #373a40;
+  --accent: #5c7cfa;
+  --accent-hover: #748ffc;
+  --accent-light: #1c2541;
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.3);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.4);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.5);
+}
+
+/* ========== Reset & Base ========== */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+    "Hiragino Sans GB", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  line-height: 1.6;
+  transition: background var(--transition), color var(--transition);
+  overflow: hidden;
+  height: 100vh;
+}
+
+/* ========== Header ========== */
+.header {
+  height: var(--header-height);
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  box-shadow: var(--shadow-sm);
+  position: relative;
+  z-index: 100;
+  transition: background var(--transition), border-color var(--transition);
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.header-logo {
+  width: 32px;
+  height: 32px;
+  background: linear-gradient(135deg, var(--accent), #ae3ec9);
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-weight: 700;
+  font-size: 16px;
+}
+
+.header-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.header-subtitle {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-left: 8px;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ========== Buttons ========== */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition);
+  white-space: nowrap;
+  font-family: inherit;
+}
+
+.btn:hover {
+  background: var(--bg-sidebar);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+.btn-primary:hover {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+  color: #fff;
+}
+
+.btn-success {
+  background: var(--success);
+  color: #fff;
+  border-color: var(--success);
+}
+
+.btn-success:hover {
+  opacity: 0.9;
+  color: #fff;
+}
+
+.btn-icon {
+  padding: 7px 10px;
+  font-size: 16px;
+}
+
+.btn-sm {
+  padding: 5px 10px;
+  font-size: 12px;
+}
+
+/* ========== Main Layout ========== */
+.main-container {
+  display: flex;
+  height: calc(100vh - var(--header-height));
+  transition: all var(--transition);
+}
+
+/* ========== Sidebar ========== */
+.sidebar {
+  width: var(--sidebar-width);
+  min-width: var(--sidebar-width);
+  background: var(--bg-sidebar);
+  border-right: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  transition: background var(--transition), border-color var(--transition), min-width var(--transition), width var(--transition);
+  overflow: hidden;
+}
+
+.sidebar.collapsed {
+  min-width: 0;
+  width: 0;
+  border-right: none;
+}
+
+.sidebar-header {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+}
+
+.sidebar-header h3 {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.sidebar-section {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-color);
+  flex-shrink: 0;
+}
+
+.sidebar-section label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* ========== Select Dropdown ========== */
+.select-wrapper {
+  position: relative;
+}
+
+.select-wrapper select {
+  width: 100%;
+  padding: 8px 32px 8px 10px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+  appearance: none;
+  transition: border-color var(--transition);
+}
+
+.select-wrapper select:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.select-wrapper::after {
+  content: "\25BC";
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 10px;
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+/* ========== Code Editor ========== */
+.editor-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 0 16px 12px;
+}
+
+.editor-container label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding-top: 12px;
+  flex-shrink: 0;
+}
+
+#mermaid-source {
+  flex: 1;
+  width: 100%;
+  min-height: 200px;
+  padding: 12px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--bg-code);
+  color: var(--text-primary);
+  font-family: "Cascadia Code", "Fira Code", "JetBrains Mono", "Source Code Pro",
+    "Consolas", monospace;
+  font-size: 13px;
+  line-height: 1.5;
+  resize: none;
+  tab-size: 2;
+  transition: border-color var(--transition), background var(--transition);
+}
+
+#mermaid-source:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-light);
+}
+
+/* ========== Action Buttons ========== */
+.action-bar {
+  display: flex;
+  gap: 6px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--border-color);
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+/* ========== Diagram Area ========== */
+.diagram-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background: var(--bg-primary);
+  transition: background var(--transition);
+}
+
+.diagram-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 16px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
+  flex-shrink: 0;
+  transition: background var(--transition), border-color var(--transition);
+}
+
+.diagram-toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.diagram-toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.zoom-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.zoom-label {
+  font-size: 12px;
+  color: var(--text-muted);
+  min-width: 40px;
+  text-align: center;
+}
+
+.diagram-content {
+  flex: 1;
+  overflow: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  position: relative;
+}
+
+#mermaid-output {
+  background: var(--bg-secondary);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-md);
+  padding: 32px;
+  max-width: 100%;
+  overflow: auto;
+  transition: background var(--transition), box-shadow var(--transition);
+  transform-origin: center center;
+}
+
+#mermaid-output svg {
+  max-width: 100%;
+  height: auto;
+}
+
+/* ========== Error Display ========== */
+.error-display {
+  display: none;
+  background: #fff5f5;
+  border: 1px solid #ffc9c9;
+  border-radius: var(--radius-sm);
+  padding: 12px 16px;
+  color: #c92a2a;
+  font-size: 13px;
+  margin: 16px;
+  max-width: 600px;
+}
+
+[data-theme="dark"] .error-display {
+  background: #3b1c1c;
+  border-color: #6b2c2c;
+  color: #ff8787;
+}
+
+.error-display.visible {
+  display: block;
+}
+
+/* ========== Tips Section ========== */
+.tips-panel {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 1000;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+}
+
+.tips-panel.visible {
+  display: flex;
+}
+
+.tips-content {
+  background: var(--bg-secondary);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
+  max-width: 720px;
+  width: 100%;
+  max-height: 80vh;
+  overflow-y: auto;
+  padding: 28px;
+  transition: background var(--transition);
+}
+
+.tips-content h2 {
+  font-size: 20px;
+  font-weight: 700;
+  margin-bottom: 16px;
+  color: var(--text-primary);
+}
+
+.tips-content h3 {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 16px 0 8px;
+  color: var(--accent);
+}
+
+.tips-content p, .tips-content li {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.7;
+}
+
+.tips-content ul {
+  padding-left: 20px;
+  margin-bottom: 8px;
+}
+
+.tips-content code {
+  background: var(--bg-code);
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 12px;
+  font-family: "Cascadia Code", "Fira Code", monospace;
+  color: var(--accent);
+}
+
+.tips-content pre {
+  background: var(--bg-code);
+  padding: 12px;
+  border-radius: var(--radius-sm);
+  overflow-x: auto;
+  margin: 8px 0 12px;
+  font-size: 12px;
+  line-height: 1.5;
+  font-family: "Cascadia Code", "Fira Code", monospace;
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+}
+
+.tips-close {
+  float: right;
+  background: none;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+  color: var(--text-muted);
+  padding: 0 4px;
+}
+
+.tips-close:hover {
+  color: var(--text-primary);
+}
+
+/* ========== Toast ========== */
+.toast {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  padding: 12px 20px;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
+  font-size: 13px;
+  z-index: 2000;
+  transform: translateY(80px);
+  opacity: 0;
+  transition: all 0.3s ease;
+  border-left: 3px solid var(--success);
+}
+
+.toast.show {
+  transform: translateY(0);
+  opacity: 1;
+}
+
+/* ========== Print Styles ========== */
+@media print {
+  .header, .sidebar, .diagram-toolbar, .action-bar, .tips-panel, .toast {
+    display: none !important;
+  }
+
+  .main-container {
+    height: auto;
+    display: block;
+  }
+
+  .diagram-area {
+    display: block;
+  }
+
+  .diagram-content {
+    padding: 0;
+    overflow: visible;
+  }
+
+  #mermaid-output {
+    box-shadow: none;
+    border: 1px solid #ccc;
+    padding: 16px;
+    max-width: 100%;
+  }
+
+  body {
+    overflow: visible;
+    height: auto;
+    background: #fff;
+    color: #000;
+  }
+}
+
+/* ========== Responsive ========== */
+@media (max-width: 900px) {
+  :root {
+    --sidebar-width: 320px;
+  }
+}
+
+@media (max-width: 700px) {
+  .main-container {
+    flex-direction: column;
+  }
+
+  .sidebar {
+    width: 100% !important;
+    min-width: 100% !important;
+    max-height: 45vh;
+    border-right: none;
+    border-bottom: 1px solid var(--border-color);
+  }
+
+  .sidebar.collapsed {
+    max-height: 0;
+    border-bottom: none;
+  }
+
+  .diagram-area {
+    min-height: 55vh;
+  }
+
+  .header-subtitle {
+    display: none;
+  }
+
+  .action-bar {
+    padding: 8px 12px;
+  }
+
+  .btn {
+    padding: 6px 10px;
+    font-size: 12px;
+  }
+}
+
+/* ========== Scrollbar ========== */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--text-muted);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-secondary);
+}
+
+/* ========== Category Tags ========== */
+.category-tag {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+  margin-left: 6px;
+}
+
+.tag-math { background: #d0bfff; color: #5f3dc4; }
+.tag-cs { background: #99e9f2; color: #0b7285; }
+.tag-english { background: #ffd8a8; color: #d9480f; }
+.tag-physics { background: #ffc9c9; color: #c92a2a; }
+.tag-chemistry { background: #b2f2bb; color: #2b8a3e; }
+.tag-history { background: #ffe066; color: #e67700; }
+
+[data-theme="dark"] .tag-math { background: #3b2b6b; color: #b197fc; }
+[data-theme="dark"] .tag-cs { background: #0b4a52; color: #66d9e8; }
+[data-theme="dark"] .tag-english { background: #5c3a1a; color: #ffb870; }
+[data-theme="dark"] .tag-physics { background: #5c1c1c; color: #ff8787; }
+[data-theme="dark"] .tag-chemistry { background: #1a5c2b; color: #8ce99a; }
+[data-theme="dark"] .tag-history { background: #5c4a00; color: #ffe066; }
+</style>
+</head>
+<body>
+
+<!-- ========== Header ========== -->
+<header class="header">
+  <div class="header-left">
+    <div class="header-logo">M</div>
+    <span class="header-title">学习思维导图</span>
+    <span class="header-subtitle">Mermaid.js 可视化模板</span>
+  </div>
+  <div class="header-right">
+    <button class="btn btn-sm" id="btn-tips" title="使用帮助">&#128161; 语法帮助</button>
+    <button class="btn btn-icon btn-sm" id="btn-toggle-sidebar" title="切换侧栏">&#9776;</button>
+    <button class="btn btn-icon btn-sm" id="btn-theme" title="切换主题">&#9790;</button>
+  </div>
+</header>
+
+<!-- ========== Main Container ========== -->
+<div class="main-container">
+
+  <!-- Sidebar -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <h3>&#9998; 编辑器</h3>
+    </div>
+
+    <!-- Subject Selector -->
+    <div class="sidebar-section">
+      <label>选择学科模板</label>
+      <div class="select-wrapper">
+        <select id="subject-select">
+          <option value="math">数学 - 微积分概念图</option>
+          <option value="cs">计算机 - 数据结构层次</option>
+          <option value="english">英语 - 语法规则思维导图</option>
+          <option value="physics">物理 - 力学概念图</option>
+          <option value="chemistry">化学 - 有机化学反应类型</option>
+          <option value="history">历史 - 历史事件流程图</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Diagram Type Info -->
+    <div class="sidebar-section" id="diagram-type-info">
+      <label>图表类型</label>
+      <span id="current-type" style="font-size:13px;color:var(--text-secondary);">思维导图 (mindmap)</span>
+    </div>
+
+    <!-- Code Editor -->
+    <div class="editor-container">
+      <label>Mermaid 源代码</label>
+      <textarea id="mermaid-source" spellcheck="false"></textarea>
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="action-bar">
+      <button class="btn btn-primary" id="btn-render">&#9654; 渲染</button>
+      <button class="btn" id="btn-copy">&#128203; 复制源码</button>
+      <button class="btn" id="btn-export-svg">&#128190; 导出SVG</button>
+      <button class="btn" id="btn-print">&#128424; 打印</button>
+    </div>
+  </aside>
+
+  <!-- Diagram Area -->
+  <main class="diagram-area">
+    <div class="diagram-toolbar">
+      <div class="diagram-toolbar-left">
+        <span id="diagram-title" style="font-size:14px;font-weight:600;color:var(--text-primary);">微积分概念图</span>
+        <span class="category-tag tag-math" id="category-tag">数学</span>
+      </div>
+      <div class="diagram-toolbar-right">
+        <div class="zoom-controls">
+          <button class="btn btn-icon btn-sm" id="btn-zoom-out" title="缩小">&#8722;</button>
+          <span class="zoom-label" id="zoom-label">100%</span>
+          <button class="btn btn-icon btn-sm" id="btn-zoom-in" title="放大">&#43;</button>
+          <button class="btn btn-sm" id="btn-zoom-reset" title="重置缩放">重置</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="diagram-content" id="diagram-scroll">
+      <div id="mermaid-output"></div>
+      <div class="error-display" id="error-display"></div>
+    </div>
+  </main>
+</div>
+
+<!-- ========== Tips Panel ========== -->
+<div class="tips-panel" id="tips-panel">
+  <div class="tips-content">
+    <button class="tips-close" id="tips-close">&times;</button>
+    <h2>Mermaid 语法帮助</h2>
+
+    <h3>1. 思维导图 (mindmap)</h3>
+    <p>用于层级概念展示，从中心向外扩展：</p>
+    <pre>mindmap
+  root((中心主题))
+    分支一
+      子节点1
+      子节点2
+    分支二
+      子节点3</pre>
+    <p>节点形状：<code>((圆))</code> 圆形根节点，<code>(圆角)</code> 圆角矩形，<code>[方括号]</code> 默认形状</p>
+
+    <h3>2. 流程图 (flowchart)</h3>
+    <p>用于流程和算法展示：</p>
+    <pre>flowchart TD
+  A[开始] --> B{判断}
+  B -->|是| C[执行A]
+  B -->|否| D[执行B]
+  C --> E[结束]
+  D --> E</pre>
+    <p>方向：<code>TD</code> 上到下，<code>LR</code> 左到右，<code>RL</code> 右到左</p>
+    <p>节点：<code>[矩形]</code>，<code>{菱形}</code>，<code>((圆形))</code>，<code>[/平行四边形/]</code></p>
+
+    <h3>3. 类图 (classDiagram)</h3>
+    <p>用于面向对象和CS概念：</p>
+    <pre>classDiagram
+  Animal &lt;|-- Duck
+  Animal : +String name
+  Animal : +makeSound()
+  class Duck {
+    +swim()
+  }</pre>
+    <p>关系：<code>&lt;|--</code> 继承，<code>*--</code> 组合，<code>o--</code> 聚合，<code>..&gt;</code> 依赖</p>
+
+    <h3>4. 时序图 (sequenceDiagram)</h3>
+    <p>用于交互流程展示：</p>
+    <pre>sequenceDiagram
+  participant A as 客户端
+  participant B as 服务器
+  A->>B: 发送请求
+  B-->>A: 返回响应</pre>
+    <p>箭头：<code>->></code> 实线，<code>-->></code> 虚线，<code>-x</code> 异步</p>
+
+    <h3>5. 样式自定义</h3>
+    <p>使用 <code>classDef</code> 定义样式类：</p>
+    <pre>classDef highlight fill:#ff6b6b,stroke:#333,stroke-width:2px
+classDef info fill:#4ecdc4,stroke:#333,stroke-width:2px
+A:::highlight
+B:::info</pre>
+
+    <h3>6. 实用技巧</h3>
+    <ul>
+      <li>使用 <code>&amp;nbsp;</code> 或引号包裹含特殊字符的文本</li>
+      <li>用 <code>subgraph</code> 对节点分组</li>
+      <li>用 <code>click</code> 添加链接交互</li>
+      <li>长文本用 <code>&lt;br/&gt;</code> 换行</li>
+      <li>中文文本建议用引号包裹避免解析问题</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ========== Toast ========== -->
+<div class="toast" id="toast"></div>
+
+<!-- ========== Mermaid.js ========== -->
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+
+<script>
+// ========== Diagram Templates ==========
+const templates = {
+  math: {
+    title: '微积分概念图',
+    category: '数学',
+    tagClass: 'tag-math',
+    type: '思维导图 (mindmap)',
+    code: `mindmap
+  root((微积分))
+    极限
+      数列极限
+        收敛与发散
+        夹逼定理
+      函数极限
+        左极限与右极限
+        洛必达法则
+        无穷小量
+      连续性
+        间断点
+        一致连续
+    导数
+      定义
+        增量比极限
+        几何意义:切线斜率
+      求导法则
+        四则运算
+        链式法则
+        隐函数求导
+      应用
+        极值问题
+        最优化
+        相关变化率
+        函数图像分析
+    积分
+      不定积分
+        原函数
+        基本积分公式
+        换元积分法
+        分部积分法
+      定积分
+        牛顿-莱布尼茨公式
+        黎曼和
+        积分中值定理
+      应用
+        面积计算
+        体积计算
+        弧长与曲率
+    级数
+      数项级数
+        收敛判别法
+        比值判别法
+        根值判别法
+      幂级数
+        收敛半径
+        泰勒展开
+        麦克劳林级数
+      傅里叶级数
+        三角函数系
+        收敛性`
+  },
+
+  cs: {
+    title: '数据结构层次',
+    category: '计算机',
+    tagClass: 'tag-cs',
+    type: '类图 (classDiagram)',
+    code: `classDiagram
+  class 数据结构 {
+    <<abstract>>
+    +insert(element)
+    +delete(element)
+    +search(element)
+    +traverse()
+  }
+
+  class 线性结构 {
+    <<abstract>>
+  }
+
+  class 非线性结构 {
+    <<abstract>>
+  }
+
+  class 数组 {
+    +int size
+    +access(index) O1
+    +insert() On
+  }
+
+  class 链表 {
+    +Node head
+    +insertHead() O1
+    +insertTail() On
+  }
+
+  class 栈 {
+    +push(element)
+    +pop() element
+    +peek() element
+    +LIFO原则
+  }
+
+  class 队列 {
+    +enqueue(element)
+    +dequeue() element
+    +FIFO原则
+  }
+
+  class 哈希表 {
+    +int capacity
+    +hash(key)
+    +put(key, value)
+    +get(key) value
+    +处理冲突
+  }
+
+  class 树 {
+    <<abstract>>
+    +int height
+    +depth(node)
+  }
+
+  class 二叉树 {
+    +Node root
+    +inorder()
+    +preorder()
+    +postorder()
+  }
+
+  class 二叉搜索树 {
+    +insert(key)
+    +search(key) Ologn
+    +平衡问题
+  }
+
+  class AVL树 {
+    +平衡因子
+    +左旋右旋
+    +保证Ologn
+  }
+
+  class 红黑树 {
+    +颜色属性
+    +旋转调整
+    +近似平衡
+  }
+
+  class 图 {
+    +Vertex vertices
+    +Edge edges
+    +BFS()
+    +DFS()
+    +最短路径
+    +最小生成树
+  }
+
+  数据结构 <|-- 线性结构
+  数据结构 <|-- 非线性结构
+  线性结构 <|-- 数组
+  线性结构 <|-- 链表
+  线性结构 <|-- 栈
+  线性结构 <|-- 队列
+  线性结构 <|-- 哈希表
+  非线性结构 <|-- 树
+  非线性结构 <|-- 图
+  树 <|-- 二叉树
+  二叉树 <|-- 二叉搜索树
+  二叉搜索树 <|-- AVL树
+  二叉搜索树 <|-- 红黑树`
+  },
+
+  english: {
+    title: '语法规则思维导图',
+    category: '英语',
+    tagClass: 'tag-english',
+    type: '思维导图 (mindmap)',
+    code: `mindmap
+  root((英语语法))
+    词性
+      名词 Noun
+        可数名词
+        不可数名词
+        专有名词
+      动词 Verb
+        实义动词
+        助动词
+        情态动词
+      形容词 Adjective
+        比较级
+        最高级
+      副词 Adverb
+        程度副词
+        频率副词
+      介词 Preposition
+        时间介词
+        地点介词
+      连词 Conjunction
+        并列连词
+        从属连词
+    时态
+      一般时
+        一般现在时
+        一般过去时
+        一般将来时
+      进行时
+        现在进行时
+        过去进行时
+      完成时
+        现在完成时
+        过去完成时
+        将来完成时
+      完成进行时
+        现在完成进行时
+    句型结构
+      简单句
+        主谓 SV
+        主谓宾 SVO
+        主谓双宾 SVOO
+        主谓宾补 SVOC
+        主系表 SVP
+      并列句
+        and/but/or/so
+      复合句
+        定语从句
+        名词性从句
+        状语从句
+    语态
+      主动语态
+      被动语态
+        be + 过去分词
+    特殊结构
+      虚拟语气
+        与现在事实相反
+        与过去事实相反
+        与将来事实相反
+      倒装句
+        完全倒装
+        部分倒装
+      强调句
+        It is...that...`
+  },
+
+  physics: {
+    title: '力学概念图',
+    category: '物理',
+    tagClass: 'tag-physics',
+    type: '流程图 (flowchart)',
+    code: `flowchart TD
+  A[力学] --> B[静力学]
+  A --> C[运动学]
+  A --> D[动力学]
+
+  B --> B1[力的平衡]
+  B1 --> B1a[合力为零]
+  B1 --> B1b[力矩平衡]
+  B --> B2[常见力]
+  B2 --> B2a[重力 G=mg]
+  B2 --> B2b[弹力 F=kx]
+  B2 --> B2c[摩擦力]
+  B2c --> B2c1[静摩擦力]
+  B2c --> B2c2[滑动摩擦力 f=muN]
+
+  C --> C1[直线运动]
+  C1 --> C1a["匀速直线运动
+  s=vt"]
+  C1 --> C1b["匀变速直线运动
+  v=v0+at
+  s=v0t+1/2at2"]
+  C --> C2[曲线运动]
+  C2 --> C2a[抛体运动]
+  C2 --> C2b["圆周运动
+  a=v2/r
+  omega=2pi/T"]
+  C --> C3[相对运动]
+
+  D --> D1["牛顿运动定律"]
+  D1 --> D1a["第一定律:惯性定律"]
+  D1 --> D1b["第二定律:F=ma"]
+  D1 --> D1c["第三定律:作用与反作用"]
+  D --> D2[守恒定律]
+  D2 --> D2a["动量守恒
+  p=mv
+  m1v1+m2v2=const"]
+  D2 --> D2b["能量守恒
+  Ek=1/2mv2
+  Ep=mgh"]
+  D --> D3[万有引力]
+  D3 --> D3a["F=GMm/r2"]
+  D3 --> D3b[天体运动]
+  D3 --> D3c[宇宙速度]
+
+  style A fill:#ff6b6b,color:#fff,stroke:#333,stroke-width:2px
+  style B fill:#ffa94d,color:#fff,stroke:#333,stroke-width:1px
+  style C fill:#69db7c,color:#fff,stroke:#333,stroke-width:1px
+  style D fill:#74c0fc,color:#fff,stroke:#333,stroke-width:1px
+  style D1 fill:#a5d8ff,stroke:#333,stroke-width:1px
+  style D2 fill:#a5d8ff,stroke:#333,stroke-width:1px
+  style D3 fill:#a5d8ff,stroke:#333,stroke-width:1px`
+  },
+
+  chemistry: {
+    title: '有机化学反应类型',
+    category: '化学',
+    tagClass: 'tag-chemistry',
+    type: '流程图 (flowchart)',
+    code: `flowchart LR
+  A[有机化学反应] --> B[取代反应]
+  A --> C[加成反应]
+  A --> D[消去反应]
+  A --> E[氧化还原反应]
+  A --> F[聚合反应]
+
+  B --> B1[卤代反应]
+  B1 --> B1a["烷烃+X2
+  光照条件"]
+  B --> B2[硝化反应]
+  B2 --> B2a["苯+HNO3
+  浓H2SO4催化"]
+  B --> B3[酯化反应]
+  B3 --> B3a["酸+醇
+  浓H2SO4/加热"]
+
+  C --> C1[加成卤素]
+  C1 --> C1a["烯烃+X2
+  溴水褪色"]
+  C --> C2[加成氢气]
+  C2 --> C2a["烯烃+H2
+  Ni催化"]
+  C --> C3[加成水]
+  C3 --> C3a["烯烃+H2O
+  酸催化/加热"]
+
+  D --> D1[卤化氢消去]
+  D1 --> D1a["醇+HX
+  生成烯烃"]
+  D --> D2[脱水反应]
+  D2 --> D2a["分子内脱水
+  生成烯烃"]
+  D2 --> D2b["分子间脱水
+  生成醚"]
+
+  E --> E1[催化氧化]
+  E1 --> E1a["醇氧化为醛
+  Cu/O2加热"]
+  E1 --> E1b["醛氧化为酸
+  O2催化"]
+  E --> E2[燃烧]
+  E2 --> E2a["CO2+H2O"]
+
+  F --> F1[加聚反应]
+  F1 --> F1a["乙烯聚合
+  生成聚乙烯"]
+  F --> F2[缩聚反应]
+  F2 --> F2a["氨基酸缩聚
+  生成蛋白质"]
+
+  style A fill:#40c057,color:#fff,stroke:#333,stroke-width:2px
+  style B fill:#82c91e,color:#fff,stroke:#333
+  style C fill:#20c997,color:#fff,stroke:#333
+  style D fill:#fab005,color:#fff,stroke:#333
+  style E fill:#fd7e14,color:#fff,stroke:#333
+  style F fill:#be4bdb,color:#fff,stroke:#333`
+  },
+
+  history: {
+    title: '历史事件流程图',
+    category: '历史',
+    tagClass: 'tag-history',
+    type: '时序图 (sequenceDiagram)',
+    code: `sequenceDiagram
+  participant A as 清政府
+  participant B as 列强
+  participant C as 革命派
+  participant D as 人民
+
+  Note over A,D: 1840-1842 鸦片战争
+  B->>A: 发动侵略战争
+  A->>A: 战败
+  A-->>B: 签订南京条约
+  Note right of A: 割地赔款 开放通商口岸
+
+  Note over A,D: 1851-1864 太平天国运动
+  D->>C: 洪秀全起义
+  C->>A: 建立太平天国
+  A->>C: 镇压
+  Note right of C: 农民运动失败
+
+  Note over A,D: 1894-1895 甲午战争
+  B->>A: 日本发动战争
+  A->>A: 北洋水师覆灭
+  A-->>B: 签订马关条约
+  Note right of A: 割台湾 赔款2亿两
+
+  Note over A,D: 1898 戊戌变法
+  C->>A: 康有为梁启超变法
+  A->>C: 慈禧发动政变
+  Note right of C: 百日维新失败
+
+  Note over A,D: 1900 八国联军侵华
+  B->>A: 八国联军入侵
+  A-->>B: 辛丑条约
+  Note right of A: 完全沦为半殖民地
+
+  Note over A,D: 1911 辛亥革命
+  C->>A: 武昌起义
+  A->>A: 清帝退位
+  C->>C: 建立中华民国
+  Note right of C: 结束两千年帝制`
+  }
+};
+
+// ========== State ==========
+let currentZoom = 1;
+let currentTheme = 'light';
+let renderCounter = 0;
+
+// ========== Initialize Mermaid ==========
+function initMermaid() {
+  mermaid.initialize({
+    startOnLoad: false,
+    theme: currentTheme === 'dark' ? 'dark' : 'default',
+    securityLevel: 'loose',
+    mindmap: {
+      padding: 16,
+      useMaxWidth: true
+    },
+    flowchart: {
+      useMaxWidth: true,
+      htmlLabels: true,
+      curve: 'basis'
+    },
+    sequence: {
+      useMaxWidth: true,
+      actorMargin: 50,
+      messageMargin: 35
+    }
+  });
+}
+
+// ========== Render Diagram ==========
+async function renderDiagram() {
+  const source = document.getElementById('mermaid-source').value.trim();
+  const output = document.getElementById('mermaid-output');
+  const errorDisplay = document.getElementById('error-display');
+
+  if (!source) {
+    errorDisplay.textContent = '请输入 Mermaid 源代码';
+    errorDisplay.classList.add('visible');
+    output.innerHTML = '';
+    return;
+  }
+
+  errorDisplay.classList.remove('visible');
+  output.innerHTML = '<div style="color:var(--text-muted);font-size:14px;">渲染中...</div>';
+
+  try {
+    renderCounter++;
+    const id = `mermaid-diagram-${renderCounter}`;
+    const { svg } = await mermaid.render(id, source);
+    output.innerHTML = svg;
+    applyZoom();
+  } catch (err) {
+    errorDisplay.textContent = `渲染错误: ${err.message || err}`;
+    errorDisplay.classList.add('visible');
+    output.innerHTML = '';
+    // Clean up any partially created elements
+    const brokenEl = document.getElementById(`dmermaid-diagram-${renderCounter}`);
+    if (brokenEl) brokenEl.remove();
+  }
+}
+
+// ========== Load Template ==========
+function loadTemplate(key) {
+  const tpl = templates[key];
+  if (!tpl) return;
+
+  document.getElementById('mermaid-source').value = tpl.code;
+  document.getElementById('diagram-title').textContent = tpl.title;
+  document.getElementById('current-type').textContent = tpl.type;
+
+  const tag = document.getElementById('category-tag');
+  tag.textContent = tpl.category;
+  tag.className = `category-tag ${tpl.tagClass}`;
+
+  renderDiagram();
+}
+
+// ========== Zoom ==========
+function applyZoom() {
+  const output = document.getElementById('mermaid-output');
+  output.style.transform = `scale(${currentZoom})`;
+  output.style.transformOrigin = 'center center';
+  document.getElementById('zoom-label').textContent = `${Math.round(currentZoom * 100)}%`;
+}
+
+function zoomIn() {
+  currentZoom = Math.min(3, currentZoom + 0.1);
+  applyZoom();
+}
+
+function zoomOut() {
+  currentZoom = Math.max(0.2, currentZoom - 0.1);
+  applyZoom();
+}
+
+function zoomReset() {
+  currentZoom = 1;
+  applyZoom();
+}
+
+// ========== Theme Toggle ==========
+function toggleTheme() {
+  currentTheme = currentTheme === 'light' ? 'dark' : 'light';
+  document.documentElement.setAttribute('data-theme', currentTheme);
+  document.getElementById('btn-theme').innerHTML = currentTheme === 'light' ? '&#9790;' : '&#9788;';
+
+  // Re-initialize mermaid with new theme
+  initMermaid();
+  renderDiagram();
+}
+
+// ========== Copy Source ==========
+function copySource() {
+  const source = document.getElementById('mermaid-source').value;
+  navigator.clipboard.writeText(source).then(() => {
+    showToast('源代码已复制到剪贴板');
+  }).catch(() => {
+    // Fallback
+    const textarea = document.getElementById('mermaid-source');
+    textarea.select();
+    document.execCommand('copy');
+    showToast('源代码已复制到剪贴板');
+  });
+}
+
+// ========== Export SVG ==========
+function exportSVG() {
+  const svgEl = document.querySelector('#mermaid-output svg');
+  if (!svgEl) {
+    showToast('请先渲染图表');
+    return;
+  }
+
+  const svgData = new XMLSerializer().serializeToString(svgEl);
+  const blob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = 'mindmap-diagram.svg';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+
+  showToast('SVG 文件已下载');
+}
+
+// ========== Print ==========
+function printDiagram() {
+  window.print();
+}
+
+// ========== Toast ==========
+function showToast(message) {
+  const toast = document.getElementById('toast');
+  toast.textContent = message;
+  toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), 2500);
+}
+
+// ========== Toggle Sidebar ==========
+function toggleSidebar() {
+  const sidebar = document.getElementById('sidebar');
+  sidebar.classList.toggle('collapsed');
+}
+
+// ========== Tips Panel ==========
+function showTips() {
+  document.getElementById('tips-panel').classList.add('visible');
+}
+
+function hideTips() {
+  document.getElementById('tips-panel').classList.remove('visible');
+}
+
+// ========== Keyboard Shortcuts ==========
+document.addEventListener('keydown', (e) => {
+  // Ctrl+Enter to render
+  if (e.ctrlKey && e.key === 'Enter') {
+    e.preventDefault();
+    renderDiagram();
+  }
+  // Escape to close tips
+  if (e.key === 'Escape') {
+    hideTips();
+  }
+});
+
+// ========== Tab key in textarea ==========
+document.getElementById('mermaid-source').addEventListener('keydown', (e) => {
+  if (e.key === 'Tab') {
+    e.preventDefault();
+    const textarea = e.target;
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    textarea.value = textarea.value.substring(0, start) + '  ' + textarea.value.substring(end);
+    textarea.selectionStart = textarea.selectionEnd = start + 2;
+  }
+});
+
+// ========== Event Bindings ==========
+document.getElementById('btn-render').addEventListener('click', renderDiagram);
+document.getElementById('btn-copy').addEventListener('click', copySource);
+document.getElementById('btn-export-svg').addEventListener('click', exportSVG);
+document.getElementById('btn-print').addEventListener('click', printDiagram);
+document.getElementById('btn-theme').addEventListener('click', toggleTheme);
+document.getElementById('btn-toggle-sidebar').addEventListener('click', toggleSidebar);
+document.getElementById('btn-tips').addEventListener('click', showTips);
+document.getElementById('tips-close').addEventListener('click', hideTips);
+document.getElementById('btn-zoom-in').addEventListener('click', zoomIn);
+document.getElementById('btn-zoom-out').addEventListener('click', zoomOut);
+document.getElementById('btn-zoom-reset').addEventListener('click', zoomReset);
+
+// Close tips when clicking outside
+document.getElementById('tips-panel').addEventListener('click', (e) => {
+  if (e.target === document.getElementById('tips-panel')) {
+    hideTips();
+  }
+});
+
+// Subject selector
+document.getElementById('subject-select').addEventListener('change', (e) => {
+  loadTemplate(e.target.value);
+});
+
+// ========== Initialize ==========
+initMermaid();
+loadTemplate('math');
+</script>
+</body>
+</html>

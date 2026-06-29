@@ -1,0 +1,1350 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>错题本 - 智能错题管理</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --primary:#2d6a4f;--primary-light:#40916c;--primary-dark:#1b4332;
+  --accent:#d62828;--accent-light:#e85d4a;
+  --bg:#f0f4f0;--surface:#ffffff;--surface2:#e8ede8;--surface3:#d5ddd5;
+  --text:#1a1a2e;--text2:#5a6270;--text3:#8a929e;
+  --border:#c8d0c8;--border2:#a8b4a8;
+  --shadow:0 2px 12px rgba(45,106,79,.08);--shadow-lg:0 8px 32px rgba(45,106,79,.12);
+  --radius:12px;--radius-sm:8px;--radius-lg:16px;
+  --error-concept:#d62828;--error-reading:#e76f00;--error-calc:#e9c46a;
+  --error-logic:#2a9d8f;--error-omission:#7b2cbf;
+  --transition:.25s ease;
+}
+[data-theme="dark"]{
+  --bg:#0f1a14;--surface:#1a2b22;--surface2:#243830;--surface3:#2e4a3c;
+  --text:#e0e8e4;--text2:#8fa898;--text3:#5e7a68;
+  --border:#2e4a3c;--border2:#3e6a52;
+  --shadow:0 2px 12px rgba(0,0,0,.3);--shadow-lg:0 8px 32px rgba(0,0,0,.4);
+  --error-concept:#ff4d4d;--error-reading:#ff9e40;--error-calc:#ffd166;
+  --error-logic:#40c9b0;--error-omission:#b57eed;
+}
+html{font-size:16px;-webkit-font-smoothing:antialiased;scroll-behavior:smooth}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans SC","PingFang SC",sans-serif;background:var(--bg);color:var(--text);min-height:100dvh;transition:background var(--transition),color var(--transition)}
+
+/* ===== Header ===== */
+.header{background:var(--surface);border-bottom:1px solid var(--border);padding:12px 24px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;position:sticky;top:0;z-index:50;box-shadow:var(--shadow)}
+.header-left{display:flex;align-items:center;gap:12px}
+.header h1{font-size:1.4rem;font-weight:800;color:var(--primary);letter-spacing:-.02em}
+.header h1 span{color:var(--accent);font-size:1.1rem;margin-left:4px}
+.header-actions{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.hbtn{padding:7px 14px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--surface);color:var(--text2);font-size:.8rem;cursor:pointer;transition:all var(--transition);display:flex;align-items:center;gap:5px;white-space:nowrap;font-family:inherit}
+.hbtn:hover{border-color:var(--primary);color:var(--primary);background:var(--surface2)}
+.hbtn.active{background:var(--primary);color:#fff;border-color:var(--primary)}
+.hbtn.primary{background:var(--primary);color:#fff;border-color:var(--primary)}
+.hbtn.primary:hover{background:var(--primary-light)}
+.hbtn.danger{color:var(--accent);border-color:var(--accent)}
+.hbtn.danger:hover{background:var(--accent);color:#fff}
+
+/* ===== Main Layout ===== */
+.main{display:flex;height:calc(100dvh - 57px);overflow:hidden}
+.list-panel{width:380px;min-width:320px;border-right:1px solid var(--border);display:flex;flex-direction:column;background:var(--bg);overflow:hidden;transition:width var(--transition)}
+.detail-panel{flex:1;overflow-y:auto;padding:24px;background:var(--bg)}
+
+/* ===== Filters ===== */
+.filters{padding:12px 16px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;flex-direction:column;gap:8px}
+.filter-row{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.filter-label{font-size:.7rem;color:var(--text3);font-weight:600;letter-spacing:.04em;min-width:40px}
+.fchip{padding:4px 10px;border-radius:14px;border:1px solid var(--border);background:var(--surface);color:var(--text2);font-size:.72rem;cursor:pointer;transition:all var(--transition);white-space:nowrap;font-family:inherit}
+.fchip:hover{border-color:var(--primary);color:var(--primary)}
+.fchip.active{background:var(--primary);color:#fff;border-color:var(--primary)}
+.fchip.type-concept.active{background:var(--error-concept);border-color:var(--error-concept);color:#fff}
+.fchip.type-reading.active{background:var(--error-reading);border-color:var(--error-reading);color:#fff}
+.fchip.type-calc.active{background:var(--error-calc);border-color:var(--error-calc);color:#1a1a2e}
+.fchip.type-logic.active{background:var(--error-logic);border-color:var(--error-logic);color:#fff}
+.fchip.type-omission.active{background:var(--error-omission);border-color:var(--error-omission);color:#fff}
+.search-box{width:100%;padding:8px 12px 8px 32px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:.82rem;transition:all var(--transition);font-family:inherit}
+.search-box:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px rgba(45,106,79,.12)}
+.search-wrap{position:relative}
+.search-wrap::before{content:"\1F50D";position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:.8rem;opacity:.5}
+.sort-row{display:flex;gap:6px;align-items:center}
+.sort-btn{padding:3px 8px;border-radius:6px;border:none;background:transparent;color:var(--text3);font-size:.7rem;cursor:pointer;transition:all var(--transition);font-family:inherit}
+.sort-btn:hover{color:var(--primary)}
+.sort-btn.active{color:var(--primary);font-weight:600}
+
+/* ===== Error List ===== */
+.error-list{flex:1;overflow-y:auto;padding:8px}
+.error-item{padding:12px 14px;border-radius:var(--radius-sm);background:var(--surface);border:1px solid var(--border);margin-bottom:6px;cursor:pointer;transition:all var(--transition);position:relative}
+.error-item:hover{border-color:var(--primary);box-shadow:var(--shadow);transform:translateX(2px)}
+.error-item.selected{border-color:var(--primary);background:var(--surface2);box-shadow:inset 3px 0 0 var(--primary)}
+.error-item-header{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:6px}
+.error-question{font-size:.82rem;font-weight:600;color:var(--text);line-height:1.4;flex:1;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.error-badge{padding:2px 8px;border-radius:10px;font-size:.65rem;font-weight:600;white-space:nowrap;flex-shrink:0}
+.badge-concept{background:rgba(214,40,40,.12);color:var(--error-concept)}
+.badge-reading{background:rgba(231,111,0,.12);color:var(--error-reading)}
+.badge-calc{background:rgba(233,196,106,.2);color:var(--error-calc)}
+.badge-logic{background:rgba(42,157,143,.12);color:var(--error-logic)}
+.badge-omission{background:rgba(123,44,191,.12);color:var(--error-omission)}
+.error-meta{display:flex;gap:8px;align-items:center;font-size:.7rem;color:var(--text3)}
+.error-subject{color:var(--primary);font-weight:600}
+.error-date{}
+.error-tags{display:flex;gap:4px;flex-wrap:wrap;margin-top:4px}
+.error-tag{font-size:.6rem;padding:1px 6px;border-radius:4px;background:var(--surface2);color:var(--text3)}
+.error-difficulty{display:flex;gap:2px;align-items:center}
+.diff-dot{width:6px;height:6px;border-radius:50%;background:var(--border)}
+.diff-dot.filled{background:var(--accent)}
+.empty-list{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px 20px;color:var(--text3);text-align:center}
+.empty-list-icon{font-size:3rem;margin-bottom:12px;opacity:.4}
+.empty-list-text{font-size:.9rem;margin-bottom:4px}
+.empty-list-sub{font-size:.75rem;opacity:.6}
+
+/* ===== Detail Panel ===== */
+.detail-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:var(--text3);text-align:center}
+.detail-empty-icon{font-size:4rem;margin-bottom:16px;opacity:.3}
+.detail-empty-text{font-size:1.1rem;margin-bottom:6px}
+.detail-empty-sub{font-size:.8rem;opacity:.6}
+.detail-card{background:var(--surface);border-radius:var(--radius-lg);border:1px solid var(--border);box-shadow:var(--shadow);overflow:hidden}
+.detail-header{padding:20px 24px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.detail-title{font-size:1.1rem;font-weight:700;color:var(--text);line-height:1.4;flex:1}
+.detail-actions{display:flex;gap:6px;flex-shrink:0}
+.detail-body{padding:20px 24px}
+.detail-section{margin-bottom:20px}
+.detail-section:last-child{margin-bottom:0}
+.detail-label{font-size:.7rem;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;display:flex;align-items:center;gap:6px}
+.detail-label-icon{font-size:.8rem}
+.detail-value{font-size:.88rem;color:var(--text);line-height:1.6}
+.detail-value.mono{font-family:"SF Mono","Fira Code",monospace;background:var(--surface2);padding:8px 12px;border-radius:var(--radius-sm);font-size:.82rem;white-space:pre-wrap;word-break:break-all}
+.answer-compare{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.answer-box{padding:12px;border-radius:var(--radius-sm);border:1px solid var(--border)}
+.answer-box.wrong{border-color:var(--accent);background:rgba(214,40,40,.05)}
+.answer-box.correct{border-color:var(--primary);background:rgba(45,106,79,.05)}
+.answer-box-label{font-size:.65rem;font-weight:700;margin-bottom:4px;display:flex;align-items:center;gap:4px}
+.answer-box.wrong .answer-box-label{color:var(--accent)}
+.answer-box.correct .answer-box-label{color:var(--primary)}
+.answer-box-content{font-size:.85rem;line-height:1.5}
+
+/* Why Chain */
+.why-chain{display:flex;flex-direction:column;gap:0;position:relative}
+.why-step{display:flex;gap:12px;position:relative}
+.why-connector{width:24px;display:flex;flex-direction:column;align-items:center;flex-shrink:0}
+.why-dot{width:10px;height:10px;border-radius:50%;background:var(--primary);border:2px solid var(--surface);box-shadow:0 0 0 2px var(--primary);flex-shrink:0;margin-top:6px}
+.why-line{width:2px;flex:1;background:var(--border);min-height:20px}
+.why-content{flex:1;padding-bottom:16px}
+.why-content:last-child{padding-bottom:0}
+.why-num{font-size:.65rem;font-weight:700;color:var(--primary);margin-bottom:2px}
+.why-text{font-size:.82rem;color:var(--text);line-height:1.5}
+
+/* Correction Plan */
+.plan-box{background:rgba(45,106,79,.06);border:1px solid rgba(45,106,79,.15);border-radius:var(--radius-sm);padding:12px 14px}
+.plan-text{font-size:.85rem;color:var(--text);line-height:1.6}
+
+/* Tags in detail */
+.detail-tags{display:flex;gap:6px;flex-wrap:wrap}
+.detail-tag{padding:3px 10px;border-radius:12px;font-size:.72rem;background:var(--surface2);color:var(--text2);border:1px solid var(--border)}
+
+/* ===== Redo Mode ===== */
+.redo-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:200;display:none;align-items:center;justify-content:center;padding:20px}
+.redo-overlay.open{display:flex}
+.redo-card{background:var(--surface);border-radius:var(--radius-lg);box-shadow:var(--shadow-lg);width:min(600px,94vw);max-height:90vh;overflow-y:auto;padding:28px}
+.redo-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px}
+.redo-title{font-size:1.2rem;font-weight:700;color:var(--primary)}
+.redo-progress{font-size:.8rem;color:var(--text3)}
+.redo-question{font-size:1rem;font-weight:600;color:var(--text);line-height:1.6;margin-bottom:20px;padding:16px;background:var(--surface2);border-radius:var(--radius-sm)}
+.redo-input-area{margin-bottom:16px}
+.redo-input{width:100%;padding:12px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:.9rem;font-family:inherit;min-height:80px;resize:vertical;transition:border-color var(--transition)}
+.redo-input:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px rgba(45,106,79,.12)}
+.redo-actions{display:flex;gap:8px;justify-content:center;margin-top:16px}
+.redo-result{margin-top:16px;padding:16px;border-radius:var(--radius-sm);display:none}
+.redo-result.show{display:block}
+.redo-result.correct{background:rgba(45,106,79,.08);border:1px solid rgba(45,106,79,.2)}
+.redo-result.wrong{background:rgba(214,40,40,.06);border:1px solid rgba(214,40,40,.15)}
+.redo-result-label{font-size:.8rem;font-weight:700;margin-bottom:6px}
+.redo-result.correct .redo-result-label{color:var(--primary)}
+.redo-result.wrong .redo-result-label{color:var(--accent)}
+.redo-result-content{font-size:.85rem;line-height:1.5;color:var(--text)}
+.redo-nav{display:flex;justify-content:space-between;align-items:center;margin-top:20px;padding-top:16px;border-top:1px solid var(--border)}
+
+/* ===== Statistics Modal ===== */
+.stats-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:200;display:none;align-items:center;justify-content:center;padding:20px}
+.stats-overlay.open{display:flex}
+.stats-card{background:var(--surface);border-radius:var(--radius-lg);box-shadow:var(--shadow-lg);width:min(900px,96vw);max-height:92vh;overflow-y:auto;padding:28px}
+.stats-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px}
+.stats-title{font-size:1.3rem;font-weight:800;color:var(--primary)}
+.stats-close{width:36px;height:36px;border-radius:50%;border:1px solid var(--border);background:var(--surface);color:var(--text2);cursor:pointer;font-size:1.1rem;display:flex;align-items:center;justify-content:center;transition:all var(--transition)}
+.stats-close:hover{background:var(--surface2);color:var(--text)}
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:20px;margin-bottom:24px}
+.stats-chart-box{background:var(--surface2);border-radius:var(--radius);padding:16px;border:1px solid var(--border)}
+.stats-chart-title{font-size:.8rem;font-weight:700;color:var(--text2);margin-bottom:12px;text-align:center}
+.stats-chart-box canvas{width:100%;display:block}
+.stats-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px}
+.stats-num-box{background:var(--surface2);border-radius:var(--radius-sm);padding:14px;text-align:center;border:1px solid var(--border)}
+.stats-num{font-size:1.8rem;font-weight:800;color:var(--primary)}
+.stats-num-label{font-size:.7rem;color:var(--text3);margin-top:2px}
+
+/* ===== Form Modal ===== */
+.form-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:200;display:none;align-items:flex-start;justify-content:center;padding:20px;overflow-y:auto}
+.form-overlay.open{display:flex}
+.form-card{background:var(--surface);border-radius:var(--radius-lg);box-shadow:var(--shadow-lg);width:min(680px,96vw);padding:28px;margin:20px 0}
+.form-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid var(--border)}
+.form-title{font-size:1.2rem;font-weight:800;color:var(--primary)}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.form-group{display:flex;flex-direction:column;gap:4px}
+.form-group.full{grid-column:1/-1}
+.form-label{font-size:.72rem;font-weight:600;color:var(--text2)}
+.form-input,.form-select,.form-textarea{padding:9px 12px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:.84rem;font-family:inherit;transition:border-color var(--transition)}
+.form-input:focus,.form-select:focus,.form-textarea:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px rgba(45,106,79,.12)}
+.form-textarea{min-height:80px;resize:vertical}
+.form-select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%235a6270' d='M6 8L1 3h10z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;padding-right:28px}
+.why-inputs{display:flex;flex-direction:column;gap:8px}
+.why-input-row{display:flex;gap:8px;align-items:flex-start}
+.why-input-num{width:24px;height:32px;border-radius:50%;background:var(--primary);color:#fff;font-size:.7rem;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:6px}
+.form-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:20px;padding-top:16px;border-top:1px solid var(--border)}
+.difficulty-select{display:flex;gap:6px;align-items:center}
+.diff-btn{width:28px;height:28px;border-radius:50%;border:1px solid var(--border);background:var(--surface);color:var(--text3);font-size:.75rem;cursor:pointer;transition:all var(--transition);display:flex;align-items:center;justify-content:center}
+.diff-btn:hover{border-color:var(--accent)}
+.diff-btn.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+
+/* ===== Responsive ===== */
+@media(max-width:768px){
+  .main{flex-direction:column;height:auto}
+  .list-panel{width:100%;min-width:0;max-height:45vh;border-right:none;border-bottom:1px solid var(--border)}
+  .detail-panel{min-height:55vh}
+  .header{padding:10px 14px}
+  .header h1{font-size:1.1rem}
+  .hbtn{padding:5px 10px;font-size:.72rem}
+  .form-grid{grid-template-columns:1fr}
+  .answer-compare{grid-template-columns:1fr}
+  .stats-grid{grid-template-columns:1fr}
+}
+
+/* ===== Print ===== */
+@media print{
+  .header,.filters,.form-overlay,.stats-overlay,.redo-overlay,.detail-actions,.hbtn{display:none!important}
+  .main{display:block;height:auto}
+  .list-panel{width:100%;border:none;max-height:none;overflow:visible}
+  .detail-panel{padding:0;overflow:visible}
+  .error-item{break-inside:avoid;margin-bottom:8px;border:1px solid #ccc;box-shadow:none}
+  .detail-card{break-inside:avoid;box-shadow:none;border:1px solid #ccc}
+  body{background:#fff;color:#000}
+  .error-badge,.badge-concept,.badge-reading,.badge-calc,.badge-logic,.badge-omission{color:#000!important;background:#eee!important}
+}
+
+/* ===== Scrollbar ===== */
+::-webkit-scrollbar{width:6px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:var(--border2)}
+
+/* ===== Animations ===== */
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+@keyframes slideIn{from{opacity:0;transform:translateX(-12px)}to{opacity:1;transform:translateX(0)}}
+.error-item{animation:fadeIn .3s ease}
+.detail-card{animation:fadeIn .25s ease}
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<header class="header">
+  <div class="header-left">
+    <h1>错题本<span>Correction Book</span></h1>
+  </div>
+  <div class="header-actions">
+    <button class="hbtn primary" onclick="openForm()">+ 添加错题</button>
+    <button class="hbtn" id="btnStats" onclick="openStats()">统计</button>
+    <button class="hbtn" id="btnRedo" onclick="openRedo()">重做模式</button>
+    <button class="hbtn" id="btnTheme" onclick="toggleTheme()">主题</button>
+    <button class="hbtn" onclick="window.print()">打印</button>
+    <button class="hbtn" onclick="exportJSON()">导出</button>
+  </div>
+</header>
+
+<!-- Main Layout -->
+<div class="main">
+  <!-- Left: List Panel -->
+  <div class="list-panel">
+    <div class="filters">
+      <div class="search-wrap">
+        <input class="search-box" id="searchInput" placeholder="搜索题目、分析内容..." oninput="applyFilters()">
+      </div>
+      <div class="filter-row">
+        <span class="filter-label">学科</span>
+        <button class="fchip active" data-filter="subject" data-value="all" onclick="toggleFilter(this)">全部</button>
+        <button class="fchip" data-filter="subject" data-value="数学" onclick="toggleFilter(this)">数学</button>
+        <button class="fchip" data-filter="subject" data-value="物理" onclick="toggleFilter(this)">物理</button>
+        <button class="fchip" data-filter="subject" data-value="化学" onclick="toggleFilter(this)">化学</button>
+      </div>
+      <div class="filter-row">
+        <span class="filter-label">类型</span>
+        <button class="fchip active" data-filter="type" data-value="all" onclick="toggleFilter(this)">全部</button>
+        <button class="fchip type-concept" data-filter="type" data-value="概念错误" onclick="toggleFilter(this)">概念错误</button>
+        <button class="fchip type-reading" data-filter="type" data-value="审题错误" onclick="toggleFilter(this)">审题错误</button>
+        <button class="fchip type-calc" data-filter="type" data-value="计算失误" onclick="toggleFilter(this)">计算失误</button>
+        <button class="fchip type-logic" data-filter="type" data-value="逻辑跳跃" onclick="toggleFilter(this)">逻辑跳跃</button>
+        <button class="fchip type-omission" data-filter="type" data-value="知识遗漏" onclick="toggleFilter(this)">知识遗漏</button>
+      </div>
+      <div class="sort-row">
+        <span class="filter-label">排序</span>
+        <button class="sort-btn active" data-sort="date" onclick="setSort(this)">日期</button>
+        <button class="sort-btn" data-sort="difficulty" onclick="setSort(this)">难度</button>
+        <button class="sort-btn" data-sort="subject" onclick="setSort(this)">学科</button>
+      </div>
+    </div>
+    <div class="error-list" id="errorList"></div>
+  </div>
+
+  <!-- Right: Detail Panel -->
+  <div class="detail-panel" id="detailPanel">
+    <div class="detail-empty">
+      <div class="detail-empty-icon">📝</div>
+      <div class="detail-empty-text">选择一道错题查看详情</div>
+      <div class="detail-empty-sub">或点击"添加错题"开始记录</div>
+    </div>
+  </div>
+</div>
+
+<!-- Add/Edit Form Modal -->
+<div class="form-overlay" id="formOverlay">
+  <div class="form-card">
+    <div class="form-header">
+      <div class="form-title" id="formTitle">添加错题</div>
+      <button class="hbtn" onclick="closeForm()">关闭</button>
+    </div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label class="form-label">学科</label>
+        <select class="form-select" id="fSubject">
+          <option value="数学">数学</option>
+          <option value="物理">物理</option>
+          <option value="化学">化学</option>
+          <option value="生物">生物</option>
+          <option value="英语">英语</option>
+          <option value="语文">语文</option>
+          <option value="其他">其他</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">章节/知识点</label>
+        <input class="form-input" id="fChapter" placeholder="如：导数与微分">
+      </div>
+      <div class="form-group full">
+        <label class="form-label">原题</label>
+        <textarea class="form-textarea" id="fQuestion" placeholder="输入完整题目..."></textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label">我的答案</label>
+        <textarea class="form-textarea" id="fMyAnswer" placeholder="我写的答案..." style="min-height:60px"></textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label">正确答案</label>
+        <textarea class="form-textarea" id="fCorrectAnswer" placeholder="正确答案..." style="min-height:60px"></textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label">错误类型</label>
+        <select class="form-select" id="fErrorType">
+          <option value="概念错误">概念错误</option>
+          <option value="审题错误">审题错误</option>
+          <option value="计算失误">计算失误</option>
+          <option value="逻辑跳跃">逻辑跳跃</option>
+          <option value="知识遗漏">知识遗漏</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">难度</label>
+        <div class="difficulty-select" id="fDifficulty">
+          <button class="diff-btn active" data-diff="1" onclick="setDifficulty(this)">1</button>
+          <button class="diff-btn" data-diff="2" onclick="setDifficulty(this)">2</button>
+          <button class="diff-btn" data-diff="3" onclick="setDifficulty(this)">3</button>
+          <button class="diff-btn" data-diff="4" onclick="setDifficulty(this)">4</button>
+          <button class="diff-btn" data-diff="5" onclick="setDifficulty(this)">5</button>
+        </div>
+      </div>
+      <div class="form-group full">
+        <label class="form-label">错误描述</label>
+        <textarea class="form-textarea" id="fDescription" placeholder="描述你错在哪里..." style="min-height:50px"></textarea>
+      </div>
+      <div class="form-group full">
+        <label class="form-label">根因分析（三层追问法）</label>
+        <div class="why-inputs">
+          <div class="why-input-row">
+            <div class="why-input-num">1</div>
+            <input class="form-input" id="fWhy1" placeholder="为什么错了？（表层原因）" style="flex:1">
+          </div>
+          <div class="why-input-row">
+            <div class="why-input-num">2</div>
+            <input class="form-input" id="fWhy2" placeholder="为什么会犯这个错？（深层原因）" style="flex:1">
+          </div>
+          <div class="why-input-row">
+            <div class="why-input-num">3</div>
+            <input class="form-input" id="fWhy3" placeholder="根本原因是什么？（本质原因）" style="flex:1">
+          </div>
+        </div>
+      </div>
+      <div class="form-group full">
+        <label class="form-label">纠正计划</label>
+        <textarea class="form-textarea" id="fPlan" placeholder="如何避免再犯？具体行动计划..." style="min-height:60px"></textarea>
+      </div>
+      <div class="form-group full">
+        <label class="form-label">标签（逗号分隔）</label>
+        <input class="form-input" id="fTags" placeholder="如：导数, 极限, 易错点">
+      </div>
+    </div>
+    <div class="form-actions">
+      <button class="hbtn" onclick="closeForm()">取消</button>
+      <button class="hbtn primary" id="formSubmitBtn" onclick="submitForm()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- Statistics Modal -->
+<div class="stats-overlay" id="statsOverlay">
+  <div class="stats-card">
+    <div class="stats-header">
+      <div class="stats-title">错题统计</div>
+      <button class="stats-close" onclick="closeStats()">&times;</button>
+    </div>
+    <div class="stats-summary" id="statsSummary"></div>
+    <div class="stats-grid" id="statsGrid">
+      <div class="stats-chart-box">
+        <div class="stats-chart-title">错误类型分布</div>
+        <canvas id="chartPie" width="260" height="260"></canvas>
+      </div>
+      <div class="stats-chart-box">
+        <div class="stats-chart-title">各学科错题数</div>
+        <canvas id="chartBar" width="260" height="260"></canvas>
+      </div>
+      <div class="stats-chart-box">
+        <div class="stats-chart-title">近30天错题趋势</div>
+        <canvas id="chartTrend" width="400" height="260"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Redo Mode Overlay -->
+<div class="redo-overlay" id="redoOverlay">
+  <div class="redo-card">
+    <div class="redo-header">
+      <div class="redo-title">重做模式</div>
+      <div class="redo-progress" id="redoProgress">1 / 0</div>
+    </div>
+    <div id="redoContent"></div>
+    <div class="redo-nav">
+      <button class="hbtn" id="redoPrev" onclick="redoNav(-1)">上一题</button>
+      <button class="hbtn" onclick="closeRedo()">退出重做</button>
+      <button class="hbtn primary" id="redoNext" onclick="redoNav(1)">下一题</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ===== Data Layer =====
+const ERROR_TYPE_MAP = {
+  '概念错误': {cls:'badge-concept', color:'var(--error-concept)', rawColor:'#d62828'},
+  '审题错误': {cls:'badge-reading', color:'var(--error-reading)', rawColor:'#e76f00'},
+  '计算失误': {cls:'badge-calc',    color:'var(--error-calc)',    rawColor:'#e9c46a'},
+  '逻辑跳跃': {cls:'badge-logic',   color:'var(--error-logic)',   rawColor:'#2a9d8f'},
+  '知识遗漏': {cls:'badge-omission',color:'var(--error-omission)',rawColor:'#7b2cbf'}
+};
+
+const SAMPLE_DATA = [
+  {
+    id:'s1',subject:'数学',chapter:'导数与微分',
+    question:'求函数 f(x) = x³ - 3x² + 2 在 x = 2 处的导数值。',
+    myAnswer:'f\'(2) = 3(2)² - 3(2) = 12 - 6 = 6',
+    correctAnswer:'f\'(x) = 3x² - 6x，f\'(2) = 3×4 - 6×2 = 12 - 12 = 0',
+    errorType:'计算失误',difficulty:2,
+    description:'求导公式应用正确，但代入计算时 6x 在 x=2 时应为 12，我算成了 6。',
+    why1:'代入数值时把 6×2 算成了 6，漏乘了 x 的值',
+    why2:'心算习惯不好，没有在草稿纸上逐步计算，依赖口算',
+    why3:'长期轻视基础计算训练，认为理解思路就够了，忽视了计算的准确性',
+    plan:'1. 每天做10道纯计算练习；2. 考试时所有代入步骤必须在草稿纸上写出；3. 计算完成后反向验证',
+    tags:['导数','计算','易错点'],
+    date:'2026-06-14',redoCount:0,redoCorrect:0
+  },
+  {
+    id:'s2',subject:'物理',chapter:'牛顿运动定律',
+    question:'一个质量为 2kg 的物体放在光滑水平面上，受到与水平方向成30°角斜向上的拉力 F=10N 作用，求物体的加速度。（g=10m/s²）',
+    myAnswer:'a = F/m = 10/2 = 5 m/s²',
+    correctAnswer:'F水平分量 = Fcos30° = 10×(√3/2) ≈ 8.66N\na = 8.66/2 ≈ 4.33 m/s²',
+    errorType:'概念错误',difficulty:3,
+    description:'直接用合力等于F计算加速度，没有对力进行正交分解，忽略了力的方向性。',
+    why1:'没有对斜向力进行正交分解，直接把F当作合力',
+    why2:'对"力的分解"概念理解不透彻，不清楚什么情况下需要分解力',
+    why3:'学习牛顿定律时只记住了 F=ma 的公式形式，没有建立"力是矢量必须分解"的物理思维',
+    plan:'1. 重新梳理力的合成与分解知识框架；2. 做力学历题时先画受力图再列方程；3. 总结需要力分解的典型情境清单',
+    tags:['牛顿定律','力的分解','矢量'],
+    date:'2026-06-13',redoCount:0,redoCorrect:0
+  },
+  {
+    id:'s3',subject:'化学',chapter:'氧化还原反应',
+    question:'写出铜与稀硝酸反应的化学方程式，并标出电子转移方向和数目。',
+    myAnswer:'Cu + 2HNO₃(稀) = Cu(NO₃)₂ + H₂↑ + NO↑',
+    correctAnswer:'3Cu + 8HNO₃(稀) = 3Cu(NO₃)₂ + 2NO↑ + 4H₂O\nCu失2e×3，N得3e×2，共转移6e',
+    errorType:'知识遗漏',difficulty:4,
+    description:'不知道稀硝酸的还原产物是NO，错误地认为会生成H₂；配平也完全错误。',
+    why1:'不知道稀硝酸与金属反应的产物是NO而非H₂',
+    why2:'把硝酸当成普通酸，没有掌握硝酸的强氧化性特征',
+    why3:'对氧化还原反应体系缺乏系统认知，没有建立"不同浓度硝酸产物不同"的知识网络',
+    plan:'1. 整理硝酸与金属反应的浓度-产物对照表；2. 练习氧化还原方程式配平（得失电子守恒法）；3. 每周复习氧化还原专题一次',
+    tags:['氧化还原','硝酸','配平'],
+    date:'2026-06-12',redoCount:0,redoCorrect:0
+  },
+  {
+    id:'s4',subject:'数学',chapter:'概率与统计',
+    question:'袋中有3个红球2个白球，不放回地取2个球，求至少取到1个红球的概率。',
+    myAnswer:'P = 1 - C(2,2)/C(5,2) = 1 - 1/10 = 9/10',
+    correctAnswer:'P = 1 - C(2,2)/C(5,2) = 1 - 1/10 = 9/10\n（此题答案正确，但过程需注意：对立事件为"两个都是白球"）',
+    errorType:'审题错误',difficulty:2,
+    description:'虽然最终答案碰巧正确，但解题时先算的是"至少一个红球"的直接概率，思路混乱后改用对立事件法，没有清晰审题确定最优解法。',
+    why1:'没有先审题确定"至少一个"用对立事件法最简便',
+    why2:'看到概率题就急于用直接法列举，没有先分析题目特征选择方法',
+    why3:'缺乏"审题→选法→计算"的解题策略意识，做题习惯是看到就算',
+    plan:'1. 建立概率题解题流程：审题→判断类型→选方法→计算→验证；2. 整理"至少""至多"类概率题的对立事件法模板；3. 每次做题先花30秒审题再动笔',
+    tags:['概率','对立事件','审题'],
+    date:'2026-06-11',redoCount:0,redoCorrect:0
+  },
+  {
+    id:'s5',subject:'物理',chapter:'电磁感应',
+    question:'一根长为L的导体棒在匀强磁场B中以角速度ω绕一端匀速转动，求导体棒产生的感应电动势。',
+    myAnswer:'ε = BLv = BLωL = BωL²',
+    correctAnswer:'ε = ½BωL²\n（因为导体棒各点线速度不同，v = ωr，需积分或取平均速度 v̄ = ½ωL）',
+    errorType:'逻辑跳跃',difficulty:4,
+    description:'直接用 v=ωL 代入 ε=BLv，没有考虑导体棒上各点速度不同，应该用平均速度。',
+    why1:'用端点速度代替了整根棒的平均速度，跳过了速度分布的分析',
+    why2:'对"导体棒转动切割"模型理解不深，直接套用平动切割公式',
+    why3:'物理建模能力不足，遇到变速度情境时没有意识到需要积分/取平均，缺乏从特殊情况到一般情况的推理习惯',
+    plan:'1. 重新推导转动切割电动势的积分过程；2. 对比平动切割和转动切割两种模型的异同；3. 做物理题时先画图分析各物理量的空间分布',
+    tags:['电磁感应','转动切割','积分'],
+    date:'2026-06-10',redoCount:0,redoCorrect:0
+  },
+  {
+    id:'s6',subject:'化学',chapter:'化学平衡',
+    question:'在密闭容器中，反应 N₂ + 3H₂ ⇌ 2NH₃ 达到平衡后，增大压强（缩小体积），平衡如何移动？说明理由。',
+    myAnswer:'增大压强，平衡不移动。因为反应前后气体分子数不变。',
+    correctAnswer:'增大压强，平衡向正反应方向（右）移动。\n反应前气体分子数：1+3=4，反应后：2，正反应方向气体分子数减少，增压平衡向分子数减少方向移动。',
+    errorType:'概念错误',difficulty:3,
+    description:'错误认为反应前后气体分子数不变，实际正反应方向分子数从4减到2，是减小的。',
+    why1:'把反应物和生成物的系数加起来比较时算错了，误以为前后都是4',
+    why2:'对"化学平衡移动方向判断"的规则记忆模糊，没有系统掌握勒夏特列原理',
+    why3:'化学平衡章节学习时只死记结论没有理解原理，对"平衡移动方向=减弱外界改变的方向"这一核心思想没有内化',
+    plan:'1. 重新学习勒夏特列原理，用自己的话复述；2. 制作化学平衡移动判断流程图；3. 练习10道平衡移动判断题，每道写出判断依据',
+    tags:['化学平衡','勒夏特列','压强'],
+    date:'2026-06-09',redoCount:0,redoCorrect:0
+  },
+  {
+    id:'s7',subject:'数学',chapter:'三角函数',
+    question:'求 sin²15° + cos²15° + sin15°cos15° 的值。',
+    myAnswer:'sin²15° + cos²15° = 1，所以原式 = 1 + sin15°cos15° = 1 + ½sin30° = 1 + ¼ = 5/4',
+    correctAnswer:'sin²15° + cos²15° + sin15°cos15°\n= 1 + ½sin30° = 1 + ¼ = 5/4\n（此题计算正确，但需注意 sin2α = 2sinαcosα 的应用）',
+    errorType:'计算失误',difficulty:2,
+    description:'计算过程正确，但在草稿中先错误地算出 sin15°cos15° = ½sin60°，后检查发现应为 sin30°，浪费了时间。',
+    why1:'把 2×15°=30° 算成了 60°，二倍角公式应用时角度翻倍算错',
+    why2:'对特殊角的三角函数值不够熟练，30°和60°的值容易混淆',
+    why3:'三角函数特殊值表没有完全内化，依赖记忆而非理解（如30°和60°的sin/cos值是互换关系）',
+    plan:'1. 制作三角函数特殊值卡片，每天复习；2. 记住互换规律：sin30°=cos60°，sin60°=cos30°；3. 做三角函数题时先写出涉及的角度再代入',
+    tags:['三角函数','二倍角','特殊角'],
+    date:'2026-06-08',redoCount:0,redoCorrect:0
+  },
+  {
+    id:'s8',subject:'物理',chapter:'动量守恒',
+    question:'质量为M的小车停在光滑水平面上，质量为m的人以相对地面速度v从车上跳下，求人跳下后车的速度大小和方向。',
+    myAnswer:'MV = mv，V = mv/M，方向与人运动方向相同',
+    correctAnswer:'由动量守恒：0 = mv - MV\nV = mv/M，方向与人运动方向相反',
+    errorType:'审题错误',difficulty:3,
+    description:'动量守恒方程列对了，但方向判断错误。人向一个方向跳，车应该向反方向运动，我写成了同向。',
+    why1:'动量守恒方程中正方向设定混乱，导致方向判断错误',
+    why2:'列动量守恒方程时没有先规定正方向，符号使用随意',
+    why3:'矢量运算意识薄弱，习惯把物理问题当标量处理，缺乏"先设正方向"的规范解题习惯',
+    plan:'1. 每次做动量题第一步：规定正方向并在图中标注；2. 列方程时严格按正方向确定正负号；3. 解出答案后先判断方向是否合理再写结论',
+    tags:['动量守恒','方向','矢量'],
+    date:'2026-06-07',redoCount:0,redoCorrect:0
+  }
+];
+
+// ===== State =====
+let errors = [];
+let selectedId = null;
+let editingId = null;
+let filters = {subject:'all',type:'all'};
+let sortBy = 'date';
+let redoIndex = 0;
+let redoRevealed = false;
+let redoAnswered = false;
+
+// ===== Init =====
+function init(){
+  const saved = localStorage.getItem('errorBookData');
+  if(saved){
+    try{ errors = JSON.parse(saved); }catch(e){ errors = [...SAMPLE_DATA]; }
+  } else {
+    errors = [...SAMPLE_DATA];
+  }
+  const theme = localStorage.getItem('errorBookTheme') || 'light';
+  document.documentElement.setAttribute('data-theme', theme);
+  renderList();
+}
+
+function save(){
+  localStorage.setItem('errorBookData', JSON.stringify(errors));
+}
+
+// ===== Theme =====
+function toggleTheme(){
+  const cur = document.documentElement.getAttribute('data-theme');
+  const next = cur === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('errorBookTheme', next);
+}
+
+// ===== Filters =====
+function toggleFilter(el){
+  const filterType = el.dataset.filter;
+  const value = el.dataset.value;
+  filters[filterType] = value;
+  // Update active state for same filter group
+  document.querySelectorAll(`.fchip[data-filter="${filterType}"]`).forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  applyFilters();
+}
+
+function setSort(el){
+  sortBy = el.dataset.sort;
+  document.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  applyFilters();
+}
+
+function applyFilters(){
+  renderList();
+}
+
+function getFilteredErrors(){
+  let list = [...errors];
+  // Subject filter
+  if(filters.subject !== 'all'){
+    list = list.filter(e => e.subject === filters.subject);
+  }
+  // Type filter
+  if(filters.type !== 'all'){
+    list = list.filter(e => e.errorType === filters.type);
+  }
+  // Search
+  const q = document.getElementById('searchInput').value.trim().toLowerCase();
+  if(q){
+    list = list.filter(e =>
+      e.question.toLowerCase().includes(q) ||
+      e.description.toLowerCase().includes(q) ||
+      e.why1.toLowerCase().includes(q) ||
+      e.why2.toLowerCase().includes(q) ||
+      e.why3.toLowerCase().includes(q) ||
+      e.chapter.toLowerCase().includes(q) ||
+      (e.tags && e.tags.some(t => t.toLowerCase().includes(q)))
+    );
+  }
+  // Sort
+  if(sortBy === 'date'){
+    list.sort((a,b) => b.date.localeCompare(a.date));
+  } else if(sortBy === 'difficulty'){
+    list.sort((a,b) => b.difficulty - a.difficulty);
+  } else if(sortBy === 'subject'){
+    list.sort((a,b) => a.subject.localeCompare(b.subject));
+  }
+  return list;
+}
+
+// ===== Render List =====
+function renderList(){
+  const list = getFilteredErrors();
+  const container = document.getElementById('errorList');
+  if(list.length === 0){
+    container.innerHTML = `
+      <div class="empty-list">
+        <div class="empty-list-icon">📭</div>
+        <div class="empty-list-text">暂无错题</div>
+        <div class="empty-list-sub">点击"添加错题"开始记录</div>
+      </div>`;
+    return;
+  }
+  container.innerHTML = list.map(e => {
+    const typeInfo = ERROR_TYPE_MAP[e.errorType] || ERROR_TYPE_MAP['概念错误'];
+    const diffDots = Array.from({length:5}, (_,i) =>
+      `<span class="diff-dot${i < e.difficulty ? ' filled' : ''}"></span>`
+    ).join('');
+    const tags = (e.tags||[]).map(t => `<span class="error-tag">${t}</span>`).join('');
+    const sel = e.id === selectedId ? ' selected' : '';
+    return `
+      <div class="error-item${sel}" onclick="selectError('${e.id}')">
+        <div class="error-item-header">
+          <div class="error-question">${escHtml(e.question)}</div>
+          <span class="error-badge ${typeInfo.cls}">${e.errorType}</span>
+        </div>
+        <div class="error-meta">
+          <span class="error-subject">${e.subject}</span>
+          <span class="error-date">${e.date}</span>
+          <span class="error-difficulty">${diffDots}</span>
+        </div>
+        ${tags ? `<div class="error-tags">${tags}</div>` : ''}
+      </div>`;
+  }).join('');
+}
+
+// ===== Select Error =====
+function selectError(id){
+  selectedId = id;
+  renderList();
+  renderDetail();
+}
+
+function renderDetail(){
+  const panel = document.getElementById('detailPanel');
+  if(!selectedId){
+    panel.innerHTML = `
+      <div class="detail-empty">
+        <div class="detail-empty-icon">📝</div>
+        <div class="detail-empty-text">选择一道错题查看详情</div>
+        <div class="detail-empty-sub">或点击"添加错题"开始记录</div>
+      </div>`;
+    return;
+  }
+  const e = errors.find(x => x.id === selectedId);
+  if(!e) return;
+  const typeInfo = ERROR_TYPE_MAP[e.errorType] || ERROR_TYPE_MAP['概念错误'];
+  const diffDots = Array.from({length:5}, (_,i) =>
+    `<span class="diff-dot${i < e.difficulty ? ' filled' : ''}"></span>`
+  ).join('');
+  const tags = (e.tags||[]).map(t => `<span class="detail-tag">${t}</span>`).join('');
+  const redoInfo = e.redoCount > 0
+    ? `<span style="font-size:.75rem;color:var(--text3);margin-left:8px">重做${e.redoCount}次 / 正确${e.redoCorrect}次</span>`
+    : '';
+
+  panel.innerHTML = `
+    <div class="detail-card">
+      <div class="detail-header">
+        <div>
+          <div class="detail-title">${escHtml(e.question)}</div>
+          <div style="display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap">
+            <span class="error-badge ${typeInfo.cls}">${e.errorType}</span>
+            <span style="font-size:.75rem;color:var(--text3)">${e.subject} · ${escHtml(e.chapter)}</span>
+            <span class="error-difficulty">${diffDots}</span>
+            <span style="font-size:.72rem;color:var(--text3)">${e.date}</span>
+            ${redoInfo}
+          </div>
+        </div>
+        <div class="detail-actions">
+          <button class="hbtn" onclick="editError('${e.id}')">编辑</button>
+          <button class="hbtn danger" onclick="deleteError('${e.id}')">删除</button>
+        </div>
+      </div>
+      <div class="detail-body">
+        <div class="detail-section">
+          <div class="detail-label"><span class="detail-label-icon">⚖️</span>答案对比</div>
+          <div class="answer-compare">
+            <div class="answer-box wrong">
+              <div class="answer-box-label">❌ 我的答案</div>
+              <div class="answer-box-content">${escHtml(e.myAnswer)}</div>
+            </div>
+            <div class="answer-box correct">
+              <div class="answer-box-label">✅ 正确答案</div>
+              <div class="answer-box-content">${escHtml(e.correctAnswer)}</div>
+            </div>
+          </div>
+        </div>
+        <div class="detail-section">
+          <div class="detail-label"><span class="detail-label-icon">🔍</span>错误描述</div>
+          <div class="detail-value">${escHtml(e.description)}</div>
+        </div>
+        <div class="detail-section">
+          <div class="detail-label"><span class="detail-label-icon">🔗</span>根因分析（三层追问）</div>
+          <div class="why-chain">
+            <div class="why-step">
+              <div class="why-connector"><div class="why-dot"></div><div class="why-line"></div></div>
+              <div class="why-content">
+                <div class="why-num">WHY 1 — 表层原因</div>
+                <div class="why-text">${escHtml(e.why1)}</div>
+              </div>
+            </div>
+            <div class="why-step">
+              <div class="why-connector"><div class="why-dot"></div><div class="why-line"></div></div>
+              <div class="why-content">
+                <div class="why-num">WHY 2 — 深层原因</div>
+                <div class="why-text">${escHtml(e.why2)}</div>
+              </div>
+            </div>
+            <div class="why-step">
+              <div class="why-connector"><div class="why-dot"></div></div>
+              <div class="why-content">
+                <div class="why-num">WHY 3 — 本质原因</div>
+                <div class="why-text">${escHtml(e.why3)}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="detail-section">
+          <div class="detail-label"><span class="detail-label-icon">📋</span>纠正计划</div>
+          <div class="plan-box"><div class="plan-text">${escHtml(e.plan)}</div></div>
+        </div>
+        ${tags ? `
+        <div class="detail-section">
+          <div class="detail-label"><span class="detail-label-icon">🏷️</span>标签</div>
+          <div class="detail-tags">${tags}</div>
+        </div>` : ''}
+      </div>
+    </div>`;
+}
+
+// ===== Form =====
+function openForm(id){
+  editingId = id || null;
+  const overlay = document.getElementById('formOverlay');
+  overlay.classList.add('open');
+  if(editingId){
+    const e = errors.find(x => x.id === editingId);
+    if(!e) return;
+    document.getElementById('formTitle').textContent = '编辑错题';
+    document.getElementById('fSubject').value = e.subject;
+    document.getElementById('fChapter').value = e.chapter;
+    document.getElementById('fQuestion').value = e.question;
+    document.getElementById('fMyAnswer').value = e.myAnswer;
+    document.getElementById('fCorrectAnswer').value = e.correctAnswer;
+    document.getElementById('fErrorType').value = e.errorType;
+    document.getElementById('fDescription').value = e.description;
+    document.getElementById('fWhy1').value = e.why1;
+    document.getElementById('fWhy2').value = e.why2;
+    document.getElementById('fWhy3').value = e.why3;
+    document.getElementById('fPlan').value = e.plan;
+    document.getElementById('fTags').value = (e.tags||[]).join(', ');
+    setDifficultyByValue(e.difficulty);
+  } else {
+    document.getElementById('formTitle').textContent = '添加错题';
+    document.getElementById('fSubject').value = '数学';
+    document.getElementById('fChapter').value = '';
+    document.getElementById('fQuestion').value = '';
+    document.getElementById('fMyAnswer').value = '';
+    document.getElementById('fCorrectAnswer').value = '';
+    document.getElementById('fErrorType').value = '概念错误';
+    document.getElementById('fDescription').value = '';
+    document.getElementById('fWhy1').value = '';
+    document.getElementById('fWhy2').value = '';
+    document.getElementById('fWhy3').value = '';
+    document.getElementById('fPlan').value = '';
+    document.getElementById('fTags').value = '';
+    setDifficultyByValue(2);
+  }
+}
+
+function closeForm(){
+  document.getElementById('formOverlay').classList.remove('open');
+  editingId = null;
+}
+
+function setDifficulty(el){
+  document.querySelectorAll('#fDifficulty .diff-btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+}
+
+function setDifficultyByValue(v){
+  document.querySelectorAll('#fDifficulty .diff-btn').forEach(b => {
+    b.classList.toggle('active', parseInt(b.dataset.diff) === v);
+  });
+}
+
+function getDifficulty(){
+  const active = document.querySelector('#fDifficulty .diff-btn.active');
+  return active ? parseInt(active.dataset.diff) : 2;
+}
+
+function submitForm(){
+  const question = document.getElementById('fQuestion').value.trim();
+  if(!question){
+    alert('请输入原题内容');
+    return;
+  }
+  const myAnswer = document.getElementById('fMyAnswer').value.trim();
+  if(!myAnswer){
+    alert('请输入你的答案');
+    return;
+  }
+  const correctAnswer = document.getElementById('fCorrectAnswer').value.trim();
+  if(!correctAnswer){
+    alert('请输入正确答案');
+    return;
+  }
+
+  const tagsRaw = document.getElementById('fTags').value.trim();
+  const tags = tagsRaw ? tagsRaw.split(/[,，]/).map(t => t.trim()).filter(Boolean) : [];
+
+  const entry = {
+    id: editingId || ('e' + Date.now()),
+    subject: document.getElementById('fSubject').value,
+    chapter: document.getElementById('fChapter').value.trim(),
+    question: question,
+    myAnswer: myAnswer,
+    correctAnswer: correctAnswer,
+    errorType: document.getElementById('fErrorType').value,
+    difficulty: getDifficulty(),
+    description: document.getElementById('fDescription').value.trim(),
+    why1: document.getElementById('fWhy1').value.trim(),
+    why2: document.getElementById('fWhy2').value.trim(),
+    why3: document.getElementById('fWhy3').value.trim(),
+    plan: document.getElementById('fPlan').value.trim(),
+    tags: tags,
+    date: editingId ? (errors.find(x=>x.id===editingId)||{}).date || todayStr() : todayStr(),
+    redoCount: editingId ? (errors.find(x=>x.id===editingId)||{}).redoCount || 0 : 0,
+    redoCorrect: editingId ? (errors.find(x=>x.id===editingId)||{}).redoCorrect || 0 : 0
+  };
+
+  if(editingId){
+    const idx = errors.findIndex(x => x.id === editingId);
+    if(idx >= 0) errors[idx] = entry;
+  } else {
+    errors.unshift(entry);
+  }
+
+  save();
+  closeForm();
+  selectedId = entry.id;
+  renderList();
+  renderDetail();
+}
+
+function editError(id){
+  openForm(id);
+}
+
+function deleteError(id){
+  if(!confirm('确定删除这道错题？')) return;
+  errors = errors.filter(e => e.id !== id);
+  if(selectedId === id) selectedId = null;
+  save();
+  renderList();
+  renderDetail();
+}
+
+// ===== Redo Mode =====
+function openRedo(){
+  if(errors.length === 0){
+    alert('暂无错题可重做');
+    return;
+  }
+  redoIndex = 0;
+  redoRevealed = false;
+  redoAnswered = false;
+  document.getElementById('redoOverlay').classList.add('open');
+  renderRedo();
+}
+
+function closeRedo(){
+  document.getElementById('redoOverlay').classList.remove('open');
+}
+
+function renderRedo(){
+  const e = errors[redoIndex];
+  if(!e) return;
+  const total = errors.length;
+  document.getElementById('redoProgress').textContent = `${redoIndex+1} / ${total}`;
+
+  const content = document.getElementById('redoContent');
+  content.innerHTML = `
+    <div style="margin-bottom:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <span class="error-badge ${ERROR_TYPE_MAP[e.errorType].cls}">${e.errorType}</span>
+      <span style="font-size:.78rem;color:var(--text3)">${e.subject} · ${escHtml(e.chapter)}</span>
+    </div>
+    <div class="redo-question">${escHtml(e.question)}</div>
+    <div class="redo-input-area">
+      <label style="font-size:.75rem;color:var(--text2);margin-bottom:4px;display:block">写出你的答案：</label>
+      <textarea class="redo-input" id="redoInput" placeholder="在此作答..." ${redoAnswered?'disabled':''}></textarea>
+    </div>
+    <div class="redo-actions">
+      <button class="hbtn primary" id="redoSubmitBtn" onclick="submitRedo()" ${redoAnswered?'disabled':''}>提交答案</button>
+      <button class="hbtn" id="redoRevealBtn" onclick="revealRedo()" ${redoRevealed?'disabled':''}>查看正确答案</button>
+    </div>
+    <div class="redo-result" id="redoResult"></div>`;
+
+  document.getElementById('redoPrev').disabled = redoIndex === 0;
+  document.getElementById('redoNext').disabled = redoIndex >= total - 1;
+}
+
+function submitRedo(){
+  const input = document.getElementById('redoInput').value.trim();
+  if(!input){
+    alert('请先写出你的答案');
+    return;
+  }
+  redoAnswered = true;
+  const e = errors[redoIndex];
+  e.redoCount = (e.redoCount||0) + 1;
+
+  // Simple comparison (normalize whitespace)
+  const userNorm = input.replace(/\s+/g,'').toLowerCase();
+  const correctNorm = e.correctAnswer.replace(/\s+/g,'').toLowerCase();
+  const isCorrect = userNorm === correctNorm;
+
+  if(isCorrect) e.redoCorrect = (e.redoCorrect||0) + 1;
+
+  const result = document.getElementById('redoResult');
+  result.className = 'redo-result show ' + (isCorrect ? 'correct' : 'wrong');
+  result.innerHTML = isCorrect
+    ? `<div class="redo-result-label">✅ 回答正确！</div><div class="redo-result-content">继续保持！</div>`
+    : `<div class="redo-result-label">❌ 仍然有误</div><div class="redo-result-content">正确答案：${escHtml(e.correctAnswer)}</div>`;
+
+  document.getElementById('redoSubmitBtn').disabled = true;
+  document.getElementById('redoInput').disabled = true;
+  save();
+}
+
+function revealRedo(){
+  redoRevealed = true;
+  const e = errors[redoIndex];
+  const result = document.getElementById('redoResult');
+  result.className = 'redo-result show wrong';
+  result.innerHTML = `
+    <div class="redo-result-label">📖 正确答案</div>
+    <div class="redo-result-content">${escHtml(e.correctAnswer)}</div>
+    <div style="margin-top:8px;font-size:.78rem;color:var(--text2)"><strong>根因提醒：</strong>${escHtml(e.why3)}</div>`;
+  document.getElementById('redoRevealBtn').disabled = true;
+}
+
+function redoNav(dir){
+  redoIndex += dir;
+  redoRevealed = false;
+  redoAnswered = false;
+  if(redoIndex < 0) redoIndex = 0;
+  if(redoIndex >= errors.length) redoIndex = errors.length - 1;
+  renderRedo();
+}
+
+// ===== Statistics =====
+function openStats(){
+  document.getElementById('statsOverlay').classList.add('open');
+  renderStats();
+}
+
+function closeStats(){
+  document.getElementById('statsOverlay').classList.remove('open');
+}
+
+function renderStats(){
+  // Summary numbers
+  const total = errors.length;
+  const subjects = [...new Set(errors.map(e=>e.subject))];
+  const types = Object.keys(ERROR_TYPE_MAP);
+  const redoTotal = errors.reduce((s,e)=>s+(e.redoCount||0),0);
+  const redoCorrectTotal = errors.reduce((s,e)=>s+(e.redoCorrect||0),0);
+  const redoRate = redoTotal > 0 ? Math.round(redoCorrectTotal/redoTotal*100) : 0;
+
+  document.getElementById('statsSummary').innerHTML = `
+    <div class="stats-num-box"><div class="stats-num">${total}</div><div class="stats-num-label">总错题数</div></div>
+    <div class="stats-num-box"><div class="stats-num">${subjects.length}</div><div class="stats-num-label">涉及学科</div></div>
+    <div class="stats-num-box"><div class="stats-num">${redoTotal}</div><div class="stats-num-label">重做次数</div></div>
+    <div class="stats-num-box"><div class="stats-num">${redoRate}%</div><div class="stats-num-label">重做正确率</div></div>`;
+
+  // Pie chart - error type distribution
+  drawPieChart();
+
+  // Bar chart - errors by subject
+  drawBarChart();
+
+  // Trend chart - last 30 days
+  drawTrendChart();
+}
+
+function drawPieChart(){
+  const canvas = document.getElementById('chartPie');
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = 260 * dpr;
+  canvas.height = 260 * dpr;
+  ctx.scale(dpr, dpr);
+  canvas.style.width = '260px';
+  canvas.style.height = '260px';
+  ctx.clearRect(0,0,260,260);
+
+  const types = Object.keys(ERROR_TYPE_MAP);
+  const counts = types.map(t => errors.filter(e=>e.errorType===t).length);
+  const total = counts.reduce((a,b)=>a+b,0);
+  if(total === 0) return;
+
+  const colors = types.map(t => ERROR_TYPE_MAP[t].rawColor);
+  const cx = 130, cy = 120, r = 90;
+  let startAngle = -Math.PI/2;
+
+  counts.forEach((count, i) => {
+    if(count === 0) return;
+    const sliceAngle = (count/total) * Math.PI * 2;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.arc(cx, cy, r, startAngle, startAngle + sliceAngle);
+    ctx.closePath();
+    ctx.fillStyle = colors[i];
+    ctx.fill();
+
+    // Label
+    const midAngle = startAngle + sliceAngle/2;
+    const labelR = r * 0.65;
+    const lx = cx + Math.cos(midAngle) * labelR;
+    const ly = cy + Math.sin(midAngle) * labelR;
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 11px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    const pct = Math.round(count/total*100);
+    if(pct >= 8){
+      ctx.fillText(pct + '%', lx, ly);
+    }
+
+    startAngle += sliceAngle;
+  });
+
+  // Center hole (donut)
+  ctx.beginPath();
+  ctx.arc(cx, cy, r*0.45, 0, Math.PI*2);
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  ctx.fillStyle = isDark ? '#1a2b22' : '#ffffff';
+  ctx.fill();
+  ctx.fillStyle = isDark ? '#e0e8e4' : '#1a1a2e';
+  ctx.font = 'bold 20px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(total, cx, cy - 6);
+  ctx.font = '10px sans-serif';
+  ctx.fillStyle = isDark ? '#8fa898' : '#5a6270';
+  ctx.fillText('总错题', cx, cy + 10);
+
+  // Legend
+  const legendY = 225;
+  const legendStartX = 10;
+  let lx2 = legendStartX;
+  types.forEach((t, i) => {
+    if(counts[i] === 0) return;
+    ctx.fillStyle = colors[i];
+    ctx.fillRect(lx2, legendY, 10, 10);
+    ctx.fillStyle = isDark ? '#8fa898' : '#5a6270';
+    ctx.font = '10px sans-serif';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'top';
+    const label = t + '(' + counts[i] + ')';
+    ctx.fillText(label, lx2 + 14, legendY);
+    lx2 += ctx.measureText(label).width + 24;
+  });
+}
+
+function drawBarChart(){
+  const canvas = document.getElementById('chartBar');
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = 260 * dpr;
+  canvas.height = 260 * dpr;
+  ctx.scale(dpr, dpr);
+  canvas.style.width = '260px';
+  canvas.style.height = '260px';
+  ctx.clearRect(0,0,260,260);
+
+  const subjects = [...new Set(errors.map(e=>e.subject))];
+  const counts = subjects.map(s => errors.filter(e=>e.subject===s).length);
+  const maxCount = Math.max(...counts, 1);
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+
+  const barColors = ['#2d6a4f','#40916c','#52b788','#74c69d','#95d5b2'];
+
+  const chartLeft = 40, chartRight = 240, chartTop = 20, chartBottom = 210;
+  const barWidth = Math.min(40, (chartRight - chartLeft) / subjects.length * 0.6);
+  const gap = (chartRight - chartLeft) / subjects.length;
+
+  // Y axis
+  ctx.strokeStyle = isDark ? '#3e6a52' : '#c8d0c8';
+  ctx.lineWidth = 1;
+  for(let i = 0; i <= 4; i++){
+    const y = chartBottom - (chartBottom - chartTop) * i / 4;
+    ctx.beginPath();
+    ctx.moveTo(chartLeft, y);
+    ctx.lineTo(chartRight, y);
+    ctx.stroke();
+    ctx.fillStyle = isDark ? '#8fa898' : '#5a6270';
+    ctx.font = '10px sans-serif';
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(Math.round(maxCount * i / 4), chartLeft - 6, y);
+  }
+
+  // Bars
+  subjects.forEach((s, i) => {
+    const x = chartLeft + gap * i + gap/2 - barWidth/2;
+    const h = counts[i] / maxCount * (chartBottom - chartTop);
+    const y = chartBottom - h;
+
+    // Bar with rounded top
+    const radius = Math.min(4, barWidth/2);
+    ctx.beginPath();
+    ctx.moveTo(x, chartBottom);
+    ctx.lineTo(x, y + radius);
+    ctx.quadraticCurveTo(x, y, x + radius, y);
+    ctx.lineTo(x + barWidth - radius, y);
+    ctx.quadraticCurveTo(x + barWidth, y, x + barWidth, y + radius);
+    ctx.lineTo(x + barWidth, chartBottom);
+    ctx.closePath();
+    ctx.fillStyle = barColors[i % barColors.length];
+    ctx.fill();
+
+    // Count label
+    ctx.fillStyle = isDark ? '#e0e8e4' : '#1a1a2e';
+    ctx.font = 'bold 12px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'bottom';
+    ctx.fillText(counts[i], x + barWidth/2, y - 4);
+
+    // Subject label
+    ctx.fillStyle = isDark ? '#8fa898' : '#5a6270';
+    ctx.font = '11px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    ctx.fillText(s, x + barWidth/2, chartBottom + 6);
+  });
+}
+
+function drawTrendChart(){
+  const canvas = document.getElementById('chartTrend');
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = 400 * dpr;
+  canvas.height = 260 * dpr;
+  ctx.scale(dpr, dpr);
+  canvas.style.width = '100%';
+  canvas.style.height = '260px';
+  ctx.clearRect(0,0,400,260);
+
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+
+  // Build date counts for last 30 days
+  const today = new Date();
+  const days = [];
+  for(let i = 29; i >= 0; i--){
+    const d = new Date(today);
+    d.setDate(d.getDate() - i);
+    const ds = d.toISOString().slice(0,10);
+    days.push({date:ds, count:errors.filter(e=>e.date===ds).length});
+  }
+  const maxCount = Math.max(...days.map(d=>d.count), 1);
+
+  const chartLeft = 40, chartRight = 380, chartTop = 20, chartBottom = 220;
+  const stepX = (chartRight - chartLeft) / 29;
+
+  // Grid
+  ctx.strokeStyle = isDark ? '#3e6a52' : '#c8d0c8';
+  ctx.lineWidth = 0.5;
+  for(let i = 0; i <= 4; i++){
+    const y = chartBottom - (chartBottom - chartTop) * i / 4;
+    ctx.beginPath();
+    ctx.moveTo(chartLeft, y);
+    ctx.lineTo(chartRight, y);
+    ctx.stroke();
+    ctx.fillStyle = isDark ? '#8fa898' : '#5a6270';
+    ctx.font = '9px sans-serif';
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(Math.round(maxCount * i / 4), chartLeft - 6, y);
+  }
+
+  // Area fill
+  ctx.beginPath();
+  ctx.moveTo(chartLeft, chartBottom);
+  days.forEach((d, i) => {
+    const x = chartLeft + stepX * i;
+    const y = chartBottom - (d.count / maxCount) * (chartBottom - chartTop);
+    if(i === 0) ctx.lineTo(x, y);
+    else ctx.lineTo(x, y);
+  });
+  ctx.lineTo(chartRight, chartBottom);
+  ctx.closePath();
+  const grad = ctx.createLinearGradient(0, chartTop, 0, chartBottom);
+  grad.addColorStop(0, 'rgba(45,106,79,0.25)');
+  grad.addColorStop(1, 'rgba(45,106,79,0.02)');
+  ctx.fillStyle = grad;
+  ctx.fill();
+
+  // Line
+  ctx.beginPath();
+  days.forEach((d, i) => {
+    const x = chartLeft + stepX * i;
+    const y = chartBottom - (d.count / maxCount) * (chartBottom - chartTop);
+    if(i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  });
+  ctx.strokeStyle = '#2d6a4f';
+  ctx.lineWidth = 2;
+  ctx.lineJoin = 'round';
+  ctx.stroke();
+
+  // Dots
+  days.forEach((d, i) => {
+    if(d.count === 0) return;
+    const x = chartLeft + stepX * i;
+    const y = chartBottom - (d.count / maxCount) * (chartBottom - chartTop);
+    ctx.beginPath();
+    ctx.arc(x, y, 4, 0, Math.PI*2);
+    ctx.fillStyle = '#2d6a4f';
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(x, y, 2, 0, Math.PI*2);
+    ctx.fillStyle = isDark ? '#1a2b22' : '#ffffff';
+    ctx.fill();
+  });
+
+  // X axis labels (every 5 days)
+  ctx.fillStyle = isDark ? '#8fa898' : '#5a6270';
+  ctx.font = '9px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+  days.forEach((d, i) => {
+    if(i % 5 === 0 || i === 29){
+      const x = chartLeft + stepX * i;
+      const label = d.date.slice(5);
+      ctx.fillText(label, x, chartBottom + 6);
+    }
+  });
+}
+
+// ===== Export =====
+function exportJSON(){
+  const data = JSON.stringify(errors, null, 2);
+  const blob = new Blob([data], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = '错题本_' + todayStr() + '.json';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ===== Utilities =====
+function escHtml(s){
+  if(!s) return '';
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/\n/g,'<br>');
+}
+
+function todayStr(){
+  return new Date().toISOString().slice(0,10);
+}
+
+// ===== Close overlays on outside click =====
+document.getElementById('formOverlay').addEventListener('click', function(e){
+  if(e.target === this) closeForm();
+});
+document.getElementById('statsOverlay').addEventListener('click', function(e){
+  if(e.target === this) closeStats();
+});
+document.getElementById('redoOverlay').addEventListener('click', function(e){
+  if(e.target === this) closeRedo();
+});
+
+// ===== Keyboard =====
+document.addEventListener('keydown', function(e){
+  if(e.key === 'Escape'){
+    closeForm();
+    closeStats();
+    closeRedo();
+  }
+});
+
+// ===== Init =====
+init();
+</script>
+</body>
+</html>

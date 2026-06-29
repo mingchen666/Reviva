@@ -1,0 +1,2196 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>互动测验模板</title>
+<style>
+/* ===== CSS Variables & Theme ===== */
+:root {
+  --bg-primary: #f8f9fc;
+  --bg-secondary: #ffffff;
+  --bg-tertiary: #f0f2f7;
+  --text-primary: #1a1d2e;
+  --text-secondary: #5a5f7a;
+  --text-muted: #8b8fa8;
+  --border: #e2e5ee;
+  --accent: #4f6ef7;
+  --accent-hover: #3b5ae0;
+  --accent-light: #eef1fe;
+  --success: #22c55e;
+  --success-bg: #f0fdf4;
+  --success-border: #bbf7d0;
+  --error: #ef4444;
+  --error-bg: #fef2f2;
+  --error-border: #fecaca;
+  --warning: #f59e0b;
+  --warning-bg: #fffbeb;
+  --warning-border: #fde68a;
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.06);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.08);
+  --shadow-lg: 0 8px 30px rgba(0,0,0,0.12);
+  --radius: 12px;
+  --radius-sm: 8px;
+  --radius-xs: 6px;
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  --transition: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+[data-theme="dark"] {
+  --bg-primary: #0f1117;
+  --bg-secondary: #1a1d2e;
+  --bg-tertiary: #242840;
+  --text-primary: #e8eaf0;
+  --text-secondary: #a0a4be;
+  --text-muted: #6b6f8a;
+  --border: #2e3250;
+  --accent: #6b8aff;
+  --accent-hover: #8aa2ff;
+  --accent-light: #1e2345;
+  --success: #34d399;
+  --success-bg: #0d2818;
+  --success-border: #1a4a2e;
+  --error: #f87171;
+  --error-bg: #2d1215;
+  --error-border: #4a1d20;
+  --warning: #fbbf24;
+  --warning-bg: #2d2005;
+  --warning-border: #4a3510;
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.2);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.3);
+  --shadow-lg: 0 8px 30px rgba(0,0,0,0.4);
+}
+
+/* ===== Reset & Base ===== */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: var(--font);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  line-height: 1.7;
+  min-height: 100vh;
+  transition: background var(--transition), color var(--transition);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ===== Scrollbar ===== */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+/* ===== Layout ===== */
+.app-container {
+  max-width: 780px;
+  margin: 0 auto;
+  padding: 24px 20px 60px;
+}
+
+/* ===== Header ===== */
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 0;
+  margin-bottom: 8px;
+}
+
+.app-title {
+  font-size: 1.35rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+}
+
+.header-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ===== Buttons ===== */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 18px;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-family: var(--font);
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition);
+  white-space: nowrap;
+  line-height: 1.4;
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: #fff;
+}
+.btn-primary:hover { background: var(--accent-hover); transform: translateY(-1px); box-shadow: var(--shadow-md); }
+
+.btn-secondary {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+}
+.btn-secondary:hover { background: var(--border); }
+
+.btn-ghost {
+  background: transparent;
+  color: var(--text-secondary);
+  padding: 8px 12px;
+}
+.btn-ghost:hover { background: var(--bg-tertiary); color: var(--text-primary); }
+
+.btn-sm { padding: 6px 12px; font-size: 0.82rem; }
+
+.btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none; box-shadow: none; }
+
+/* ===== Theme Toggle ===== */
+.theme-toggle {
+  width: 40px; height: 40px;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  font-size: 1.15rem;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all var(--transition);
+}
+.theme-toggle:hover { background: var(--bg-tertiary); color: var(--text-primary); }
+
+/* ===== Progress Bar ===== */
+.progress-wrapper {
+  margin-bottom: 24px;
+}
+
+.progress-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.progress-bar-track {
+  width: 100%;
+  height: 6px;
+  background: var(--bg-tertiary);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), #8b5cf6);
+  border-radius: 3px;
+  transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  width: 0%;
+}
+
+/* ===== Timer Bar ===== */
+.timer-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  margin-bottom: 20px;
+  font-size: 0.9rem;
+}
+
+.timer-icon { font-size: 1.1rem; }
+
+.timer-value {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+}
+
+.timer-value.warning { color: var(--warning); }
+.timer-value.danger { color: var(--error); }
+
+.timer-label { color: var(--text-muted); }
+
+.timer-toggle {
+  margin-left: auto;
+  padding: 4px 10px;
+  font-size: 0.78rem;
+  border-radius: var(--radius-xs);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-family: var(--font);
+  transition: all var(--transition);
+}
+.timer-toggle:hover { background: var(--accent-light); color: var(--accent); }
+
+/* ===== Question Card ===== */
+.question-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 28px;
+  margin-bottom: 20px;
+  box-shadow: var(--shadow-sm);
+  transition: all var(--transition);
+  animation: cardIn 0.35s ease-out;
+}
+
+@keyframes cardIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.question-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.question-number {
+  flex-shrink: 0;
+  width: 36px; height: 36px;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--accent-light);
+  color: var(--accent);
+  font-weight: 700;
+  font-size: 0.9rem;
+  border-radius: 50%;
+}
+
+.question-meta {
+  flex: 1;
+}
+
+.question-type-tag {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 2px 8px;
+  border-radius: 4px;
+  margin-bottom: 6px;
+}
+
+.type-choice { background: #ede9fe; color: #7c3aed; }
+.type-fill { background: #dbeafe; color: #2563eb; }
+.type-match { background: #fce7f3; color: #db2777; }
+.type-tf { background: #d1fae5; color: #059669; }
+.type-order { background: #fef3c7; color: #d97706; }
+
+[data-theme="dark"] .type-choice { background: #2d1f5e; color: #a78bfa; }
+[data-theme="dark"] .type-fill { background: #1e2d5e; color: #60a5fa; }
+[data-theme="dark"] .type-match { background: #4a1942; color: #f472b6; }
+[data-theme="dark"] .type-tf { background: #0d3320; color: #34d399; }
+[data-theme="dark"] .type-order { background: #3d2e0a; color: #fbbf24; }
+
+.difficulty-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 0.75rem;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  vertical-align: middle;
+}
+
+.diff-1 { background: #dcfce7; color: #16a34a; }
+.diff-2 { background: #dbeafe; color: #2563eb; }
+.diff-3 { background: #fef3c7; color: #d97706; }
+.diff-4 { background: #fef2f2; color: #dc2626; }
+
+[data-theme="dark"] .diff-1 { background: #0d3320; color: #4ade80; }
+[data-theme="dark"] .diff-2 { background: #1e2d5e; color: #60a5fa; }
+[data-theme="dark"] .diff-3 { background: #3d2e0a; color: #fbbf24; }
+[data-theme="dark"] .diff-4 { background: #3d1012; color: #f87171; }
+
+.question-text {
+  font-size: 1.05rem;
+  font-weight: 600;
+  line-height: 1.6;
+  color: var(--text-primary);
+  margin-top: 4px;
+}
+
+/* ===== Answer Options ===== */
+.options-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.option-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  background: var(--bg-tertiary);
+  border: 2px solid transparent;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--transition);
+  user-select: none;
+}
+
+.option-item:hover { border-color: var(--accent); background: var(--accent-light); }
+
+.option-item.selected { border-color: var(--accent); background: var(--accent-light); }
+
+.option-item.correct {
+  border-color: var(--success);
+  background: var(--success-bg);
+  cursor: default;
+}
+.option-item.correct .option-label { color: var(--success); }
+
+.option-item.incorrect {
+  border-color: var(--error);
+  background: var(--error-bg);
+  cursor: default;
+}
+.option-item.incorrect .option-label { color: var(--error); }
+
+.option-item.reveal-correct {
+  border-color: var(--success);
+  background: var(--success-bg);
+  cursor: default;
+}
+
+.option-item.disabled { pointer-events: none; opacity: 0.7; }
+.option-item.correct.disabled, .option-item.incorrect.disabled, .option-item.reveal-correct.disabled { opacity: 1; }
+
+.option-radio {
+  width: 20px; height: 20px;
+  border: 2px solid var(--border);
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  transition: all var(--transition);
+}
+
+.option-item.selected .option-radio {
+  border-color: var(--accent);
+}
+
+.option-item.selected .option-radio::after {
+  content: '';
+  width: 10px; height: 10px;
+  background: var(--accent);
+  border-radius: 50%;
+}
+
+.option-item.correct .option-radio {
+  border-color: var(--success);
+}
+.option-item.correct .option-radio::after {
+  content: '\2713';
+  font-size: 12px;
+  color: var(--success);
+  font-weight: 700;
+}
+
+.option-item.incorrect .option-radio {
+  border-color: var(--error);
+}
+.option-item.incorrect .option-radio::after {
+  content: '\2717';
+  font-size: 12px;
+  color: var(--error);
+  font-weight: 700;
+}
+
+.option-item.reveal-correct .option-radio {
+  border-color: var(--success);
+}
+.option-item.reveal-correct .option-radio::after {
+  content: '\2713';
+  font-size: 12px;
+  color: var(--success);
+  font-weight: 700;
+}
+
+.option-label {
+  font-weight: 600;
+  color: var(--text-muted);
+  min-width: 22px;
+}
+
+.option-text {
+  flex: 1;
+  color: var(--text-primary);
+}
+
+/* ===== Fill-in-the-blank ===== */
+.fill-input-wrapper {
+  position: relative;
+  margin-top: 8px;
+}
+
+.fill-input {
+  width: 100%;
+  padding: 14px 16px;
+  font-family: var(--font);
+  font-size: 1rem;
+  background: var(--bg-tertiary);
+  border: 2px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  transition: all var(--transition);
+  outline: none;
+}
+
+.fill-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-light); }
+
+.fill-input.correct { border-color: var(--success); background: var(--success-bg); }
+.fill-input.incorrect { border-color: var(--error); background: var(--error-bg); }
+.fill-input.partial { border-color: var(--warning); background: var(--warning-bg); }
+
+.fill-hint {
+  margin-top: 8px;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+/* ===== Matching ===== */
+.match-container {
+  display: flex;
+  gap: 20px;
+  margin-top: 12px;
+}
+
+.match-column {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.match-column-title {
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+  text-align: center;
+}
+
+.match-item {
+  padding: 12px 14px;
+  background: var(--bg-tertiary);
+  border: 2px solid transparent;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--transition);
+  text-align: center;
+  font-size: 0.92rem;
+  user-select: none;
+  position: relative;
+}
+
+.match-item:hover { border-color: var(--accent); }
+
+.match-item.active {
+  border-color: var(--accent);
+  background: var(--accent-light);
+  box-shadow: 0 0 0 3px var(--accent-light);
+}
+
+.match-item.matched {
+  border-color: var(--success);
+  background: var(--success-bg);
+  cursor: default;
+}
+
+.match-item.matched-left::after,
+.match-item.matched-right::after {
+  position: absolute;
+  font-size: 0.75rem;
+  font-weight: 700;
+  border-radius: 50%;
+  width: 20px; height: 20px;
+  display: flex; align-items: center; justify-content: center;
+  top: -6px;
+}
+
+.match-item.matched-left::after {
+  content: attr(data-pair);
+  right: -6px;
+  background: var(--accent);
+  color: #fff;
+}
+
+.match-item.matched-right::after {
+  content: attr(data-pair);
+  left: -6px;
+  background: var(--accent);
+  color: #fff;
+}
+
+.match-item.wrong {
+  border-color: var(--error);
+  background: var(--error-bg);
+}
+
+.match-connector {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  flex-shrink: 0;
+}
+
+.match-connector-line {
+  width: 30px;
+  height: 2px;
+  background: var(--border);
+}
+
+.match-reset {
+  margin-top: 10px;
+  text-align: center;
+}
+
+/* ===== True/False ===== */
+.tf-options {
+  display: flex;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.tf-option {
+  flex: 1;
+  padding: 16px;
+  text-align: center;
+  background: var(--bg-tertiary);
+  border: 2px solid transparent;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--transition);
+  font-weight: 600;
+  font-size: 1rem;
+  user-select: none;
+}
+
+.tf-option:hover { border-color: var(--accent); }
+.tf-option.selected { border-color: var(--accent); background: var(--accent-light); }
+.tf-option.correct { border-color: var(--success); background: var(--success-bg); cursor: default; }
+.tf-option.incorrect { border-color: var(--error); background: var(--error-bg); cursor: default; }
+.tf-option.reveal-correct { border-color: var(--success); background: var(--success-bg); cursor: default; }
+.tf-option.disabled { pointer-events: none; opacity: 0.7; }
+.tf-option.correct.disabled, .tf-option.incorrect.disabled, .tf-option.reveal-correct.disabled { opacity: 1; }
+
+/* ===== Ordering / Drag ===== */
+.order-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.order-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  background: var(--bg-tertiary);
+  border: 2px solid transparent;
+  border-radius: var(--radius-sm);
+  cursor: grab;
+  transition: all var(--transition);
+  user-select: none;
+}
+
+.order-item:active { cursor: grabbing; }
+.order-item:hover { border-color: var(--accent); }
+.order-item.dragging { opacity: 0.5; border-color: var(--accent); }
+.order-item.drag-over { border-color: var(--accent); border-style: dashed; }
+
+.order-grip {
+  color: var(--text-muted);
+  font-size: 1.1rem;
+  flex-shrink: 0;
+}
+
+.order-number {
+  width: 24px; height: 24px;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--accent-light);
+  color: var(--accent);
+  font-weight: 700;
+  font-size: 0.8rem;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.order-text {
+  flex: 1;
+  font-size: 0.92rem;
+}
+
+.order-item.correct { border-color: var(--success); background: var(--success-bg); cursor: default; }
+.order-item.incorrect { border-color: var(--error); background: var(--error-bg); }
+
+.order-item.correct .order-number { background: var(--success); color: #fff; }
+.order-item.incorrect .order-number { background: var(--error); color: #fff; }
+
+/* ===== Feedback Panel ===== */
+.feedback-panel {
+  margin-top: 16px;
+  padding: 16px;
+  border-radius: var(--radius-sm);
+  animation: feedbackIn 0.3s ease-out;
+}
+
+@keyframes feedbackIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.feedback-correct {
+  background: var(--success-bg);
+  border: 1px solid var(--success-border);
+}
+
+.feedback-incorrect {
+  background: var(--error-bg);
+  border: 1px solid var(--error-border);
+}
+
+.feedback-partial {
+  background: var(--warning-bg);
+  border: 1px solid var(--warning-border);
+}
+
+.feedback-title {
+  font-weight: 700;
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.feedback-correct .feedback-title { color: var(--success); }
+.feedback-incorrect .feedback-title { color: var(--error); }
+.feedback-partial .feedback-title { color: var(--warning); }
+
+.feedback-body {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+.feedback-body strong { color: var(--text-primary); }
+
+.pitfall-tip {
+  margin-top: 10px;
+  padding: 10px 14px;
+  background: rgba(245, 158, 11, 0.1);
+  border-left: 3px solid var(--warning);
+  border-radius: 0 var(--radius-xs) var(--radius-xs) 0;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.pitfall-tip-title {
+  font-weight: 700;
+  color: var(--warning);
+  margin-bottom: 2px;
+  font-size: 0.82rem;
+}
+
+/* ===== Navigation ===== */
+.nav-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 24px;
+  gap: 12px;
+}
+
+.nav-info {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+/* ===== Setup Screen ===== */
+.setup-screen {
+  animation: cardIn 0.4s ease-out;
+}
+
+.setup-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 36px;
+  box-shadow: var(--shadow-md);
+}
+
+.setup-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  text-align: center;
+  margin-bottom: 6px;
+}
+
+.setup-subtitle {
+  text-align: center;
+  color: var(--text-secondary);
+  margin-bottom: 28px;
+  font-size: 0.95rem;
+}
+
+.setup-options {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 28px;
+}
+
+.setup-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-sm);
+}
+
+.setup-option-label {
+  font-weight: 600;
+  font-size: 0.92rem;
+}
+
+.setup-option-desc {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+/* Toggle Switch */
+.toggle-switch {
+  position: relative;
+  width: 48px; height: 26px;
+  flex-shrink: 0;
+}
+
+.toggle-switch input { display: none; }
+
+.toggle-slider {
+  position: absolute;
+  inset: 0;
+  background: var(--border);
+  border-radius: 13px;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.toggle-slider::before {
+  content: '';
+  position: absolute;
+  width: 20px; height: 20px;
+  background: #fff;
+  border-radius: 50%;
+  top: 3px; left: 3px;
+  transition: all var(--transition);
+  box-shadow: var(--shadow-sm);
+}
+
+.toggle-switch input:checked + .toggle-slider { background: var(--accent); }
+.toggle-switch input:checked + .toggle-slider::before { transform: translateX(22px); }
+
+.setup-start {
+  display: flex;
+  justify-content: center;
+}
+
+.setup-stats {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  margin-bottom: 28px;
+}
+
+.setup-stat {
+  text-align: center;
+  padding: 12px 20px;
+  background: var(--accent-light);
+  border-radius: var(--radius-sm);
+}
+
+.setup-stat-value {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.setup-stat-label {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+/* ===== Results Screen ===== */
+.results-screen {
+  animation: cardIn 0.4s ease-out;
+}
+
+.results-hero {
+  text-align: center;
+  padding: 40px 20px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-md);
+  margin-bottom: 24px;
+}
+
+.results-score-ring {
+  width: 140px; height: 140px;
+  margin: 0 auto 20px;
+  position: relative;
+}
+
+.results-score-ring svg {
+  transform: rotate(-90deg);
+  width: 140px; height: 140px;
+}
+
+.results-score-ring .ring-bg {
+  fill: none;
+  stroke: var(--bg-tertiary);
+  stroke-width: 10;
+}
+
+.results-score-ring .ring-fill {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 10;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 1.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.results-score-text {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+}
+
+.results-score-number {
+  font-size: 2rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  line-height: 1;
+}
+
+.results-score-pct {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.results-title {
+  font-size: 1.3rem;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.results-subtitle {
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+}
+
+/* Breakdown */
+.breakdown-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 24px;
+  box-shadow: var(--shadow-sm);
+  margin-bottom: 24px;
+}
+
+.breakdown-title {
+  font-size: 1rem;
+  font-weight: 700;
+  margin-bottom: 16px;
+}
+
+.breakdown-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.breakdown-row:last-child { border-bottom: none; }
+
+.breakdown-type {
+  width: 60px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.breakdown-bar-track {
+  flex: 1;
+  height: 8px;
+  background: var(--bg-tertiary);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.breakdown-bar-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 4px;
+  transition: width 0.8s ease-out;
+}
+
+.breakdown-score {
+  width: 50px;
+  text-align: right;
+  font-weight: 600;
+  font-size: 0.88rem;
+}
+
+/* ===== Review Mode ===== */
+.review-screen {
+  animation: cardIn 0.4s ease-out;
+}
+
+.review-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 24px;
+  margin-bottom: 16px;
+  box-shadow: var(--shadow-sm);
+}
+
+.review-card.review-correct { border-left: 4px solid var(--success); }
+.review-card.review-incorrect { border-left: 4px solid var(--error); }
+.review-card.review-partial { border-left: 4px solid var(--warning); }
+
+.review-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  padding: 2px 10px;
+  border-radius: 4px;
+  margin-bottom: 10px;
+}
+
+.review-status.correct { background: var(--success-bg); color: var(--success); }
+.review-status.incorrect { background: var(--error-bg); color: var(--error); }
+.review-status.partial { background: var(--warning-bg); color: var(--warning); }
+
+.review-question {
+  font-weight: 600;
+  margin-bottom: 12px;
+  line-height: 1.6;
+}
+
+.review-answer {
+  padding: 10px 14px;
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-xs);
+  font-size: 0.9rem;
+  margin-bottom: 8px;
+}
+
+.review-answer-label {
+  font-weight: 600;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+
+.review-explanation {
+  font-size: 0.88rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin-top: 8px;
+}
+
+/* ===== Responsive ===== */
+@media (max-width: 600px) {
+  .app-container { padding: 16px 12px 40px; }
+  .question-card { padding: 20px 16px; }
+  .setup-card { padding: 24px 18px; }
+  .match-container { flex-direction: column; gap: 12px; }
+  .match-connector { display: none; }
+  .tf-options { flex-direction: column; }
+  .setup-stats { flex-wrap: wrap; }
+  .results-hero { padding: 28px 16px; }
+}
+
+/* ===== Utility ===== */
+.hidden { display: none !important; }
+.text-center { text-align: center; }
+.mt-8 { margin-top: 8px; }
+.mt-16 { margin-top: 16px; }
+.mb-16 { margin-bottom: 16px; }
+.gap-8 { gap: 8px; }
+
+/* ===== Score popup ===== */
+.score-popup {
+  position: fixed;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%) scale(0.5);
+  padding: 12px 28px;
+  border-radius: var(--radius);
+  font-size: 1.1rem;
+  font-weight: 700;
+  z-index: 1000;
+  pointer-events: none;
+  opacity: 0;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.score-popup.show {
+  transform: translate(-50%, -50%) scale(1);
+  opacity: 1;
+}
+
+.score-popup.correct-popup {
+  background: var(--success);
+  color: #fff;
+  box-shadow: 0 4px 20px rgba(34, 197, 94, 0.4);
+}
+
+.score-popup.incorrect-popup {
+  background: var(--error);
+  color: #fff;
+  box-shadow: 0 4px 20px rgba(239, 68, 68, 0.4);
+}
+
+.score-popup.partial-popup {
+  background: var(--warning);
+  color: #fff;
+  box-shadow: 0 4px 20px rgba(245, 158, 11, 0.4);
+}
+</style>
+</head>
+<body>
+
+<div class="app-container">
+  <!-- Header -->
+  <header class="app-header">
+    <div class="app-title">互动测验</div>
+    <div class="header-controls">
+      <button class="theme-toggle" id="themeToggle" title="切换主题">&#9790;</button>
+    </div>
+  </header>
+
+  <!-- Setup Screen -->
+  <div id="setupScreen" class="setup-screen">
+    <div class="setup-card">
+      <div class="setup-title">JavaScript 基础测验</div>
+      <div class="setup-subtitle">涵盖选择、填空、匹配、判断和排序五大题型</div>
+
+      <div class="setup-stats" id="setupStats"></div>
+
+      <div class="setup-options">
+        <div class="setup-option">
+          <div>
+            <div class="setup-option-label">随机打乱题目</div>
+            <div class="setup-option-desc">每次测验顺序不同，增强记忆效果</div>
+          </div>
+          <label class="toggle-switch">
+            <input type="checkbox" id="optShuffle">
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+        <div class="setup-option">
+          <div>
+            <div class="setup-option-label">倒计时模式</div>
+            <div class="setup-option-desc">每题限时30秒，提升答题节奏</div>
+          </div>
+          <label class="toggle-switch">
+            <input type="checkbox" id="optTimer">
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+      </div>
+
+      <div class="setup-start">
+        <button class="btn btn-primary" id="btnStart" style="padding:12px 40px;font-size:1rem;">开始测验</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Quiz Screen -->
+  <div id="quizScreen" class="hidden">
+    <div class="progress-wrapper">
+      <div class="progress-info">
+        <span id="progressLabel">第 1 题 / 共 10 题</span>
+        <span id="scoreLabel">得分：0</span>
+      </div>
+      <div class="progress-bar-track">
+        <div class="progress-bar-fill" id="progressBar"></div>
+      </div>
+    </div>
+
+    <div class="timer-bar hidden" id="timerBar">
+      <span class="timer-icon">&#9202;</span>
+      <span class="timer-value" id="timerValue">30</span>
+      <span class="timer-label">秒</span>
+      <button class="timer-toggle" id="timerToggle">暂停</button>
+    </div>
+
+    <div id="questionArea"></div>
+
+    <div class="nav-bar">
+      <button class="btn btn-ghost" id="btnPrev" disabled>&larr; 上一题</button>
+      <span class="nav-info" id="navInfo"></span>
+      <button class="btn btn-primary" id="btnNext">下一题 &rarr;</button>
+    </div>
+  </div>
+
+  <!-- Results Screen -->
+  <div id="resultsScreen" class="hidden"></div>
+
+  <!-- Review Screen -->
+  <div id="reviewScreen" class="hidden"></div>
+</div>
+
+<!-- Score Popup -->
+<div class="score-popup" id="scorePopup"></div>
+
+<script>
+/* ===================================================================
+   QUIZ DATA - Edit this array to create your own quiz
+   =================================================================== */
+const QUIZ_DATA = [
+  {
+    type: "choice",
+    difficulty: 1,
+    question: "JavaScript 中，以下哪个关键字用于声明一个不可重新赋值的变量？",
+    options: ["var", "let", "const", "static"],
+    answer: 2,
+    explanation: "const 声明的变量不能被重新赋值，但如果是对象或数组，其内部属性仍然可以修改。",
+    pitfall: "const 只是保证绑定不可变，不等于值不可变（浅不可变）。对象属性仍可修改，如需深度不可变可配合 Object.freeze()。"
+  },
+  {
+    type: "choice",
+    difficulty: 2,
+    question: "以下代码的输出是什么？\nconsole.log(typeof null)",
+    options: ['"null"', '"undefined"', '"object"', '"boolean"'],
+    answer: 2,
+    explanation: "这是 JavaScript 的历史遗留 bug。typeof null 返回 \"object\"，而非 \"null\"。",
+    pitfall: "面试常考！typeof null === \"object\" 是 JS1 代遗留问题，不要与 null === null 混淆。判断 null 应该用 value === null。"
+  },
+  {
+    type: "fill",
+    difficulty: 1,
+    question: "将字符串 \"123\" 转换为数字，可以使用 ______() 函数。",
+    answer: ["Number", "parseInt", "parseFloat"],
+    explanation: "Number() 将字符串转为数字。parseInt() 和 parseFloat() 也可实现，但行为略有不同——它们会忽略尾部非数字字符。",
+    pitfall: "Number('') 返回 0，而 parseInt('') 返回 NaN。隐式转换 +'' 也得 0，这些边界情况容易踩坑。"
+  },
+  {
+    type: "fill",
+    difficulty: 2,
+    question: "Array.prototype.______() 方法会原地修改数组，将所有元素反转。",
+    answer: ["reverse"],
+    explanation: "reverse() 方法原地反转数组并返回该数组的引用，不会创建新数组。",
+    pitfall: "reverse() 是原地修改（mutate），会改变原数组！如果不想改变原数组，先用 [...arr] 或 arr.slice() 创建副本再 reverse()。"
+  },
+  {
+    type: "tf",
+    difficulty: 1,
+    question: "在 JavaScript 中，== 和 === 的功能完全相同。",
+    answer: false,
+    explanation: "== 是宽松相等，会进行类型转换后比较；=== 是严格相等，不会进行类型转换，要求类型和值都相同。",
+    pitfall: "0 == '' 为 true，0 == false 为 true，但 0 === '' 为 false。实际开发中建议始终使用 ===，避免隐式转换带来的 bug。"
+  },
+  {
+    type: "tf",
+    difficulty: 3,
+    question: "Promise.all() 中只要有一个 Promise 被 reject，返回的 Promise 就会立即 reject，不会等待其他 Promise 完成。",
+    answer: true,
+    explanation: "Promise.all() 具有"快速失败"语义——任何一个 Promise reject 后，整体立即 reject。如果需要等待所有结果（无论成功失败），应使用 Promise.allSettled()。",
+    pitfall: "Promise.all() reject 后，其余 Promise 仍会继续执行（只是结果被忽略），它们不会被取消。如果需要真正取消，需配合 AbortController。"
+  },
+  {
+    type: "match",
+    difficulty: 2,
+    question: "将左侧数组方法与右侧功能描述正确匹配：",
+    left: ["map()", "filter()", "reduce()", "find()"],
+    right: ["对每个元素变换并返回新数组", "筛选满足条件的元素", "累积计算返回单个值", "返回第一个满足条件的元素"],
+    answer: [0, 1, 2, 3],
+    explanation: "map 映射变换、filter 过滤筛选、reduce 累积归约、find 查找首个匹配项，是数组四大核心方法。",
+    pitfall: "find() 只返回第一个匹配元素，找不到返回 undefined；filter() 返回所有匹配元素的数组，找不到返回空数组 []。两者不要混淆。"
+  },
+  {
+    type: "match",
+    difficulty: 3,
+    question: "匹配 JavaScript 中的事件阶段与描述：",
+    left: ["捕获阶段", "目标阶段", "冒泡阶段"],
+    right: ["事件从 window 向目标元素传播", "事件到达目标元素", "事件从目标元素向上冒泡"],
+    answer: [0, 1, 2],
+    explanation: "DOM 事件流分为三个阶段：捕获（从外到内）→ 目标（到达目标元素）→ 冒泡（从内到外）。",
+    pitfall: "addEventListener 第三个参数默认为 false（冒泡阶段触发）。设为 true 则在捕获阶段触发。阻止冒泡用 e.stopPropagation()，但不要滥用，可能影响事件委托。"
+  },
+  {
+    type: "order",
+    difficulty: 3,
+    question: "将以下代码按正确的执行顺序排列，实现一个防抖函数（debounce）：",
+    items: [
+      "function debounce(fn, delay) {",
+      "  let timer = null;",
+      "  return function(...args) {",
+      "    clearTimeout(timer);",
+      "    timer = setTimeout(() => fn(...args), delay);",
+      "  };",
+      "}"
+    ],
+    answer: [0, 1, 2, 3, 4, 5, 6],
+    explanation: "防抖函数的核心：每次调用先清除上一次的定时器，再重新设置定时器。只有在最后一次调用后经过 delay 毫秒，函数才会真正执行。",
+    pitfall: "防抖(debounce)和节流(throttle)的区别：防抖是"等停止后再执行"，节流是"按固定间隔执行"。搜索框输入建议用防抖，滚动事件建议用节流。"
+  },
+  {
+    type: "order",
+    difficulty: 4,
+    question: "将以下步骤按 Event Loop 执行顺序排列：",
+    items: [
+      "执行同步代码（调用栈）",
+      "清空微任务队列（Promise.then 等）",
+      "检查是否需要渲染页面",
+      "取出一个宏任务执行（setTimeout 等）",
+      "再次清空微任务队列"
+    ],
+    answer: [0, 1, 2, 3, 4],
+    explanation: "Event Loop 的执行顺序：同步代码 → 微任务 → 渲染 → 宏任务 → 微任务 → 渲染 → ...。每次宏任务执行后都会清空微任务队列。",
+    pitfall: "Promise.then 回调是微任务，setTimeout 回调是宏任务。即使 setTimeout 延时为 0，也会在 Promise.then 之后执行！async/await 中的 await 后面代码也属于微任务。"
+  }
+];
+
+/* ===================================================================
+   APP STATE
+   =================================================================== */
+const state = {
+  questions: [],
+  currentIndex: 0,
+  answers: [],       // per-question answer data
+  scores: [],        // per-question score: 1=correct, 0.5=partial, 0=incorrect
+  submitted: [],     // per-question: has user submitted?
+  shuffle: false,
+  timerEnabled: false,
+  timerSeconds: 30,
+  timerRemaining: 30,
+  timerInterval: null,
+  timerPaused: false,
+  matchState: {},    // per question: { activeLeft, pairs: {leftIdx: rightIdx} }
+  orderState: {},    // per question: current order array
+  quizFinished: false
+};
+
+/* ===================================================================
+   DIFFICULTY HELPERS
+   =================================================================== */
+const DIFF_STARS = { 1: "⭐", 2: "⭐⭐", 3: "⭐⭐⭐", 4: "⭐⭐⭐⭐" };
+const DIFF_LABELS = { 1: "基础", 2: "应用", 3: "综合", 4: "挑战" };
+const TYPE_LABELS = { choice: "选择", fill: "填空", match: "匹配", tf: "判断", order: "排序" };
+
+/* ===================================================================
+   INIT
+   =================================================================== */
+function init() {
+  const theme = localStorage.getItem('quiz-theme') || 'light';
+  document.documentElement.setAttribute('data-theme', theme);
+  updateThemeIcon();
+
+  renderSetupStats();
+  document.getElementById('btnStart').addEventListener('click', startQuiz);
+  document.getElementById('themeToggle').addEventListener('click', toggleTheme);
+  document.getElementById('btnPrev').addEventListener('click', prevQuestion);
+  document.getElementById('btnNext').addEventListener('click', nextQuestion);
+  document.getElementById('timerToggle').addEventListener('click', toggleTimerPause);
+}
+
+function renderSetupStats() {
+  const total = QUIZ_DATA.length;
+  const types = [...new Set(QUIZ_DATA.map(q => q.type))].length;
+  const maxScore = total;
+  const container = document.getElementById('setupStats');
+  container.innerHTML = `
+    <div class="setup-stat"><div class="setup-stat-value">${total}</div><div class="setup-stat-label">题目总数</div></div>
+    <div class="setup-stat"><div class="setup-stat-value">${types}</div><div class="setup-stat-label">题型种类</div></div>
+    <div class="setup-stat"><div class="setup-stat-value">${maxScore}</div><div class="setup-stat-label">满分</div></div>
+  `;
+}
+
+/* ===================================================================
+   THEME
+   =================================================================== */
+function toggleTheme() {
+  const current = document.documentElement.getAttribute('data-theme');
+  const next = current === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('quiz-theme', next);
+  updateThemeIcon();
+}
+
+function updateThemeIcon() {
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  document.getElementById('themeToggle').innerHTML = isDark ? '&#9788;' : '&#9790;';
+}
+
+/* ===================================================================
+   START QUIZ
+   =================================================================== */
+function startQuiz() {
+  state.shuffle = document.getElementById('optShuffle').checked;
+  state.timerEnabled = document.getElementById('optTimer').checked;
+
+  let indices = QUIZ_DATA.map((_, i) => i);
+  if (state.shuffle) {
+    for (let i = indices.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [indices[i], indices[j]] = [indices[j], indices[i]];
+    }
+  }
+
+  state.questions = indices.map(i => QUIZ_DATA[i]);
+  state.currentIndex = 0;
+  state.answers = new Array(state.questions.length).fill(null);
+  state.scores = new Array(state.questions.length).fill(null);
+  state.submitted = new Array(state.questions.length).fill(false);
+  state.matchState = {};
+  state.orderState = {};
+  state.quizFinished = false;
+
+  // Init order state for order questions
+  state.questions.forEach((q, i) => {
+    if (q.type === 'order') {
+      let orderIdxs = q.items.map((_, j) => j);
+      // Shuffle the order
+      for (let k = orderIdxs.length - 1; k > 0; k--) {
+        const r = Math.floor(Math.random() * (k + 1));
+        [orderIdxs[k], orderIdxs[r]] = [orderIdxs[r], orderIdxs[k]];
+      }
+      state.orderState[i] = orderIdxs;
+    }
+    if (q.type === 'match') {
+      state.matchState[i] = { activeLeft: null, pairs: {}, lockedRight: new Set() };
+    }
+  });
+
+  document.getElementById('setupScreen').classList.add('hidden');
+  document.getElementById('quizScreen').classList.remove('hidden');
+
+  if (state.timerEnabled) {
+    document.getElementById('timerBar').classList.remove('hidden');
+  }
+
+  renderQuestion();
+}
+
+/* ===================================================================
+   RENDER QUESTION
+   =================================================================== */
+function renderQuestion() {
+  const idx = state.currentIndex;
+  const q = state.questions[idx];
+  const isSubmitted = state.submitted[idx];
+  const area = document.getElementById('questionArea');
+
+  let html = `<div class="question-card">`;
+  html += `<div class="question-header">`;
+  html += `<div class="question-number">${idx + 1}</div>`;
+  html += `<div class="question-meta">`;
+  html += `<span class="question-type-tag type-${q.type}">${TYPE_LABELS[q.type]}</span>`;
+  html += `<span class="difficulty-badge diff-${q.difficulty}">${DIFF_STARS[q.difficulty]}${DIFF_LABELS[q.difficulty]}</span>`;
+  html += `<div class="question-text">${escapeHtml(q.question).replace(/\n/g, '<br>')}</div>`;
+  html += `</div></div>`;
+
+  switch (q.type) {
+    case 'choice': html += renderChoice(q, idx, isSubmitted); break;
+    case 'fill': html += renderFill(q, idx, isSubmitted); break;
+    case 'match': html += renderMatch(q, idx, isSubmitted); break;
+    case 'tf': html += renderTF(q, idx, isSubmitted); break;
+    case 'order': html += renderOrder(q, idx, isSubmitted); break;
+  }
+
+  // Feedback
+  if (isSubmitted) {
+    html += renderFeedback(q, idx);
+  }
+
+  html += `</div>`;
+  area.innerHTML = html;
+
+  // Bind events
+  bindQuestionEvents(q, idx, isSubmitted);
+
+  // Update nav
+  updateNav();
+  updateProgress();
+  resetAndStartTimer();
+}
+
+/* ===== Choice ===== */
+function renderChoice(q, idx, isSubmitted) {
+  const answer = state.answers[idx];
+  let html = `<div class="options-list">`;
+  const labels = ['A', 'B', 'C', 'D'];
+  q.options.forEach((opt, i) => {
+    let cls = 'option-item';
+    if (isSubmitted) {
+      cls += ' disabled';
+      if (i === q.answer) {
+        cls += answer === i ? ' correct' : ' reveal-correct';
+      } else if (answer === i) {
+        cls += ' incorrect';
+      }
+    } else if (answer === i) {
+      cls += ' selected';
+    }
+    html += `<div class="${cls}" data-idx="${i}">`;
+    html += `<div class="option-radio"></div>`;
+    html += `<span class="option-label">${labels[i]}</span>`;
+    html += `<span class="option-text">${escapeHtml(opt)}</span>`;
+    html += `</div>`;
+  });
+  html += `</div>`;
+  if (!isSubmitted) {
+    html += `<div class="mt-16 text-center"><button class="btn btn-primary btn-sm" id="btnSubmit">提交答案</button></div>`;
+  }
+  return html;
+}
+
+/* ===== Fill ===== */
+function renderFill(q, idx, isSubmitted) {
+  const answer = state.answers[idx];
+  let inputCls = 'fill-input';
+  if (isSubmitted && state.scores[idx] === 1) inputCls += ' correct';
+  else if (isSubmitted && state.scores[idx] === 0) inputCls += ' incorrect';
+  else if (isSubmitted && state.scores[idx] === 0.5) inputCls += ' partial';
+
+  let val = answer || '';
+  let disabled = isSubmitted ? 'disabled' : '';
+
+  let html = `<div class="fill-input-wrapper">`;
+  html += `<input type="text" class="${inputCls}" id="fillInput" value="${escapeAttr(val)}" placeholder="请输入答案..." ${disabled} autocomplete="off">`;
+  html += `</div>`;
+  if (!isSubmitted) {
+    html += `<div class="fill-hint">提示：答案不区分大小写，前后空格会被忽略</div>`;
+    html += `<div class="mt-16 text-center"><button class="btn btn-primary btn-sm" id="btnSubmit">提交答案</button></div>`;
+  }
+  return html;
+}
+
+/* ===== Match ===== */
+function renderMatch(q, idx, isSubmitted) {
+  const ms = state.matchState[idx];
+  let html = `<div class="match-container">`;
+
+  // Left column
+  html += `<div class="match-column">`;
+  html += `<div class="match-column-title">概念</div>`;
+  q.left.forEach((item, i) => {
+    let cls = 'match-item';
+    if (ms.pairs[i] !== undefined) cls += ' matched matched-left';
+    else if (ms.activeLeft === i) cls += ' active';
+    if (isSubmitted) cls += ' disabled';
+    const pairLabel = ms.pairs[i] !== undefined ? String.fromCharCode(65 + i) : '';
+    html += `<div class="${cls}" data-side="left" data-idx="${i}" data-pair="${pairLabel}">${escapeHtml(item)}</div>`;
+  });
+  html += `</div>`;
+
+  html += `<div class="match-connector"><div class="match-connector-line"></div></div>`;
+
+  // Right column
+  html += `<div class="match-column">`;
+  html += `<div class="match-column-title">描述</div>`;
+  q.right.forEach((item, i) => {
+    let cls = 'match-item';
+    const isMatched = Object.values(ms.pairs).includes(i);
+    if (isMatched) cls += ' matched matched-right';
+    if (isSubmitted) cls += ' disabled';
+    const pairKey = Object.keys(ms.pairs).find(k => ms.pairs[k] === i);
+    const pairLabel = pairKey !== undefined ? String.fromCharCode(65 + parseInt(pairKey)) : '';
+    html += `<div class="${cls}" data-side="right" data-idx="${i}" data-pair="${pairLabel}">${escapeHtml(item)}</div>`;
+  });
+  html += `</div>`;
+  html += `</div>`;
+
+  if (!isSubmitted) {
+    const allMatched = Object.keys(ms.pairs).length === q.left.length;
+    html += `<div class="match-reset"><button class="btn btn-ghost btn-sm" id="btnResetMatch">重置匹配</button></div>`;
+    html += `<div class="mt-16 text-center"><button class="btn btn-primary btn-sm" id="btnSubmit" ${!allMatched ? 'disabled' : ''}>提交答案</button></div>`;
+  }
+  return html;
+}
+
+/* ===== True/False ===== */
+function renderTF(q, idx, isSubmitted) {
+  const answer = state.answers[idx];
+  let html = `<div class="tf-options">`;
+
+  const trueCls = 'tf-option' + (isSubmitted ? ' disabled' : '') +
+    (answer === true && !isSubmitted ? ' selected' : '') +
+    (isSubmitted && q.answer === true ? (answer === true ? ' correct' : ' reveal-correct') : '') +
+    (isSubmitted && answer === true && q.answer === false ? ' incorrect' : '');
+
+  const falseCls = 'tf-option' + (isSubmitted ? ' disabled' : '') +
+    (answer === false && !isSubmitted ? ' selected' : '') +
+    (isSubmitted && q.answer === false ? (answer === false ? ' correct' : ' reveal-correct') : '') +
+    (isSubmitted && answer === false && q.answer === true ? ' incorrect' : '');
+
+  html += `<div class="${trueCls}" data-val="true">✔ 正确</div>`;
+  html += `<div class="${falseCls}" data-val="false">✘ 错误</div>`;
+  html += `</div>`;
+  if (!isSubmitted && answer !== null && answer !== undefined) {
+    html += `<div class="mt-16 text-center"><button class="btn btn-primary btn-sm" id="btnSubmit">提交答案</button></div>`;
+  }
+  return html;
+}
+
+/* ===== Order ===== */
+function renderOrder(q, idx, isSubmitted) {
+  const order = state.orderState[idx];
+  let html = `<div class="order-list" id="orderList">`;
+  order.forEach((itemIdx, pos) => {
+    let cls = 'order-item';
+    if (isSubmitted) {
+      cls += itemIdx === q.answer[pos] ? ' correct' : ' incorrect';
+    }
+    html += `<div class="${cls}" draggable="${!isSubmitted}" data-pos="${pos}" data-item-idx="${itemIdx}">`;
+    html += `<span class="order-grip">☰</span>`;
+    html += `<span class="order-number">${pos + 1}</span>`;
+    html += `<span class="order-text">${escapeHtml(q.items[itemIdx])}</span>`;
+    html += `</div>`;
+  });
+  html += `</div>`;
+  if (!isSubmitted) {
+    html += `<div class="mt-16 text-center"><button class="btn btn-primary btn-sm" id="btnSubmit">提交答案</button></div>`;
+  }
+  return html;
+}
+
+/* ===== Feedback ===== */
+function renderFeedback(q, idx) {
+  const score = state.scores[idx];
+  let fbCls, title, icon;
+
+  if (score === 1) {
+    fbCls = 'feedback-correct';
+    icon = '✔';
+    title = '回答正确！';
+  } else if (score === 0.5) {
+    fbCls = 'feedback-partial';
+    icon = '⚠';
+    title = '部分正确';
+  } else {
+    fbCls = 'feedback-incorrect';
+    icon = '✘';
+    title = '回答错误';
+  }
+
+  let html = `<div class="feedback-panel ${fbCls}">`;
+  html += `<div class="feedback-title">${icon} ${title}</div>`;
+  html += `<div class="feedback-body">${q.explanation}</div>`;
+
+  if (score !== 1 && q.pitfall) {
+    html += `<div class="pitfall-tip">`;
+    html += `<div class="pitfall-tip-title">🚧 避坑指南</div>`;
+    html += `${q.pitfall}`;
+    html += `</div>`;
+  }
+
+  html += `</div>`;
+  return html;
+}
+
+/* ===================================================================
+   EVENT BINDING
+   =================================================================== */
+function bindQuestionEvents(q, idx, isSubmitted) {
+  if (isSubmitted) return;
+
+  switch (q.type) {
+    case 'choice': bindChoiceEvents(idx); break;
+    case 'fill': bindFillEvents(idx); break;
+    case 'match': bindMatchEvents(idx); break;
+    case 'tf': bindTFEvents(idx); break;
+    case 'order': bindOrderEvents(idx); break;
+  }
+
+  const submitBtn = document.getElementById('btnSubmit');
+  if (submitBtn) {
+    submitBtn.addEventListener('click', () => submitAnswer(idx));
+  }
+}
+
+function bindChoiceEvents(idx) {
+  document.querySelectorAll('.option-item').forEach(el => {
+    el.addEventListener('click', () => {
+      state.answers[idx] = parseInt(el.dataset.idx);
+      renderQuestion();
+    });
+  });
+}
+
+function bindFillEvents(idx) {
+  const input = document.getElementById('fillInput');
+  if (input) {
+    input.addEventListener('input', () => {
+      state.answers[idx] = input.value;
+    });
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') submitAnswer(idx);
+    });
+  }
+}
+
+function bindMatchEvents(idx) {
+  document.querySelectorAll('.match-item').forEach(el => {
+    el.addEventListener('click', () => {
+      const side = el.dataset.side;
+      const itemIdx = parseInt(el.dataset.idx);
+      const ms = state.matchState[idx];
+
+      if (side === 'left') {
+        // Check if already paired
+        if (ms.pairs[itemIdx] !== undefined) {
+          // Unpair
+          delete ms.pairs[itemIdx];
+          ms.activeLeft = null;
+        } else {
+          ms.activeLeft = itemIdx;
+        }
+      } else {
+        // Right side
+        if (ms.activeLeft === null) return;
+
+        // Check if this right item is already paired with another left
+        const existingPair = Object.keys(ms.pairs).find(k => ms.pairs[k] === itemIdx);
+        if (existingPair !== undefined) {
+          delete ms.pairs[existingPair];
+        }
+
+        ms.pairs[ms.activeLeft] = itemIdx;
+        ms.activeLeft = null;
+      }
+
+      renderQuestion();
+    });
+  });
+
+  const resetBtn = document.getElementById('btnResetMatch');
+  if (resetBtn) {
+    resetBtn.addEventListener('click', () => {
+      state.matchState[idx] = { activeLeft: null, pairs: {}, lockedRight: new Set() };
+      renderQuestion();
+    });
+  }
+}
+
+function bindTFEvents(idx) {
+  document.querySelectorAll('.tf-option').forEach(el => {
+    el.addEventListener('click', () => {
+      state.answers[idx] = el.dataset.val === 'true';
+      renderQuestion();
+    });
+  });
+}
+
+function bindOrderEvents(idx) {
+  const list = document.getElementById('orderList');
+  if (!list) return;
+
+  let dragSrcPos = null;
+
+  list.querySelectorAll('.order-item').forEach(el => {
+    el.addEventListener('dragstart', (e) => {
+      dragSrcPos = parseInt(el.dataset.pos);
+      el.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+    });
+
+    el.addEventListener('dragend', () => {
+      el.classList.remove('dragging');
+      document.querySelectorAll('.order-item').forEach(o => o.classList.remove('drag-over'));
+    });
+
+    el.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      el.classList.add('drag-over');
+    });
+
+    el.addEventListener('dragleave', () => {
+      el.classList.remove('drag-over');
+    });
+
+    el.addEventListener('drop', (e) => {
+      e.preventDefault();
+      el.classList.remove('drag-over');
+      const dragDstPos = parseInt(el.dataset.pos);
+      if (dragSrcPos === null || dragSrcPos === dragDstPos) return;
+
+      const order = state.orderState[idx];
+      const [moved] = order.splice(dragSrcPos, 1);
+      order.splice(dragDstPos, 0, moved);
+      state.orderState[idx] = order;
+      renderQuestion();
+    });
+
+    // Touch support
+    let touchStartY = 0;
+    let touchItem = null;
+
+    el.addEventListener('touchstart', (e) => {
+      touchStartY = e.touches[0].clientY;
+      touchItem = parseInt(el.dataset.pos);
+    }, { passive: true });
+
+    el.addEventListener('touchend', (e) => {
+      if (touchItem === null) return;
+      const touchEndY = e.changedTouches[0].clientY;
+      const diff = touchEndY - touchStartY;
+      const threshold = 40;
+
+      if (Math.abs(diff) > threshold) {
+        const order = state.orderState[idx];
+        const direction = diff > 0 ? 1 : -1;
+        const newPos = touchItem + direction;
+        if (newPos >= 0 && newPos < order.length) {
+          const [moved] = order.splice(touchItem, 1);
+          order.splice(newPos, 0, moved);
+          state.orderState[idx] = order;
+          renderQuestion();
+        }
+      }
+      touchItem = null;
+    }, { passive: true });
+  });
+}
+
+/* ===================================================================
+   SUBMIT ANSWER
+   =================================================================== */
+function submitAnswer(idx) {
+  const q = state.questions[idx];
+  let score = 0;
+
+  switch (q.type) {
+    case 'choice': {
+      const ans = state.answers[idx];
+      if (ans === q.answer) score = 1;
+      break;
+    }
+    case 'fill': {
+      const ans = (state.answers[idx] || '').trim().toLowerCase();
+      if (!ans) return; // Don't submit empty
+      const correctAnswers = q.answer.map(a => a.trim().toLowerCase());
+      if (correctAnswers.includes(ans)) {
+        score = 1;
+      } else {
+        // Partial: check if answer contains or is contained in any correct answer
+        const isPartial = correctAnswers.some(ca => ans.includes(ca) || ca.includes(ans));
+        score = isPartial ? 0.5 : 0;
+      }
+      break;
+    }
+    case 'match': {
+      const ms = state.matchState[idx];
+      const pairs = ms.pairs;
+      let correctCount = 0;
+      q.left.forEach((_, i) => {
+        if (pairs[i] === q.answer[i]) correctCount++;
+      });
+      score = q.left.length === 0 ? 0 : correctCount / q.left.length;
+      if (score === 1) score = 1;
+      else if (score >= 0.5) score = 0.5;
+      else score = 0;
+      break;
+    }
+    case 'tf': {
+      score = state.answers[idx] === q.answer ? 1 : 0;
+      break;
+    }
+    case 'order': {
+      const order = state.orderState[idx];
+      let correctCount = 0;
+      q.answer.forEach((expected, pos) => {
+        if (order[pos] === expected) correctCount++;
+      });
+      const ratio = correctCount / q.answer.length;
+      if (ratio === 1) score = 1;
+      else if (ratio >= 0.5) score = 0.5;
+      else score = 0;
+      break;
+    }
+  }
+
+  state.scores[idx] = score;
+  state.submitted[idx] = true;
+
+  showScorePopup(score);
+  stopTimer();
+  renderQuestion();
+}
+
+/* ===================================================================
+   SCORE POPUP
+   =================================================================== */
+function showScorePopup(score) {
+  const popup = document.getElementById('scorePopup');
+  let cls, text;
+  if (score === 1) { cls = 'correct-popup'; text = '✔ 正确！'; }
+  else if (score === 0.5) { cls = 'partial-popup'; text = '⚠ 部分正确'; }
+  else { cls = 'incorrect-popup'; text = '✘ 错误'; }
+
+  popup.className = `score-popup ${cls}`;
+  popup.textContent = text;
+  popup.classList.add('show');
+
+  setTimeout(() => { popup.classList.remove('show'); }, 1200);
+}
+
+/* ===================================================================
+   NAVIGATION
+   =================================================================== */
+function updateNav() {
+  const idx = state.currentIndex;
+  const total = state.questions.length;
+  document.getElementById('btnPrev').disabled = idx === 0;
+
+  const btnNext = document.getElementById('btnNext');
+  if (idx === total - 1) {
+    const allSubmitted = state.submitted.every(Boolean);
+    if (allSubmitted) {
+      btnNext.textContent = '查看成绩 →';
+      btnNext.onclick = showResults;
+    } else {
+      btnNext.textContent = '结束测验 →';
+      btnNext.onclick = finishQuiz;
+    }
+  } else {
+    btnNext.textContent = '下一题 →';
+    btnNext.onclick = nextQuestion;
+  }
+
+  document.getElementById('navInfo').textContent = `${idx + 1} / ${total}`;
+}
+
+function updateProgress() {
+  const idx = state.currentIndex;
+  const total = state.questions.length;
+  const pct = ((idx + 1) / total * 100).toFixed(1);
+
+  document.getElementById('progressBar').style.width = pct + '%';
+  document.getElementById('progressLabel').textContent = `第 ${idx + 1} 题 / 共 ${total} 题`;
+
+  const totalScore = state.scores.reduce((s, v) => s + (v || 0), 0);
+  document.getElementById('scoreLabel').textContent = `得分：${totalScore} / ${total}`;
+}
+
+function prevQuestion() {
+  if (state.currentIndex > 0) {
+    stopTimer();
+    state.currentIndex--;
+    renderQuestion();
+  }
+}
+
+function nextQuestion() {
+  if (state.currentIndex < state.questions.length - 1) {
+    stopTimer();
+    state.currentIndex++;
+    renderQuestion();
+  }
+}
+
+function finishQuiz() {
+  // Auto-submit unanswered questions as incorrect
+  state.questions.forEach((_, i) => {
+    if (!state.submitted[i]) {
+      state.scores[i] = 0;
+      state.submitted[i] = true;
+    }
+  });
+  state.quizFinished = true;
+  stopTimer();
+  showResults();
+}
+
+/* ===================================================================
+   TIMER
+   =================================================================== */
+function resetAndStartTimer() {
+  stopTimer();
+  if (!state.timerEnabled || state.submitted[state.currentIndex]) return;
+
+  state.timerRemaining = state.timerSeconds;
+  state.timerPaused = false;
+  document.getElementById('timerToggle').textContent = '暂停';
+  updateTimerDisplay();
+
+  state.timerInterval = setInterval(() => {
+    if (state.timerPaused) return;
+    state.timerRemaining--;
+    updateTimerDisplay();
+    if (state.timerRemaining <= 0) {
+      stopTimer();
+      autoSubmitTimeout();
+    }
+  }, 1000);
+}
+
+function stopTimer() {
+  if (state.timerInterval) {
+    clearInterval(state.timerInterval);
+    state.timerInterval = null;
+  }
+}
+
+function toggleTimerPause() {
+  state.timerPaused = !state.timerPaused;
+  document.getElementById('timerToggle').textContent = state.timerPaused ? '继续' : '暂停';
+}
+
+function updateTimerDisplay() {
+  const el = document.getElementById('timerValue');
+  el.textContent = state.timerRemaining;
+  el.className = 'timer-value';
+  if (state.timerRemaining <= 5) el.classList.add('danger');
+  else if (state.timerRemaining <= 10) el.classList.add('warning');
+}
+
+function autoSubmitTimeout() {
+  const idx = state.currentIndex;
+  if (!state.submitted[idx]) {
+    if (state.answers[idx] === null || state.answers[idx] === undefined || state.answers[idx] === '') {
+      state.scores[idx] = 0;
+      state.submitted[idx] = true;
+      showScorePopup(0);
+      renderQuestion();
+    } else {
+      submitAnswer(idx);
+    }
+  }
+}
+
+/* ===================================================================
+   RESULTS
+   =================================================================== */
+function showResults() {
+  stopTimer();
+  document.getElementById('quizScreen').classList.add('hidden');
+  const screen = document.getElementById('resultsScreen');
+  screen.classList.remove('hidden');
+
+  const total = state.questions.length;
+  const totalScore = state.scores.reduce((s, v) => s + (v || 0), 0);
+  const pct = Math.round((totalScore / total) * 100);
+
+  // Per-type breakdown
+  const typeMap = {};
+  state.questions.forEach((q, i) => {
+    if (!typeMap[q.type]) typeMap[q.type] = { correct: 0, total: 0, score: 0 };
+    typeMap[q.type].total++;
+    typeMap[q.type].score += (state.scores[i] || 0);
+    if (state.scores[i] === 1) typeMap[q.type].correct++;
+  });
+
+  const circumference = 2 * Math.PI * 58;
+  const offset = circumference - (pct / 100) * circumference;
+
+  let title, subtitle;
+  if (pct >= 90) { title = '🎉 优秀！'; subtitle = '掌握得非常好！'; }
+  else if (pct >= 70) { title = '👍 良好'; subtitle = '基础掌握不错，继续加油！'; }
+  else if (pct >= 50) { title = '📝 及格'; subtitle = '还有提升空间，多练习吧！'; }
+  else { title = '📚 需加强'; subtitle = '建议重新学习相关知识点'; }
+
+  let html = `<div class="results-screen">`;
+  html += `<div class="results-hero">`;
+  html += `<div class="results-score-ring">`;
+  html += `<svg viewBox="0 0 130 130">`;
+  html += `<circle class="ring-bg" cx="65" cy="65" r="58"/>`;
+  html += `<circle class="ring-fill" cx="65" cy="65" r="58" stroke-dasharray="${circumference}" stroke-dashoffset="${circumference}" id="scoreRing"/>`;
+  html += `</svg>`;
+  html += `<div class="results-score-text">`;
+  html += `<div class="results-score-number">${totalScore}</div>`;
+  html += `<div class="results-score-pct">${pct}%</div>`;
+  html += `</div></div>`;
+  html += `<div class="results-title">${title}</div>`;
+  html += `<div class="results-subtitle">${subtitle}</div>`;
+  html += `</div>`;
+
+  // Breakdown
+  html += `<div class="breakdown-card">`;
+  html += `<div class="breakdown-title">各题型得分</div>`;
+  for (const [type, data] of Object.entries(typeMap)) {
+    const typePct = Math.round((data.score / data.total) * 100);
+    html += `<div class="breakdown-row">`;
+    html += `<span class="breakdown-type">${TYPE_LABELS[type]}</span>`;
+    html += `<div class="breakdown-bar-track"><div class="breakdown-bar-fill" style="width:0%" data-target="${typePct}"></div></div>`;
+    html += `<span class="breakdown-score">${data.score}/${data.total}</span>`;
+    html += `</div>`;
+  }
+  html += `</div>`;
+
+  // Buttons
+  html += `<div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;">`;
+  html += `<button class="btn btn-primary" id="btnReview">📖 查看解析</button>`;
+  html += `<button class="btn btn-secondary" id="btnRestart">🔄 重新测验</button>`;
+  html += `</div>`;
+
+  html += `</div>`;
+  screen.innerHTML = html;
+
+  // Animate ring
+  requestAnimationFrame(() => {
+    setTimeout(() => {
+      document.getElementById('scoreRing').style.strokeDashoffset = offset;
+      document.querySelectorAll('.breakdown-bar-fill').forEach(bar => {
+        bar.style.width = bar.dataset.target + '%';
+      });
+    }, 100);
+  });
+
+  document.getElementById('btnReview').addEventListener('click', showReview);
+  document.getElementById('btnRestart').addEventListener('click', restartQuiz);
+}
+
+/* ===================================================================
+   REVIEW
+   =================================================================== */
+function showReview() {
+  document.getElementById('resultsScreen').classList.add('hidden');
+  const screen = document.getElementById('reviewScreen');
+  screen.classList.remove('hidden');
+
+  let html = `<div class="review-screen">`;
+  html += `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">`;
+  html += `<h2 style="font-size:1.2rem;font-weight:700;">答题解析</h2>`;
+  html += `<div style="display:flex;gap:8px;">`;
+  html += `<button class="btn btn-secondary btn-sm" id="btnBackToResults">返回成绩</button>`;
+  html += `<button class="btn btn-secondary btn-sm" id="btnRestart2">重新测验</button>`;
+  html += `</div></div>`;
+
+  state.questions.forEach((q, idx) => {
+    const score = state.scores[idx];
+    let statusCls = score === 1 ? 'correct' : (score === 0.5 ? 'partial' : 'incorrect');
+    let statusText = score === 1 ? '✔ 正确' : (score === 0.5 ? '⚠ 部分正确' : '✘ 错误');
+    let cardCls = score === 1 ? 'review-correct' : (score === 0.5 ? 'review-partial' : 'review-incorrect');
+
+    html += `<div class="review-card ${cardCls}">`;
+    html += `<div class="review-status ${statusCls}">${statusText}</div>`;
+    html += `<div class="review-question"><span class="question-type-tag type-${q.type}" style="margin-right:6px;">${TYPE_LABELS[q.type]}</span><span class="difficulty-badge diff-${q.difficulty}" style="margin-right:6px;">${DIFF_STARS[q.difficulty]}${DIFF_LABELS[q.difficulty]}</span>${escapeHtml(q.question).replace(/\n/g, '<br>')}</div>`;
+
+    // Show correct answer
+    html += `<div class="review-answer"><div class="review-answer-label">正确答案</div>${getCorrectAnswerText(q)}</div>`;
+
+    // Show user's answer if incorrect
+    if (score !== 1) {
+      html += `<div class="review-answer" style="border-left:3px solid var(--error);"><div class="review-answer-label">你的答案</div>${getUserAnswerText(q, idx)}</div>`;
+    }
+
+    html += `<div class="review-explanation">${q.explanation}</div>`;
+
+    if (score !== 1 && q.pitfall) {
+      html += `<div class="pitfall-tip"><div class="pitfall-tip-title">🚧 避坑指南</div>${q.pitfall}</div>`;
+    }
+
+    html += `</div>`;
+  });
+
+  html += `</div>`;
+  screen.innerHTML = html;
+
+  document.getElementById('btnBackToResults').addEventListener('click', () => {
+    screen.classList.add('hidden');
+    document.getElementById('resultsScreen').classList.remove('hidden');
+  });
+  document.getElementById('btnRestart2').addEventListener('click', restartQuiz);
+}
+
+function getCorrectAnswerText(q) {
+  switch (q.type) {
+    case 'choice': return escapeHtml(q.options[q.answer]);
+    case 'fill': return q.answer.join(' / ');
+    case 'match': return q.left.map((l, i) => `${escapeHtml(l)} ↔ ${escapeHtml(q.right[q.answer[i]])}`).join('<br>');
+    case 'tf': return q.answer ? '正确' : '错误';
+    case 'order': return q.answer.map((i, pos) => `${pos + 1}. ${escapeHtml(q.items[i])}`).join('<br>');
+    default: return '';
+  }
+}
+
+function getUserAnswerText(q, idx) {
+  const ans = state.answers[idx];
+  switch (q.type) {
+    case 'choice': return ans !== null && ans !== undefined ? escapeHtml(q.options[ans]) : '未作答';
+    case 'fill': return ans ? escapeHtml(ans) : '未作答';
+    case 'match': {
+      const ms = state.matchState[idx];
+      return q.left.map((l, i) => {
+        const rIdx = ms.pairs[i];
+        return `${escapeHtml(l)} ↔ ${rIdx !== undefined ? escapeHtml(q.right[rIdx]) : '未匹配'}`;
+      }).join('<br>');
+    }
+    case 'tf': return ans !== null && ans !== undefined ? (ans ? '正确' : '错误') : '未作答';
+    case 'order': {
+      const order = state.orderState[idx];
+      return order.map((itemIdx, pos) => `${pos + 1}. ${escapeHtml(q.items[itemIdx])}`).join('<br>');
+    }
+    default: return '未作答';
+  }
+}
+
+/* ===================================================================
+   RESTART
+   =================================================================== */
+function restartQuiz() {
+  stopTimer();
+  document.getElementById('resultsScreen').classList.add('hidden');
+  document.getElementById('reviewScreen').classList.add('hidden');
+  document.getElementById('quizScreen').classList.add('hidden');
+  document.getElementById('timerBar').classList.add('hidden');
+  document.getElementById('setupScreen').classList.remove('hidden');
+}
+
+/* ===================================================================
+   UTILITIES
+   =================================================================== */
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function escapeAttr(str) {
+  if (!str) return '';
+  return String(str).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+/* ===================================================================
+   BOOT
+   =================================================================== */
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>

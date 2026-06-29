@@ -1,0 +1,14 @@
+{
+  "id": "skill-installer",
+  "name": "Skill 安装助手",
+  "description": "跨平台智能安装助手：自动检测操作系统，适配 Windows/macOS/Linux 命令，处理 Git、网络、路径和压缩包问题。用于用户说“安装 skill”“帮我安装 xxx”或提供本地 skill 路径时。",
+  "icon": "ri-download-cloud-2-line",
+  "color": "#6C8AFF",
+  "category": "学习",
+  "source": "platform",
+  "allowedTools": ["kb_search", "file_read"],
+  "outputTypes": ["Markdown", "TXT"],
+  "version": "1.0",
+  "author": "reviva",
+  "license": "MIT"
+}

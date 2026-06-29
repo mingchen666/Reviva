@@ -1,0 +1,1246 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>交互式元素周期表 - Interactive Periodic Table</title>
+<style>
+/* ===== CSS Variables ===== */
+:root {
+  --bg: #f5f7fa;
+  --bg-secondary: #e8ecf1;
+  --fg: #2c3e50;
+  --fg-secondary: #7f8c8d;
+  --card-bg: #ffffff;
+  --card-border: #dce1e8;
+  --modal-bg: #ffffff;
+  --modal-overlay: rgba(0,0,0,0.45);
+  --tooltip-bg: #2c3e50;
+  --tooltip-fg: #ffffff;
+  --search-bg: #ffffff;
+  --search-border: #dce1e8;
+  --btn-bg: #ffffff;
+  --btn-border: #dce1e8;
+  --btn-active-bg: #2c3e50;
+  --btn-active-fg: #ffffff;
+  --legend-bg: #ffffff;
+  --cell-dim-opacity: 0.15;
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.08);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.12);
+  --shadow-lg: 0 8px 30px rgba(0,0,0,0.18);
+  --radius: 6px;
+  --radius-lg: 12px;
+  --transition: 0.2s ease;
+  --alkali: #e74c3c;
+  --alkaline: #e67e22;
+  --transition-metal: #3498db;
+  --post-transition: #2ecc71;
+  --metalloid: #9b59b6;
+  --nonmetal: #1abc9c;
+  --halogen: #f39c12;
+  --noble: #34495e;
+  --lanthanide: #e91e63;
+  --actinide: #ff5722;
+  --unknown: #95a5a6;
+}
+
+[data-theme="dark"] {
+  --bg: #1a1d23;
+  --bg-secondary: #252830;
+  --fg: #e0e4ea;
+  --fg-secondary: #8b929e;
+  --card-bg: #2a2d35;
+  --card-border: #3a3d45;
+  --modal-bg: #2a2d35;
+  --modal-overlay: rgba(0,0,0,0.7);
+  --tooltip-bg: #3a3d45;
+  --tooltip-fg: #e0e4ea;
+  --search-bg: #2a2d35;
+  --search-border: #3a3d45;
+  --btn-bg: #2a2d35;
+  --btn-border: #3a3d45;
+  --btn-active-bg: #e0e4ea;
+  --btn-active-fg: #1a1d23;
+  --legend-bg: #2a2d35;
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.3);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.4);
+  --shadow-lg: 0 8px 30px rgba(0,0,0,0.5);
+}
+
+/* ===== Reset & Base ===== */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", "Hiragino Sans GB", sans-serif;
+  background: var(--bg);
+  color: var(--fg);
+  line-height: 1.5;
+  transition: background var(--transition), color var(--transition);
+  min-height: 100vh;
+}
+
+/* ===== Header ===== */
+.header {
+  background: var(--card-bg);
+  border-bottom: 1px solid var(--card-border);
+  padding: 12px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: var(--shadow-sm);
+  transition: background var(--transition), border-color var(--transition);
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.header h1 {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* ===== Search ===== */
+.search-box {
+  position: relative;
+}
+
+.search-box input {
+  background: var(--search-bg);
+  border: 1px solid var(--search-border);
+  border-radius: 20px;
+  padding: 6px 14px 6px 32px;
+  font-size: 13px;
+  color: var(--fg);
+  width: 180px;
+  outline: none;
+  transition: border-color var(--transition), box-shadow var(--transition);
+}
+
+.search-box input:focus {
+  border-color: var(--transition-metal);
+  box-shadow: 0 0 0 3px rgba(52,152,219,0.15);
+}
+
+.search-box input::placeholder { color: var(--fg-secondary); }
+
+.search-icon {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 13px;
+  color: var(--fg-secondary);
+  pointer-events: none;
+}
+
+/* ===== Buttons ===== */
+.btn {
+  background: var(--btn-bg);
+  border: 1px solid var(--btn-border);
+  border-radius: var(--radius);
+  padding: 5px 12px;
+  font-size: 12px;
+  color: var(--fg);
+  cursor: pointer;
+  transition: all var(--transition);
+  white-space: nowrap;
+  user-select: none;
+}
+
+.btn:hover { box-shadow: var(--shadow-sm); transform: translateY(-1px); }
+.btn:active { transform: translateY(0); }
+
+.btn.active {
+  background: var(--btn-active-bg);
+  color: var(--btn-active-fg);
+  border-color: transparent;
+}
+
+.btn-theme {
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  border-radius: 50%;
+}
+
+/* ===== Toolbar ===== */
+.toolbar {
+  background: var(--card-bg);
+  border-bottom: 1px solid var(--card-border);
+  padding: 8px 20px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  transition: background var(--transition), border-color var(--transition);
+}
+
+.toolbar-section {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.toolbar-label {
+  font-size: 11px;
+  color: var(--fg-secondary);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-right: 4px;
+}
+
+.toolbar-divider {
+  width: 1px;
+  height: 20px;
+  background: var(--card-border);
+  margin: 0 8px;
+}
+
+/* ===== Periodic Table Container ===== */
+.table-container {
+  padding: 16px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.periodic-table {
+  display: grid;
+  grid-template-columns: repeat(18, 50px);
+  grid-template-rows: repeat(7, 54px) 20px repeat(2, 54px);
+  gap: 2px;
+  margin: 0 auto;
+  width: fit-content;
+}
+
+/* ===== Element Cell ===== */
+.element-cell {
+  position: relative;
+  border-radius: 4px;
+  padding: 3px 4px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition);
+  overflow: hidden;
+  border: 1px solid transparent;
+}
+
+.element-cell:hover {
+  transform: scale(1.15);
+  z-index: 10;
+  box-shadow: var(--shadow-md);
+  border-color: rgba(255,255,255,0.5);
+}
+
+.element-cell.dimmed {
+  opacity: var(--cell-dim-opacity);
+  transform: none;
+}
+
+.element-cell.highlighted {
+  box-shadow: 0 0 0 2px var(--fg), var(--shadow-md);
+  transform: scale(1.1);
+  z-index: 9;
+}
+
+.element-cell .atomic-number {
+  font-size: 8px;
+  font-weight: 600;
+  opacity: 0.85;
+  line-height: 1;
+  align-self: flex-start;
+}
+
+.element-cell .symbol {
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.element-cell .chinese-name {
+  font-size: 8px;
+  line-height: 1;
+  opacity: 0.9;
+}
+
+/* ===== Category Colors ===== */
+.cat-alkali        { background: var(--alkali); color: #fff; }
+.cat-alkaline      { background: var(--alkaline); color: #fff; }
+.cat-transition    { background: var(--transition-metal); color: #fff; }
+.cat-post-transition { background: var(--post-transition); color: #fff; }
+.cat-metalloid     { background: var(--metalloid); color: #fff; }
+.cat-nonmetal      { background: var(--nonmetal); color: #fff; }
+.cat-halogen       { background: var(--halogen); color: #fff; }
+.cat-noble         { background: var(--noble); color: #fff; }
+.cat-lanthanide    { background: var(--lanthanide); color: #fff; }
+.cat-actinide      { background: var(--actinide); color: #fff; }
+.cat-unknown       { background: var(--unknown); color: #fff; }
+
+/* ===== Trend Color Scale ===== */
+.trend-low    { background: #a8e6cf !important; color: #1b5e20 !important; }
+.trend-med-low { background: #ffd3b6 !important; color: #e65100 !important; }
+.trend-med    { background: #ffaaa5 !important; color: #b71c1c !important; }
+.trend-med-high { background: #ff8b94 !important; color: #7f0000 !important; }
+.trend-high   { background: #b71c1c !important; color: #fff !important; }
+
+[data-theme="dark"] .trend-low    { background: #1b5e20 !important; color: #a8e6cf !important; }
+[data-theme="dark"] .trend-med-low { background: #e65100 !important; color: #ffd3b6 !important; }
+[data-theme="dark"] .trend-med    { background: #b71c1c !important; color: #ffaaa5 !important; }
+[data-theme="dark"] .trend-med-high { background: #7f0000 !important; color: #ff8b94 !important; }
+[data-theme="dark"] .trend-high   { background: #4a0000 !important; color: #ff5252 !important; }
+
+/* ===== Lanthanide/Actinide Labels ===== */
+.la-label, .ac-label {
+  font-size: 9px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  color: #fff;
+}
+
+.la-label { background: var(--lanthanide); }
+.ac-label { background: var(--actinide); }
+
+/* ===== Gap Row ===== */
+.gap-row {
+  grid-column: 1 / -1;
+  height: 20px;
+}
+
+/* ===== Legend ===== */
+.legend {
+  background: var(--legend-bg);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-lg);
+  padding: 12px 16px;
+  margin: 0 16px 16px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  box-shadow: var(--shadow-sm);
+  transition: background var(--transition), border-color var(--transition);
+}
+
+.legend-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--fg-secondary);
+  margin-right: 4px;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: background var(--transition);
+}
+
+.legend-item:hover { background: var(--bg-secondary); }
+
+.legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+/* ===== Tooltip ===== */
+.tooltip {
+  position: fixed;
+  background: var(--tooltip-bg);
+  color: var(--tooltip-fg);
+  border-radius: var(--radius);
+  padding: 10px 14px;
+  font-size: 12px;
+  line-height: 1.6;
+  pointer-events: none;
+  z-index: 1000;
+  box-shadow: var(--shadow-lg);
+  max-width: 260px;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  white-space: nowrap;
+}
+
+.tooltip.visible { opacity: 1; }
+
+.tooltip .tt-name {
+  font-size: 14px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.tooltip .tt-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.tooltip .tt-label { color: rgba(255,255,255,0.6); }
+.tooltip .tt-value { font-weight: 600; }
+
+/* ===== Modal ===== */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--modal-overlay);
+  z-index: 500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease;
+  padding: 20px;
+}
+
+.modal-overlay.open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.modal {
+  background: var(--modal-bg);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  max-width: 520px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  transform: translateY(20px) scale(0.95);
+  transition: transform 0.25s ease;
+  position: relative;
+}
+
+.modal-overlay.open .modal {
+  transform: translateY(0) scale(1);
+}
+
+.modal-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: var(--bg-secondary);
+  border-radius: 50%;
+  font-size: 18px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--fg);
+  transition: background var(--transition);
+  z-index: 2;
+}
+
+.modal-close:hover { background: var(--card-border); }
+
+.modal-header {
+  padding: 24px 24px 16px;
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+}
+
+.modal-symbol-box {
+  width: 80px;
+  height: 80px;
+  border-radius: var(--radius);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.modal-symbol-box .m-number { font-size: 12px; opacity: 0.85; }
+.modal-symbol-box .m-symbol { font-size: 32px; font-weight: 700; line-height: 1.1; }
+.modal-symbol-box .m-name   { font-size: 12px; opacity: 0.9; }
+
+.modal-title-group { flex: 1; }
+
+.modal-title-group h2 {
+  font-size: 22px;
+  font-weight: 700;
+  margin-bottom: 2px;
+}
+
+.modal-title-group .m-subtitle {
+  font-size: 13px;
+  color: var(--fg-secondary);
+}
+
+.modal-body {
+  padding: 0 24px 24px;
+}
+
+.modal-info-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.info-item {
+  background: var(--bg-secondary);
+  border-radius: var(--radius);
+  padding: 8px 12px;
+  transition: background var(--transition);
+}
+
+.info-item .info-label {
+  font-size: 10px;
+  color: var(--fg-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 600;
+}
+
+.info-item .info-value {
+  font-size: 14px;
+  font-weight: 600;
+  margin-top: 2px;
+}
+
+/* ===== Electron Shell Diagram ===== */
+.shell-diagram {
+  display: flex;
+  justify-content: center;
+  margin: 16px 0;
+}
+
+.shell-diagram svg {
+  max-width: 200px;
+  height: auto;
+}
+
+.shell-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--fg-secondary);
+  text-align: center;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* ===== Trend Scale Legend ===== */
+.trend-legend {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  font-size: 10px;
+  color: var(--fg-secondary);
+}
+
+.trend-legend-bar {
+  width: 80px;
+  height: 10px;
+  border-radius: 5px;
+  background: linear-gradient(to right, #a8e6cf, #ffd3b6, #ffaaa5, #b71c1c);
+}
+
+[data-theme="dark"] .trend-legend-bar {
+  background: linear-gradient(to right, #1b5e20, #e65100, #b71c1c, #4a0000);
+}
+
+/* ===== Responsive ===== */
+@media (max-width: 768px) {
+  .header { padding: 8px 12px; }
+  .header h1 { font-size: 14px; }
+  .search-box input { width: 120px; font-size: 12px; }
+  .toolbar { padding: 6px 12px; gap: 4px; }
+  .toolbar-label { display: none; }
+  .toolbar-divider { margin: 0 4px; }
+  .btn { padding: 4px 8px; font-size: 11px; }
+  .table-container { padding: 8px; }
+  .periodic-table {
+    grid-template-columns: repeat(18, 38px);
+    grid-template-rows: repeat(7, 44px) 16px repeat(2, 44px);
+  }
+  .element-cell .symbol { font-size: 12px; }
+  .element-cell .chinese-name { font-size: 7px; }
+  .element-cell .atomic-number { font-size: 7px; }
+  .legend { margin: 0 8px 8px; padding: 8px 10px; gap: 4px; }
+  .legend-item { font-size: 10px; }
+}
+
+@media (max-width: 480px) {
+  .header-right { gap: 4px; }
+  .search-box input { width: 100px; }
+  .periodic-table {
+    grid-template-columns: repeat(18, 32px);
+    grid-template-rows: repeat(7, 38px) 12px repeat(2, 38px);
+  }
+  .element-cell .symbol { font-size: 10px; }
+  .element-cell .chinese-name { display: none; }
+  .element-cell .atomic-number { font-size: 6px; }
+}
+
+/* ===== Scrollbar ===== */
+.table-container::-webkit-scrollbar { height: 6px; }
+.table-container::-webkit-scrollbar-track { background: var(--bg-secondary); border-radius: 3px; }
+.table-container::-webkit-scrollbar-thumb { background: var(--fg-secondary); border-radius: 3px; }
+.table-container::-webkit-scrollbar-thumb:hover { background: var(--fg); }
+
+/* ===== Print ===== */
+@media print {
+  .header, .toolbar { position: static; }
+  .element-cell:hover { transform: none; box-shadow: none; }
+}
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="header">
+  <div class="header-left">
+    <h1>元素周期表</h1>
+  </div>
+  <div class="header-right">
+    <div class="search-box">
+      <span class="search-icon">&#128269;</span>
+      <input type="text" id="searchInput" placeholder="搜索元素 / Symbol / #" autocomplete="off">
+    </div>
+    <button class="btn btn-theme" id="themeToggle" title="切换主题">&#9790;</button>
+  </div>
+</div>
+
+<!-- Toolbar -->
+<div class="toolbar">
+  <div class="toolbar-section">
+    <span class="toolbar-label">分类</span>
+    <button class="btn active" data-category="all">全部</button>
+    <button class="btn" data-category="alkali">碱金属</button>
+    <button class="btn" data-category="alkaline">碱土金属</button>
+    <button class="btn" data-category="transition">过渡金属</button>
+    <button class="btn" data-category="post-transition">后过渡金属</button>
+    <button class="btn" data-category="metalloid">准金属</button>
+    <button class="btn" data-category="nonmetal">非金属</button>
+    <button class="btn" data-category="halogen">卤素</button>
+    <button class="btn" data-category="noble">稀有气体</button>
+    <button class="btn" data-category="lanthanide">镧系</button>
+    <button class="btn" data-category="actinide">锕系</button>
+  </div>
+  <div class="toolbar-divider"></div>
+  <div class="toolbar-section">
+    <span class="toolbar-label">趋势</span>
+    <button class="btn" data-trend="none">默认</button>
+    <button class="btn" data-trend="radius">原子半径</button>
+    <button class="btn" data-trend="electronegativity">电负性</button>
+    <button class="btn" data-trend="ionization">电离能</button>
+  </div>
+  <div class="trend-legend" id="trendLegend" style="display:none;">
+    <span>低</span>
+    <div class="trend-legend-bar"></div>
+    <span>高</span>
+  </div>
+</div>
+
+<!-- Periodic Table -->
+<div class="table-container">
+  <div class="periodic-table" id="periodicTable"></div>
+</div>
+
+<!-- Legend -->
+<div class="legend" id="legend">
+  <span class="legend-title">图例</span>
+  <div class="legend-item" data-cat="alkali"><div class="legend-dot" style="background:var(--alkali)"></div>碱金属</div>
+  <div class="legend-item" data-cat="alkaline"><div class="legend-dot" style="background:var(--alkaline)"></div>碱土金属</div>
+  <div class="legend-item" data-cat="transition"><div class="legend-dot" style="background:var(--transition-metal)"></div>过渡金属</div>
+  <div class="legend-item" data-cat="post-transition"><div class="legend-dot" style="background:var(--post-transition)"></div>后过渡金属</div>
+  <div class="legend-item" data-cat="metalloid"><div class="legend-dot" style="background:var(--metalloid)"></div>准金属</div>
+  <div class="legend-item" data-cat="nonmetal"><div class="legend-dot" style="background:var(--nonmetal)"></div>非金属</div>
+  <div class="legend-item" data-cat="halogen"><div class="legend-dot" style="background:var(--halogen)"></div>卤素</div>
+  <div class="legend-item" data-cat="noble"><div class="legend-dot" style="background:var(--noble)"></div>稀有气体</div>
+  <div class="legend-item" data-cat="lanthanide"><div class="legend-dot" style="background:var(--lanthanide)"></div>镧系</div>
+  <div class="legend-item" data-cat="actinide"><div class="legend-dot" style="background:var(--actinide)"></div>锕系</div>
+</div>
+
+<!-- Tooltip -->
+<div class="tooltip" id="tooltip"></div>
+
+<!-- Modal -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal" id="modal">
+    <button class="modal-close" id="modalClose">&times;</button>
+    <div id="modalContent"></div>
+  </div>
+</div>
+
+<script>
+// ===== Element Data =====
+// Categories: alkali, alkaline, transition, post-transition, metalloid, nonmetal, halogen, noble, lanthanide, actinide
+const ELEMENTS = [
+  { z:1,  sym:"H",  cn:"氢",  mass:1.008,   cat:"nonmetal",      ec:"1s1",                              year:1766, radius:53,  en:2.20, ie:1312 },
+  { z:2,  sym:"He", cn:"氦",  mass:4.003,   cat:"noble",         ec:"1s2",                              year:1868, radius:31,  en:0,    ie:2372 },
+  { z:3,  sym:"Li", cn:"锂",  mass:6.941,   cat:"alkali",        ec:"[He]2s1",                          year:1817, radius:167, en:0.98, ie:520  },
+  { z:4,  sym:"Be", cn:"铍",  mass:9.012,   cat:"alkaline",      ec:"[He]2s2",                          year:1798, radius:112, en:1.57, ie:900  },
+  { z:5,  sym:"B",  cn:"硼",  mass:10.81,   cat:"metalloid",     ec:"[He]2s2 2p1",                      year:1808, radius:87,  en:2.04, ie:801  },
+  { z:6,  sym:"C",  cn:"碳",  mass:12.01,   cat:"nonmetal",      ec:"[He]2s2 2p2",                      year:0,    radius:77,  en:2.55, ie:1086 },
+  { z:7,  sym:"N",  cn:"氮",  mass:14.01,   cat:"nonmetal",      ec:"[He]2s2 2p3",                      year:1772, radius:75,  en:3.04, ie:1402 },
+  { z:8,  sym:"O",  cn:"氧",  mass:16.00,   cat:"nonmetal",      ec:"[He]2s2 2p4",                      year:1774, radius:73,  en:3.44, ie:1314 },
+  { z:9,  sym:"F",  cn:"氟",  mass:19.00,   cat:"halogen",       ec:"[He]2s2 2p5",                      year:1886, radius:71,  en:3.98, ie:1681 },
+  { z:10, sym:"Ne", cn:"氖",  mass:20.18,   cat:"noble",         ec:"[He]2s2 2p6",                      year:1898, radius:69,  en:0,    ie:2081 },
+  { z:11, sym:"Na", cn:"钠",  mass:22.99,   cat:"alkali",        ec:"[Ne]3s1",                          year:1807, radius:190, en:0.93, ie:496  },
+  { z:12, sym:"Mg", cn:"镁",  mass:24.31,   cat:"alkaline",      ec:"[Ne]3s2",                          year:1755, radius:145, en:1.31, ie:738  },
+  { z:13, sym:"Al", cn:"铝",  mass:26.98,   cat:"post-transition",ec:"[Ne]3s2 3p1",                     year:1825, radius:118, en:1.61, ie:578  },
+  { z:14, sym:"Si", cn:"硅",  mass:28.09,   cat:"metalloid",     ec:"[Ne]3s2 3p2",                      year:1824, radius:111, en:1.90, ie:786  },
+  { z:15, sym:"P",  cn:"磷",  mass:30.97,   cat:"nonmetal",      ec:"[Ne]3s2 3p3",                      year:1669, radius:106, en:2.19, ie:1012 },
+  { z:16, sym:"S",  cn:"硫",  mass:32.07,   cat:"nonmetal",      ec:"[Ne]3s2 3p4",                      year:0,    radius:102, en:2.58, ie:1000 },
+  { z:17, sym:"Cl", cn:"氯",  mass:35.45,   cat:"halogen",       ec:"[Ne]3s2 3p5",                      year:1774, radius:99,  en:3.16, ie:1251 },
+  { z:18, sym:"Ar", cn:"氩",  mass:39.95,   cat:"noble",         ec:"[Ne]3s2 3p6",                      year:1894, radius:97,  en:0,    ie:1521 },
+  { z:19, sym:"K",  cn:"钾",  mass:39.10,   cat:"alkali",        ec:"[Ar]4s1",                          year:1807, radius:243, en:0.82, ie:419  },
+  { z:20, sym:"Ca", cn:"钙",  mass:40.08,   cat:"alkaline",      ec:"[Ar]4s2",                          year:1808, radius:194, en:1.00, ie:590  },
+  { z:21, sym:"Sc", cn:"钪",  mass:44.96,   cat:"transition",    ec:"[Ar]3d1 4s2",                      year:1879, radius:184, en:1.36, ie:633  },
+  { z:22, sym:"Ti", cn:"钛",  mass:47.87,   cat:"transition",    ec:"[Ar]3d2 4s2",                      year:1791, radius:176, en:1.54, ie:659  },
+  { z:23, sym:"V",  cn:"钒",  mass:50.94,   cat:"transition",    ec:"[Ar]3d3 4s2",                      year:1801, radius:171, en:1.63, ie:651  },
+  { z:24, sym:"Cr", cn:"铬",  mass:52.00,   cat:"transition",    ec:"[Ar]3d5 4s1",                      year:1797, radius:166, en:1.66, ie:653  },
+  { z:25, sym:"Mn", cn:"锰",  mass:54.94,   cat:"transition",    ec:"[Ar]3d5 4s2",                      year:1774, radius:161, en:1.55, ie:717  },
+  { z:26, sym:"Fe", cn:"铁",  mass:55.85,   cat:"transition",    ec:"[Ar]3d6 4s2",                      year:0,    radius:156, en:1.83, ie:763  },
+  { z:27, sym:"Co", cn:"钴",  mass:58.93,   cat:"transition",    ec:"[Ar]3d7 4s2",                      year:1735, radius:152, en:1.88, ie:760  },
+  { z:28, sym:"Ni", cn:"镍",  mass:58.69,   cat:"transition",    ec:"[Ar]3d8 4s2",                      year:1751, radius:149, en:1.91, ie:737  },
+  { z:29, sym:"Cu", cn:"铜",  mass:63.55,   cat:"transition",    ec:"[Ar]3d10 4s1",                     year:0,    radius:145, en:1.90, ie:746  },
+  { z:30, sym:"Zn", cn:"锌",  mass:65.38,   cat:"transition",    ec:"[Ar]3d10 4s2",                     year:1746, radius:142, en:1.65, ie:906  },
+  { z:31, sym:"Ga", cn:"镓",  mass:69.72,   cat:"post-transition",ec:"[Ar]3d10 4s2 4p1",                year:1875, radius:136, en:1.81, ie:579  },
+  { z:32, sym:"Ge", cn:"锗",  mass:72.63,   cat:"metalloid",     ec:"[Ar]3d10 4s2 4p2",                 year:1886, radius:125, en:2.01, ie:762  },
+  { z:33, sym:"As", cn:"砷",  mass:74.92,   cat:"metalloid",     ec:"[Ar]3d10 4s2 4p3",                 year:1250, radius:114, en:2.18, ie:947  },
+  { z:34, sym:"Se", cn:"硒",  mass:78.97,   cat:"nonmetal",      ec:"[Ar]3d10 4s2 4p4",                 year:1817, radius:103, en:2.55, ie:941  },
+  { z:35, sym:"Br", cn:"溴",  mass:79.90,   cat:"halogen",       ec:"[Ar]3d10 4s2 4p5",                 year:1826, radius:94,  en:2.96, ie:1140 },
+  { z:36, sym:"Kr", cn:"氪",  mass:83.80,   cat:"noble",         ec:"[Ar]3d10 4s2 4p6",                 year:1898, radius:88,  en:3.00, ie:1351 },
+  // Extended elements (37-56, 72-86) with basic data
+  { z:37, sym:"Rb", cn:"铷",  mass:85.47,   cat:"alkali",        ec:"[Kr]5s1",                          year:1861, radius:265, en:0.82, ie:403  },
+  { z:38, sym:"Sr", cn:"锶",  mass:87.62,   cat:"alkaline",      ec:"[Kr]5s2",                          year:1790, radius:219, en:0.95, ie:550  },
+  { z:39, sym:"Y",  cn:"钇",  mass:88.91,   cat:"transition",    ec:"[Kr]4d1 5s2",                      year:1794, radius:212, en:1.22, ie:600  },
+  { z:40, sym:"Zr", cn:"锆",  mass:91.22,   cat:"transition",    ec:"[Kr]4d2 5s2",                      year:1789, radius:206, en:1.33, ie:640  },
+  { z:41, sym:"Nb", cn:"铌",  mass:92.91,   cat:"transition",    ec:"[Kr]4d4 5s1",                      year:1801, radius:198, en:1.60, ie:652  },
+  { z:42, sym:"Mo", cn:"钼",  mass:95.95,   cat:"transition",    ec:"[Kr]4d5 5s1",                      year:1781, radius:190, en:2.16, ie:684  },
+  { z:43, sym:"Tc", cn:"锝",  mass:98,      cat:"transition",    ec:"[Kr]4d5 5s2",                      year:1937, radius:183, en:1.90, ie:702  },
+  { z:44, sym:"Ru", cn:"钌",  mass:101.07,  cat:"transition",    ec:"[Kr]4d7 5s1",                      year:1844, radius:178, en:2.20, ie:710  },
+  { z:45, sym:"Rh", cn:"铑",  mass:102.91,  cat:"transition",    ec:"[Kr]4d8 5s1",                      year:1803, radius:173, en:2.28, ie:720  },
+  { z:46, sym:"Pd", cn:"钯",  mass:106.42,  cat:"transition",    ec:"[Kr]4d10",                         year:1803, radius:169, en:2.20, ie:804  },
+  { z:47, sym:"Ag", cn:"银",  mass:107.87,  cat:"transition",    ec:"[Kr]4d10 5s1",                     year:0,    radius:165, en:1.93, ie:731  },
+  { z:48, sym:"Cd", cn:"镉",  mass:112.41,  cat:"transition",    ec:"[Kr]4d10 5s2",                     year:1817, radius:161, en:1.69, ie:868  },
+  { z:49, sym:"In", cn:"铟",  mass:114.82,  cat:"post-transition",ec:"[Kr]4d10 5s2 5p1",                year:1863, radius:156, en:1.78, ie:558  },
+  { z:50, sym:"Sn", cn:"锡",  mass:118.71,  cat:"post-transition",ec:"[Kr]4d10 5s2 5p2",                year:0,    radius:145, en:1.96, ie:709  },
+  { z:51, sym:"Sb", cn:"锑",  mass:121.76,  cat:"metalloid",     ec:"[Kr]4d10 5s2 5p3",                 year:0,    radius:133, en:2.05, ie:831  },
+  { z:52, sym:"Te", cn:"碲",  mass:127.60,  cat:"metalloid",     ec:"[Kr]4d10 5s2 5p4",                 year:1783, radius:123, en:2.10, ie:869  },
+  { z:53, sym:"I",  cn:"碘",  mass:126.90,  cat:"halogen",       ec:"[Kr]4d10 5s2 5p5",                 year:1811, radius:115, en:2.66, ie:1008 },
+  { z:54, sym:"Xe", cn:"氙",  mass:131.29,  cat:"noble",         ec:"[Kr]4d10 5s2 5p6",                 year:1898, radius:108, en:2.60, ie:1170 },
+  { z:55, sym:"Cs", cn:"铯",  mass:132.91,  cat:"alkali",        ec:"[Xe]6s1",                          year:1860, radius:298, en:0.79, ie:376  },
+  { z:56, sym:"Ba", cn:"钡",  mass:137.33,  cat:"alkaline",      ec:"[Xe]6s2",                          year:1808, radius:253, en:0.89, ie:503  },
+  // Lanthanides (57-71) placed in row 9
+  { z:57, sym:"La", cn:"镧",  mass:138.91,  cat:"lanthanide",    ec:"[Xe]5d1 6s2",                      year:1839, radius:187, en:1.10, ie:538  },
+  { z:58, sym:"Ce", cn:"铈",  mass:140.12,  cat:"lanthanide",    ec:"[Xe]4f1 5d1 6s2",                  year:1803, radius:182, en:1.12, ie:534  },
+  { z:59, sym:"Pr", cn:"镨",  mass:140.91,  cat:"lanthanide",    ec:"[Xe]4f3 6s2",                      year:1885, radius:182, en:1.13, ie:527  },
+  { z:60, sym:"Nd", cn:"钕",  mass:144.24,  cat:"lanthanide",    ec:"[Xe]4f4 6s2",                      year:1885, radius:181, en:1.14, ie:533  },
+  { z:61, sym:"Pm", cn:"钷",  mass:145,     cat:"lanthanide",    ec:"[Xe]4f5 6s2",                      year:1945, radius:183, en:1.13, ie:540  },
+  { z:62, sym:"Sm", cn:"钐",  mass:150.36,  cat:"lanthanide",    ec:"[Xe]4f6 6s2",                      year:1879, radius:180, en:1.17, ie:545  },
+  { z:63, sym:"Eu", cn:"铕",  mass:151.96,  cat:"lanthanide",    ec:"[Xe]4f7 6s2",                      year:1901, radius:180, en:1.20, ie:547  },
+  { z:64, sym:"Gd", cn:"钆",  mass:157.25,  cat:"lanthanide",    ec:"[Xe]4f7 5d1 6s2",                  year:1880, radius:180, en:1.20, ie:593  },
+  { z:65, sym:"Tb", cn:"铽",  mass:158.93,  cat:"lanthanide",    ec:"[Xe]4f9 6s2",                      year:1843, radius:177, en:1.20, ie:566  },
+  { z:66, sym:"Dy", cn:"镝",  mass:162.50,  cat:"lanthanide",    ec:"[Xe]4f10 6s2",                     year:1886, radius:178, en:1.22, ie:573  },
+  { z:67, sym:"Ho", cn:"钬",  mass:164.93,  cat:"lanthanide",    ec:"[Xe]4f11 6s2",                     year:1878, radius:176, en:1.23, ie:581  },
+  { z:68, sym:"Er", cn:"铒",  mass:167.26,  cat:"lanthanide",    ec:"[Xe]4f12 6s2",                     year:1842, radius:176, en:1.24, ie:589  },
+  { z:69, sym:"Tm", cn:"铥",  mass:168.93,  cat:"lanthanide",    ec:"[Xe]4f13 6s2",                     year:1879, radius:176, en:1.25, ie:597  },
+  { z:70, sym:"Yb", cn:"镱",  mass:173.05,  cat:"lanthanide",    ec:"[Xe]4f14 6s2",                     year:1878, radius:176, en:1.10, ie:603  },
+  { z:71, sym:"Lu", cn:"镥",  mass:174.97,  cat:"lanthanide",    ec:"[Xe]4f14 5d1 6s2",                 year:1907, radius:174, en:1.27, ie:524  },
+  // Period 6 continued (72-86)
+  { z:72, sym:"Hf", cn:"铪",  mass:178.49,  cat:"transition",    ec:"[Xe]4f14 5d2 6s2",                 year:1923, radius:208, en:1.30, ie:659  },
+  { z:73, sym:"Ta", cn:"钽",  mass:180.95,  cat:"transition",    ec:"[Xe]4f14 5d3 6s2",                 year:1802, radius:200, en:1.50, ie:761  },
+  { z:74, sym:"W",  cn:"钨",  mass:183.84,  cat:"transition",    ec:"[Xe]4f14 5d4 6s2",                 year:1783, radius:193, en:2.36, ie:770  },
+  { z:75, sym:"Re", cn:"铼",  mass:186.21,  cat:"transition",    ec:"[Xe]4f14 5d5 6s2",                 year:1925, radius:188, en:1.90, ie:760  },
+  { z:76, sym:"Os", cn:"锇",  mass:190.23,  cat:"transition",    ec:"[Xe]4f14 5d6 6s2",                 year:1803, radius:185, en:2.20, ie:840  },
+  { z:77, sym:"Ir", cn:"铱",  mass:192.22,  cat:"transition",    ec:"[Xe]4f14 5d7 6s2",                 year:1803, radius:180, en:2.20, ie:880  },
+  { z:78, sym:"Pt", cn:"铂",  mass:195.08,  cat:"transition",    ec:"[Xe]4f14 5d9 6s1",                 year:1735, radius:177, en:2.28, ie:870  },
+  { z:79, sym:"Au", cn:"金",  mass:196.97,  cat:"transition",    ec:"[Xe]4f14 5d10 6s1",                year:0,    radius:174, en:2.54, ie:890  },
+  { z:80, sym:"Hg", cn:"汞",  mass:200.59,  cat:"transition",    ec:"[Xe]4f14 5d10 6s2",                year:0,    radius:171, en:2.00, ie:1007 },
+  { z:81, sym:"Tl", cn:"铊",  mass:204.38,  cat:"post-transition",ec:"[Xe]4f14 5d10 6s2 6p1",           year:1861, radius:156, en:1.62, ie:589  },
+  { z:82, sym:"Pb", cn:"铅",  mass:207.2,   cat:"post-transition",ec:"[Xe]4f14 5d10 6s2 6p2",           year:0,    radius:154, en:2.33, ie:716  },
+  { z:83, sym:"Bi", cn:"铋",  mass:208.98,  cat:"post-transition",ec:"[Xe]4f14 5d10 6s2 6p3",           year:1753, radius:143, en:2.02, ie:703  },
+  { z:84, sym:"Po", cn:"钋",  mass:209,     cat:"post-transition",ec:"[Xe]4f14 5d10 6s2 6p4",           year:1898, radius:135, en:2.00, ie:812  },
+  { z:85, sym:"At", cn:"砹",  mass:210,     cat:"halogen",       ec:"[Xe]4f14 5d10 6s2 6p5",            year:1940, radius:127, en:2.20, ie:920  },
+  { z:86, sym:"Rn", cn:"氡",  mass:222,     cat:"noble",         ec:"[Xe]4f14 5d10 6s2 6p6",            year:1900, radius:120, en:0,    ie:1037 },
+  // Period 7 (87-118) - partial
+  { z:87, sym:"Fr", cn:"钫",  mass:223,     cat:"alkali",        ec:"[Rn]7s1",                          year:1939, radius:348, en:0.70, ie:380  },
+  { z:88, sym:"Ra", cn:"镭",  mass:226,     cat:"alkaline",      ec:"[Rn]7s2",                          year:1898, radius:283, en:0.90, ie:509  },
+  // Actinides (89-103) placed in row 10
+  { z:89, sym:"Ac", cn:"锕",  mass:227,     cat:"actinide",      ec:"[Rn]6d1 7s2",                      year:1899, radius:215, en:1.10, ie:499  },
+  { z:90, sym:"Th", cn:"钍",  mass:232.04,  cat:"actinide",      ec:"[Rn]6d2 7s2",                      year:1829, radius:206, en:1.30, ie:587  },
+  { z:91, sym:"Pa", cn:"镤",  mass:231.04,  cat:"actinide",      ec:"[Rn]5f2 6d1 7s2",                  year:1913, radius:200, en:1.50, ie:568  },
+  { z:92, sym:"U",  cn:"铀",  mass:238.03,  cat:"actinide",      ec:"[Rn]5f3 6d1 7s2",                  year:1789, radius:196, en:1.38, ie:598  },
+  { z:93, sym:"Np", cn:"镎",  mass:237,     cat:"actinide",      ec:"[Rn]5f4 6d1 7s2",                  year:1940, radius:190, en:1.36, ie:605  },
+  { z:94, sym:"Pu", cn:"钚",  mass:244,     cat:"actinide",      ec:"[Rn]5f6 7s2",                      year:1940, radius:187, en:1.28, ie:585  },
+  { z:95, sym:"Am", cn:"镅",  mass:243,     cat:"actinide",      ec:"[Rn]5f7 7s2",                      year:1944, radius:180, en:1.30, ie:578  },
+  { z:96, sym:"Cm", cn:"锔",  mass:247,     cat:"actinide",      ec:"[Rn]5f7 6d1 7s2",                  year:1944, radius:169, en:1.30, ie:581  },
+  { z:97, sym:"Bk", cn:"锫",  mass:247,     cat:"actinide",      ec:"[Rn]5f9 7s2",                      year:1949, radius:170, en:1.30, ie:601  },
+  { z:98, sym:"Cf", cn:"锎",  mass:251,     cat:"actinide",      ec:"[Rn]5f10 7s2",                     year:1950, radius:186, en:1.30, ie:608  },
+  { z:99, sym:"Es", cn:"锿",  mass:252,     cat:"actinide",      ec:"[Rn]5f11 7s2",                     year:1952, radius:186, en:1.30, ie:619  },
+  { z:100,sym:"Fm", cn:"镄",  mass:257,     cat:"actinide",      ec:"[Rn]5f12 7s2",                     year:1952, radius:0,   en:1.30, ie:627  },
+  { z:101,sym:"Md", cn:"钔",  mass:258,     cat:"actinide",      ec:"[Rn]5f13 7s2",                     year:1955, radius:0,   en:1.30, ie:635  },
+  { z:102,sym:"No", cn:"锘",  mass:259,     cat:"actinide",      ec:"[Rn]5f14 7s2",                     year:1966, radius:0,   en:1.30, ie:642  },
+  { z:103,sym:"Lr", cn:"铹",  mass:266,     cat:"actinide",      ec:"[Rn]5f14 7s2 7p1",                 year:1961, radius:0,   en:1.30, ie:470  },
+  // Period 7 remaining (104-118)
+  { z:104,sym:"Rf", cn:"𬬻",  mass:267,     cat:"transition",    ec:"[Rn]5f14 6d2 7s2",                 year:1964, radius:0,   en:0,    ie:580  },
+  { z:105,sym:"Db", cn:"𬭊",  mass:268,     cat:"transition",    ec:"[Rn]5f14 6d3 7s2",                 year:1967, radius:0,   en:0,    ie:0    },
+  { z:106,sym:"Sg", cn:"𬭳",  mass:269,     cat:"transition",    ec:"[Rn]5f14 6d4 7s2",                 year:1974, radius:0,   en:0,    ie:0    },
+  { z:107,sym:"Bh", cn:"𬭛",  mass:270,     cat:"transition",    ec:"[Rn]5f14 6d5 7s2",                 year:1981, radius:0,   en:0,    ie:0    },
+  { z:108,sym:"Hs", cn:"𬭶",  mass:277,     cat:"transition",    ec:"[Rn]5f14 6d6 7s2",                 year:1984, radius:0,   en:0,    ie:0    },
+  { z:109,sym:"Mt", cn:"鿏",  mass:278,     cat:"unknown",       ec:"[Rn]5f14 6d7 7s2",                 year:1982, radius:0,   en:0,    ie:0    },
+  { z:110,sym:"Ds", cn:"𫟼",  mass:281,     cat:"unknown",       ec:"[Rn]5f14 6d8 7s2",                 year:1994, radius:0,   en:0,    ie:0    },
+  { z:111,sym:"Rg", cn:"𬬭",  mass:282,     cat:"unknown",       ec:"[Rn]5f14 6d9 7s2",                 year:1994, radius:0,   en:0,    ie:0    },
+  { z:112,sym:"Cn", cn:"鿔",  mass:285,     cat:"transition",    ec:"[Rn]5f14 6d10 7s2",                year:1996, radius:0,   en:0,    ie:0    },
+  { z:113,sym:"Nh", cn:"鿭",  mass:286,     cat:"unknown",       ec:"[Rn]5f14 6d10 7s2 7p1",            year:2003, radius:0,   en:0,    ie:0    },
+  { z:114,sym:"Fl", cn:"𫓧",  mass:289,     cat:"post-transition",ec:"[Rn]5f14 6d10 7s2 7p2",           year:1998, radius:0,   en:0,    ie:0    },
+  { z:115,sym:"Mc", cn:"镆",  mass:290,     cat:"unknown",       ec:"[Rn]5f14 6d10 7s2 7p3",            year:2003, radius:0,   en:0,    ie:0    },
+  { z:116,sym:"Lv", cn:"𫟷",  mass:293,     cat:"unknown",       ec:"[Rn]5f14 6d10 7s2 7p4",            year:2000, radius:0,   en:0,    ie:0    },
+  { z:117,sym:"Ts", cn:"鿬",  mass:294,     cat:"unknown",       ec:"[Rn]5f14 6d10 7s2 7p5",            year:2010, radius:0,   en:0,    ie:0    },
+  { z:118,sym:"Og", cn:"鿫",  mass:294,     cat:"unknown",       ec:"[Rn]5f14 6d10 7s2 7p6",            year:2002, radius:0,   en:0,    ie:0    },
+];
+
+// ===== Grid Position Map =====
+// Maps atomic number to {row, col} in the 18-column grid
+// Rows 1-7 = main periods, row 8 = gap, rows 9-10 = lanthanides/actinides
+const POSITION_MAP = {
+  1:{r:1,c:1}, 2:{r:1,c:18},
+  3:{r:2,c:1}, 4:{r:2,c:2}, 5:{r:2,c:13}, 6:{r:2,c:14}, 7:{r:2,c:15}, 8:{r:2,c:16}, 9:{r:2,c:17}, 10:{r:2,c:18},
+  11:{r:3,c:1}, 12:{r:3,c:2}, 13:{r:3,c:13}, 14:{r:3,c:14}, 15:{r:3,c:15}, 16:{r:3,c:16}, 17:{r:3,c:17}, 18:{r:3,c:18},
+  19:{r:4,c:1}, 20:{r:4,c:2},
+  21:{r:4,c:3}, 22:{r:4,c:4}, 23:{r:4,c:5}, 24:{r:4,c:6}, 25:{r:4,c:7}, 26:{r:4,c:8}, 27:{r:4,c:9}, 28:{r:4,c:10}, 29:{r:4,c:11}, 30:{r:4,c:12},
+  31:{r:4,c:13}, 32:{r:4,c:14}, 33:{r:4,c:15}, 34:{r:4,c:16}, 35:{r:4,c:17}, 36:{r:4,c:18},
+  37:{r:5,c:1}, 38:{r:5,c:2},
+  39:{r:5,c:3}, 40:{r:5,c:4}, 41:{r:5,c:5}, 42:{r:5,c:6}, 43:{r:5,c:7}, 44:{r:5,c:8}, 45:{r:5,c:9}, 46:{r:5,c:10}, 47:{r:5,c:11}, 48:{r:5,c:12},
+  49:{r:5,c:13}, 50:{r:5,c:14}, 51:{r:5,c:15}, 52:{r:5,c:16}, 53:{r:5,c:17}, 54:{r:5,c:18},
+  55:{r:6,c:1}, 56:{r:6,c:2},
+  // Lanthanides go to row 9
+  57:{r:9,c:4}, 58:{r:9,c:5}, 59:{r:9,c:6}, 60:{r:9,c:7}, 61:{r:9,c:8}, 62:{r:9,c:9}, 63:{r:9,c:10}, 64:{r:9,c:11}, 65:{r:9,c:12}, 66:{r:9,c:13}, 67:{r:9,c:14}, 68:{r:9,c:15}, 69:{r:9,c:16}, 70:{r:9,c:17}, 71:{r:9,c:18},
+  72:{r:6,c:4}, 73:{r:6,c:5}, 74:{r:6,c:6}, 75:{r:6,c:7}, 76:{r:6,c:8}, 77:{r:6,c:9}, 78:{r:6,c:10}, 79:{r:6,c:11}, 80:{r:6,c:12},
+  81:{r:6,c:13}, 82:{r:6,c:14}, 83:{r:6,c:15}, 84:{r:6,c:16}, 85:{r:6,c:17}, 86:{r:6,c:18},
+  87:{r:7,c:1}, 88:{r:7,c:2},
+  // Actinides go to row 10
+  89:{r:10,c:4}, 90:{r:10,c:5}, 91:{r:10,c:6}, 92:{r:10,c:7}, 93:{r:10,c:8}, 94:{r:10,c:9}, 95:{r:10,c:10}, 96:{r:10,c:11}, 97:{r:10,c:12}, 98:{r:10,c:13}, 99:{r:10,c:14}, 100:{r:10,c:15}, 101:{r:10,c:16}, 102:{r:10,c:17}, 103:{r:10,c:18},
+  104:{r:7,c:4}, 105:{r:7,c:5}, 106:{r:7,c:6}, 107:{r:7,c:7}, 108:{r:7,c:8}, 109:{r:7,c:9}, 110:{r:7,c:10}, 111:{r:7,c:11}, 112:{r:7,c:12},
+  113:{r:7,c:13}, 114:{r:7,c:14}, 115:{r:7,c:15}, 116:{r:7,c:16}, 117:{r:7,c:17}, 118:{r:7,c:18},
+};
+
+// Category display names
+const CAT_NAMES = {
+  alkali: "碱金属", alkaline: "碱土金属", transition: "过渡金属",
+  "post-transition": "后过渡金属", metalloid: "准金属", nonmetal: "非金属",
+  halogen: "卤素", noble: "稀有气体", lanthanide: "镧系元素", actinide: "锕系元素", unknown: "未知"
+};
+
+// ===== State =====
+let activeCategory = "all";
+let activeTrend = "none";
+let searchQuery = "";
+
+// ===== Build Element Lookup =====
+const elementByZ = {};
+ELEMENTS.forEach(el => elementByZ[el.z] = el);
+
+// ===== Render Periodic Table =====
+function renderTable() {
+  const table = document.getElementById("periodicTable");
+  table.innerHTML = "";
+
+  // Add lanthanide/actinide label cells in row 6 col 3 and row 7 col 3
+  const laLabel = document.createElement("div");
+  laLabel.className = "la-label";
+  laLabel.textContent = "57-71";
+  laLabel.style.gridRow = "6";
+  laLabel.style.gridColumn = "3";
+  table.appendChild(laLabel);
+
+  const acLabel = document.createElement("div");
+  acLabel.className = "ac-label";
+  acLabel.textContent = "89-103";
+  acLabel.style.gridRow = "7";
+  acLabel.style.gridColumn = "3";
+  table.appendChild(acLabel);
+
+  // Render each element
+  ELEMENTS.forEach(el => {
+    const pos = POSITION_MAP[el.z];
+    if (!pos) return;
+
+    const cell = document.createElement("div");
+    cell.className = `element-cell cat-${el.cat}`;
+    cell.dataset.z = el.z;
+    cell.dataset.cat = el.cat;
+    cell.style.gridRow = String(pos.r);
+    cell.style.gridColumn = String(pos.c);
+
+    cell.innerHTML = `
+      <span class="atomic-number">${el.z}</span>
+      <span class="symbol">${el.sym}</span>
+      <span class="chinese-name">${el.cn}</span>
+    `;
+
+    // Apply trend coloring
+    if (activeTrend !== "none") {
+      applyTrendColor(cell, el);
+    }
+
+    // Apply category filter
+    if (activeCategory !== "all" && el.cat !== activeCategory) {
+      cell.classList.add("dimmed");
+    }
+
+    // Apply search highlight
+    if (searchQuery && matchesSearch(el, searchQuery)) {
+      cell.classList.add("highlighted");
+    } else if (searchQuery && !matchesSearch(el, searchQuery)) {
+      cell.classList.add("dimmed");
+    }
+
+    // Events
+    cell.addEventListener("mouseenter", (e) => showTooltip(e, el));
+    cell.addEventListener("mousemove", (e) => moveTooltip(e));
+    cell.addEventListener("mouseleave", hideTooltip);
+    cell.addEventListener("click", () => openModal(el));
+
+    table.appendChild(cell);
+  });
+}
+
+// ===== Trend Coloring =====
+function applyTrendColor(cell, el) {
+  let value = 0;
+  let min, max;
+  if (activeTrend === "radius") {
+    value = el.radius;
+    min = 25; max = 300;
+  } else if (activeTrend === "electronegativity") {
+    value = el.en;
+    min = 0.6; max = 4.0;
+  } else if (activeTrend === "ionization") {
+    value = el.ie;
+    min = 350; max = 2400;
+  }
+
+  if (!value || value === 0) {
+    cell.classList.add("cat-unknown");
+    // Remove existing cat-* classes for trend mode
+    cell.className = cell.className.replace(/cat-\S+/g, "");
+    cell.classList.add("cat-unknown");
+    return;
+  }
+
+  const ratio = Math.max(0, Math.min(1, (value - min) / (max - min)));
+  // Remove existing cat-* and trend-* classes
+  cell.className = cell.className.replace(/cat-\S+/g, "").replace(/trend-\S+/g, "").trim();
+  cell.classList.add("element-cell");
+
+  if (ratio < 0.2) cell.classList.add("trend-low");
+  else if (ratio < 0.4) cell.classList.add("trend-med-low");
+  else if (ratio < 0.6) cell.classList.add("trend-med");
+  else if (ratio < 0.8) cell.classList.add("trend-med-high");
+  else cell.classList.add("trend-high");
+}
+
+// ===== Search =====
+function matchesSearch(el, query) {
+  const q = query.toLowerCase().trim();
+  if (!q) return false;
+  return el.sym.toLowerCase().includes(q) ||
+         el.cn.includes(q) ||
+         String(el.z) === q ||
+         String(el.mass).startsWith(q);
+}
+
+// ===== Tooltip =====
+const tooltip = document.getElementById("tooltip");
+
+function showTooltip(e, el) {
+  const yearStr = el.year > 0 ? el.year + "年" : "古代";
+  const enStr = el.en > 0 ? el.en.toFixed(2) : "N/A";
+  tooltip.innerHTML = `
+    <div class="tt-name">${el.cn} (${el.sym}) #${el.z}</div>
+    <div class="tt-row"><span class="tt-label">原子量</span><span class="tt-value">${el.mass}</span></div>
+    <div class="tt-row"><span class="tt-label">电子构型</span><span class="tt-value">${el.ec}</span></div>
+    <div class="tt-row"><span class="tt-label">电负性</span><span class="tt-value">${enStr}</span></div>
+    <div class="tt-row"><span class="tt-label">发现</span><span class="tt-value">${yearStr}</span></div>
+  `;
+  tooltip.classList.add("visible");
+  moveTooltip(e);
+}
+
+function moveTooltip(e) {
+  const pad = 12;
+  let x = e.clientX + pad;
+  let y = e.clientY + pad;
+  const rect = tooltip.getBoundingClientRect();
+  if (x + rect.width > window.innerWidth - pad) x = e.clientX - rect.width - pad;
+  if (y + rect.height > window.innerHeight - pad) y = e.clientY - rect.height - pad;
+  tooltip.style.left = x + "px";
+  tooltip.style.top = y + "px";
+}
+
+function hideTooltip() {
+  tooltip.classList.remove("visible");
+}
+
+// ===== Modal =====
+const modalOverlay = document.getElementById("modalOverlay");
+const modalContent = document.getElementById("modalContent");
+
+function openModal(el) {
+  hideTooltip();
+  const yearStr = el.year > 0 ? el.year + "年" : "古代";
+  const enStr = el.en > 0 ? el.en.toFixed(2) : "N/A";
+  const radiusStr = el.radius > 0 ? el.radius + " pm" : "N/A";
+  const ieStr = el.ie > 0 ? el.ie + " kJ/mol" : "N/A";
+  const catName = CAT_NAMES[el.cat] || el.cat;
+
+  modalContent.innerHTML = `
+    <div class="modal-header">
+      <div class="modal-symbol-box cat-${el.cat}">
+        <span class="m-number">${el.z}</span>
+        <span class="m-symbol">${el.sym}</span>
+        <span class="m-name">${el.cn}</span>
+      </div>
+      <div class="modal-title-group">
+        <h2>${el.cn} (${el.sym})</h2>
+        <div class="m-subtitle">${catName} &middot; 第${el.z}号元素</div>
+      </div>
+    </div>
+    <div class="modal-body">
+      <div class="modal-info-grid">
+        <div class="info-item"><div class="info-label">原子量</div><div class="info-value">${el.mass}</div></div>
+        <div class="info-item"><div class="info-label">原子半径</div><div class="info-value">${radiusStr}</div></div>
+        <div class="info-item"><div class="info-label">电负性</div><div class="info-value">${enStr}</div></div>
+        <div class="info-item"><div class="info-label">电离能</div><div class="info-value">${ieStr}</div></div>
+        <div class="info-item"><div class="info-label">电子构型</div><div class="info-value" style="font-size:12px">${el.ec}</div></div>
+        <div class="info-item"><div class="info-label">发现年份</div><div class="info-value">${yearStr}</div></div>
+      </div>
+      <div class="shell-title">电子层排布</div>
+      <div class="shell-diagram">${generateShellSVG(el)}</div>
+    </div>
+  `;
+
+  modalOverlay.classList.add("open");
+  document.body.style.overflow = "hidden";
+}
+
+function closeModal() {
+  modalOverlay.classList.remove("open");
+  document.body.style.overflow = "";
+}
+
+document.getElementById("modalClose").addEventListener("click", closeModal);
+modalOverlay.addEventListener("click", (e) => {
+  if (e.target === modalOverlay) closeModal();
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") closeModal();
+});
+
+// ===== Electron Shell SVG =====
+function generateShellSVG(el) {
+  // Parse electron configuration to get shell electrons
+  const shells = parseShells(el);
+  const numShells = shells.length;
+  if (numShells === 0) return "<div style='text-align:center;color:var(--fg-secondary)'>N/A</div>";
+
+  const svgSize = 200;
+  const cx = svgSize / 2;
+  const cy = svgSize / 2;
+  const maxR = svgSize / 2 - 10;
+  const nucleusR = 12;
+  const shellSpacing = (maxR - nucleusR - 8) / Math.max(numShells, 1);
+
+  let svg = `<svg viewBox="0 0 ${svgSize} ${svgSize}" xmlns="http://www.w3.org/2000/svg">`;
+
+  // Nucleus
+  svg += `<circle cx="${cx}" cy="${cy}" r="${nucleusR}" fill="var(--fg)" opacity="0.8"/>`;
+  svg += `<text x="${cx}" y="${cy + 4}" text-anchor="middle" fill="var(--bg)" font-size="10" font-weight="700">${el.sym}</text>`;
+
+  // Shells
+  shells.forEach((electrons, i) => {
+    const r = nucleusR + shellSpacing * (i + 1);
+    // Shell circle
+    svg += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="var(--fg-secondary)" stroke-width="0.8" stroke-dasharray="3,3" opacity="0.5"/>`;
+
+    // Electrons on shell
+    const eR = 3.5;
+    for (let j = 0; j < electrons; j++) {
+      const angle = (2 * Math.PI * j) / electrons - Math.PI / 2;
+      const ex = cx + r * Math.cos(angle);
+      const ey = cy + r * Math.sin(angle);
+      svg += `<circle cx="${ex.toFixed(1)}" cy="${ey.toFixed(1)}" r="${eR}" fill="var(--transition-metal)" opacity="0.9"/>`;
+    }
+
+    // Shell label
+    svg += `<text x="${cx + r + 2}" y="${cy - 2}" fill="var(--fg-secondary)" font-size="7">${electrons}</text>`;
+  });
+
+  svg += "</svg>";
+  return svg;
+}
+
+function parseShells(el) {
+  // Simplified shell parsing based on electron config
+  // Returns array of electrons per shell [K, L, M, N, O, P, Q]
+  const ec = el.ec;
+
+  // Map noble gas cores to shell electrons
+  const nobleCores = {
+    "[He]": [2],
+    "[Ne]": [2, 8],
+    "[Ar]": [2, 8, 8],
+    "[Kr]": [2, 8, 18, 8],
+    "[Xe]": [2, 8, 18, 18, 8],
+    "[Rn]": [2, 8, 18, 32, 18, 8],
+  };
+
+  let base = [];
+  let config = ec;
+
+  // Check for noble gas core
+  for (const [core, shells] of Object.entries(nobleCores)) {
+    if (config.startsWith(core)) {
+      base = [...shells];
+      config = config.slice(core.length).trim();
+      break;
+    }
+  }
+
+  // Parse remaining configuration
+  const orbitalRe = /(\d)([spdf])(\d+)/g;
+  let match;
+  const orbitalMap = {}; // n -> total electrons
+
+  while ((match = orbitalRe.exec(config)) !== null) {
+    const n = parseInt(match[1]);
+    const count = parseInt(match[3]);
+    orbitalMap[n] = (orbitalMap[n] || 0) + count;
+  }
+
+  // Merge into shells
+  const result = [...base];
+  for (const [n, count] of Object.entries(orbitalMap).sort((a, b) => a[0] - b[0])) {
+    const shellIndex = parseInt(n) - 1;
+    while (result.length <= shellIndex) result.push(0);
+    result[shellIndex] += count;
+  }
+
+  return result;
+}
+
+// ===== Category Filter =====
+document.querySelectorAll("[data-category]").forEach(btn => {
+  btn.addEventListener("click", () => {
+    const cat = btn.dataset.category;
+    activeCategory = cat;
+
+    // Update button states
+    document.querySelectorAll("[data-category]").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+
+    renderTable();
+  });
+});
+
+// Legend items also act as category filters
+document.querySelectorAll(".legend-item[data-cat]").forEach(item => {
+  item.addEventListener("click", () => {
+    const cat = item.dataset.cat;
+    activeCategory = activeCategory === cat ? "all" : cat;
+
+    // Update toolbar buttons
+    document.querySelectorAll("[data-category]").forEach(b => {
+      b.classList.toggle("active", b.dataset.category === activeCategory);
+    });
+
+    renderTable();
+  });
+});
+
+// ===== Trend Toggle =====
+document.querySelectorAll("[data-trend]").forEach(btn => {
+  btn.addEventListener("click", () => {
+    activeTrend = btn.dataset.trend;
+
+    // Update button states
+    document.querySelectorAll("[data-trend]").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+
+    // Show/hide trend legend
+    document.getElementById("trendLegend").style.display = activeTrend === "none" ? "none" : "flex";
+
+    renderTable();
+  });
+});
+
+// ===== Search =====
+const searchInput = document.getElementById("searchInput");
+let searchTimeout;
+
+searchInput.addEventListener("input", () => {
+  clearTimeout(searchTimeout);
+  searchTimeout = setTimeout(() => {
+    searchQuery = searchInput.value;
+    renderTable();
+  }, 150);
+});
+
+// ===== Theme Toggle =====
+const themeToggle = document.getElementById("themeToggle");
+
+function setTheme(theme) {
+  document.documentElement.setAttribute("data-theme", theme);
+  themeToggle.textContent = theme === "dark" ? "☀" : "☾";
+  localStorage.setItem("pt-theme", theme);
+}
+
+themeToggle.addEventListener("click", () => {
+  const current = document.documentElement.getAttribute("data-theme");
+  setTheme(current === "dark" ? "light" : "dark");
+});
+
+// Load saved theme
+const savedTheme = localStorage.getItem("pt-theme");
+if (savedTheme) setTheme(savedTheme);
+
+// ===== Initialize =====
+renderTable();
+</script>
+</body>
+</html>

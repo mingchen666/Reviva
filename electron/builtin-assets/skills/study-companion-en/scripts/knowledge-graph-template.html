@@ -1,0 +1,1419 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>知识图谱 - 高一物理力学</title>
+<script type="text/javascript" src="https://unpkg.com/vis-network@9.1.9/standalone/umd/vis-network.min.js"></script>
+<style>
+/* ========== CSS Variables / Theming ========== */
+:root {
+  --font-sans: "PingFang SC", "Microsoft YaHei", "Noto Sans SC", system-ui, -apple-system, sans-serif;
+  --font-mono: "JetBrains Mono", "Fira Code", "Cascadia Code", monospace;
+  --radius: 10px;
+  --radius-sm: 6px;
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.12);
+  --shadow-md: 0 4px 16px rgba(0,0,0,0.15);
+  --shadow-lg: 0 8px 32px rgba(0,0,0,0.2);
+  --transition: 0.25s ease;
+}
+
+[data-theme="dark"] {
+  --bg-primary: #0f1117;
+  --bg-secondary: #1a1d27;
+  --bg-tertiary: #242836;
+  --bg-card: #1e2230;
+  --bg-hover: #2a2f40;
+  --border: #2e3348;
+  --border-light: #3a3f55;
+  --text-primary: #e8eaf0;
+  --text-secondary: #9ca3b8;
+  --text-muted: #6b7280;
+  --accent: #6366f1;
+  --accent-hover: #818cf8;
+  --accent-bg: rgba(99,102,241,0.12);
+  --mastery-green: #22c55e;
+  --mastery-green-bg: rgba(34,197,94,0.15);
+  --mastery-yellow: #eab308;
+  --mastery-yellow-bg: rgba(234,179,8,0.15);
+  --mastery-red: #ef4444;
+  --mastery-red-bg: rgba(239,68,68,0.15);
+  --mastery-orange: #f97316;
+  --mastery-orange-bg: rgba(249,115,22,0.15);
+  --search-bg: #1e2230;
+  --panel-bg: #1a1d27;
+  --legend-bg: rgba(26,29,39,0.92);
+  --toolbar-bg: rgba(15,17,23,0.88);
+  --graph-bg: #0f1117;
+  --scrollbar-thumb: #3a3f55;
+  --scrollbar-track: #1a1d27;
+}
+
+[data-theme="light"] {
+  --bg-primary: #f8f9fc;
+  --bg-secondary: #ffffff;
+  --bg-tertiary: #f1f3f8;
+  --bg-card: #ffffff;
+  --bg-hover: #eef0f6;
+  --border: #d8dce8;
+  --border-light: #e5e8f0;
+  --text-primary: #1a1d2e;
+  --text-secondary: #5a6178;
+  --text-muted: #8b92a8;
+  --accent: #6366f1;
+  --accent-hover: #4f46e5;
+  --accent-bg: rgba(99,102,241,0.08);
+  --mastery-green: #16a34a;
+  --mastery-green-bg: rgba(22,163,74,0.1);
+  --mastery-yellow: #ca8a04;
+  --mastery-yellow-bg: rgba(202,138,4,0.1);
+  --mastery-red: #dc2626;
+  --mastery-red-bg: rgba(220,38,38,0.1);
+  --mastery-orange: #ea580c;
+  --mastery-orange-bg: rgba(234,88,12,0.1);
+  --search-bg: #ffffff;
+  --panel-bg: #ffffff;
+  --legend-bg: rgba(255,255,255,0.95);
+  --toolbar-bg: rgba(248,249,252,0.92);
+  --graph-bg: #f8f9fc;
+  --scrollbar-thumb: #c5c9d8;
+  --scrollbar-track: #f1f3f8;
+}
+
+/* ========== Reset & Base ========== */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%;
+  overflow: hidden;
+  font-family: var(--font-sans);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  transition: background var(--transition), color var(--transition);
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--scrollbar-track); }
+::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+/* ========== Layout ========== */
+.app-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* ========== Top Bar ========== */
+.top-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 20px;
+  background: var(--toolbar-bg);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+  z-index: 100;
+  flex-shrink: 0;
+}
+
+.top-bar .title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+  white-space: nowrap;
+  letter-spacing: 0.5px;
+}
+
+.top-bar .title span {
+  color: var(--accent);
+}
+
+.search-wrapper {
+  flex: 1;
+  max-width: 420px;
+  position: relative;
+}
+
+.search-wrapper .search-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  font-size: 14px;
+  pointer-events: none;
+}
+
+.search-input {
+  width: 100%;
+  padding: 8px 12px 8px 36px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--search-bg);
+  color: var(--text-primary);
+  font-size: 14px;
+  font-family: var(--font-sans);
+  outline: none;
+  transition: border-color var(--transition), box-shadow var(--transition);
+}
+
+.search-input::placeholder { color: var(--text-muted); }
+.search-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-bg);
+}
+
+.filter-group {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.filter-btn {
+  padding: 6px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-family: var(--font-sans);
+  cursor: pointer;
+  transition: all var(--transition);
+  white-space: nowrap;
+}
+
+.filter-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
+.filter-btn.active {
+  background: var(--accent-bg);
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.toolbar-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.icon-btn {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  font-size: 16px;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.icon-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
+.icon-btn:active { transform: scale(0.95); }
+
+.icon-btn.theme-toggle svg {
+  width: 18px;
+  height: 18px;
+  fill: currentColor;
+}
+
+/* ========== Main Content ========== */
+.main-content {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+}
+
+/* ========== Graph Area ========== */
+.graph-area {
+  flex: 1;
+  position: relative;
+  background: var(--graph-bg);
+  transition: background var(--transition);
+}
+
+#knowledge-graph {
+  width: 100%;
+  height: 100%;
+}
+
+/* Zoom Controls */
+.zoom-controls {
+  position: absolute;
+  bottom: 20px;
+  left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  z-index: 50;
+}
+
+.zoom-btn {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  font-size: 18px;
+  cursor: pointer;
+  transition: all var(--transition);
+  box-shadow: var(--shadow-sm);
+}
+
+.zoom-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
+.zoom-btn:active { transform: scale(0.93); }
+
+/* Legend */
+.legend {
+  position: absolute;
+  bottom: 20px;
+  right: 20px;
+  background: var(--legend-bg);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 18px;
+  z-index: 50;
+  box-shadow: var(--shadow-md);
+  min-width: 180px;
+  transition: background var(--transition), border-color var(--transition);
+}
+
+.legend-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 10px;
+}
+
+.legend-section {
+  margin-bottom: 10px;
+}
+
+.legend-section:last-child { margin-bottom: 0; }
+
+.legend-section-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+  font-weight: 500;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 0;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.legend-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.legend-shape {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.legend-shape svg { width: 14px; height: 14px; }
+
+/* ========== Detail Panel ========== */
+.detail-panel {
+  width: 0;
+  overflow: hidden;
+  background: var(--panel-bg);
+  border-left: 1px solid var(--border);
+  transition: width 0.35s cubic-bezier(0.4, 0, 0.2, 1), border-color var(--transition);
+  z-index: 60;
+  flex-shrink: 0;
+}
+
+.detail-panel.open {
+  width: 360px;
+  border-left: 1px solid var(--border);
+}
+
+.detail-panel-inner {
+  width: 360px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.detail-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.detail-close {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 20px;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.detail-close:hover { background: var(--bg-hover); color: var(--text-primary); }
+
+.detail-header-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.detail-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+}
+
+.detail-node-name {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 6px;
+  line-height: 1.3;
+}
+
+.detail-group-badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 500;
+  margin-bottom: 16px;
+}
+
+.detail-section {
+  margin-bottom: 20px;
+}
+
+.detail-section-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  margin-bottom: 8px;
+}
+
+/* Mastery Bar */
+.mastery-bar-container {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.mastery-bar {
+  flex: 1;
+  height: 8px;
+  background: var(--bg-tertiary);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.mastery-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.5s ease;
+}
+
+.mastery-label {
+  font-size: 13px;
+  font-weight: 600;
+  min-width: 48px;
+  text-align: right;
+}
+
+.mastery-stars {
+  display: flex;
+  gap: 2px;
+  margin-top: 6px;
+}
+
+.mastery-star {
+  font-size: 16px;
+  color: var(--bg-tertiary);
+  transition: color var(--transition);
+}
+
+.mastery-star.filled { color: var(--mastery-yellow); }
+
+/* Description */
+.detail-description {
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--text-secondary);
+}
+
+/* Related Nodes */
+.related-nodes-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.related-node-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-tertiary);
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.related-node-item:hover {
+  background: var(--bg-hover);
+  border-color: var(--accent);
+}
+
+.related-node-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.related-node-label {
+  font-size: 13px;
+  color: var(--text-primary);
+  flex: 1;
+}
+
+.related-node-relation {
+  font-size: 11px;
+  color: var(--text-muted);
+  background: var(--bg-secondary);
+  padding: 2px 8px;
+  border-radius: 10px;
+  white-space: nowrap;
+}
+
+/* ========== Export Button ========== */
+.export-btn {
+  padding: 6px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-family: var(--font-sans);
+  cursor: pointer;
+  transition: all var(--transition);
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.export-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
+.export-btn:active { transform: scale(0.97); }
+
+.export-btn svg {
+  width: 14px;
+  height: 14px;
+  fill: currentColor;
+}
+
+/* ========== Responsive ========== */
+@media (max-width: 768px) {
+  .top-bar {
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 8px 12px;
+  }
+
+  .search-wrapper {
+    order: 10;
+    max-width: 100%;
+    flex-basis: 100%;
+  }
+
+  .filter-group {
+    order: 11;
+    flex-basis: 100%;
+    overflow-x: auto;
+    padding-bottom: 2px;
+  }
+
+  .detail-panel.open {
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    width: 320px;
+    box-shadow: var(--shadow-lg);
+  }
+
+  .detail-panel-inner { width: 320px; }
+
+  .legend {
+    bottom: 12px;
+    right: 12px;
+    padding: 10px 14px;
+    min-width: 150px;
+  }
+
+  .zoom-controls { bottom: 12px; left: 12px; }
+}
+
+@media (max-width: 480px) {
+  .detail-panel.open { width: 100%; }
+  .detail-panel-inner { width: 100%; }
+  .top-bar .title { font-size: 14px; }
+}
+
+/* ========== Animations ========== */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.detail-body > * {
+  animation: fadeIn 0.3s ease forwards;
+}
+
+.detail-body > *:nth-child(1) { animation-delay: 0.05s; }
+.detail-body > *:nth-child(2) { animation-delay: 0.1s; }
+.detail-body > *:nth-child(3) { animation-delay: 0.15s; }
+.detail-body > *:nth-child(4) { animation-delay: 0.2s; }
+</style>
+</head>
+<body>
+
+<div class="app-container">
+  <!-- ===== Top Bar ===== -->
+  <div class="top-bar">
+    <div class="title">知识图谱 <span>/ 高一物理力学</span></div>
+
+    <div class="search-wrapper">
+      <span class="search-icon">&#x1F50D;</span>
+      <input type="text" class="search-input" id="searchInput" placeholder="搜索节点..." />
+    </div>
+
+    <div class="filter-group" id="filterGroup">
+      <button class="filter-btn active" data-filter="all">全部</button>
+      <button class="filter-btn" data-filter="基本概念">基本概念</button>
+      <button class="filter-btn" data-filter="定律">定律</button>
+      <button class="filter-btn" data-filter="应用">应用</button>
+      <button class="filter-btn" data-filter="方法">方法</button>
+    </div>
+
+    <div class="toolbar-actions">
+      <button class="export-btn" id="exportSvgBtn" title="导出SVG">
+        <svg viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+        导出SVG
+      </button>
+      <button class="icon-btn theme-toggle" id="themeToggle" title="切换主题">
+        <svg id="themeIcon" viewBox="0 0 24 24"><path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9c0-.46-.04-.92-.1-1.36-.98 1.34-2.58 2.22-4.4 2.22-2.98 0-5.4-2.42-5.4-5.4 0-1.81.88-3.42 2.22-4.4-.44-.06-.9-.1-1.36-.1z"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- ===== Main Content ===== -->
+  <div class="main-content">
+    <!-- Graph Area -->
+    <div class="graph-area">
+      <div id="knowledge-graph"></div>
+
+      <!-- Zoom Controls -->
+      <div class="zoom-controls">
+        <button class="zoom-btn" id="zoomIn" title="放大">+</button>
+        <button class="zoom-btn" id="zoomOut" title="缩小">&minus;</button>
+        <button class="zoom-btn" id="zoomFit" title="适应画面" style="font-size:14px;">&#x25CE;</button>
+      </div>
+
+      <!-- Legend -->
+      <div class="legend">
+        <div class="legend-title">图例</div>
+        <div class="legend-section">
+          <div class="legend-section-label">掌握程度</div>
+          <div class="legend-item">
+            <span class="legend-dot" style="background:var(--mastery-green)"></span>
+            已掌握 (4-5)
+          </div>
+          <div class="legend-item">
+            <span class="legend-dot" style="background:var(--mastery-yellow)"></span>
+            部分掌握 (3)
+          </div>
+          <div class="legend-item">
+            <span class="legend-dot" style="background:var(--mastery-orange)"></span>
+            较弱 (2)
+          </div>
+          <div class="legend-item">
+            <span class="legend-dot" style="background:var(--mastery-red)"></span>
+            薄弱 (1)
+          </div>
+        </div>
+        <div class="legend-section">
+          <div class="legend-section-label">节点类型</div>
+          <div class="legend-item">
+            <span class="legend-shape"><svg viewBox="0 0 14 14"><circle cx="7" cy="7" r="5.5" fill="var(--accent)" opacity="0.7"/></svg></span>
+            基本概念
+          </div>
+          <div class="legend-item">
+            <span class="legend-shape"><svg viewBox="0 0 14 14"><polygon points="7,1 13,13 1,13" fill="var(--accent)" opacity="0.7"/></svg></span>
+            定律
+          </div>
+          <div class="legend-item">
+            <span class="legend-shape"><svg viewBox="0 0 14 14"><rect x="1" y="1" width="12" height="12" rx="2" fill="var(--accent)" opacity="0.7"/></svg></span>
+            应用
+          </div>
+          <div class="legend-item">
+            <span class="legend-shape"><svg viewBox="0 0 14 14"><polygon points="7,1 13,7 7,13 1,7" fill="var(--accent)" opacity="0.7"/></svg></span>
+            方法
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Detail Panel -->
+    <div class="detail-panel" id="detailPanel">
+      <div class="detail-panel-inner">
+        <div class="detail-header">
+          <span class="detail-header-title">节点详情</span>
+          <button class="detail-close" id="detailClose">&times;</button>
+        </div>
+        <div class="detail-body" id="detailBody">
+          <!-- Populated dynamically -->
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+//  SAMPLE DATA - 高一物理力学知识图谱
+// ============================================================
+const sampleNodes = [
+  { id: 1,  label: "力",          mastery: 5, group: "基本概念", detail: "力是物体对物体的作用，是矢量，有大小、方向和作用点。力的单位是牛顿(N)。力是改变物体运动状态的原因。" },
+  { id: 2,  label: "重力",        mastery: 4, group: "基本概念", detail: "由于地球的吸引而使物体受到的力，方向竖直向下，G=mg，g≈9.8m/s²。重力是万有引力的一个分力。" },
+  { id: 3,  label: "弹力",        mastery: 4, group: "基本概念", detail: "发生弹性形变的物体对与它接触的物体产生的力。包括拉力、压力、支持力等。胡克定律：F=kx。" },
+  { id: 4,  label: "摩擦力",      mastery: 2, group: "基本概念", detail: "两个相互接触的物体，当它们发生相对运动或有相对运动趋势时，在接触面上产生的阻碍相对运动的力。分为静摩擦力和滑动摩擦力。" },
+  { id: 5,  label: "牛顿第一定律", mastery: 3, group: "定律",     detail: "一切物体总保持匀速直线运动状态或静止状态，除非作用在它上面的力迫使它改变这种状态。又称惯性定律。" },
+  { id: 6,  label: "牛顿第二定律", mastery: 2, group: "定律",     detail: "物体的加速度与所受合力成正比，与质量成反比，加速度方向与合力方向相同。F=ma，是动力学的核心方程。" },
+  { id: 7,  label: "牛顿第三定律", mastery: 4, group: "定律",     detail: "两个物体之间的作用力和反作用力总是大小相等、方向相反、作用在同一条直线上。作用力与反作用力分别作用在两个物体上。" },
+  { id: 8,  label: "受力分析",    mastery: 3, group: "方法",     detail: "将研究对象从周围物体中隔离出来，分析它受到的所有外力。步骤：确定研究对象→隔离→按重力、弹力、摩擦力顺序分析→画受力图。" },
+  { id: 9,  label: "正交分解法",  mastery: 1, group: "方法",     detail: "将力沿两个互相垂直的方向分解，通常沿运动方向和垂直运动方向建立坐标系。分别列两个方向的方程求解。" },
+  { id: 10, label: "整体法与隔离法", mastery: 3, group: "方法", detail: "整体法将多个物体看作一个整体分析外力；隔离法将单个物体隔离分析。两种方法常结合使用，先整体后隔离。" },
+  { id: 11, label: "超重与失重",  mastery: 2, group: "应用",     detail: "超重：加速度方向向上，视重大于实重；失重：加速度方向向下，视重小于实重。完全失重时a=g，视重为零。" },
+  { id: 12, label: "斜面问题",    mastery: 1, group: "应用",     detail: "物体在斜面上的受力与运动分析。沿斜面方向：mgsinθ-f=ma；垂直斜面方向：N=mgcosθ。需判断摩擦力方向和物体运动状态。" },
+  { id: 13, label: "连接体问题",  mastery: 2, group: "应用",     detail: "多个物体通过绳、杆等连接一起运动的问题。关键：加速度相同，用整体法求加速度，隔离法求内力。" },
+  { id: 14, label: "自由落体",    mastery: 5, group: "应用",     detail: "仅受重力作用从静止开始下落的运动。v=gt，h=½gt²，v²=2gh。是匀加速直线运动的特例，加速度为g。" },
+  { id: 15, label: "惯性",        mastery: 4, group: "基本概念", detail: "物体保持原来匀速直线运动状态或静止状态的性质。质量是惯性大小的唯一量度，质量越大惯性越大。" },
+];
+
+const sampleEdges = [
+  { from: 1,  to: 2,  label: "包含" },
+  { from: 1,  to: 3,  label: "包含" },
+  { from: 1,  to: 4,  label: "包含" },
+  { from: 2,  to: 14, label: "导致" },
+  { from: 5,  to: 15, label: "定义" },
+  { from: 5,  to: 6,  label: "推广" },
+  { from: 6,  to: 7,  label: "配套" },
+  { from: 6,  to: 11, label: "解释" },
+  { from: 6,  to: 12, label: "应用于" },
+  { from: 6,  to: 13, label: "应用于" },
+  { from: 8,  to: 9,  label: "使用" },
+  { from: 8,  to: 10, label: "使用" },
+  { from: 8,  to: 1,  label: "分析" },
+  { from: 9,  to: 6,  label: "求解" },
+  { from: 9,  to: 12, label: "应用于" },
+  { from: 10, to: 13, label: "求解" },
+  { from: 4,  to: 12, label: "影响" },
+  { from: 3,  to: 8,  label: "参与" },
+  { from: 14, to: 6,  label: "实例" },
+  { from: 15, to: 5,  label: "基础" },
+];
+
+// ============================================================
+//  UTILITY FUNCTIONS
+// ============================================================
+
+/**
+ * Get mastery color based on mastery level (1-5)
+ */
+function getMasteryColor(mastery) {
+  if (mastery >= 4) return getComputedStyle(document.documentElement).getPropertyValue('--mastery-green').trim();
+  if (mastery === 3) return getComputedStyle(document.documentElement).getPropertyValue('--mastery-yellow').trim();
+  if (mastery === 2) return getComputedStyle(document.documentElement).getPropertyValue('--mastery-orange').trim();
+  return getComputedStyle(document.documentElement).getPropertyValue('--mastery-red').trim();
+}
+
+/**
+ * Get mastery background color
+ */
+function getMasteryBgColor(mastery) {
+  if (mastery >= 4) return getComputedStyle(document.documentElement).getPropertyValue('--mastery-green-bg').trim();
+  if (mastery === 3) return getComputedStyle(document.documentElement).getPropertyValue('--mastery-yellow-bg').trim();
+  if (mastery === 2) return getComputedStyle(document.documentElement).getPropertyValue('--mastery-orange-bg').trim();
+  return getComputedStyle(document.documentElement).getPropertyValue('--mastery-red-bg').trim();
+}
+
+/**
+ * Get mastery text label
+ */
+function getMasteryText(mastery) {
+  if (mastery >= 4) return "已掌握";
+  if (mastery === 3) return "部分掌握";
+  if (mastery === 2) return "较弱";
+  return "薄弱";
+}
+
+/**
+ * Get node shape based on group
+ */
+function getGroupShape(group) {
+  switch (group) {
+    case "基本概念": return "dot";
+    case "定律":     return "triangle";
+    case "应用":     return "square";
+    case "方法":     return "diamond";
+    default:         return "dot";
+  }
+}
+
+/**
+ * Get group badge color
+ */
+function getGroupBadgeStyle(group) {
+  const styles = {
+    "基本概念": "background: rgba(99,102,241,0.15); color: #818cf8;",
+    "定律":     "background: rgba(168,85,247,0.15); color: #c084fc;",
+    "应用":     "background: rgba(14,165,233,0.15); color: #38bdf8;",
+    "方法":     "background: rgba(244,114,182,0.15); color: #f472b6;",
+  };
+  return styles[group] || "background: var(--accent-bg); color: var(--accent);";
+}
+
+// ============================================================
+//  BUILD VIS-NETWORK
+// ============================================================
+
+let network = null;
+let allNodes = null;
+let allEdges = null;
+let currentFilter = "all";
+let selectedNodeId = null;
+
+function buildVisNodes(nodesData) {
+  const isDark = document.documentElement.getAttribute("data-theme") === "dark";
+  const fontColor = isDark ? "#e8eaf0" : "#1a1d2e";
+  const borderColor = isDark ? "#3a3f55" : "#d8dce8";
+
+  return new vis.DataSet(nodesData.map(n => {
+    const color = getMasteryColor(n.mastery);
+    const bgColor = getMasteryBgColor(n.mastery);
+    const shape = getGroupShape(n.group);
+    const size = n.mastery >= 4 ? 28 : n.mastery === 3 ? 24 : 20;
+
+    return {
+      id: n.id,
+      label: n.label,
+      shape: shape,
+      size: size,
+      color: {
+        background: color,
+        border: color,
+        highlight: {
+          background: color,
+          border: "#ffffff"
+        },
+        hover: {
+          background: color,
+          border: "#ffffff"
+        }
+      },
+      font: {
+        color: fontColor,
+        size: 13,
+        face: "PingFang SC, Microsoft YaHei, sans-serif",
+        strokeWidth: isDark ? 3 : 2,
+        strokeColor: isDark ? "rgba(15,17,23,0.85)" : "rgba(248,249,252,0.9)",
+      },
+      borderWidth: 2,
+      borderWidthSelected: 3,
+      shadow: {
+        enabled: true,
+        color: isDark ? "rgba(0,0,0,0.3)" : "rgba(0,0,0,0.1)",
+        size: 8,
+        x: 0,
+        y: 3,
+      },
+      // Custom data
+      _mastery: n.mastery,
+      _group: n.group,
+      _detail: n.detail,
+    };
+  }));
+}
+
+function buildVisEdges(edgesData) {
+  const isDark = document.documentElement.getAttribute("data-theme") === "dark";
+
+  return new vis.DataSet(edgesData.map(e => ({
+    from: e.from,
+    to: e.to,
+    label: e.label,
+    arrows: { to: { enabled: true, scaleFactor: 0.6 } },
+    color: {
+      color: isDark ? "rgba(120,130,165,0.35)" : "rgba(100,110,140,0.3)",
+      highlight: isDark ? "rgba(99,102,241,0.8)" : "rgba(99,102,241,0.7)",
+      hover: isDark ? "rgba(99,102,241,0.6)" : "rgba(99,102,241,0.5)",
+    },
+    font: {
+      color: isDark ? "#6b7280" : "#8b92a8",
+      size: 10,
+      face: "PingFang SC, Microsoft YaHei, sans-serif",
+      strokeWidth: isDark ? 2 : 2,
+      strokeColor: isDark ? "rgba(15,17,23,0.8)" : "rgba(248,249,252,0.9)",
+      align: "middle",
+    },
+    smooth: {
+      type: "curvedCW",
+      roundness: 0.15,
+    },
+    width: 1.5,
+    hoverWidth: 2.5,
+    selectionWidth: 2.5,
+  })));
+}
+
+function createNetwork() {
+  const container = document.getElementById("knowledge-graph");
+
+  allNodes = buildVisNodes(sampleNodes);
+  allEdges = buildVisEdges(sampleEdges);
+
+  const isDark = document.documentElement.getAttribute("data-theme") === "dark";
+
+  const options = {
+    nodes: {
+      chosen: true,
+    },
+    edges: {
+      chosen: true,
+    },
+    physics: {
+      enabled: true,
+      barnesHut: {
+        gravitationalConstant: -3000,
+        centralGravity: 0.3,
+        springLength: 150,
+        springConstant: 0.04,
+        damping: 0.09,
+        avoidOverlap: 0.3,
+      },
+      stabilization: {
+        iterations: 200,
+        fit: true,
+      },
+    },
+    interaction: {
+      hover: true,
+      tooltipDelay: 300,
+      zoomView: true,
+      dragView: true,
+      navigationButtons: false,
+      keyboard: {
+        enabled: true,
+        bindToWindow: false,
+      },
+    },
+    layout: {
+      improvedLayout: true,
+    },
+  };
+
+  network = new vis.Network(container, { nodes: allNodes, edges: allEdges }, options);
+
+  // Click event - show detail panel
+  network.on("click", function(params) {
+    if (params.nodes.length > 0) {
+      const nodeId = params.nodes[0];
+      showDetailPanel(nodeId);
+    } else {
+      closeDetailPanel();
+    }
+  });
+
+  // Double click - focus on node
+  network.on("doubleClick", function(params) {
+    if (params.nodes.length > 0) {
+      network.focus(params.nodes[0], {
+        scale: 1.5,
+        animation: { duration: 500, easingFunction: "easeInOutQuad" }
+      });
+    }
+  });
+
+  // Hover tooltip
+  network.on("hoverNode", function(params) {
+    const node = allNodes.get(params.node);
+    if (node) {
+      network.canvas.body.container.style.cursor = "pointer";
+    }
+  });
+
+  network.on("blurNode", function() {
+    network.canvas.body.container.style.cursor = "default";
+  });
+
+  // Stabilized - fit view
+  network.once("stabilized", function() {
+    network.fit({ animation: { duration: 600, easingFunction: "easeInOutQuad" } });
+  });
+}
+
+// ============================================================
+//  DETAIL PANEL
+// ============================================================
+
+function showDetailPanel(nodeId) {
+  selectedNodeId = nodeId;
+  const node = allNodes.get(nodeId);
+  if (!node) return;
+
+  const panel = document.getElementById("detailPanel");
+  const body = document.getElementById("detailBody");
+
+  const mastery = node._mastery;
+  const group = node._group;
+  const detail = node._detail;
+  const masteryColor = getMasteryColor(mastery);
+  const masteryBg = getMasteryBgColor(mastery);
+  const masteryText = getMasteryText(mastery);
+  const masteryPercent = (mastery / 5) * 100;
+
+  // Build stars
+  let starsHtml = "";
+  for (let i = 1; i <= 5; i++) {
+    starsHtml += `<span class="mastery-star ${i <= mastery ? 'filled' : ''}">&#9733;</span>`;
+  }
+
+  // Find related nodes
+  const relatedNodes = [];
+  sampleEdges.forEach(e => {
+    if (e.from === nodeId) {
+      const target = sampleNodes.find(n => n.id === e.to);
+      if (target) relatedNodes.push({ node: target, relation: e.label, direction: "outgoing" });
+    }
+    if (e.to === nodeId) {
+      const source = sampleNodes.find(n => n.id === e.from);
+      if (source) relatedNodes.push({ node: source, relation: e.label, direction: "incoming" });
+    }
+  });
+
+  let relatedHtml = "";
+  relatedNodes.forEach(r => {
+    const rColor = getMasteryColor(r.node.mastery);
+    const directionLabel = r.direction === "outgoing" ? "→" : "←";
+    relatedHtml += `
+      <div class="related-node-item" data-node-id="${r.node.id}">
+        <span class="related-node-dot" style="background:${rColor}"></span>
+        <span class="related-node-label">${r.node.label}</span>
+        <span class="related-node-relation">${directionLabel} ${r.relation}</span>
+      </div>
+    `;
+  });
+
+  body.innerHTML = `
+    <div class="detail-node-name">${node.label}</div>
+    <div class="detail-group-badge" style="${getGroupBadgeStyle(group)}">${group}</div>
+
+    <div class="detail-section">
+      <div class="detail-section-title">掌握程度</div>
+      <div class="mastery-bar-container">
+        <div class="mastery-bar">
+          <div class="mastery-bar-fill" style="width:${masteryPercent}%;background:${masteryColor}"></div>
+        </div>
+        <span class="mastery-label" style="color:${masteryColor}">${masteryText}</span>
+      </div>
+      <div class="mastery-stars">${starsHtml}</div>
+    </div>
+
+    <div class="detail-section">
+      <div class="detail-section-title">详细说明</div>
+      <div class="detail-description">${detail}</div>
+    </div>
+
+    <div class="detail-section">
+      <div class="detail-section-title">关联节点 (${relatedNodes.length})</div>
+      <div class="related-nodes-list">${relatedHtml || '<div style="color:var(--text-muted);font-size:13px;">暂无关联节点</div>'}</div>
+    </div>
+  `;
+
+  panel.classList.add("open");
+
+  // Bind click on related nodes
+  body.querySelectorAll(".related-node-item").forEach(item => {
+    item.addEventListener("click", function() {
+      const targetId = parseInt(this.getAttribute("data-node-id"));
+      network.selectNodes([targetId]);
+      network.focus(targetId, { scale: 1.2, animation: { duration: 400, easingFunction: "easeInOutQuad" } });
+      showDetailPanel(targetId);
+    });
+  });
+}
+
+function closeDetailPanel() {
+  selectedNodeId = null;
+  document.getElementById("detailPanel").classList.remove("open");
+}
+
+// ============================================================
+//  SEARCH & FILTER
+// ============================================================
+
+function applySearchAndFilter() {
+  const searchText = document.getElementById("searchInput").value.trim().toLowerCase();
+  const filterGroup = currentFilter;
+
+  const visibleNodeIds = new Set();
+
+  sampleNodes.forEach(n => {
+    const matchesFilter = filterGroup === "all" || n.group === filterGroup;
+    const matchesSearch = !searchText || n.label.toLowerCase().includes(searchText) || n.detail.toLowerCase().includes(searchText);
+
+    if (matchesFilter && matchesSearch) {
+      visibleNodeIds.add(n.id);
+    }
+  });
+
+  // Also include nodes connected to visible nodes (1 hop) for context
+  const contextIds = new Set(visibleNodeIds);
+  sampleEdges.forEach(e => {
+    if (visibleNodeIds.has(e.from)) contextIds.add(e.to);
+    if (visibleNodeIds.has(e.to)) contextIds.add(e.from);
+  });
+
+  allNodes.forEach(n => {
+    const isVisible = visibleNodeIds.has(n.id);
+    const isContext = contextIds.has(n.id) && !isVisible;
+
+    allNodes.update({
+      id: n.id,
+      hidden: !contextIds.has(n.id),
+    });
+  });
+
+  allEdges.forEach(e => {
+    const bothVisible = contextIds.has(e.from) && contextIds.has(e.to);
+    allEdges.update({
+      id: e.id,
+      hidden: !bothVisible,
+    });
+  });
+}
+
+// ============================================================
+//  THEME TOGGLE
+// ============================================================
+
+function toggleTheme() {
+  const html = document.documentElement;
+  const current = html.getAttribute("data-theme");
+  const next = current === "dark" ? "light" : "dark";
+  html.setAttribute("data-theme", next);
+
+  // Update theme icon
+  const icon = document.getElementById("themeIcon");
+  if (next === "light") {
+    icon.innerHTML = '<path d="M6.76 4.84l-1.8-1.79-1.41 1.41 1.79 1.79 1.42-1.41zM4 12.5h3v-2H4v2zm8-7.5h2V3h-2v2zm5.91.99l-1.41-1.41-1.79 1.79 1.41 1.41 1.79-1.79zm-2.68 11.17l1.79 1.8 1.41-1.41-1.8-1.79-1.4 1.4zM20 12.5h-3v2h3v-2zm-8-7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zm-1 9v-2h2v2h-2zm0-4V8h2v2.5h-2zm-5.24.01l-1.79 1.79 1.41 1.41 1.79-1.79-1.41-1.41z"/>';
+  } else {
+    icon.innerHTML = '<path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9c0-.46-.04-.92-.1-1.36-.98 1.34-2.58 2.22-4.4 2.22-2.98 0-5.4-2.42-5.4-5.4 0-1.81.88-3.42 2.22-4.4-.44-.06-.9-.1-1.36-.1z"/>';
+  }
+
+  // Rebuild network colors
+  rebuildNetworkColors();
+}
+
+function rebuildNetworkColors() {
+  const isDark = document.documentElement.getAttribute("data-theme") === "dark";
+  const fontColor = isDark ? "#e8eaf0" : "#1a1d2e";
+
+  allNodes.forEach(n => {
+    const color = getMasteryColor(n._mastery);
+    allNodes.update({
+      id: n.id,
+      color: {
+        background: color,
+        border: color,
+        highlight: { background: color, border: "#ffffff" },
+        hover: { background: color, border: "#ffffff" },
+      },
+      font: {
+        color: fontColor,
+        size: 13,
+        face: "PingFang SC, Microsoft YaHei, sans-serif",
+        strokeWidth: isDark ? 3 : 2,
+        strokeColor: isDark ? "rgba(15,17,23,0.85)" : "rgba(248,249,252,0.9)",
+      },
+      shadow: {
+        enabled: true,
+        color: isDark ? "rgba(0,0,0,0.3)" : "rgba(0,0,0,0.1)",
+        size: 8,
+        x: 0,
+        y: 3,
+      },
+    });
+  });
+
+  allEdges.forEach(e => {
+    allEdges.update({
+      id: e.id,
+      color: {
+        color: isDark ? "rgba(120,130,165,0.35)" : "rgba(100,110,140,0.3)",
+        highlight: isDark ? "rgba(99,102,241,0.8)" : "rgba(99,102,241,0.7)",
+        hover: isDark ? "rgba(99,102,241,0.6)" : "rgba(99,102,241,0.5)",
+      },
+      font: {
+        color: isDark ? "#6b7280" : "#8b92a8",
+        size: 10,
+        face: "PingFang SC, Microsoft YaHei, sans-serif",
+        strokeWidth: isDark ? 2 : 2,
+        strokeColor: isDark ? "rgba(15,17,23,0.8)" : "rgba(248,249,252,0.9)",
+        align: "middle",
+      },
+    });
+  });
+
+  // Refresh detail panel if open
+  if (selectedNodeId !== null) {
+    showDetailPanel(selectedNodeId);
+  }
+}
+
+// ============================================================
+//  ZOOM CONTROLS
+// ============================================================
+
+function zoomIn() {
+  const scale = network.getScale();
+  network.moveTo({ scale: scale * 1.3, animation: { duration: 300, easingFunction: "easeInOutQuad" } });
+}
+
+function zoomOut() {
+  const scale = network.getScale();
+  network.moveTo({ scale: scale / 1.3, animation: { duration: 300, easingFunction: "easeInOutQuad" } });
+}
+
+function zoomFit() {
+  network.fit({ animation: { duration: 500, easingFunction: "easeInOutQuad" } });
+}
+
+// ============================================================
+//  SVG EXPORT
+// ============================================================
+
+function exportSVG() {
+  const canvas = document.getElementById("knowledge-graph").querySelector("canvas");
+  if (!canvas) {
+    alert("无法导出：画布未找到");
+    return;
+  }
+
+  // Get network view bounds
+  const viewPosition = network.getViewPosition();
+  const scale = network.getScale();
+  const width = canvas.width;
+  const height = canvas.height;
+
+  // Create SVG from canvas data
+  const isDark = document.documentElement.getAttribute("data-theme") === "dark";
+  const bgColor = isDark ? "#0f1117" : "#f8f9fc";
+
+  // Build SVG content with nodes and edges
+  let svgContent = `<?xml version="1.0" encoding="UTF-8"?>\n`;
+  svgContent += `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">\n`;
+  svgContent += `  <rect width="100%" height="100%" fill="${bgColor}"/>\n`;
+
+  // Get positions of all nodes
+  const positions = network.getPositions();
+
+  // Draw edges
+  svgContent += `  <g class="edges">\n`;
+  sampleEdges.forEach(e => {
+    const fromPos = positions[e.from];
+    const toPos = positions[e.to];
+    if (!fromPos || !toPos) return;
+
+    const edgeColor = isDark ? "rgba(120,130,165,0.5)" : "rgba(100,110,140,0.4)";
+    const dx = toPos.x - fromPos.x;
+    const dy = toPos.y - fromPos.y;
+    // Simple curve offset
+    const cx = (fromPos.x + toPos.x) / 2 - dy * 0.1;
+    const cy = (fromPos.y + toPos.y) / 2 + dx * 0.1;
+
+    svgContent += `    <path d="M${fromPos.x * scale + width/2},${-fromPos.y * scale + height/2} Q${cx * scale + width/2},${-cy * scale + height/2} ${toPos.x * scale + width/2},${-toPos.y * scale + height/2}" fill="none" stroke="${edgeColor}" stroke-width="1.5"/>\n`;
+
+    // Edge label
+    if (e.label) {
+      const labelX = cx * scale + width / 2;
+      const labelY = -cy * scale + height / 2;
+      svgContent += `    <text x="${labelX}" y="${labelY}" text-anchor="middle" font-size="10" fill="${isDark ? '#6b7280' : '#8b92a8'}" font-family="PingFang SC, Microsoft YaHei, sans-serif">${e.label}</text>\n`;
+    }
+  });
+  svgContent += `  </g>\n`;
+
+  // Draw nodes
+  svgContent += `  <g class="nodes">\n`;
+  sampleNodes.forEach(n => {
+    const pos = positions[n.id];
+    if (!pos) return;
+
+    const x = pos.x * scale + width / 2;
+    const y = -pos.y * scale + height / 2;
+    const color = getMasteryColor(n.mastery);
+    const size = n.mastery >= 4 ? 28 : n.mastery === 3 ? 24 : 20;
+    const r = size * scale * 0.5;
+    const fontColor = isDark ? "#e8eaf0" : "#1a1d2e";
+
+    // Shape
+    switch (getGroupShape(n.group)) {
+      case "dot":
+        svgContent += `    <circle cx="${x}" cy="${y}" r="${Math.max(r, 8)}" fill="${color}" stroke="${color}" stroke-width="2"/>\n`;
+        break;
+      case "triangle":
+        const triR = Math.max(r, 8);
+        svgContent += `    <polygon points="${x},${y - triR} ${x - triR * 0.866},${y + triR * 0.5} ${x + triR * 0.866},${y + triR * 0.5}" fill="${color}" stroke="${color}" stroke-width="2"/>\n`;
+        break;
+      case "square":
+        const sqR = Math.max(r, 8);
+        svgContent += `    <rect x="${x - sqR}" y="${y - sqR}" width="${sqR * 2}" height="${sqR * 2}" rx="3" fill="${color}" stroke="${color}" stroke-width="2"/>\n`;
+        break;
+      case "diamond":
+        const dR = Math.max(r, 8);
+        svgContent += `    <polygon points="${x},${y - dR} ${x + dR},${y} ${x},${y + dR} ${x - dR},${y}" fill="${color}" stroke="${color}" stroke-width="2"/>\n`;
+        break;
+    }
+
+    // Label
+    svgContent += `    <text x="${x}" y="${y + Math.max(r, 8) + 16}" text-anchor="middle" font-size="13" fill="${fontColor}" font-family="PingFang SC, Microsoft YaHei, sans-serif" stroke="${isDark ? 'rgba(15,17,23,0.85)' : 'rgba(248,249,252,0.9)'}" stroke-width="2" paint-order="stroke">${n.label}</text>\n`;
+  });
+  svgContent += `  </g>\n`;
+
+  // Title watermark
+  svgContent += `  <text x="20" y="30" font-size="14" fill="${isDark ? '#6b7280' : '#8b92a8'}" font-family="PingFang SC, Microsoft YaHei, sans-serif">知识图谱 - 高一物理力学</text>\n`;
+  svgContent += `</svg>`;
+
+  // Download
+  const blob = new Blob([svgContent], { type: "image/svg+xml;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = "知识图谱-高一物理力学.svg";
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
+// ============================================================
+//  EVENT BINDINGS
+// ============================================================
+
+document.addEventListener("DOMContentLoaded", function() {
+  // Create network
+  createNetwork();
+
+  // Search
+  let searchTimeout;
+  document.getElementById("searchInput").addEventListener("input", function() {
+    clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(applySearchAndFilter, 250);
+  });
+
+  // Filter buttons
+  document.getElementById("filterGroup").addEventListener("click", function(e) {
+    if (e.target.classList.contains("filter-btn")) {
+      document.querySelectorAll(".filter-btn").forEach(b => b.classList.remove("active"));
+      e.target.classList.add("active");
+      currentFilter = e.target.getAttribute("data-filter");
+      applySearchAndFilter();
+    }
+  });
+
+  // Theme toggle
+  document.getElementById("themeToggle").addEventListener("click", toggleTheme);
+
+  // Zoom controls
+  document.getElementById("zoomIn").addEventListener("click", zoomIn);
+  document.getElementById("zoomOut").addEventListener("click", zoomOut);
+  document.getElementById("zoomFit").addEventListener("click", zoomFit);
+
+  // Detail panel close
+  document.getElementById("detailClose").addEventListener("click", closeDetailPanel);
+
+  // Export SVG
+  document.getElementById("exportSvgBtn").addEventListener("click", exportSVG);
+
+  // Keyboard shortcuts
+  document.addEventListener("keydown", function(e) {
+    if (e.target.tagName === "INPUT") return;
+
+    switch(e.key) {
+      case "+":
+      case "=":
+        zoomIn();
+        break;
+      case "-":
+        zoomOut();
+        break;
+      case "0":
+        zoomFit();
+        break;
+      case "Escape":
+        closeDetailPanel();
+        break;
+      case "/":
+        e.preventDefault();
+        document.getElementById("searchInput").focus();
+        break;
+    }
+  });
+});
+</script>
+
+</body>
+</html>

@@ -1,0 +1,14 @@
+{
+  "id": "exam-simulator",
+  "name": "模拟考试",
+  "description": "Create realistic mock exams from user-provided materials, syllabi, exam scopes, or searched public information. Supports exam structure, time limits, marks, answer keys, explanations, rubrics, hidden-answer simulation mode, grading, diagnostics, printable papers, and HTML exam pages.",
+  "icon": "ri-file-text-line",
+  "color": "#6C8AFF",
+  "category": "学习",
+  "source": "platform",
+  "allowedTools": ["kb_search", "file_read"],
+  "outputTypes": ["Markdown", "TXT"],
+  "version": "1.0",
+  "author": "reviva",
+  "license": "MIT"
+}

@@ -1,0 +1,20 @@
+{
+  "id": "error-analysis",
+  "name": "错题与薄弱点",
+  "description": "Analyze incorrect answers from text, documents, or images; identify root causes of mistakes; classify error types into understanding, process, execution, application, and communication categories; explain correct reasoning; and generate targeted improvement suggestions, wrong-question notebook entries, and consolidation exercises.",
+  "icon": "ri-error-warning-line",
+  "color": "#EF4444",
+  "category": "学习",
+  "source": "platform",
+  "allowedTools": [
+    "file_read",
+    "file_write"
+  ],
+  "outputTypes": [
+    "Markdown",
+    "TXT"
+  ],
+  "version": "1.0",
+  "author": "reviva",
+  "license": "MIT"
+}

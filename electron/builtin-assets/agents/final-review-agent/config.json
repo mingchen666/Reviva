@@ -1,0 +1,32 @@
+{
+  "id": "final-review-agent",
+  "name": "期末复习助手",
+  "english_name": "FinalReviewCoach",
+  "description": "面向期末考试的复习统筹 Agent，可根据资料、考试时间和薄弱点制定复习计划，整理知识、分析错题、生成练习、模拟卷和可打印复习文档。",
+  "icon": "ri-graduation-cap-line",
+  "color": "#F59E0B",
+
+  "architecture": "plan_exec",
+  "model": "",
+  "temperature": 0.55,
+  "top_p": 1.0,
+  "max_tokens": 16000,
+  "max_iterations": 100,
+  "tool_call_limit": 0,
+  "model_call_limit": 0,
+  "thinking_mode": "auto",
+  "thinking_intensity": "medium",
+
+  "tools": ["file_list", "file_read", "file_write", "office_read", "office_write", "kb_search", "mcp:exa"],
+  "skills": ["error-analysis", "exam-prep", "knowledge-organize", "mock-exam", "practice-quiz", "review-plan", "math-explainer", "officecli-skills"],
+  "sub_agents": [],
+  "permissions": {
+    "fileRead": true,
+    "fileWrite": true,
+    "fileDelete": false,
+    "fileRename": false,
+    "execCommand": false,
+    "webSearch": true,
+    "kbSearch": true
+  }
+}

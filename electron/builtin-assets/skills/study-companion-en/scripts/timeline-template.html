@@ -1,0 +1,1261 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>交互式时间线 - 世界近代史 (1760-1900)</title>
+  <link rel="stylesheet" href="https://unpkg.com/vis-timeline@7.7.3/styles/vis-timeline-graph2d.min.css" />
+  <style>
+    /* ========== CSS Variables ========== */
+    :root {
+      --bg-primary: #f8f9fb;
+      --bg-secondary: #ffffff;
+      --bg-tertiary: #eef0f4;
+      --text-primary: #1a1d23;
+      --text-secondary: #5a5f6b;
+      --text-muted: #8b909a;
+      --border-color: #e2e5ea;
+      --border-light: #eef0f4;
+      --shadow-sm: 0 1px 3px rgba(0,0,0,0.06);
+      --shadow-md: 0 4px 14px rgba(0,0,0,0.08);
+      --shadow-lg: 0 8px 30px rgba(0,0,0,0.12);
+      --accent: #4f6ef7;
+      --accent-hover: #3b57d9;
+      --accent-light: rgba(79,110,247,0.1);
+      --radius: 10px;
+      --radius-sm: 6px;
+      --transition: 0.25s ease;
+      --group-politics: #e74c5e;
+      --group-economy: #f5a623;
+      --group-tech: #4f6ef7;
+      --group-culture: #9b59b6;
+      --vis-bg: #ffffff;
+      --vis-border: #e2e5ea;
+      --vis-item-text: #ffffff;
+      --vis-line: #d0d4db;
+      --vis-major: #c0c4cb;
+      --vis-minor: #e8eaee;
+      --panel-bg: #ffffff;
+    }
+
+    [data-theme="dark"] {
+      --bg-primary: #0f1117;
+      --bg-secondary: #1a1d26;
+      --bg-tertiary: #252830;
+      --text-primary: #e4e6ec;
+      --text-secondary: #9da2b0;
+      --text-muted: #6b7080;
+      --border-color: #2e323e;
+      --border-light: #252830;
+      --shadow-sm: 0 1px 3px rgba(0,0,0,0.2);
+      --shadow-md: 0 4px 14px rgba(0,0,0,0.3);
+      --shadow-lg: 0 8px 30px rgba(0,0,0,0.4);
+      --accent: #6b8aff;
+      --accent-hover: #8da2ff;
+      --accent-light: rgba(107,138,255,0.12);
+      --vis-bg: #1a1d26;
+      --vis-border: #2e323e;
+      --vis-item-text: #ffffff;
+      --vis-line: #3a3f4e;
+      --vis-major: #4a4f5e;
+      --vis-minor: #252830;
+      --panel-bg: #1a1d26;
+    }
+
+    /* ========== Reset & Base ========== */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+                   "Hiragino Sans GB", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      line-height: 1.6;
+      transition: background var(--transition), color var(--transition);
+      overflow: hidden;
+      height: 100vh;
+    }
+
+    /* ========== Layout ========== */
+    .app {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+
+    /* ========== Header ========== */
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 20px;
+      background: var(--bg-secondary);
+      border-bottom: 1px solid var(--border-color);
+      box-shadow: var(--shadow-sm);
+      z-index: 100;
+      gap: 12px;
+      flex-shrink: 0;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      min-width: 0;
+    }
+
+    .header-title {
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .header-title span {
+      color: var(--accent);
+    }
+
+    .header-badge {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 20px;
+      background: var(--accent-light);
+      color: var(--accent);
+      white-space: nowrap;
+    }
+
+    .header-center {
+      flex: 1;
+      max-width: 400px;
+      min-width: 180px;
+    }
+
+    .search-box {
+      position: relative;
+      width: 100%;
+    }
+
+    .search-box svg {
+      position: absolute;
+      left: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 16px;
+      height: 16px;
+      color: var(--text-muted);
+      pointer-events: none;
+    }
+
+    .search-input {
+      width: 100%;
+      padding: 7px 12px 7px 32px;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      background: var(--bg-tertiary);
+      color: var(--text-primary);
+      font-size: 13px;
+      outline: none;
+      transition: border var(--transition), box-shadow var(--transition);
+    }
+
+    .search-input::placeholder { color: var(--text-muted); }
+    .search-input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-light);
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* ========== Buttons ========== */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      padding: 6px 12px;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-sm);
+      background: var(--bg-secondary);
+      color: var(--text-secondary);
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all var(--transition);
+      white-space: nowrap;
+      user-select: none;
+    }
+
+    .btn:hover {
+      background: var(--bg-tertiary);
+      color: var(--text-primary);
+      border-color: var(--text-muted);
+    }
+
+    .btn:active { transform: scale(0.96); }
+
+    .btn svg { width: 14px; height: 14px; flex-shrink: 0; }
+
+    .btn-icon {
+      padding: 6px;
+      width: 32px;
+      height: 32px;
+    }
+
+    .btn-accent {
+      background: var(--accent);
+      color: #fff;
+      border-color: var(--accent);
+    }
+
+    .btn-accent:hover {
+      background: var(--accent-hover);
+      border-color: var(--accent-hover);
+      color: #fff;
+    }
+
+    /* ========== Toolbar ========== */
+    .toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 20px;
+      background: var(--bg-secondary);
+      border-bottom: 1px solid var(--border-light);
+      flex-shrink: 0;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .toolbar-group {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .toolbar-label {
+      font-size: 12px;
+      color: var(--text-muted);
+      font-weight: 500;
+      margin-right: 4px;
+    }
+
+    .filter-chip {
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      border: 1.5px solid transparent;
+      transition: all var(--transition);
+      user-select: none;
+    }
+
+    .filter-chip.active {
+      color: #fff;
+    }
+
+    .filter-chip[data-group="政治"] { background: rgba(231,76,94,0.12); color: var(--group-politics); border-color: rgba(231,76,94,0.25); }
+    .filter-chip[data-group="政治"].active { background: var(--group-politics); color: #fff; border-color: var(--group-politics); }
+    .filter-chip[data-group="经济"] { background: rgba(245,166,35,0.12); color: var(--group-economy); border-color: rgba(245,166,35,0.25); }
+    .filter-chip[data-group="经济"].active { background: var(--group-economy); color: #fff; border-color: var(--group-economy); }
+    .filter-chip[data-group="科技"] { background: rgba(79,110,247,0.12); color: var(--group-tech); border-color: rgba(79,110,247,0.25); }
+    .filter-chip[data-group="科技"].active { background: var(--group-tech); color: #fff; border-color: var(--group-tech); }
+    .filter-chip[data-group="文化"] { background: rgba(155,89,182,0.12); color: var(--group-culture); border-color: rgba(155,89,182,0.25); }
+    .filter-chip[data-group="文化"].active { background: var(--group-culture); color: #fff; border-color: var(--group-culture); }
+
+    .divider-v {
+      width: 1px;
+      height: 20px;
+      background: var(--border-color);
+      margin: 0 4px;
+    }
+
+    /* ========== Main Content ========== */
+    .main {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .timeline-container {
+      flex: 1;
+      overflow: hidden;
+    }
+
+    #timeline {
+      width: 100%;
+      height: 100%;
+    }
+
+    /* ========== vis-timeline Overrides ========== */
+    .vis-timeline {
+      border: none !important;
+      background: var(--vis-bg) !important;
+      font-family: inherit !important;
+    }
+
+    .vis-panel.vis-bottom,
+    .vis-panel.vis-center,
+    .vis-panel.vis-left,
+    .vis-panel.vis-right,
+    .vis-panel.vis-top {
+      border-color: var(--vis-border) !important;
+    }
+
+    .vis-time-axis .vis-text {
+      color: var(--text-secondary) !important;
+      font-size: 12px !important;
+    }
+
+    .vis-time-axis .vis-grid.vis-minor {
+      border-color: var(--vis-minor) !important;
+    }
+
+    .vis-time-axis .vis-grid.vis-major {
+      border-color: var(--vis-major) !important;
+    }
+
+    .vis-item {
+      border-radius: 6px !important;
+      border: none !important;
+      font-size: 12px !important;
+      font-weight: 500 !important;
+      color: #fff !important;
+      cursor: pointer !important;
+      transition: box-shadow 0.15s ease, transform 0.15s ease !important;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.15) !important;
+    }
+
+    .vis-item:hover {
+      box-shadow: 0 4px 14px rgba(0,0,0,0.25) !important;
+      transform: translateY(-1px) !important;
+    }
+
+    .vis-item.vis-selected {
+      box-shadow: 0 0 0 3px var(--accent-light), 0 4px 14px rgba(0,0,0,0.25) !important;
+    }
+
+    .vis-item .vis-item-content {
+      padding: 4px 10px !important;
+      white-space: nowrap !important;
+    }
+
+    .vis-item.vis-box {
+      border: none !important;
+    }
+
+    .vis-item.vis-dot {
+      border-width: 4px !important;
+    }
+
+    .vis-labelset .vis-label {
+      border-bottom: 1px solid var(--border-light) !important;
+      font-size: 13px !important;
+      font-weight: 600 !important;
+      color: var(--text-primary) !important;
+      background: var(--bg-secondary) !important;
+    }
+
+    .vis-labelset .vis-label .vis-inner {
+      padding: 8px 16px !important;
+    }
+
+    .vis-group-color-dot {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      margin-right: 6px;
+      vertical-align: middle;
+    }
+
+    .vis-item.group-政治 { background: var(--group-politics) !important; }
+    .vis-item.group-经济 { background: var(--group-economy) !important; }
+    .vis-item.group-科技 { background: var(--group-tech) !important; }
+    .vis-item.group-文化 { background: var(--group-culture) !important; }
+
+    .vis-item.vis-dot.group-政治 { border-color: var(--group-politics) !important; background: var(--group-politics) !important; }
+    .vis-item.vis-dot.group-经济 { border-color: var(--group-economy) !important; background: var(--group-economy) !important; }
+    .vis-item.vis-dot.group-科技 { border-color: var(--group-tech) !important; background: var(--group-tech) !important; }
+    .vis-item.vis-dot.group-文化 { border-color: var(--group-culture) !important; background: var(--group-culture) !important; }
+
+    .vis-current-time {
+      background-color: var(--accent) !important;
+      width: 2px !important;
+    }
+
+    /* ========== Detail Panel ========== */
+    .detail-panel {
+      width: 0;
+      overflow: hidden;
+      background: var(--panel-bg);
+      border-left: 1px solid var(--border-color);
+      transition: width 0.3s ease;
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .detail-panel.open {
+      width: 360px;
+    }
+
+    .detail-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--border-color);
+      flex-shrink: 0;
+    }
+
+    .detail-header-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .detail-close {
+      width: 28px;
+      height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: none;
+      background: var(--bg-tertiary);
+      border-radius: 6px;
+      cursor: pointer;
+      color: var(--text-secondary);
+      transition: all var(--transition);
+    }
+
+    .detail-close:hover {
+      background: var(--border-color);
+      color: var(--text-primary);
+    }
+
+    .detail-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px 18px;
+    }
+
+    .detail-category {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 600;
+      margin-bottom: 10px;
+    }
+
+    .detail-category.cat-政治 { background: rgba(231,76,94,0.12); color: var(--group-politics); }
+    .detail-category.cat-经济 { background: rgba(245,166,35,0.12); color: var(--group-economy); }
+    .detail-category.cat-科技 { background: rgba(79,110,247,0.12); color: var(--group-tech); }
+    .detail-category.cat-文化 { background: rgba(155,89,182,0.12); color: var(--group-culture); }
+
+    .detail-event-name {
+      font-size: 20px;
+      font-weight: 700;
+      margin-bottom: 6px;
+      line-height: 1.3;
+      letter-spacing: -0.3px;
+    }
+
+    .detail-date {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-bottom: 18px;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .detail-date svg {
+      width: 14px;
+      height: 14px;
+    }
+
+    .detail-section {
+      margin-bottom: 18px;
+    }
+
+    .detail-section-title {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 6px;
+    }
+
+    .detail-section-body {
+      font-size: 14px;
+      color: var(--text-secondary);
+      line-height: 1.7;
+    }
+
+    .detail-significance {
+      background: var(--accent-light);
+      border-radius: 8px;
+      padding: 12px 14px;
+      font-size: 13px;
+      color: var(--accent);
+      line-height: 1.7;
+    }
+
+    .detail-nav {
+      display: flex;
+      gap: 8px;
+      padding: 14px 18px;
+      border-top: 1px solid var(--border-color);
+      flex-shrink: 0;
+    }
+
+    .detail-nav .btn { flex: 1; justify-content: center; }
+
+    /* ========== Empty State ========== */
+    .detail-empty {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      color: var(--text-muted);
+      text-align: center;
+      padding: 30px;
+    }
+
+    .detail-empty svg {
+      width: 48px;
+      height: 48px;
+      margin-bottom: 14px;
+      opacity: 0.4;
+    }
+
+    .detail-empty p {
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    /* ========== Toast ========== */
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(80px);
+      padding: 10px 20px;
+      background: var(--text-primary);
+      color: var(--bg-primary);
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      z-index: 9999;
+      box-shadow: var(--shadow-lg);
+      transition: transform 0.3s ease;
+      pointer-events: none;
+    }
+
+    .toast.show {
+      transform: translateX(-50%) translateY(0);
+    }
+
+    /* ========== Responsive ========== */
+    @media (max-width: 768px) {
+      .header {
+        padding: 10px 14px;
+        flex-wrap: wrap;
+      }
+
+      .header-badge { display: none; }
+      .header-center { order: 3; max-width: 100%; flex-basis: 100%; }
+
+      .toolbar {
+        padding: 8px 14px;
+        overflow-x: auto;
+        flex-wrap: nowrap;
+      }
+
+      .toolbar-group { flex-shrink: 0; }
+
+      .detail-panel.open {
+        position: absolute;
+        right: 0;
+        top: 0;
+        bottom: 0;
+        width: 100%;
+        max-width: 360px;
+        z-index: 50;
+        box-shadow: var(--shadow-lg);
+      }
+
+      .btn-label { display: none; }
+    }
+
+    @media (max-width: 480px) {
+      .detail-panel.open { max-width: 100%; }
+    }
+
+    /* ========== Scrollbar ========== */
+    .detail-body::-webkit-scrollbar { width: 5px; }
+    .detail-body::-webkit-scrollbar-track { background: transparent; }
+    .detail-body::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 10px; }
+
+    /* ========== Animation ========== */
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .detail-body > * {
+      animation: fadeIn 0.25s ease both;
+    }
+
+    .detail-body > *:nth-child(1) { animation-delay: 0.02s; }
+    .detail-body > *:nth-child(2) { animation-delay: 0.04s; }
+    .detail-body > *:nth-child(3) { animation-delay: 0.06s; }
+    .detail-body > *:nth-child(4) { animation-delay: 0.08s; }
+    .detail-body > *:nth-child(5) { animation-delay: 0.10s; }
+    .detail-body > *:nth-child(6) { animation-delay: 0.12s; }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <!-- ====== Header ====== -->
+    <header class="header">
+      <div class="header-left">
+        <h1 class="header-title"><span>Timeline</span> 世界近代史</h1>
+        <span class="header-badge" id="eventCount">18 个事件</span>
+      </div>
+      <div class="header-center">
+        <div class="search-box">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input type="text" class="search-input" id="searchInput" placeholder="搜索事件..." />
+        </div>
+      </div>
+      <div class="header-right">
+        <button class="btn btn-icon" id="btnTheme" title="切换主题">
+          <svg id="iconSun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+          <svg id="iconMoon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        </button>
+        <button class="btn" id="btnExport">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          <span class="btn-label">导出PNG</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- ====== Toolbar ====== -->
+    <nav class="toolbar">
+      <div class="toolbar-group">
+        <span class="toolbar-label">分类</span>
+        <button class="filter-chip active" data-group="政治">政治</button>
+        <button class="filter-chip active" data-group="经济">经济</button>
+        <button class="filter-chip active" data-group="科技">科技</button>
+        <button class="filter-chip active" data-group="文化">文化</button>
+      </div>
+      <div class="divider-v"></div>
+      <div class="toolbar-group">
+        <button class="btn" id="btnFitAll" title="显示全部">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
+          <span class="btn-label">显示全部</span>
+        </button>
+        <button class="btn btn-icon" id="btnZoomIn" title="放大">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
+        </button>
+        <button class="btn btn-icon" id="btnZoomOut" title="缩小">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
+        </button>
+      </div>
+    </nav>
+
+    <!-- ====== Main ====== -->
+    <main class="main">
+      <div class="timeline-container">
+        <div id="timeline"></div>
+      </div>
+      <aside class="detail-panel" id="detailPanel">
+        <div class="detail-header">
+          <span class="detail-header-title">事件详情</span>
+          <button class="detail-close" id="detailClose" title="关闭">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+        <div class="detail-body" id="detailBody">
+          <div class="detail-empty">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            <p>点击时间线上的事件<br/>查看详细信息</p>
+          </div>
+        </div>
+        <div class="detail-nav" id="detailNav" style="display:none">
+          <button class="btn" id="btnPrev">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+            上一个
+          </button>
+          <button class="btn" id="btnNext">
+            下一个
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
+        </div>
+      </aside>
+    </main>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast" id="toast"></div>
+
+  <!-- ====== Scripts ====== -->
+  <script src="https://unpkg.com/vis-timeline@7.7.3/standalone/umd/vis-timeline-graph2d.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script>
+  (function() {
+    'use strict';
+
+    // ========== Sample Data: 世界近代史 (1760-1900) ==========
+    var EVENTS = [
+      {
+        id: 1,
+        content: '工业革命开始',
+        start: '1760',
+        group: '经济',
+        detail: {
+          name: '英国工业革命',
+          date: '约1760年',
+          category: '经济',
+          description: '以棉纺织业的技术革新为起点，蒸汽机的改良和广泛应用为标志，英国率先开始了从手工劳动向机器大生产的转变。纺织机、蒸汽机等发明彻底改变了生产方式，工厂制度取代了手工工场。',
+          significance: '工业革命是人类历史上最深刻的技术与社会变革之一，它开启了现代化的进程，使人类从农业社会迈入工业社会，深刻改变了全球经济格局和社会结构。'
+        }
+      },
+      {
+        id: 2,
+        content: '瓦特改良蒸汽机',
+        start: '1769',
+        group: '科技',
+        detail: {
+          name: '瓦特改良蒸汽机',
+          date: '1769年',
+          category: '科技',
+          description: '詹姆斯·瓦特在纽可门蒸汽机的基础上进行了关键性改良，增加了分离冷凝器，大幅提高了蒸汽机的热效率和经济性，使蒸汽机得以广泛应用于工厂、矿山和交通运输。',
+          significance: '瓦特蒸汽机是工业革命的核心动力，被誉为"万能原动机"。它的推广使工厂摆脱了对水力的依赖，推动了工业革命从英国向全球扩展。'
+        }
+      },
+      {
+        id: 3,
+        content: '美国独立宣言',
+        start: '1776',
+        group: '政治',
+        detail: {
+          name: '美国独立宣言',
+          date: '1776年7月4日',
+          category: '政治',
+          description: '北美十三个殖民地代表在费城通过《独立宣言》，正式宣布脱离英国统治。宣言由托马斯·杰斐逊起草，宣告"人人生而平等"，拥有"生命、自由和追求幸福的权利"。',
+          significance: '这是人类历史上第一次以国家名义正式宣告人民主权原则，深刻影响了法国大革命和整个世界的民主化进程，成为现代民主政治的基石。'
+        }
+      },
+      {
+        id: 4,
+        content: '法国大革命',
+        start: '1789',
+        group: '政治',
+        detail: {
+          name: '法国大革命',
+          date: '1789年',
+          category: '政治',
+          description: '以攻占巴士底狱为标志，法国人民推翻了波旁王朝的封建专制统治。革命经历了君主立宪、吉伦特派、雅各宾派等阶段，颁布了《人权宣言》，宣布人生来自由、权利平等。',
+          significance: '法国大革命是世界近代史上最彻底的资产阶级革命，它摧毁了法国一千多年的封建制度，传播了自由、平等、博爱的理念，对整个世界的历史进程产生了深远影响。'
+        }
+      },
+      {
+        id: 5,
+        content: '《人权宣言》',
+        start: '1789',
+        group: '文化',
+        detail: {
+          name: '《人权与公民权宣言》',
+          date: '1789年8月26日',
+          category: '文化',
+          description: '法国国民制宪会议通过，宣告"人在权利上是生而自由平等的"，确立了自由、财产、安全和反抗压迫的自然权利，以及法律面前人人平等、主权在民等原则。',
+          significance: '作为人类思想史上的里程碑文献，《人权宣言》成为世界各国宪法和人权法案的重要参照，是现代人权理念的制度化起点。'
+        }
+      },
+      {
+        id: 6,
+        content: '海地独立',
+        start: '1804',
+        group: '政治',
+        detail: {
+          name: '海地独立',
+          date: '1804年1月1日',
+          category: '政治',
+          description: '在杜桑·卢维杜尔和让-雅克·德萨林领导下，海地人民经过长达十余年的抗争，击败了法国殖民军队，宣布独立，建立世界上第一个黑人共和国。',
+          significance: '海地独立是世界历史上唯一一次成功的奴隶起义建立的国家，它动摇了整个美洲的奴隶制体系，激励了拉丁美洲的独立运动。'
+        }
+      },
+      {
+        id: 7,
+        content: '蒸汽机车',
+        start: '1814',
+        group: '科技',
+        detail: {
+          name: '史蒂芬森蒸汽机车',
+          date: '1814年',
+          category: '科技',
+          description: '乔治·史蒂芬森设计制造了世界上第一台实用蒸汽机车。1825年，他设计的"旅行号"机车在世界上第一条公共铁路——斯托克顿至达灵顿铁路上成功运行。',
+          significance: '蒸汽机车的发明和铁路的修建引发了交通运输革命，极大缩短了空间距离，促进了商品流通和人员流动，加速了工业化和城市化进程。'
+        }
+      },
+      {
+        id: 8,
+        content: '拉丁美洲独立运动',
+        start: '1810',
+        group: '政治',
+        detail: {
+          name: '拉丁美洲独立运动',
+          date: '1810-1826年',
+          category: '政治',
+          description: '以玻利瓦尔和圣马丁为代表的革命领袖，领导南美各地人民反抗西班牙和葡萄牙的殖民统治。经过十余年战争，绝大多数拉美国家获得独立，结束了三百年的殖民统治。',
+          significance: '拉丁美洲独立运动结束了欧洲在拉美的殖民体系，诞生了近二十个独立国家，改变了世界政治版图，是近代民族解放运动的重要篇章。'
+        }
+      },
+      {
+        id: 9,
+        content: '摄影术发明',
+        start: '1839',
+        group: '科技',
+        detail: {
+          name: '摄影术的发明',
+          date: '1839年',
+          category: '科技',
+          description: '法国画家达盖尔发明了银版摄影法（达盖尔法），法国政府将其公开并授予达盖尔终身年金。同年，英国科学家塔尔博特也公布了他的"光影绘画"技术，即后来的负片-正片法。',
+          significance: '摄影术的发明彻底改变了人类记录和感知世界的方式，它不仅是艺术表现的新媒介，更成为科学研究、新闻报道和历史记录的不可或缺的工具。'
+        }
+      },
+      {
+        id: 10,
+        content: '鸦片战争',
+        start: '1840',
+        group: '政治',
+        detail: {
+          name: '第一次鸦片战争',
+          date: '1840-1842年',
+          category: '政治',
+          description: '英国以林则徐虎门销烟为借口发动侵华战争。清朝战败后被迫签订《南京条约》，割让香港岛、开放五口通商、赔款2100万银元。这是中国近代史上第一个不平等条约。',
+          significance: '鸦片战争是中国近代史的开端，标志着中国开始沦为半殖民地半封建社会。它打破了清朝闭关锁国的状态，迫使中国面对西方列强的侵略，深刻改变了中国历史的走向。'
+        }
+      },
+      {
+        id: 11,
+        content: '共产主义宣言',
+        start: '1848',
+        group: '文化',
+        detail: {
+          name: '《共产党宣言》发表',
+          date: '1848年2月',
+          category: '文化',
+          description: '马克思和恩格斯受共产主义者同盟委托，在伦敦发表《共产党宣言》。宣言系统阐述了历史唯物主义和阶级斗争理论，分析了资本主义的内在矛盾，提出了无产阶级革命的历史使命。',
+          significance: '《共产党宣言》是马克思主义诞生的重要标志，它的发表开启了国际共产主义运动，深刻影响了此后一百多年世界各国的社会革命和政治运动。'
+        }
+      },
+      {
+        id: 12,
+        content: '欧洲1848革命',
+        start: '1848',
+        group: '政治',
+        detail: {
+          name: '1848年欧洲革命',
+          date: '1848年',
+          category: '政治',
+          description: '从法国二月革命开始，革命浪潮席卷欧洲大陆，涉及德意志、意大利、奥匈帝国等几乎所有主要国家。人民要求民族独立、民主自由和社会改革，虽然多数革命最终失败，但沉重打击了封建势力。',
+          significance: '1848年革命被称为"民族之春"，是欧洲历史上规模最大的革命浪潮，它加速了欧洲封建残余的清除，推动了民族统一和民主化进程。'
+        }
+      },
+      {
+        id: 13,
+        content: '达尔文《物种起源》',
+        start: '1859',
+        group: '文化',
+        detail: {
+          name: '达尔文发表《物种起源》',
+          date: '1859年11月24日',
+          category: '文化',
+          description: '查尔斯·达尔文经过二十余年的研究和犹豫，发表了《论通过自然选择的物种起源》。书中提出了自然选择和适者生存的进化理论，认为物种不是固定不变的，而是通过变异和选择不断演化。',
+          significance: '进化论从根本上改变了人类对生命和自然的认知，是生物学史上最伟大的理论之一。它的影响远超科学领域，深刻影响了哲学、社会学和宗教思想。'
+        }
+      },
+      {
+        id: 14,
+        content: '美国内战',
+        start: '1861',
+        group: '政治',
+        detail: {
+          name: '美国南北战争',
+          date: '1861-1865年',
+          category: '政治',
+          description: '因奴隶制存废问题，南方十一州宣布脱离联邦，北方在林肯总统领导下维护国家统一。战争持续四年，最终北方胜利。1863年林肯颁布《解放黑人奴隶宣言》，废除了叛乱州的奴隶制。',
+          significance: '南北战争维护了美国的统一，废除了奴隶制度，是美国历史上最血腥的战争，也是美国走向现代化大国的重要转折点。'
+        }
+      },
+      {
+        id: 15,
+        content: '日本明治维新',
+        start: '1868',
+        group: '政治',
+        detail: {
+          name: '日本明治维新',
+          date: '1868年起',
+          category: '政治',
+          description: '以推翻幕府统治、恢复天皇权威为起点，日本推行全面西化改革：废藩置县、地税改革、建立宪政、发展工业、普及教育。"殖产兴业""文明开化""富国强兵"成为三大国策。',
+          significance: '明治维新使日本在短短数十年间从封建农业国转变为近代工业强国，是亚洲国家成功实现现代化的典范，也使日本走上了对外扩张的道路。'
+        }
+      },
+      {
+        id: 16,
+        content: '第二次工业革命',
+        start: '1870',
+        group: '经济',
+        detail: {
+          name: '第二次工业革命',
+          date: '约1870年起',
+          category: '经济',
+          description: '以电力和内燃机的广泛应用为标志，钢铁、化工、石油等新兴工业迅猛发展。美国和德国成为新的工业中心，生产和资本高度集中，垄断组织出现，世界经济体系加速形成。',
+          significance: '第二次工业革命使人类从蒸汽时代进入电气时代，极大提高了生产力，推动了全球经济一体化，也加剧了列强之间的竞争和殖民扩张。'
+        }
+      },
+      {
+        id: 17,
+        content: '电话发明',
+        start: '1876',
+        group: '科技',
+        detail: {
+          name: '贝尔发明电话',
+          date: '1876年3月10日',
+          category: '科技',
+          description: '亚历山大·格雷厄姆·贝尔获得电话专利。他在实验中首次通过电话线成功传送了清晰的话音："沃森先生，请过来，我需要你。"电话从此进入实用化阶段。',
+          significance: '电话的发明开启了即时远程通信的时代，彻底改变了人类的通讯方式，促进了商业和社会交往，是信息革命的重要先声。'
+        }
+      },
+      {
+        id: 18,
+        content: '巴黎公社',
+        start: '1871',
+        group: '政治',
+        detail: {
+          name: '巴黎公社',
+          date: '1871年3月18日-5月28日',
+          category: '政治',
+          description: '巴黎工人阶级在普法战争失败后起义，建立了世界上第一个无产阶级政权——巴黎公社。公社实行了一系列进步措施：普选、政教分离、免费教育、八小时工作制等，但仅存在72天即被镇压。',
+          significance: '巴黎公社是无产阶级建立政权的第一次伟大尝试，虽然失败了，但它为国际工人运动提供了宝贵的经验教训，《国际歌》由此诞生，成为全世界无产阶级的战歌。'
+        }
+      },
+      {
+        id: 19,
+        content: '电灯发明',
+        start: '1879',
+        group: '科技',
+        detail: {
+          name: '爱迪生发明实用电灯',
+          date: '1879年10月21日',
+          category: '科技',
+          description: '托马斯·爱迪生经过数千次实验，成功研制出以碳化竹丝为灯丝的实用白炽灯泡，持续发光超过1200小时。他还建立了世界上第一座商用中央发电站和配电系统。',
+          significance: '电灯的发明结束了人类依赖自然光和明火照明的时代，极大地延长了人类的活动时间，推动了城市化和夜间经济的发展，是第二次工业革命的重要成果。'
+        }
+      },
+      {
+        id: 20,
+        content: '甲午战争',
+        start: '1894',
+        group: '政治',
+        detail: {
+          name: '甲午中日战争',
+          date: '1894-1895年',
+          category: '政治',
+          description: '日本蓄意挑起战争，清朝北洋水师在黄海海战和威海卫之战中惨败。战后签订《马关条约》，中国割让台湾及澎湖列岛、赔偿白银两亿两、开放沙市等四个通商口岸。',
+          significance: '甲午战争彻底暴露了洋务运动的局限性，宣告了"师夷长技"道路的失败。它使中国半殖民地化程度大大加深，也刺激了维新变法运动的兴起。'
+        }
+      }
+    ];
+
+    // ========== Groups ==========
+    var GROUPS = [
+      { id: '政治', content: '<span class="vis-group-color-dot" style="background:var(--group-politics)"></span>政治', className: 'group-politics' },
+      { id: '经济', content: '<span class="vis-group-color-dot" style="background:var(--group-economy)"></span>经济', className: 'group-economy' },
+      { id: '科技', content: '<span class="vis-group-color-dot" style="background:var(--group-tech)"></span>科技', className: 'group-tech' },
+      { id: '文化', content: '<span class="vis-group-color-dot" style="background:var(--group-culture)"></span>文化', className: 'group-culture' }
+    ];
+
+    // ========== State ==========
+    var activeGroups = new Set(['政治', '经济', '科技', '文化']);
+    var searchQuery = '';
+    var selectedItemId = null;
+    var timeline = null;
+    var items = null;
+
+    // ========== Init Timeline ==========
+    function createTimeline() {
+      var container = document.getElementById('timeline');
+
+      items = new vis.DataSet(EVENTS.map(function(e) {
+        return {
+          id: e.id,
+          content: e.content,
+          start: e.start,
+          group: e.group,
+          className: 'group-' + e.group,
+          detail: e.detail
+        };
+      }));
+
+      var groups = new vis.DataSet(GROUPS);
+
+      var groupOrderList = ['政治', '经济', '科技', '文化'];
+
+      var options = {
+        groupOrder: function(a, b) { return groupOrderList.indexOf(a.id) - groupOrderList.indexOf(b.id); },
+        orientation: { axis: 'bottom', item: 'top' },
+        margin: { item: { horizontal: 8, vertical: 6 } },
+        stack: true,
+        showCurrentTime: false,
+        zoomMin: 1000 * 60 * 60 * 24 * 365,
+        zoomMax: 1000 * 60 * 60 * 24 * 365 * 300,
+        tooltip: {
+          followMouse: true,
+          overflowMethod: 'cap'
+        },
+        verticalScroll: false,
+        horizontalScroll: true
+      };
+
+      timeline = new vis.Timeline(container, items, groups, options);
+
+      // Fit all events
+      timeline.fit({ animation: { duration: 600, easingFunction: 'easeInOutQuad' } });
+
+      // Click handler
+      timeline.on('select', function(props) {
+        if (props.items.length > 0) {
+          showDetail(props.items[0]);
+        } else {
+          hideDetail();
+        }
+      });
+    }
+
+    // ========== Detail Panel ==========
+    function showDetail(itemId) {
+      selectedItemId = itemId;
+      var item = items.get(itemId);
+      if (!item || !item.detail) return;
+
+      var d = item.detail;
+      var body = document.getElementById('detailBody');
+      body.innerHTML =
+        '<div class="detail-category cat-' + d.category + '">' + d.category + '</div>' +
+        '<h2 class="detail-event-name">' + d.name + '</h2>' +
+        '<div class="detail-date">' +
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>' +
+          d.date +
+        '</div>' +
+        '<div class="detail-section">' +
+          '<div class="detail-section-title">概述</div>' +
+          '<div class="detail-section-body">' + d.description + '</div>' +
+        '</div>' +
+        '<div class="detail-section">' +
+          '<div class="detail-section-title">历史意义</div>' +
+          '<div class="detail-significance">' + d.significance + '</div>' +
+        '</div>';
+
+      document.getElementById('detailPanel').classList.add('open');
+      document.getElementById('detailNav').style.display = 'flex';
+    }
+
+    function hideDetail() {
+      selectedItemId = null;
+      document.getElementById('detailPanel').classList.remove('open');
+      document.getElementById('detailNav').style.display = 'none';
+      if (timeline) timeline.setSelection([]);
+    }
+
+    function navigateDetail(direction) {
+      var visibleIds = getVisibleItemIds();
+      if (visibleIds.length === 0) return;
+
+      var currentIdx = visibleIds.indexOf(selectedItemId);
+      var newIdx;
+
+      if (currentIdx === -1) {
+        newIdx = direction > 0 ? 0 : visibleIds.length - 1;
+      } else {
+        newIdx = currentIdx + direction;
+        if (newIdx < 0) newIdx = visibleIds.length - 1;
+        if (newIdx >= visibleIds.length) newIdx = 0;
+      }
+
+      var newId = visibleIds[newIdx];
+      timeline.setSelection(newId);
+      showDetail(newId);
+    }
+
+    function getVisibleItemIds() {
+      var allItems = items.get();
+      var filtered = allItems.filter(function(item) {
+        if (!activeGroups.has(item.group)) return false;
+        if (searchQuery) {
+          var q = searchQuery.toLowerCase();
+          var d = item.detail;
+          var text = (item.content + ' ' + d.name + ' ' + d.description + ' ' + d.significance).toLowerCase();
+          if (text.indexOf(q) === -1) return false;
+        }
+        return true;
+      });
+      filtered.sort(function(a, b) { return a.start < b.start ? -1 : a.start > b.start ? 1 : 0; });
+      return filtered.map(function(item) { return item.id; });
+    }
+
+    // ========== Filter ==========
+    function applyFilter() {
+      var allItems = items.get();
+      var visibleCount = 0;
+
+      allItems.forEach(function(item) {
+        var visible = true;
+        if (!activeGroups.has(item.group)) visible = false;
+        if (searchQuery) {
+          var q = searchQuery.toLowerCase();
+          var d = item.detail;
+          var text = (item.content + ' ' + d.name + ' ' + d.description + ' ' + d.significance).toLowerCase();
+          if (text.indexOf(q) === -1) visible = false;
+        }
+        items.update({ id: item.id, visible: visible });
+        if (visible) visibleCount++;
+      });
+
+      document.getElementById('eventCount').textContent = visibleCount + ' 个事件';
+    }
+
+    // ========== Theme Toggle ==========
+    function toggleTheme() {
+      var html = document.documentElement;
+      var isDark = html.getAttribute('data-theme') === 'dark';
+      html.setAttribute('data-theme', isDark ? 'light' : 'dark');
+      document.getElementById('iconSun').style.display = isDark ? 'block' : 'none';
+      document.getElementById('iconMoon').style.display = isDark ? 'none' : 'block';
+    }
+
+    // ========== Export PNG ==========
+    function exportPNG() {
+      showToast('正在生成图片...');
+      var target = document.querySelector('.timeline-container');
+      if (typeof html2canvas === 'undefined') {
+        showToast('导出功能加载失败，请检查网络');
+        return;
+      }
+      html2canvas(target, {
+        backgroundColor: getComputedStyle(document.documentElement).getPropertyValue('--bg-primary').trim(),
+        scale: 2,
+        useCORS: true,
+        logging: false
+      }).then(function(canvas) {
+        var link = document.createElement('a');
+        link.download = 'timeline-世界近代史.png';
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+        showToast('导出成功');
+      }).catch(function() {
+        showToast('导出失败，请重试');
+      });
+    }
+
+    // ========== Toast ==========
+    function showToast(msg) {
+      var toast = document.getElementById('toast');
+      toast.textContent = msg;
+      toast.classList.add('show');
+      clearTimeout(toast._timer);
+      toast._timer = setTimeout(function() {
+        toast.classList.remove('show');
+      }, 2200);
+    }
+
+    // ========== Event Bindings ==========
+    function bindEvents() {
+      // Theme toggle
+      document.getElementById('btnTheme').addEventListener('click', toggleTheme);
+
+      // Export
+      document.getElementById('btnExport').addEventListener('click', exportPNG);
+
+      // Search
+      var searchTimer = null;
+      document.getElementById('searchInput').addEventListener('input', function(e) {
+        searchQuery = e.target.value.trim();
+        clearTimeout(searchTimer);
+        searchTimer = setTimeout(applyFilter, 200);
+      });
+
+      // Filter chips
+      document.querySelectorAll('.filter-chip').forEach(function(chip) {
+        chip.addEventListener('click', function() {
+          var group = this.getAttribute('data-group');
+          if (activeGroups.has(group)) {
+            if (activeGroups.size === 1) return; // keep at least one
+            activeGroups.delete(group);
+            this.classList.remove('active');
+          } else {
+            activeGroups.add(group);
+            this.classList.add('active');
+          }
+          applyFilter();
+        });
+      });
+
+      // Zoom controls
+      document.getElementById('btnFitAll').addEventListener('click', function() {
+        timeline.fit({ animation: { duration: 500, easingFunction: 'easeInOutQuad' } });
+      });
+      document.getElementById('btnZoomIn').addEventListener('click', function() {
+        timeline.zoomIn(0.4, { animation: { duration: 300, easingFunction: 'easeInOutQuad' } });
+      });
+      document.getElementById('btnZoomOut').addEventListener('click', function() {
+        timeline.zoomOut(0.4, { animation: { duration: 300, easingFunction: 'easeInOutQuad' } });
+      });
+
+      // Detail panel close
+      document.getElementById('detailClose').addEventListener('click', hideDetail);
+
+      // Detail navigation
+      document.getElementById('btnPrev').addEventListener('click', function() { navigateDetail(-1); });
+      document.getElementById('btnNext').addEventListener('click', function() { navigateDetail(1); });
+
+      // Keyboard shortcuts
+      document.addEventListener('keydown', function(e) {
+        if (e.target.tagName === 'INPUT') return;
+        if (e.key === 'Escape') hideDetail();
+        if (e.key === 'ArrowLeft' && selectedItemId) navigateDetail(-1);
+        if (e.key === 'ArrowRight' && selectedItemId) navigateDetail(1);
+        if (e.key === '/' || e.key === 'f' && (e.ctrlKey || e.metaKey)) {
+          e.preventDefault();
+          document.getElementById('searchInput').focus();
+        }
+      });
+    }
+
+    // ========== Boot ==========
+    document.addEventListener('DOMContentLoaded', function() {
+      createTimeline();
+      bindEvents();
+    });
+
+  })();
+  </script>
+</body>
+</html>

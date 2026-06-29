@@ -1,0 +1,7 @@
+{
+  "storage_type": "data",
+  "artifact_type": "mindmap",
+  "icon": "ri-mind-map",
+  "color": "emerald",
+  "title_template": "{title}"
+}

@@ -1,0 +1,484 @@
+/* ============================================================================
+   chat-markdown.scss — Markdown styles for chat bubbles
+   Aligned with project's Structured Warmth design language.
+   Tokens: brand #6C8AFF | agent #A78BFA | d0-d4 / l0-l4 / wt-* / lt-*
+   ========================================================================== */
+
+.chat-markdown {
+  /* ── Light theme tokens (default) ───────────────────────────────────── */
+  --md-fg:        #1a1a2e;
+  --md-muted:    #5a5a6e;
+  --md-faint:    #8a8a9e;
+  --md-border:   #e2e1de;
+  --md-soft:     #f5f4f3;
+  --md-softer:   #ebeae8;
+  --md-link:     #4A6CFF;
+  --md-brand:    #6C8AFF;
+  --md-agent:    #A78BFA;
+
+  --md-inline-bg:    rgba(108, 138, 255, 0.08);
+  --md-inline-fg:    #4A6CFF;
+  --md-inline-bd:    rgba(108, 138, 255, 0.18);
+
+  --md-quote-bg:    rgba(108, 138, 255, 0.04);
+  --md-quote-bd:    #6C8AFF;
+
+  --md-table-head:  #f1f0ef;
+  --md-table-row:    #ffffff;
+  --md-table-alt:    #faf9f7;
+
+  --md-kbd-bg:    #ffffff;
+  --md-kbd-bd:    #d4d2cf;
+  --md-kbd-sh:    inset 0 -2px 0 rgba(0, 0, 0, 0.06);
+
+  --md-mark-bg:    rgba(250, 204, 21, 0.32);
+
+  /* ── Override markstream-vue CSS variables ──────────────────────────── */
+  --ms-text-body: 12px;
+  --ms-text-code: 12px;
+
+  /* ── Container ────────────────────────────────────────────────────── */
+  :deep(.markstream-vue),
+  :deep(.markdown-body) {
+    color: var(--md-fg);
+    font-size: 12px !important;
+    line-height: 1.68 !important;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+  }
+
+  /* Force all text inside markstream to 12px — overrides Tailwind utilities on elements */
+  :deep(.markstream-vue *),
+  :deep(.markdown-body *) {
+    font-size: inherit !important;
+  }
+  :deep(.markstream-vue p),
+  :deep(.markstream-vue li),
+  :deep(.markstream-vue td),
+  :deep(.markstream-vue span),
+  :deep(.markdown-body p),
+  :deep(.markdown-body li),
+  :deep(.markdown-body td),
+  :deep(.markdown-body span) {
+    font-size: 12px !important;
+  }
+
+  /* ── Headings ─────────────────────────────────────────────────────── */
+  :deep(h1),
+  :deep(h2),
+  :deep(h3),
+  :deep(h4),
+  :deep(h5),
+  :deep(h6) {
+    font-weight: 700;
+    line-height: 1.35;
+    margin: 1.2em 0 0.5em;
+    color: var(--md-fg);
+    letter-spacing: -0.005em;
+  }
+  :deep(h1) { font-size: 1.32em; padding-bottom: 0.32em; border-bottom: 1px solid var(--md-border); }
+  :deep(h2) { font-size: 1.18em; padding-bottom: 0.28em; border-bottom: 1px solid var(--md-border); }
+  :deep(h3) { font-size: 1.08em; }
+  :deep(h4) { font-size: 1em; }
+  :deep(h5) { font-size: 0.94em; color: var(--md-muted); }
+  :deep(h6) { font-size: 0.88em; color: var(--md-faint); text-transform: uppercase; letter-spacing: 0.04em; }
+  :deep(h1:first-child),
+  :deep(h2:first-child),
+  :deep(h3:first-child) { margin-top: 0.2em; }
+
+  /* ── Paragraphs & lists ────────────────────────────────────────────── */
+  :deep(p) { margin: 0.55em 0; }
+  :deep(p:first-child) { margin-top: 0; }
+  :deep(p:last-child) { margin-bottom: 0; }
+
+  :deep(ul),
+  :deep(ol) {
+    margin: 0.55em 0;
+    padding-left: 1.45em;
+  }
+  :deep(ul) { list-style: disc; }
+  :deep(ol) { list-style: decimal; }
+  :deep(li) { margin: 0.1em 0; }
+  :deep(li > p) { margin: 0.22em 0; }
+  :deep(li > ul),
+  :deep(li > ol) { margin: 0.2em 0; }
+  :deep(li::marker) { color: var(--md-faint); }
+
+  /* Task list */
+  :deep(li.task-list-item),
+  :deep(li:has(> input[type='checkbox'])) {
+    list-style: none;
+    margin-left: -1.2em;
+    padding-left: 0.2em;
+  }
+  :deep(input[type='checkbox']) {
+    accent-color: var(--md-brand);
+    margin-right: 0.4em;
+    transform: translateY(1px);
+  }
+
+  /* ── Links ─────────────────────────────────────────────────────────── */
+  :deep(a) {
+    color: var(--md-link);
+    text-decoration: none;
+    font-weight: 500;
+    border-bottom: 1px dashed transparent;
+    transition: border-color 0.15s ease;
+  }
+  :deep(a:hover) {
+    border-bottom-color: var(--md-link);
+  }
+
+  /* ── Inline code ──────────────────────────────────────────────────── */
+  :deep(:not(pre) > code),
+  :deep(code:not(pre code)) {
+    font-family: 'SF Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 0.86em;
+    background: var(--md-inline-bg);
+    color: var(--md-inline-fg);
+    border: 1px solid var(--md-inline-bd);
+    padding: 0.1em 0.42em;
+    border-radius: 5px;
+    word-break: break-word;
+  }
+
+  /* ── Blockquote ───────────────────────────────────────────────────── */
+  :deep(blockquote) {
+    margin: 0.75em 0;
+    padding: 0.55em 0.85em;
+    border-left: 3px solid var(--md-quote-bd);
+    background: var(--md-quote-bg);
+    color: var(--md-muted);
+    border-radius: 0 8px 8px 0;
+  }
+  :deep(blockquote > :first-child) { margin-top: 0; }
+  :deep(blockquote > :last-child) { margin-bottom: 0; }
+
+  /* ── Horizontal rule ──────────────────────────────────────────────── */
+  :deep(hr) {
+    border: 0;
+    height: 1px;
+    background: var(--md-border);
+    // background: linear-gradient(to right, transparent, var(--md-border) 20%, var(--md-border) 80%, transparent);
+    margin: 1.2em 0;
+  }
+
+  /* ── Tables ───────────────────────────────────────────────────────── */
+:deep(table) {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  margin: 0.85em 0;
+  font-size: 12.5px;
+  
+  /* 👇 修改点 1：删除 display: block，恢复默认或显式声明为 table */
+  display: table; 
+  /* 👇 修改点 2：启用自动表格布局，让列宽智能分配，最后一列自动撑满剩余空间 */
+  table-layout: auto; 
+  
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  max-width: 100%;
+  border: 1px solid var(--md-border);
+  border-radius: 8px;
+}
+
+/* 以下保持你的原样即可 */
+:deep(thead th) {
+  background: var(--md-table-head);
+  font-weight: 600;
+  color: var(--md-fg);
+  text-align: left;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--md-border);
+  white-space: nowrap;
+}
+:deep(tbody tr:nth-child(even) td) {
+  background: var(--md-table-alt);
+}
+:deep(td) {
+  padding: 7px 12px;
+  border-bottom: 1px solid var(--md-border);
+  vertical-align: top;
+}
+:deep(tbody tr:last-child td) { 
+  border-bottom: 0; 
+}
+
+  /* ── Images & media ──────────────────────────────────────────────── */
+  :deep(img),
+  :deep(video) {
+    max-width: min(100%, 720px);
+    max-height: min(360px, 52vh);
+    height: auto;
+    display: block;
+    margin: 0.7em auto;
+    border-radius: 10px;
+  }
+
+  :deep(img) {
+    cursor: zoom-in;
+    object-fit: contain;
+  }
+
+  :deep(.markdown-image-node) {
+    display: flex;
+    justify-content: center;
+    max-width: 100%;
+    content-visibility: auto;
+    contain-intrinsic-size: 360px 240px;
+  }
+
+  :deep(.markdown-image-fallback) {
+    display: inline-block;
+    max-width: 100%;
+    margin: 0.45em 0;
+    padding: 6px 9px;
+    border: 1px dashed var(--md-border);
+    border-radius: 7px;
+    color: var(--md-faint);
+    background: var(--md-soft);
+    font-size: 12px !important;
+    word-break: break-all;
+  }
+
+  /* ── Emphasis variants ───────────────────────────────────────────── */
+  :deep(strong) { font-weight: 700; color: var(--md-fg); }
+  :deep(em) { font-style: italic; }
+  :deep(del),
+  :deep(s) { color: var(--md-faint); text-decoration: line-through; }
+  :deep(mark) {
+    background: var(--md-mark-bg);
+    color: inherit;
+    padding: 0 0.18em;
+    border-radius: 3px;
+  }
+  :deep(kbd) {
+    font-family: 'SF Mono', ui-monospace, monospace;
+    font-size: 0.82em;
+    background: var(--md-kbd-bg);
+    border: 1px solid var(--md-kbd-bd);
+    box-shadow: var(--md-kbd-sh);
+    border-radius: 5px;
+    padding: 0.05em 0.45em;
+    color: var(--md-fg);
+  }
+
+  /* ── KaTeX math ──────────────────────────────────────────────────── */
+  :deep(.katex-display) {
+    margin: 0.85em 0;
+    padding: 0.4em 0.2em;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+  :deep(.katex) { font-size: 1.05em; }
+
+  /* ── Mermaid ─────────────────────────────────────────────────────── */
+  :deep(.mermaid),
+  :deep(.mermaid-container) {
+    display: flex;
+    justify-content: center;
+    max-width: 100%;
+    overflow-x: auto;
+    margin: 0.85em 0;
+    padding: 8px;
+    background: var(--md-soft);
+    border: 1px solid var(--md-border);
+    border-radius: 10px;
+  }
+  :deep(.mermaid svg) { max-width: 100%; height: auto; }
+
+  /* ══════════════════════════════════════════════════════════════════
+       Code Block (Markstream real class names)
+       container: .code-block-container
+       header:    .code-block-header > .code-header-main / .code-header-title / .code-header-caption / .code-header-copy
+       content:   .code-block-content
+     ══════════════════════════════════════════════════════════════════ */
+
+  :deep(.code-block-container) {
+    margin: 0.75em 0 !important;
+    border-radius: 12px !important;
+    overflow: hidden;
+    border: 1px solid var(--md-border) !important;
+    background: var(--md-soft) !important;
+    box-shadow: 0 10px 22px rgba(15, 23, 42, 0.08) !important;
+  }
+
+  /* Header wrapper — mac glass bar */
+  :deep(.code-block-header) {
+    position: relative;
+    height: 38px;
+    padding: 0 10px 0 54px !important;
+    background: rgba(248, 250, 252, 0.92) !important;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--md-border) !important;
+    border-radius: 0 !important;
+  }
+
+  /* Mac three-color dots */
+  :deep(.code-block-header::before) {
+    content: '';
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 38px;
+    height: 12px;
+    background:
+      radial-gradient(circle at 6px 6px, #ff5f57 0 5px, transparent 6px),
+      radial-gradient(circle at 18px 6px, #febc2e 0 5px, transparent 6px),
+      radial-gradient(circle at 30px 6px, #28c840 0 5px, transparent 6px);
+    opacity: 0.95;
+    z-index: 1;
+  }
+
+  :deep(.code-header-main) {
+    min-width: 0;
+    flex: 1 1 auto;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    overflow: hidden;
+  }
+
+  :deep(.code-header-title) {
+    font-weight: 600;
+    font-size: 11.5px;
+    color: var(--md-fg) !important;
+    letter-spacing: 0.01em;
+  }
+
+  :deep(.code-header-caption) {
+    font-size: 10.5px;
+    color: var(--md-faint) !important;
+  }
+
+  /* Action buttons (copy, collapse, preview, etc.) */
+  :deep(.code-header-copy),
+  :deep(.code-header-actions button),
+  :deep(.code-action-btn) {
+    width: 32px;
+    height: 32px;
+    padding: 0 !important;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: none !important;
+    box-shadow: none !important;
+    border-radius: 10px !important;
+    background: transparent !important;
+    color: var(--md-muted) !important;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease, transform 0.15s ease;
+  }
+  :deep(.code-header-copy){
+    width: 100%;
+  }
+  :deep(.code-header-copy:hover),
+  :deep(.code-header-actions button:hover),
+  :deep(.code-action-btn:hover) {
+    background: rgba(79, 70, 229, 0.10) !important;
+    color: #4f46e5 !important;
+  }
+  :deep(.code-action-btn:active) {
+    transform: translateY(1px);
+  }
+  :deep(.code-header-copy svg),
+  :deep(.code-header-actions button svg),
+  :deep(.code-header-actions button i),
+  :deep(.code-action-btn svg),
+  :deep(.code-action-btn i) {
+    width: 16px;
+    height: 16px;
+    font-size: 16px;
+  }
+
+  /* Code content area — transparent to let Shiki theme handle coloring */
+  :deep(.code-block-content) {
+    background: transparent !important;
+  }
+
+  /* Inner pre/code */
+  :deep(.code-block-container pre),
+  :deep(.code-pre-fallback) {
+    margin: 0;
+    padding: 12px 14px;
+    border: 0;
+    background: transparent !important;
+    overflow-x: auto;
+    font-size: 12.5px;
+    line-height: 1.7;
+  }
+  :deep(.code-block-container pre code),
+  :deep(.code-pre-fallback code) {
+    background: transparent !important;
+    border: 0 !important;
+    padding: 0 !important;
+    color: inherit;
+    font-family: 'SF Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    white-space: pre;
+  }
+
+  /* Inline code that looks like a file path — clickable */
+  :deep(.inline-code.is-file-path) {
+    cursor: pointer;
+    border-color: rgba(108, 138, 255, 0.35) !important;
+    transition: background 0.15s ease, border-color 0.15s ease;
+  }
+  :deep(.inline-code.is-file-path:hover) {
+    background: rgba(108, 138, 255, 0.14) !important;
+    border-color: rgba(108, 138, 255, 0.5) !important;
+  }
+}
+
+/* ═════════════════════════════════════════════════════════════════════
+   Dark theme
+   ═════════════════════════════════════════════════════════════════════ */
+.chat-markdown--dark {
+  --md-fg:        #e8e8ed;
+  --md-muted:    #b0b0ba;
+  --md-faint:    #78788a;
+  --md-border:   #353542;
+  --md-soft:     #1c1c26;
+  --md-softer:   #252530;
+  --md-link:     #6C8AFF;
+  --md-brand:    #6C8AFF;
+  --md-agent:    #A78BFA;
+
+  --md-inline-bg:    rgba(108, 138, 255, 0.12);
+  --md-inline-fg:    #93acff;
+  --md-inline-bd:    rgba(108, 138, 255, 0.22);
+
+  --md-quote-bg:    rgba(108, 138, 255, 0.06);
+  --md-quote-bd:    #6C8AFF;
+
+  --md-table-head:  #2e2e3a;
+  --md-table-row:    #1c1c26;
+  --md-table-alt:    #20202b;
+
+  --md-kbd-bg:    #2e2e3a;
+  --md-kbd-bd:    #3f3f4e;
+  --md-kbd-sh:    inset 0 -2px 0 rgba(0, 0, 0, 0.25);
+
+  --md-mark-bg:    rgba(250, 204, 21, 0.22);
+
+  :deep(.code-block-container) {
+    box-shadow: 0 10px 22px rgba(0, 0, 0, 0.25) !important;
+  }
+  :deep(.code-block-header) {
+    background: rgba(37, 37, 48, 0.92) !important;
+  }
+  :deep(.code-block-header::before) {
+    opacity: 0.6;
+  }
+  :deep(.code-header-copy:hover),
+  :deep(.code-header-actions button:hover),
+  :deep(.code-action-btn:hover) {
+    background: rgba(108, 138, 255, 0.16) !important;
+    color: #93acff !important;
+  }
+  :deep(.inline-code.is-file-path:hover) {
+    background: rgba(108, 138, 255, 0.18) !important;
+  }
+}

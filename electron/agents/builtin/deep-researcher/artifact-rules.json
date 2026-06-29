@@ -1,0 +1,9 @@
+{
+  "scan_dir": "/agents/deep-researcher/outputs/{date}/",
+  "file_patterns": [
+    { "ext": "md", "type": "research", "icon": "ri-file-text-line", "title_template": "{filename}" },
+    { "ext": "html", "type": "research", "icon": "ri-bar-chart-box-line", "title_template": "{filename}" }
+  ],
+  "filter_mtime_after_run": true,
+  "group_id_from_conversation": true
+}

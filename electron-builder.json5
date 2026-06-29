@@ -1,0 +1,73 @@
+// @see - https://www.electron.build/configuration/configuration
+{
+  "$schema": "https://raw.githubusercontent.com/electron-userland/electron-builder/master/packages/app-builder-lib/scheme.json",
+  "appId": "com.reviva.desktop",
+  "productName": "Reviva",
+  "icon": "build/icon",
+  "publish": [
+    {
+      "provider": "github",
+      "owner": "mingchen666",
+      "repo": "Reviva"
+    }
+  ],
+  "directories": {
+    "output": "release/${version}"
+  },
+  "files": [
+    "dist",
+    "dist-electron"
+  ],
+  "asarUnpack": [
+    "node_modules/better-sqlite3/**/*"
+  ],
+  "afterPack": "scripts/after-pack-officecli.cjs",
+  "extraResources": [
+    {
+      "from": "electron/builtin-assets",
+      "to": "builtin-assets",
+      "filter": ["**/*", "!bin/officecli/officecli-win-*.exe*"]
+    },
+    {
+      "from": "electron/agents/builtin",
+      "to": "agents/builtin",
+      "filter": ["**/*"]
+    }
+  ],
+  "mac": {
+    "target": [
+      "dmg"
+    ],
+    "artifactName": "${productName}-Mac-${version}-Installer.${ext}"
+  },
+  "win": {
+    "target": [
+      {
+        "target": "nsis",
+        "arch": [
+          "x64",
+          "arm64"
+        ]
+      }
+    ],
+    "artifactName": "${productName}-Windows-${version}-${arch}-Setup.${ext}"
+  },
+  "nsis": {
+    "oneClick": false,
+    "perMachine": false,
+    "allowToChangeInstallationDirectory": true,
+    "deleteAppDataOnUninstall": false,
+    "shortcutName": "Reviva",
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true,
+    "uninstallDisplayName": "Reviva ${version}",
+    "allowElevation": true,
+    "runAfterFinish": true
+  },
+  "linux": {
+    "target": [
+      "AppImage"
+    ],
+    "artifactName": "${productName}-Linux-${version}.${ext}"
+  }
+}

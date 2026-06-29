@@ -1,0 +1,14 @@
+{
+  "id": "quiz-generator",
+  "name": "测验生成器",
+  "description": "Generate educational quizzes from topics, learning goals, or provided documents. Supports multiple question types, difficulty levels, answer keys, explanations, and study-focused assessment. Use when the user wants practice questions, review quizzes, mock tests, self-checks, or exam prep.",
+  "icon": "ri-file-text-line",
+  "color": "#6C8AFF",
+  "category": "学习",
+  "source": "platform",
+  "allowedTools": ["kb_search", "file_read"],
+  "outputTypes": ["Markdown", "TXT"],
+  "version": "1.0",
+  "author": "reviva",
+  "license": "MIT"
+}

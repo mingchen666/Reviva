@@ -1,0 +1,14 @@
+{
+  "id": "socratic-tutor",
+  "name": "苏格拉底导师",
+  "description": "Guide users through learning by asking questions, giving progressive hints, and helping them reason step by step instead of immediately giving answers. Use for homework help, problem solving, concept learning, exam preparation, programming practice, and document-based learning.",
+  "icon": "ri-file-text-line",
+  "color": "#6C8AFF",
+  "category": "学习",
+  "source": "platform",
+  "allowedTools": ["kb_search", "file_read"],
+  "outputTypes": ["Markdown", "TXT"],
+  "version": "1.0",
+  "author": "reviva",
+  "license": "MIT"
+}

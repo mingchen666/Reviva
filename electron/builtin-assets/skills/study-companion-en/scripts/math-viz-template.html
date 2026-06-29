@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>数学可视化 — 函数绘图工具</title>
+<style>
+:root {
+  --bg: #f8f9fa; --surface: #ffffff; --border: #e0e0e0; --text: #212529;
+  --text-secondary: #6c757d; --primary: #4a90d9; --primary-hover: #357abd;
+  --accent: #e74c3c; --success: #28a745; --warning: #ffc107;
+  --panel-bg: #ffffff; --input-bg: #f0f2f5; --code-bg: #1e1e1e; --code-text: #d4d4d4;
+  --shadow: 0 2px 8px rgba(0,0,0,0.1); --radius: 8px;
+}
+[data-theme="dark"] {
+  --bg: #1a1a2e; --surface: #16213e; --border: #2a3a5e; --text: #e0e0e0;
+  --text-secondary: #a0a0a0; --primary: #5dadec; --primary-hover: #4a9ad8;
+  --panel-bg: #16213e; --input-bg: #1a1a2e; --code-bg: #0d1117; --code-text: #c9d1d9;
+  --shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; transition: background 0.3s, color 0.3s; }
+.header { display: flex; align-items: center; justify-content: space-between; padding: 12px 20px; background: var(--surface); border-bottom: 1px solid var(--border); box-shadow: var(--shadow); position: sticky; top: 0; z-index: 100; }
+.header h1 { font-size: 18px; font-weight: 600; }
+.header h1 span { color: var(--primary); }
+.header-actions { display: flex; gap: 8px; align-items: center; }
+.btn { padding: 6px 14px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text); cursor: pointer; font-size: 13px; transition: all 0.2s; display: inline-flex; align-items: center; gap: 4px; }
+.btn:hover { background: var(--primary); color: white; border-color: var(--primary); }
+.btn-primary { background: var(--primary); color: white; border-color: var(--primary); }
+.btn-primary:hover { background: var(--primary-hover); }
+.main { display: flex; gap: 0; height: calc(100vh - 52px); }
+.sidebar { width: 320px; min-width: 320px; background: var(--surface); border-right: 1px solid var(--border); overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 16px; }
+.sidebar-section { background: var(--panel-bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; }
+.sidebar-section h3 { font-size: 13px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px; }
+.formula-display { background: var(--code-bg); color: var(--code-text); padding: 12px 16px; border-radius: 6px; font-family: "Cambria Math", "Latin Modern Math", serif; font-size: 18px; text-align: center; min-height: 50px; display: flex; align-items: center; justify-content: center; }
+.func-input { display: flex; gap: 6px; margin-bottom: 8px; }
+.func-input input { flex: 1; padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px; background: var(--input-bg); color: var(--text); font-family: "Consolas", "Courier New", monospace; font-size: 13px; }
+.func-input input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 2px rgba(74,144,217,0.2); }
+.func-list { display: flex; flex-direction: column; gap: 6px; }
+.func-item { display: flex; align-items: center; gap: 8px; padding: 6px 10px; background: var(--input-bg); border-radius: 6px; font-size: 13px; }
+.func-item .color-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+.func-item .expr { flex: 1; font-family: "Consolas", monospace; }
+.func-item .action { cursor: pointer; color: var(--text-secondary); font-size: 14px; padding: 2px; }
+.func-item .action:hover { color: var(--accent); }
+.preset-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.preset-btn { padding: 6px 4px; border: 1px solid var(--border); border-radius: 6px; background: var(--input-bg); color: var(--text); cursor: pointer; font-size: 12px; text-align: center; transition: all 0.2s; font-family: "Consolas", monospace; }
+.preset-btn:hover { background: var(--primary); color: white; border-color: var(--primary); }
+.slider-group { margin-bottom: 10px; }
+.slider-label { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 4px; }
+.slider-label .val { color: var(--primary); font-weight: 600; font-family: "Consolas", monospace; }
+input[type="range"] { width: 100%; accent-color: var(--primary); }
+.plot-area { flex: 1; position: relative; background: var(--surface); }
+#plot { width: 100%; height: 100%; }
+.plot-overlay { position: absolute; bottom: 12px; right: 12px; display: flex; gap: 6px; }
+.toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--text); color: var(--bg); padding: 10px 20px; border-radius: 8px; font-size: 13px; opacity: 0; transition: opacity 0.3s; z-index: 1000; pointer-events: none; }
+.toast.show { opacity: 1; }
+@media (max-width: 768px) {
+  .main { flex-direction: column; }
+  .sidebar { width: 100%; min-width: unset; max-height: 40vh; border-right: none; border-bottom: 1px solid var(--border); }
+  .preset-grid { grid-template-columns: repeat(2, 1fr); }
+}
+</style>
+</head>
+<body>
+<div class="header">
+  <h1><span>f(x)</span> 数学可视化</h1>
+  <div class="header-actions">
+    <button class="btn" onclick="resetView()" title="重置视图">⟳ 重置</button>
+    <button class="btn" onclick="toggleGrid()" title="网格开关">⊞ 网格</button>
+    <button class="btn" onclick="toggleTheme()">🌓 主题</button>
+  </div>
+</div>
+<div class="main">
+  <div class="sidebar">
+    <div class="sidebar-section">
+      <h3>📐 当前公式</h3>
+      <div class="formula-display" id="formulaDisplay"></div>
+    </div>
+    <div class="sidebar-section">
+      <h3>➕ 添加函数</h3>
+      <div class="func-input">
+        <input type="text" id="funcExpr" placeholder="例: sin(x), x^2, 1/x" onkeydown="if(event.key==='Enter')addFunction()">
+        <button class="btn btn-primary" onclick="addFunction()">添加</button>
+      </div>
+      <div class="func-list" id="funcList"></div>
+    </div>
+    <div class="sidebar-section">
+      <h3>📋 常用函数</h3>
+      <div class="preset-grid">
+        <button class="preset-btn" onclick="addPreset('sin(x)')">sin(x)</button>
+        <button class="preset-btn" onclick="addPreset('cos(x)')">cos(x)</button>
+        <button class="preset-btn" onclick="addPreset('tan(x)')">tan(x)</button>
+        <button class="preset-btn" onclick="addPreset('x^2')">x²</button>
+        <button class="preset-btn" onclick="addPreset('x^3')">x³</button>
+        <button class="preset-btn" onclick="addPreset('1/x')">1/x</button>
+        <button class="preset-btn" onclick="addPreset('sqrt(x)')">√x</button>
+        <button class="preset-btn" onclick="addPreset('log(x)')">ln(x)</button>
+        <button class="preset-btn" onclick="addPreset('exp(x)')">eˣ</button>
+        <button class="preset-btn" onclick="addPreset('abs(x)')">|x|</button>
+        <button class="preset-btn" onclick="addPreset('x^2-1')">x²-1</button>
+        <button class="preset-btn" onclick="addPreset('2^x')">2ˣ</button>
+      </div>
+    </div>
+    <div class="sidebar-section">
+      <h3>🎚️ 参数滑块</h3>
+      <div class="slider-group">
+        <div class="slider-label"><span>a =</span><span class="val" id="aVal">1.0</span></div>
+        <input type="range" id="sliderA" min="0.1" max="5" step="0.1" value="1" oninput="updateSliders()">
+      </div>
+      <div class="slider-group">
+        <div class="slider-label"><span>b =</span><span class="val" id="bVal">1.0</span></div>
+        <input type="range" id="sliderB" min="0.1" max="5" step="0.1" value="1" oninput="updateSliders()">
+      </div>
+      <div class="slider-group">
+        <div class="slider-label"><span>c =</span><span class="val" id="cVal">0.0</span></div>
+        <input type="range" id="sliderC" min="-3.14" max="3.14" step="0.01" value="0" oninput="updateSliders()">
+      </div>
+    </div>
+    <div class="sidebar-section">
+      <h3>💡 使用说明</h3>
+      <p style="font-size:12px;color:var(--text-secondary);line-height:1.6;">
+        输入函数表达式，支持：sin, cos, tan, sqrt, abs, log, exp, pi, e<br>
+        使用 ^ 表示幂：x^2, x^3<br>
+        参数 a, b, c 可在函数中使用<br>
+        鼠标滚轮缩放，拖拽平移
+      </p>
+    </div>
+  </div>
+  <div class="plot-area">
+    <div id="plot"></div>
+    <div class="plot-overlay">
+      <button class="btn" onclick="zoomIn()">➕</button>
+      <button class="btn" onclick="zoomOut()">➖</button>
+      <button class="btn" onclick="resetView()">⊡</button>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/d3@3.5.17/d3.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/function-plot@1.24.3/dist/function-plot.js"></script>
+<script>
+const LS_KEY = 'math_viz_data';
+const COLORS = ['#4a90d9','#e74c3c','#28a745','#ffc107','#9b59b6','#e67e22','#1abc9c','#e91e63'];
+let functions = [];
+let instance = null;
+let showGrid = true;
+let paramA = 1, paramB = 1, paramC = 0;
+
+function saveState() {
+  localStorage.setItem(LS_KEY, JSON.stringify({functions, showGrid, paramA, paramB, paramC, theme: document.documentElement.getAttribute('data-theme')}));
+}
+function loadState() {
+  try { const d = JSON.parse(localStorage.getItem(LS_KEY)); if (d) { functions = d.functions || []; showGrid = d.showGrid !== false; paramA = d.paramA || 1; paramB = d.paramB || 1; paramC = d.paramC || 0; if (d.theme) document.documentElement.setAttribute('data-theme', d.theme); } } catch(e) {}
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2000);
+}
+
+function addFunction(expr) {
+  if (!expr) {
+    const input = document.getElementById('funcExpr');
+    expr = input.value.trim();
+    input.value = '';
+  }
+  if (!expr) return;
+  if (functions.some(f => f.expr === expr)) { showToast('函数已存在'); return; }
+  const color = COLORS[functions.length % COLORS.length];
+  functions.push({ expr, color, visible: true });
+  renderFuncList();
+  drawPlot();
+  updateFormula();
+  saveState();
+}
+
+function addPreset(expr) { addFunction(expr); }
+
+function removeFunction(idx) {
+  functions.splice(idx, 1);
+  renderFuncList();
+  drawPlot();
+  updateFormula();
+  saveState();
+}
+
+function toggleFunc(idx) {
+  functions[idx].visible = !functions[idx].visible;
+  renderFuncList();
+  drawPlot();
+  saveState();
+}
+
+function renderFuncList() {
+  const list = document.getElementById('funcList');
+  list.innerHTML = functions.map((f, i) => `
+    <div class="func-item" style="opacity:${f.visible ? 1 : 0.4}">
+      <span class="color-dot" style="background:${f.color}"></span>
+      <span class="expr">${f.expr}</span>
+      <span class="action" onclick="toggleFunc(${i})" title="显示/隐藏">${f.visible ? '👁' : '🚫'}</span>
+      <span class="action" onclick="removeFunction(${i})" title="删除">✕</span>
+    </div>
+  `).join('');
+}
+
+function updateFormula() {
+  const display = document.getElementById('formulaDisplay');
+  let latex;
+  if (functions.length === 0) {
+    latex = 'f(x) = a\\sin(bx + c)';
+  } else {
+    latex = functions.map((f, i) => {
+      let l = exprToLatex(f.expr);
+      return (functions.length > 1 ? `f_{${i+1}}(x) = ` : 'f(x) = ') + l;
+    }).join(', \\quad ');
+  }
+  try { katex.render(latex, display, { throwOnError: false, displayMode: true }); }
+  catch(e) { display.textContent = latex; }
+}
+
+function exprToLatex(expr) {
+  return expr
+    .replace(/\*/g, '\\cdot ')
+    .replace(/sqrt\(([^)]+)\)/g, '\\sqrt{$1}')
+    .replace(/abs\(([^)]+)\)/g, '|$1|')
+    .replace(/\^(\d+)/g, '^{$1}')
+    .replace(/\bpi\b/g, '\\pi')
+    .replace(/\bsin\b/g, '\\sin').replace(/\bcos\b/g, '\\cos').replace(/\btan\b/g, '\\tan')
+    .replace(/\blog\b/g, '\\ln').replace(/\bexp\b/g, '\\exp')
+    .replace(/(\d)([a-z])/g, '$1 \\cdot $2');
+}
+
+function drawPlot() {
+  const el = document.getElementById('plot');
+  const w = el.offsetWidth || 800;
+  const h = el.offsetHeight || 600;
+  const visibleFuncs = functions.filter(f => f.visible);
+  const plots = visibleFuncs.map(f => ({
+    fn: f.expr,
+    color: f.color,
+    nSamples: 400
+  }));
+  if (plots.length === 0) {
+    plots.push({ fn: 'a*sin(b*x+c)', color: '#4a90d9', nSamples: 400 });
+  }
+  try {
+    instance = functionPlot({
+      target: '#plot',
+      width: w,
+      height: h,
+      xAxis: { domain: [-10, 10] },
+      yAxis: { domain: [-6, 6] },
+      grid: showGrid,
+      data: plots
+    });
+    if (instance.global_scope) {
+      instance.global_scope.a = paramA;
+      instance.global_scope.b = paramB;
+      instance.global_scope.c = paramC;
+    }
+  } catch(e) {
+    console.error('Plot error:', e);
+    showToast('函数表达式有误，请检查语法');
+  }
+}
+
+function updateSliders() {
+  paramA = parseFloat(document.getElementById('sliderA').value);
+  paramB = parseFloat(document.getElementById('sliderB').value);
+  paramC = parseFloat(document.getElementById('sliderC').value);
+  document.getElementById('aVal').textContent = paramA.toFixed(1);
+  document.getElementById('bVal').textContent = paramB.toFixed(1);
+  document.getElementById('cVal').textContent = paramC.toFixed(2);
+  drawPlot();
+  updateFormula();
+  saveState(); { drawPlot(); showToast('视图已重置'); }
+function zoomIn() { if(instance) instance.zoomIn(); }
+function zoomOut() { if(instance) instance.zoomOut(); }
+function toggleGrid() { showGrid = !showGrid; drawPlot(); saveState(); showToast(showGrid ? '网格已开启' : '网格已关闭'); }
+function toggleTheme() {
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  document.documentElement.setAttribute('data-theme', isDark ? 'light' : 'dark');
+  saveState();
+  drawPlot();
+}
+
+// Initialize
+window.addEventListener('load', () => {
+  loadState();
+  if (!functions.length) {
+    functions = [
+      { expr: 'sin(x)', color: COLORS[0], visible: true },
+      { expr: 'cos(x)', color: COLORS[1], visible: true },
+      { expr: '0.5*x', color: COLORS[2], visible: true }
+    ];
+  }
+  document.getElementById('sliderA').value = paramA;
+  document.getElementById('sliderB').value = paramB;
+  document.getElementById('sliderC').value = paramC;
+  document.getElementById('aVal').textContent = paramA.toFixed(1);
+  document.getElementById('bVal').textContent = paramB.toFixed(1);
+  document.getElementById('cVal').textContent = paramC.toFixed(2);
+  renderFuncList();
+  drawPlot();
+  updateFormula();
+});
+
+let resizeTimer;
+window.addEventListener('resize', () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(() => drawPlot(), 200);
+});
+</script>
+</body>
+</html>

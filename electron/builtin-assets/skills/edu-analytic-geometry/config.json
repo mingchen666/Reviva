@@ -1,0 +1,20 @@
+{
+  "id": "edu-analytic-geometry",
+  "name": "解析几何交互网页生成",
+  "description": "把解析几何题解成自包含的交互教学网页，包含题面、KaTeX 分步解析、动态控制台和 2D Canvas 圆锥曲线画板。适用于椭圆、双曲线、抛物线、弦长、数量积范围、定点定值、轨迹、离心率等题型。",
+  "icon": "ri-line-chart-line",
+  "color": "#0EA5E9",
+  "category": "学习",
+  "source": "platform",
+  "allowedTools": [
+    "file_read",
+    "file_write"
+  ],
+  "outputTypes": [
+    "HTML",
+    "Markdown"
+  ],
+  "version": "1.0.0",
+  "author": "reviva",
+  "license": "MIT"
+}

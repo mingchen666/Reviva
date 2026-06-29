@@ -1,0 +1,805 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>公式速查表 - 高中数学</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+/* ── Theme Variables ── */
+:root{
+  --bg:#f0f1f5;--surface:#ffffff;--surface2:#f5f6f8;--text:#1a1a2e;--text2:#6b7280;
+  --accent:#4f46e5;--accent-hover:#4338ca;--accent-light:#eef2ff;
+  --border:#e2e4e9;--shadow:0 1px 3px rgba(0,0,0,.06),0 4px 12px rgba(0,0,0,.04);
+  --shadow-hover:0 4px 12px rgba(0,0,0,.1),0 8px 24px rgba(0,0,0,.06);
+  --radius:12px;--radius-sm:8px;
+  --cat-set:#10b981;--cat-trig:#f59e0b;--cat-seq:#8b5cf6;--cat-deriv:#ef4444;--cat-prob:#3b82f6;
+  --pin-color:#f59e0b;--transition:.25s cubic-bezier(.4,0,.2,1);
+}
+[data-theme="dark"]{
+  --bg:#0f0f1a;--surface:#1a1a2e;--surface2:#252540;--text:#e8e8f0;--text2:#9ca3af;
+  --accent:#818cf8;--accent-hover:#6366f1;--accent-light:#1e1b4b;
+  --border:#2d2d45;--shadow:0 1px 3px rgba(0,0,0,.3),0 4px 12px rgba(0,0,0,.2);
+  --shadow-hover:0 4px 12px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.3);
+  --cat-set:#34d399;--cat-trig:#fbbf24;--cat-seq:#a78bfa;--cat-deriv:#f87171;--cat-prob:#60a5fa;
+  --pin-color:#fbbf24;
+}
+
+html{font-size:16px;-webkit-font-smoothing:antialiased;scroll-behavior:smooth}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif;
+  background:var(--bg);color:var(--text);min-height:100dvh;
+  transition:background var(--transition),color var(--transition);
+  line-height:1.6;
+}
+
+/* ── Header ── */
+.header{
+  position:sticky;top:0;z-index:50;
+  background:var(--surface);border-bottom:1px solid var(--border);
+  backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+  transition:background var(--transition),border-color var(--transition);
+}
+.header-inner{
+  max-width:1200px;margin:0 auto;padding:16px 24px;
+  display:flex;flex-direction:column;gap:14px;
+}
+.header-top{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.header h1{font-size:1.35rem;font-weight:800;letter-spacing:-.03em;display:flex;align-items:center;gap:8px}
+.header h1 .icon{font-size:1.1rem}
+.header-actions{display:flex;gap:6px;align-items:center}
+
+/* ── Buttons ── */
+.icon-btn{
+  width:36px;height:36px;border-radius:50%;border:1px solid var(--border);
+  background:var(--surface);color:var(--text);cursor:pointer;
+  display:flex;align-items:center;justify-content:center;font-size:1.05rem;
+  transition:all var(--transition);
+}
+.icon-btn:hover{background:var(--surface2);border-color:var(--accent);color:var(--accent)}
+.icon-btn.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+
+.action-btn{
+  padding:7px 14px;border-radius:var(--radius-sm);border:1px solid var(--border);
+  background:var(--surface);color:var(--text2);font-size:.78rem;cursor:pointer;
+  transition:all var(--transition);display:flex;align-items:center;gap:5px;white-space:nowrap;
+}
+.action-btn:hover{border-color:var(--accent);color:var(--accent)}
+
+/* ── Search ── */
+.search-wrap{
+  position:relative;flex:1;min-width:200px;max-width:480px;
+}
+.search-wrap .search-icon{
+  position:absolute;left:12px;top:50%;transform:translateY(-50%);
+  color:var(--text2);font-size:.9rem;pointer-events:none;
+}
+.search-input{
+  width:100%;padding:9px 12px 9px 36px;border-radius:var(--radius-sm);
+  border:1px solid var(--border);background:var(--surface2);color:var(--text);
+  font-size:.88rem;outline:none;transition:all var(--transition);
+}
+.search-input::placeholder{color:var(--text2)}
+.search-input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-light)}
+.search-kbd{
+  position:absolute;right:10px;top:50%;transform:translateY(-50%);
+  font-size:.65rem;color:var(--text2);background:var(--surface);
+  border:1px solid var(--border);border-radius:4px;padding:1px 6px;
+  pointer-events:none;font-family:inherit;
+}
+
+/* ── Category Tabs ── */
+.tabs-bar{
+  max-width:1200px;margin:0 auto;padding:12px 24px 0;
+  display:flex;gap:6px;flex-wrap:wrap;
+}
+.tab-btn{
+  padding:6px 16px;border-radius:20px;border:1px solid var(--border);
+  background:var(--surface);color:var(--text2);font-size:.8rem;font-weight:500;
+  cursor:pointer;transition:all var(--transition);white-space:nowrap;
+}
+.tab-btn:hover{border-color:var(--accent);color:var(--accent)}
+.tab-btn.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.tab-btn .tab-count{
+  display:inline-block;margin-left:4px;font-size:.7rem;
+  background:rgba(255,255,255,.2);border-radius:8px;padding:0 5px;
+}
+.tab-btn:not(.active) .tab-count{background:var(--surface2);color:var(--text2)}
+
+/* ── Stats ── */
+.stats-bar{
+  max-width:1200px;margin:0 auto;padding:8px 24px 4px;
+  display:flex;gap:8px;flex-wrap:wrap;align-items:center;
+}
+.stat-chip{
+  font-size:.75rem;color:var(--text2);display:flex;align-items:center;gap:4px;
+}
+.stat-chip strong{color:var(--text);font-weight:600}
+
+/* ── Main Content ── */
+.main{max-width:1200px;margin:0 auto;padding:8px 24px 40px}
+
+/* ── Category Section ── */
+.category-section{margin-top:24px}
+.category-header{
+  display:flex;align-items:center;gap:10px;margin-bottom:14px;
+  padding-left:14px;border-left:4px solid var(--cat-color,var(--accent));
+}
+.category-header h2{font-size:1.1rem;font-weight:700;letter-spacing:-.02em}
+.category-header .cat-count{
+  font-size:.72rem;color:var(--text2);background:var(--surface2);
+  padding:2px 8px;border-radius:10px;
+}
+
+/* ── Formula Cards Grid ── */
+.cards-grid{
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));
+  gap:14px;
+}
+@media(max-width:720px){.cards-grid{grid-template-columns:1fr}}
+
+/* ── Formula Card ── */
+.formula-card{
+  background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+  box-shadow:var(--shadow);cursor:pointer;overflow:hidden;
+  transition:all var(--transition);position:relative;
+}
+.formula-card:hover{
+  box-shadow:var(--shadow-hover);transform:translateY(-2px);border-color:var(--accent);
+}
+.formula-card.pinned{border-color:var(--pin-color)}
+.formula-card.pinned::after{
+  content:'';position:absolute;top:0;right:0;
+  width:0;height:0;border-style:solid;border-width:0 28px 28px 0;
+  border-color:transparent var(--pin-color) transparent transparent;
+  opacity:.7;
+}
+
+.card-main{padding:16px 18px 12px}
+.card-top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:8px}
+.card-name{font-size:.92rem;font-weight:700;color:var(--text);line-height:1.3}
+.card-pin-btn{
+  width:28px;height:28px;border-radius:50%;border:none;
+  background:transparent;color:var(--text2);cursor:pointer;
+  display:flex;align-items:center;justify-content:center;font-size:.85rem;
+  transition:all var(--transition);flex-shrink:0;
+}
+.card-pin-btn:hover{color:var(--pin-color);background:var(--surface2)}
+.card-pin-btn.pinned{color:var(--pin-color)}
+
+.card-formula{
+  background:var(--surface2);border-radius:var(--radius-sm);
+  padding:12px 14px;margin:8px 0;text-align:center;
+  font-size:1.05rem;overflow-x:auto;
+}
+.card-formula .katex{font-size:1.15em}
+
+.card-desc{font-size:.78rem;color:var(--text2);line-height:1.5;margin-top:6px}
+.card-when{
+  font-size:.72rem;color:var(--accent);margin-top:6px;
+  display:flex;align-items:center;gap:4px;
+}
+.card-when::before{content:'\25B6';font-size:.55rem}
+
+/* ── Expanded Details ── */
+.card-details{
+  max-height:0;overflow:hidden;
+  transition:max-height .35s cubic-bezier(.4,0,.2,1);
+  border-top:0 solid var(--border);
+}
+.formula-card.expanded .card-details{
+  max-height:500px;border-top-width:1px;
+}
+.details-inner{padding:14px 18px 16px}
+.detail-section{margin-bottom:10px}
+.detail-section:last-child{margin-bottom:0}
+.detail-label{
+  font-size:.7rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;
+  color:var(--text2);margin-bottom:4px;
+}
+.detail-content{font-size:.8rem;color:var(--text);line-height:1.6}
+.detail-content .katex{font-size:1em}
+.detail-example{
+  background:var(--surface2);border-radius:var(--radius-sm);
+  padding:8px 12px;margin-top:4px;font-size:.78rem;
+}
+.detail-mistake{
+  background:#fef2f2;border-radius:var(--radius-sm);
+  padding:8px 12px;margin-top:4px;font-size:.78rem;color:#991b1b;
+}
+[data-theme="dark"] .detail-mistake{background:#450a0a;color:#fca5a5}
+
+.card-expand-hint{
+  text-align:center;padding:4px 0 8px;font-size:.68rem;color:var(--text2);opacity:.6;
+  transition:opacity var(--transition);
+}
+.formula-card:hover .card-expand-hint{opacity:1}
+.formula-card.expanded .card-expand-hint .hint-collapsed{display:none}
+.formula-card:not(.expanded) .card-expand-hint .hint-expanded{display:none}
+
+/* ── Empty State ── */
+.empty-state{
+  text-align:center;padding:60px 20px;color:var(--text2);
+}
+.empty-state .empty-icon{font-size:3rem;margin-bottom:12px;opacity:.4}
+.empty-state p{font-size:.9rem}
+
+/* ── Back to Top ── */
+.back-top{
+  position:fixed;bottom:24px;right:24px;width:40px;height:40px;
+  border-radius:50%;background:var(--accent);color:#fff;border:none;
+  cursor:pointer;font-size:1.1rem;display:none;align-items:center;justify-content:center;
+  box-shadow:0 2px 8px rgba(0,0,0,.2);transition:all var(--transition);z-index:40;
+}
+.back-top.visible{display:flex}
+.back-top:hover{transform:translateY(-2px);box-shadow:0 4px 16px rgba(0,0,0,.3)}
+
+/* ── Print Styles ── */
+@media print{
+  .header,.tabs-bar,.stats-bar,.back-top,.card-pin-btn,.card-expand-hint{display:none!important}
+  body{background:#fff;color:#000;font-size:11pt}
+  .formula-card{
+    box-shadow:none!important;border:1px solid #ccc!important;
+    break-inside:avoid;page-break-inside:avoid;
+    transform:none!important;
+  }
+  .formula-card:hover{transform:none!important;box-shadow:none!important}
+  .card-details{max-height:none!important;border-top:1px solid #ccc!important}
+  .cards-grid{grid-template-columns:repeat(2,1fr);gap:10px}
+  .category-header{border-left-color:#333!important}
+  .category-header h2{font-size:12pt}
+  .card-formula{background:#f5f5f5!important}
+  .main{padding:0 10px 20px}
+  .formula-card.pinned::after{border-color:transparent #999 transparent transparent}
+}
+
+/* ── Animations ── */
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.formula-card{animation:fadeIn .3s ease both}
+.cards-grid .formula-card:nth-child(1){animation-delay:.02s}
+.cards-grid .formula-card:nth-child(2){animation-delay:.04s}
+.cards-grid .formula-card:nth-child(3){animation-delay:.06s}
+.cards-grid .formula-card:nth-child(4){animation-delay:.08s}
+.cards-grid .formula-card:nth-child(5){animation-delay:.1s}
+.cards-grid .formula-card:nth-child(6){animation-delay:.12s}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:var(--text2)}
+
+/* ── Responsive ── */
+@media(max-width:480px){
+  .header-inner{padding:12px 16px}
+  .tabs-bar,.stats-bar,.main{padding-left:16px;padding-right:16px}
+  .header h1{font-size:1.15rem}
+  .search-wrap{min-width:0;max-width:none}
+  .cards-grid{grid-template-columns:1fr;gap:10px}
+}
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<header class="header">
+  <div class="header-inner">
+    <div class="header-top">
+      <h1><span class="icon">&#x1F4D0;</span> 公式速查表 <span style="font-size:.7rem;font-weight:400;color:var(--text2)">高中数学</span></h1>
+      <div class="header-actions">
+        <div class="search-wrap">
+          <span class="search-icon">&#x1F50D;</span>
+          <input type="text" class="search-input" id="searchInput" placeholder="搜索公式名称或描述...">
+          <span class="search-kbd">Ctrl+K</span>
+        </div>
+        <button class="icon-btn" id="themeToggle" title="切换主题">&#x1F319;</button>
+        <button class="icon-btn" id="printBtn" title="打印">&#x1F5A8;</button>
+        <button class="icon-btn" id="pinFilterBtn" title="只看收藏">&#x2B50;</button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- Category Tabs -->
+<div class="tabs-bar" id="tabsBar"></div>
+
+<!-- Stats -->
+<div class="stats-bar" id="statsBar"></div>
+
+<!-- Main Content -->
+<main class="main" id="mainContent"></main>
+
+<!-- Back to Top -->
+<button class="back-top" id="backTop" title="回到顶部">&#x2191;</button>
+
+<script>
+// ══════════════════════════════════════════════════════════════
+//  Formula Data — 高中数学公式
+// ══════════════════════════════════════════════════════════════
+const FORMULAS = [
+  // ── 集合与函数 ──
+  {
+    id:'set-intersection', category:'集合与函数', catKey:'set',
+    name:'交集', formula:'A \\cap B = \\{x \\mid x \\in A \\text{ 且 } x \\in B\\}',
+    desc:'同时属于集合A和集合B的所有元素组成的集合',
+    when:'求两集合公共元素时使用',
+    derivation:'交集是集合的基本运算之一，取两个集合的公共部分',
+    example:'A={1,2,3}, B={2,3,4}，则 A∩B={2,3}',
+    mistake:'注意区分交集∩与并集∪符号，∩是"且"的关系'
+  },
+  {
+    id:'set-union', category:'集合与函数', catKey:'set',
+    name:'并集', formula:'A \\cup B = \\{x \\mid x \\in A \\text{ 或 } x \\in B\\}',
+    desc:'属于集合A或集合B的所有元素组成的集合',
+    when:'求两集合所有元素时使用',
+    derivation:'并集取两个集合的全部元素，重复元素只算一次',
+    example:'A={1,2,3}, B={2,3,4}，则 A∪B={1,2,3,4}',
+    mistake:'并集中重复元素只写一次，不要写成{1,2,3,2,3,4}'
+  },
+  {
+    id:'set-complement', category:'集合与函数', catKey:'set',
+    name:'补集', formula:'\\complement_U A = \\{x \\mid x \\in U \\text{ 且 } x \\notin A\\}',
+    desc:'全集U中不属于集合A的所有元素组成的集合',
+    when:'求集合在全集中的剩余部分时使用',
+    derivation:'补集是相对于全集而言的，A∪(∁ᵤA)=U，A∩(∁ᵤA)=∅',
+    example:'U={1,2,3,4,5}, A={1,3}，则 ∁ᵤA={2,4,5}',
+    mistake:'补集必须指明全集U，不同全集下补集不同'
+  },
+  {
+    id:'func-domain', category:'集合与函数', catKey:'set',
+    name:'函数定义域', formula:'\\text{使 } f(x) \\text{ 有意义的 } x \\text{ 的取值范围}',
+    desc:'函数自变量x可以取的所有值的集合',
+    when:'求函数有意义时x的取值范围',
+    derivation:'常见限制：分母≠0，偶次根号下≥0，对数真数>0',
+    example:'f(x)=\\frac{1}{\\sqrt{x-1}}，定义域为x>1',
+    mistake:'不要遗漏限制条件，特别是复合函数要同时满足所有限制'
+  },
+
+  // ── 三角函数 ──
+  {
+    id:'trig-pythagorean', category:'三角函数', catKey:'trig',
+    name:'平方关系', formula:'\\sin^2\\theta + \\cos^2\\theta = 1',
+    desc:'同一角的正弦与余弦的平方和恒等于1',
+    when:'三角恒等变换、化简三角表达式',
+    derivation:'由单位圆上点(x,y)满足x²+y²=1，令x=cosθ, y=sinθ即得',
+    example:'已知sinθ=3/5，则cos²θ=1-9/25=16/25，cosθ=±4/5',
+    mistake:'注意根据象限确定正负号，不要默认取正值'
+  },
+  {
+    id:'trig-sum-sin', category:'三角函数', catKey:'trig',
+    name:'和角公式（正弦）', formula:'\\sin(\\alpha + \\beta) = \\sin\\alpha\\cos\\beta + \\cos\\alpha\\sin\\beta',
+    desc:'两角之和的正弦等于正弦余弦交叉相乘之和',
+    when:'求非特殊角的三角函数值、三角恒等变换',
+    derivation:'可由单位圆上旋转变换推导，或由向量内积推导',
+    example:'sin75°=sin(45°+30°)=sin45°cos30°+cos45°sin30°=(√6+√2)/4',
+    mistake:'注意符号：sin(α+β)是"+"号，与cos(α+β)的"-"号区分'
+  },
+  {
+    id:'trig-sum-cos', category:'三角函数', catKey:'trig',
+    name:'和角公式（余弦）', formula:'\\cos(\\alpha + \\beta) = \\cos\\alpha\\cos\\beta - \\sin\\alpha\\sin\\beta',
+    desc:'两角之和的余弦等于余弦相乘减正弦相乘',
+    when:'求非特殊角的余弦值、三角恒等变换',
+    derivation:'由正弦和角公式与诱导公式联立可得',
+    example:'cos75°=cos(45°+30°)=cos45°cos30°-sin45°sin30°=(√6-√2)/4',
+    mistake:'cos(α+β)中间是减号，cos(α-β)中间是加号，容易记反'
+  },
+  {
+    id:'trig-double', category:'三角函数', catKey:'trig',
+    name:'二倍角公式', formula:'\\sin 2\\alpha = 2\\sin\\alpha\\cos\\alpha \\\\ \\cos 2\\alpha = \\cos^2\\alpha - \\sin^2\\alpha = 2\\cos^2\\alpha - 1 = 1 - 2\\sin^2\\alpha',
+    desc:'二倍角的正弦和余弦展开公式',
+    when:'角度翻倍时的三角函数计算',
+    derivation:'在和角公式中令β=α即得',
+    example:'sin60°=2sin30°cos30°=2×(1/2)×(√3/2)=√3/2',
+    mistake:'cos2α有三种等价形式，根据已知条件选择最方便的一种'
+  },
+  {
+    id:'trig-sine-law', category:'三角函数', catKey:'trig',
+    name:'正弦定理', formula:'\\frac{a}{\\sin A} = \\frac{b}{\\sin B} = \\frac{c}{\\sin C} = 2R',
+    desc:'三角形中各边与对角正弦之比相等，等于外接圆直径',
+    when:'已知两角一边或两边及对角求其他元素',
+    derivation:'在三角形中作外接圆，利用圆周角定理推导',
+    example:'在△ABC中，a=10, A=30°, B=45°，则 b=10sin45°/sin30°=10√2',
+    mistake:'注意"边对角"对应关系，a对A、b对B、c对C'
+  },
+  {
+    id:'trig-cosine-law', category:'三角函数', catKey:'trig',
+    name:'余弦定理', formula:'a^2 = b^2 + c^2 - 2bc\\cos A',
+    desc:'三角形中任一边的平方等于另两边平方和减去它们乘积的两倍与夹角余弦的积',
+    when:'已知两边及夹角或三边求角',
+    derivation:'可由向量法或坐标法推导，是勾股定理的推广',
+    example:'a=7, b=5, c=3，则cosA=(25+9-49)/(2×5×3)=-1/2，A=120°',
+    mistake:'注意公式中是减号不是加号；当C=90°时退化为勾股定理'
+  },
+
+  // ── 数列 ──
+  {
+    id:'seq-arithmetic-n', category:'数列', catKey:'seq',
+    name:'等差数列通项', formula:'a_n = a_1 + (n-1)d',
+    desc:'等差数列第n项等于首项加上(n-1)个公差',
+    when:'求等差数列的任意一项',
+    derivation:'由等差数列定义aₙ-aₙ₋₁=d递推累加即得',
+    example:'a₁=3, d=2，则a₁₀=3+(10-1)×2=21',
+    mistake:'注意是(n-1)d不是nd，首项本身不含公差'
+  },
+  {
+    id:'seq-arithmetic-sum', category:'数列', catKey:'seq',
+    name:'等差数列求和', formula:'S_n = \\frac{n(a_1 + a_n)}{2} = na_1 + \\frac{n(n-1)}{2}d',
+    desc:'前n项和等于首末项之和乘以项数的一半',
+    when:'求等差数列前n项的和',
+    derivation:'倒序相加法：Sₙ=a₁+a₂+...+aₙ，再写Sₙ=aₙ+...+a₁，两式相加',
+    example:'1+2+3+...+100 = 100×(1+100)/2 = 5050',
+    mistake:'注意项数n的确定，从第k项到第m项共有m-k+1项'
+  },
+  {
+    id:'seq-geometric-n', category:'数列', catKey:'seq',
+    name:'等比数列通项', formula:'a_n = a_1 \\cdot q^{n-1}',
+    desc:'等比数列第n项等于首项乘以公比的(n-1)次方',
+    when:'求等比数列的任意一项',
+    derivation:'由等比数列定义aₙ/aₙ₋₁=q递推累乘即得',
+    example:'a₁=2, q=3，则a₅=2×3⁴=162',
+    mistake:'注意q≠0；当q<0时数列正负交替'
+  },
+  {
+    id:'seq-geometric-sum', category:'数列', catKey:'seq',
+    name:'等比数列求和', formula:'S_n = \\frac{a_1(1-q^n)}{1-q} \\quad (q \\neq 1)',
+    desc:'前n项和等于首项乘以(1-qⁿ)除以(1-q)',
+    when:'求等比数列前n项的和（公比≠1时）',
+    derivation:'乘q后与原式相减，错位相减法',
+    example:'1+2+4+...+2⁹ = (1-2¹⁰)/(1-2) = 1023',
+    mistake:'q=1时Sₙ=na₁，不能套用此公式；注意分母是1-q不是q-1'
+  },
+
+  // ── 导数 ──
+  {
+    id:'deriv-power', category:'导数', catKey:'deriv',
+    name:'幂函数求导', formula:'(x^n)\' = nx^{n-1}',
+    desc:'x的n次方求导等于n乘以x的(n-1)次方',
+    when:'对幂函数求导',
+    derivation:'由导数定义f\'(x)=lim[Δx→0] [f(x+Δx)-f(x)]/Δx，利用二项式展开可证',
+    example:'(x³)\'=3x²，(x⁻²)\'=-2x⁻³，(√x)\'=(x^{1/2})\'=1/(2√x)',
+    mistake:'n可以是任意实数，包括负数和分数；常数求导为0'
+  },
+  {
+    id:'deriv-chain', category:'导数', catKey:'deriv',
+    name:'链式法则', formula:'[f(g(x))]\' = f\'(g(x)) \\cdot g\'(x)',
+    desc:'复合函数的导数等于外函数对内函数的导数乘以内函数的导数',
+    when:'求复合函数的导数',
+    derivation:'由导数定义和极限运算法则可严格证明',
+    example:'(sin2x)\'=cos2x·2=2cos2x，(e^{x²})\'=e^{x²}·2x',
+    mistake:'不要忘记乘内层函数的导数，这是最常见的错误'
+  },
+  {
+    id:'deriv-product', category:'导数', catKey:'deriv',
+    name:'乘法法则', formula:'(uv)\' = u\'v + uv\'',
+    desc:'两函数乘积的导数等于第一个的导数乘第二个加上第一个乘第二个的导数',
+    when:'求两个函数乘积的导数',
+    derivation:'由导数定义展开(f+g)·(u+Δu)(v+Δv)可证',
+    example:'(x·sinx)\'=1·sinx+x·cosx=sinx+xcosx',
+    mistake:'不是(uv)\'=u\'v\'，这是最常见的错误；注意与除法法则区分'
+  },
+  {
+    id:'deriv-quotient', category:'导数', catKey:'deriv',
+    name:'除法法则', formula:'\\left(\\frac{u}{v}\\right)\' = \\frac{u\'v - uv\'}{v^2} \\quad (v \\neq 0)',
+    desc:'两函数之商的导数等于分子为u\'v-uv\'，分母为v²',
+    when:'求两个函数之商的导数',
+    derivation:'可由乘法法则和链式法则推导：令u/v=u·v⁻¹',
+    example:'(sinx/x)\'=(cosx·x-sinx·1)/x²=(xcosx-sinx)/x²',
+    mistake:'分子是u\'v-uv\'，注意减号和顺序，不要写成uv\'-u\'v'
+  },
+  {
+    id:'deriv-exp-log', category:'导数', catKey:'deriv',
+    name:'指数与对数求导', formula:'(e^x)\' = e^x \\qquad (\\ln x)\' = \\frac{1}{x}',
+    desc:'e的x次方导数等于自身；自然对数的导数等于1/x',
+    when:'求指数函数或对数函数的导数',
+    derivation:'(eˣ)\'由导数定义直接可得；(lnx)\'由反函数求导法则可得',
+    example:'(e^{3x})\'=e^{3x}·3=3e^{3x}，(ln2x)\'=1/(2x)·2=1/x',
+    mistake:'(aˣ)\'=aˣlna，不是aˣ；注意底数不是e时要乘lna'
+  },
+
+  // ── 概率 ──
+  {
+    id:'prob-union', category:'概率', catKey:'prob',
+    name:'概率加法公式', formula:'P(A \\cup B) = P(A) + P(B) - P(A \\cap B)',
+    desc:'两事件至少发生一个的概率等于各自概率之和减去同时发生的概率',
+    when:'求两事件至少发生一个的概率',
+    derivation:'由容斥原理：|A∪B|=|A|+|B|-|A∩B|，两边除以|Ω|即得',
+    example:'P(A)=0.6, P(B)=0.4, P(AB)=0.2，则P(A∪B)=0.6+0.4-0.2=0.8',
+    mistake:'互斥时P(A∩B)=0，公式简化为P(A∪B)=P(A)+PB)；不要忘记减去交集概率'
+  },
+  {
+    id:'prob-conditional', category:'概率', catKey:'prob',
+    name:'条件概率', formula:'P(A \\mid B) = \\frac{P(A \\cap B)}{P(B)} \\quad (P(B) > 0)',
+    desc:'在B已发生的条件下A发生的概率等于AB同时发生的概率除以B的概率',
+    when:'已知某事件发生，求另一事件发生的概率',
+    derivation:'条件概率缩小了样本空间，从Ω缩小到B',
+    example:'掷骰子，已知点数为偶数，求点数>3的概率：P(>3|偶)=P({4,6})/P({2,4,6})=2/3',
+    mistake:'P(A|B)≠P(B|A)，条件概率不满足交换律'
+  },
+  {
+    id:'prob-expectation', category:'概率', catKey:'prob',
+    name:'数学期望', formula:'E(X) = \\sum_{i=1}^{n} x_i \\cdot p_i',
+    desc:'随机变量各取值与其概率乘积之和，反映随机变量的平均取值',
+    when:'求离散型随机变量的平均值',
+    derivation:'期望是加权平均，权重为各取值的概率',
+    example:'掷骰子：E(X)=1×1/6+2×1/6+...+6×1/6=3.5',
+    mistake:'期望值不一定是随机变量的某个可能取值；E(aX+b)=aE(X)+b'
+  },
+  {
+    id:'prob-variance', category:'概率', catKey:'prob',
+    name:'方差', formula:'D(X) = E[(X-E(X))^2] = E(X^2) - [E(X)]^2',
+    desc:'随机变量与期望之差的平方的期望，反映取值的离散程度',
+    when:'衡量随机变量取值的波动大小',
+    derivation:'展开E[(X-μ)²]=E[X²-2μX+μ²]=E(X²)-2μ²+μ²=E(X²)-μ²',
+    example:'掷骰子：E(X²)=(1+4+9+16+25+36)/6=91/6，D(X)=91/6-3.5²=35/12',
+    mistake:'D(aX+b)=a²D(X)，注意是a²不是a；D(X)=E(X²)-[E(X)]²是计算方差最常用的公式'
+  }
+];
+
+// ══════════════════════════════════════════════════════════════
+//  Category Config
+// ══════════════════════════════════════════════════════════════
+const CATEGORIES = [
+  {key:'all', label:'全部', color:'var(--accent)'},
+  {key:'set', label:'集合与函数', color:'var(--cat-set)'},
+  {key:'trig', label:'三角函数', color:'var(--cat-trig)'},
+  {key:'seq', label:'数列', color:'var(--cat-seq)'},
+  {key:'deriv', label:'导数', color:'var(--cat-deriv)'},
+  {key:'prob', label:'概率', color:'var(--cat-prob)'},
+];
+
+// ══════════════════════════════════════════════════════════════
+//  State
+// ══════════════════════════════════════════════════════════════
+let currentCategory = 'all';
+let searchQuery = '';
+let pinnedIds = JSON.parse(localStorage.getItem('formula-pins') || '[]');
+let showPinnedOnly = false;
+
+// ══════════════════════════════════════════════════════════════
+//  Theme
+// ══════════════════════════════════════════════════════════════
+function initTheme() {
+  const saved = localStorage.getItem('formula-theme') || 'light';
+  document.documentElement.setAttribute('data-theme', saved);
+  updateThemeIcon();
+}
+function toggleTheme() {
+  const current = document.documentElement.getAttribute('data-theme');
+  const next = current === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('formula-theme', next);
+  updateThemeIcon();
+}
+function updateThemeIcon() {
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  document.getElementById('themeToggle').innerHTML = isDark ? '&#x2600;' : '&#x1F319;';
+}
+
+// ══════════════════════════════════════════════════════════════
+//  Pin Management
+// ══════════════════════════════════════════════════════════════
+function togglePin(id, e) {
+  if (e) e.stopPropagation();
+  const idx = pinnedIds.indexOf(id);
+  if (idx > -1) pinnedIds.splice(idx, 1);
+  else pinnedIds.push(id);
+  localStorage.setItem('formula-pins', JSON.stringify(pinnedIds));
+  render();
+}
+
+// ══════════════════════════════════════════════════════════════
+//  Filtering
+// ══════════════════════════════════════════════════════════════
+function getFilteredFormulas() {
+  let list = FORMULAS;
+  if (currentCategory !== 'all') {
+    list = list.filter(f => f.catKey === currentCategory);
+  }
+  if (showPinnedOnly) {
+    list = list.filter(f => pinnedIds.includes(f.id));
+  }
+  if (searchQuery.trim()) {
+    const q = searchQuery.trim().toLowerCase();
+    list = list.filter(f =>
+      f.name.toLowerCase().includes(q) ||
+      f.desc.toLowerCase().includes(q) ||
+      f.category.toLowerCase().includes(q) ||
+      f.when.toLowerCase().includes(q)
+    );
+  }
+  return list;
+}
+
+// ══════════════════════════════════════════════════════════════
+//  Render Tabs
+// ══════════════════════════════════════════════════════════════
+function renderTabs() {
+  const bar = document.getElementById('tabsBar');
+  bar.innerHTML = CATEGORIES.map(cat => {
+    const count = cat.key === 'all' ? FORMULAS.length : FORMULAS.filter(f => f.catKey === cat.key).length;
+    const active = currentCategory === cat.key ? 'active' : '';
+    return `<button class="tab-btn ${active}" data-cat="${cat.key}" style="${active ? `--cat-color:${cat.color}` : ''}">${cat.label}<span class="tab-count">${count}</span></button>`;
+  }).join('');
+  bar.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      currentCategory = btn.dataset.cat;
+      render();
+    });
+  });
+}
+
+// ══════════════════════════════════════════════════════════════
+//  Render Stats
+// ══════════════════════════════════════════════════════════════
+function renderStats() {
+  const filtered = getFilteredFormulas();
+  const bar = document.getElementById('statsBar');
+  bar.innerHTML = `
+    <span class="stat-chip">共 <strong>${FORMULAS.length}</strong> 个公式</span>
+    <span class="stat-chip">显示 <strong>${filtered.length}</strong> 个</span>
+    <span class="stat-chip">已收藏 <strong>${pinnedIds.length}</strong> 个</span>
+  `;
+}
+
+// ══════════════════════════════════════════════════════════════
+//  Render Cards
+// ══════════════════════════════════════════════════════════════
+function renderCards() {
+  const main = document.getElementById('mainContent');
+  const filtered = getFilteredFormulas();
+
+  if (filtered.length === 0) {
+    main.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon">&#x1F50D;</div>
+        <p>没有找到匹配的公式</p>
+        <p style="font-size:.78rem;margin-top:6px;opacity:.6">试试其他关键词或切换分类</p>
+      </div>`;
+    return;
+  }
+
+  // Group by category
+  const groups = {};
+  filtered.forEach(f => {
+    if (!groups[f.category]) groups[f.category] = [];
+    groups[f.category].push(f);
+  });
+
+  let html = '';
+  for (const [catName, formulas] of Object.entries(groups)) {
+    const catObj = CATEGORIES.find(c => c.label === catName) || CATEGORIES[0];
+    html += `
+      <section class="category-section" style="--cat-color:${catObj.color}">
+        <div class="category-header">
+          <h2>${catName}</h2>
+          <span class="cat-count">${formulas.length} 个公式</span>
+        </div>
+        <div class="cards-grid">
+          ${formulas.map(f => renderCard(f, catObj.color)).join('')}
+        </div>
+      </section>`;
+  }
+  main.innerHTML = html;
+
+  // KaTeX render
+  renderMathInElement(main, {
+    delimiters: [
+      {left: '$$', right: '$$', display: true},
+      {left: '$', right: '$', display: false},
+    ],
+    throwOnError: false
+  });
+
+  // Bind card events
+  main.querySelectorAll('.formula-card').forEach(card => {
+    card.addEventListener('click', () => {
+      card.classList.toggle('expanded');
+    });
+  });
+  main.querySelectorAll('.card-pin-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      togglePin(btn.dataset.id, e);
+    });
+  });
+}
+
+function renderCard(f, catColor) {
+  const isPinned = pinnedIds.includes(f.id);
+  return `
+    <article class="formula-card${isPinned ? ' pinned' : ''}" data-id="${f.id}">
+      <div class="card-main">
+        <div class="card-top">
+          <span class="card-name">${f.name}</span>
+          <button class="card-pin-btn${isPinned ? ' pinned' : ''}" data-id="${f.id}" title="${isPinned ? '取消收藏' : '收藏'}">${isPinned ? '&#x2B50;' : '&#x2606;'}</button>
+        </div>
+        <div class="card-formula">$${f.formula}$</div>
+        <div class="card-desc">${f.desc}</div>
+        <div class="card-when">${f.when}</div>
+      </div>
+      <div class="card-details">
+        <div class="details-inner">
+          ${f.derivation ? `<div class="detail-section"><div class="detail-label">推导提示</div><div class="detail-content">${f.derivation}</div></div>` : ''}
+          ${f.example ? `<div class="detail-section"><div class="detail-label">示例</div><div class="detail-content detail-example">$${f.example}$</div></div>` : ''}
+          ${f.mistake ? `<div class="detail-section"><div class="detail-label">常见错误</div><div class="detail-content detail-mistake">${f.mistake}</div></div>` : ''}
+        </div>
+      </div>
+      <div class="card-expand-hint">
+        <span class="hint-collapsed">点击展开详情</span>
+        <span class="hint-expanded">点击收起</span>
+      </div>
+    </article>`;
+}
+
+// ══════════════════════════════════════════════════════════════
+//  Full Render
+// ══════════════════════════════════════════════════════════════
+function render() {
+  renderTabs();
+  renderStats();
+  renderCards();
+  updatePinFilterBtn();
+}
+
+function updatePinFilterBtn() {
+  const btn = document.getElementById('pinFilterBtn');
+  btn.classList.toggle('active', showPinnedOnly);
+}
+
+// ══════════════════════════════════════════════════════════════
+//  Event Bindings
+// ══════════════════════════════════════════════════════════════
+function init() {
+  initTheme();
+
+  // Search
+  const searchInput = document.getElementById('searchInput');
+  searchInput.addEventListener('input', () => {
+    searchQuery = searchInput.value;
+    render();
+  });
+
+  // Ctrl+K
+  document.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+      e.preventDefault();
+      searchInput.focus();
+      searchInput.select();
+    }
+  });
+
+  // Theme toggle
+  document.getElementById('themeToggle').addEventListener('click', toggleTheme);
+
+  // Print
+  document.getElementById('printBtn').addEventListener('click', () => window.print());
+
+  // Pin filter
+  document.getElementById('pinFilterBtn').addEventListener('click', () => {
+    showPinnedOnly = !showPinnedOnly;
+    render();
+  });
+
+  // Back to top
+  const backTop = document.getElementById('backTop');
+  window.addEventListener('scroll', () => {
+    backTop.classList.toggle('visible', window.scrollY > 400);
+  });
+  backTop.addEventListener('click', () => window.scrollTo({top: 0, behavior: 'smooth'}));
+
+  // Initial render
+  render();
+}
+
+// Wait for DOM and KaTeX to be ready
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', init);
+} else {
+  init();
+}
+</script>
+</body>
+</html>

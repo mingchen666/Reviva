@@ -1,0 +1,24 @@
+{
+  "id": "concept-agent",
+  "name": "概念解释器",
+  "english_name": "Concept Explainer",
+  "description": "一个能用类比、例子和分层讲解，把复杂概念讲清楚的 AI 学习助手。",
+  "icon": "ri-chat-quote-line",
+  "color": "#6C8AFF",
+
+  "architecture": "react",
+  "model": "",
+  "temperature": 0.7,
+  "top_p": 1.0,
+  "max_tokens": 16000,
+  "max_iterations": 100,
+  "tool_call_limit": 0,
+  "model_call_limit": 0,
+  "thinking_mode": "auto",
+  "thinking_intensity": "medium",
+
+  "tools": ["web_search_tavily", "file_list", "file_write", "file_read", "exec_command"],
+  "skills": ["concept-explainer"],
+  "sub_agents": [],
+  "permissions": {}
+}

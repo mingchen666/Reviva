@@ -1,0 +1,14 @@
+{
+  "id": "manim-animation-maker",
+  "name": "教学动画视频制作",
+  "description": "Use a Manim plus FFmpeg workflow to create educational explainer videos for math, physics, geometry, algorithms, and abstract concepts. Produces scene plans, Python Manim scripts, rendered MP4s, media checks, thumbnails, and dependency notes.",
+  "icon": "ri-movie-line",
+  "color": "#0EA5E9",
+  "category": "学习",
+  "source": "platform",
+  "allowedTools": ["file_read", "file_write", "manim:*", "ffmpeg:*"],
+  "outputTypes": ["Python", "MP4", "Image", "Markdown"],
+  "version": "1.1",
+  "author": "reviva",
+  "license": "MIT"
+}

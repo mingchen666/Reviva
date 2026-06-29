@@ -1,0 +1,7 @@
+{
+  "storage_type": "data",
+  "artifact_type": "flashcard",
+  "icon": "ri-stack-line",
+  "color": "pink",
+  "title_template": "{title}"
+}

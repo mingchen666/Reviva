@@ -1,0 +1,14 @@
+{
+  "id": "lab-report-writer",
+  "name": "实验报告写作",
+  "description": "面向高校和专业课实验的通用实验报告写作技能，支持有模板、无模板、已有资料整理、数据分析和 Office 文档生成。",
+  "icon": "ri-flask-line",
+  "color": "#14B8A6",
+  "category": "学习",
+  "source": "platform",
+  "allowedTools": ["office_read", "office_write", "file_read", "file_write", "kb_search", "web_search_bing"],
+  "outputTypes": ["DOCX", "Markdown"],
+  "version": "1.0",
+  "author": "reviva",
+  "license": "MIT"
+}

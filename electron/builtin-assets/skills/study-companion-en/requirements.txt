@@ -1,0 +1,11 @@
+# Core dependencies
+matplotlib>=3.7
+pygments>=2.15
+
+# Optional dependencies for full output support
+# Anki .apkg export
+genanki>=0.13
+# PDF study guide export
+fpdf2>=2.7
+# Interactive Plotly charts
+plotly>=5.18

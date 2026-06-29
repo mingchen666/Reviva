@@ -1,0 +1,7 @@
+{
+  "storage_type": "data",
+  "artifact_type": "chart",
+  "icon": "ri-bar-chart-box-line",
+  "color": "sky",
+  "title_template": "{title}"
+}

@@ -1,0 +1,14 @@
+{
+  "id": "mistake-analyzer",
+  "name": "错题分析",
+  "description": "Analyze incorrect answers from text, documents, or images; identify root causes of mistakes; classify error types; explain correct reasoning; and generate targeted improvement suggestions, wrong-question notebook entries, or similar practice questions. Use when the user provides a wrong answer, asks why they were wrong, uploads a marked question, or wants help reviewing mistakes.",
+  "icon": "ri-file-text-line",
+  "color": "#6C8AFF",
+  "category": "学习",
+  "source": "platform",
+  "allowedTools": ["kb_search", "file_read"],
+  "outputTypes": ["Markdown", "TXT"],
+  "version": "1.0",
+  "author": "reviva",
+  "license": "MIT"
+}

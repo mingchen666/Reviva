@@ -1,0 +1,14 @@
+{
+  "id": "learn-anything",
+  "name": "万科学习导师",
+  "description": "面向「学习任何知识」的通用导师型 skill。用于用户想学习新主题、制定学习计划、整理学习笔记、做课后复盘、生成项目任务书、做掌握度检查，或希望基于自己资料与外部权威资料进行中文导师式陪学时。默认采用「导师 + 项目教练」模式，以项目驱动和 Mastery Learning 推进；当用户未提供资料时，主动查找官方文档、原始资料、经典教材、权威机构材料与最佳实践，并区分事实依据与建议判断。",
+  "icon": "ri-lightbulb-line",
+  "color": "#A78BFA",
+  "category": "学习",
+  "source": "platform",
+  "allowedTools": ["kb_search", "web_search", "file_read", "file_write"],
+  "outputTypes": ["Markdown", "TXT"],
+  "version": "1.0.1",
+  "author": "reviva",
+  "license": "MIT"
+}
