@@ -15,6 +15,7 @@ declare module 'vue' {
     BetaExpiredScreen: typeof import('./src/components/BetaExpiredScreen.vue')['default']
     ChartsPreview: typeof import('./src/components/preview/ChartsPreview.vue')['default']
     CommandPalette: typeof import('./src/components/CommandPalette.vue')['default']
+    copy: typeof import('./src/components/SvgIcon copy.vue')['default']
     CreationConfigModal: typeof import('./src/components/CreationConfigModal.vue')['default']
     FlashcardPreview: typeof import('./src/components/preview/FlashcardPreview.vue')['default']
     GraphInfoPanel: typeof import('./src/components/preview/GraphInfoPanel.vue')['default']

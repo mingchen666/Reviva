@@ -41,7 +41,7 @@ const showModelPicker = ref(false)
 const showReviewerModelPicker = ref(false)
 
 function isSelectableProvider(p) {
-  return p.enabled && settingsStore.providerConfigured(p)
+  return p.enabled && ss.providerConfigured(p)
 }
 
 function toModelGroups({ requireVisionFirst = false } = {}) {

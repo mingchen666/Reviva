@@ -1,1 +1,501 @@
-"use strict";const{contextBridge:r,ipcRenderer:t}=require("electron"),a={openDirectory:()=>t.invoke("dialog:openDirectory"),openFile:e=>t.invoke("dialog:openFile",e),readFile:(e,n)=>t.invoke("fs:readFile",e,n),writeFile:(e,n,i)=>t.invoke("fs:writeFile",e,n,i),listDir:(e,n)=>t.invoke("fs:listDir",e,n),rename:(e,n)=>t.invoke("fs:rename",e,n),deleteFile:e=>t.invoke("fs:deleteFile",e),mkdir:(e,n)=>t.invoke("fs:mkdir",e,n),removeDir:e=>t.invoke("fs:removeDir",e),copyFile:(e,n)=>t.invoke("fs:copyFile",e,n),exists:e=>t.invoke("fs:exists",e),stat:e=>t.invoke("fs:stat",e),openPath:e=>t.invoke("shell:openPath",e),showItemInFolder:e=>t.invoke("shell:showItemInFolder",e),openExternal:e=>t.invoke("shell:openExternal",e),getVersion:()=>t.invoke("app:getVersion"),getPath:e=>t.invoke("app:getPath",e),clearCache:()=>t.invoke("app:clearCache"),relaunch:()=>t.invoke("app:relaunch"),quit:()=>t.invoke("app:quit"),getDataSize:()=>t.invoke("app:getDataSize"),getSysInfo:()=>t.invoke("app:getSysInfo"),checkEnv:e=>t.invoke("env:check",e),installPythonOfficeLibs:()=>t.invoke("env:installPythonOfficeLibs"),exportSettings:()=>t.invoke("app:exportSettings"),importSettings:e=>t.invoke("app:importSettings",e),setStartup:e=>t.invoke("app:setStartup",e),setMinimizeToTray:e=>t.invoke("app:setMinimizeToTray",e),setTrayIcon:e=>t.invoke("app:setTrayIcon",e),setSingleInstance:e=>t.invoke("app:setSingleInstance",e),notify:e=>t.invoke("app:notify",e),playSound:e=>t.invoke("app:playSound",e),window:{minimize:()=>t.invoke("window:minimize"),maximize:()=>t.invoke("window:maximize"),close:()=>t.invoke("window:close"),isMaximized:()=>t.invoke("window:isMaximized"),onMaximizedChanged:e=>{const n=(i,o)=>e(o);return t.on("window:maximizedChanged",n),n},removeMaximizedListeners:()=>t.removeAllListeners("window:maximizedChanged")},platform:process.platform,onMainProcessMessage:e=>{t.on("main-process-message",(n,...i)=>e(...i))},onPlaySound:e=>{t.on("play-sound",(n,...i)=>e(...i))},workdir:{init:e=>t.invoke("workdir:init",e),getStatus:()=>t.invoke("workdir:getStatus"),selectRoot:()=>t.invoke("workdir:selectRoot"),selectDir:()=>t.invoke("workdir:selectDir"),getRoot:async()=>{const e=await t.invoke("workdir:getStatus");return(e==null?void 0:e.rootPath)||""}},shortcuts:{register:e=>t.invoke("shortcuts:register",e)},recycleBin:{moveToTrash:(e,n)=>t.invoke("recycleBin:moveToTrash",e,n),trashConversation:e=>t.invoke("recycleBin:trashConversation",e),trashNote:e=>t.invoke("recycleBin:trashNote",e),trashNoteFolder:e=>t.invoke("recycleBin:trashNoteFolder",e),trashArtifact:(e,n)=>t.invoke("recycleBin:trashArtifact",e,n),restore:e=>t.invoke("recycleBin:restore",e),restoreBatch:e=>t.invoke("recycleBin:restoreBatch",e),deletePermanently:e=>t.invoke("recycleBin:deletePermanently",e),deleteBatchPermanently:e=>t.invoke("recycleBin:deleteBatchPermanently",e),emptyTrash:()=>t.invoke("recycleBin:emptyTrash")},models:{fetchList:(e,n,i,o)=>t.invoke("models:fetchList",e,n,i,o),testConnection:(e,n,i,o,s)=>t.invoke("models:testConnection",e,n,i,o,s)},tokenUsage:{create:e=>t.invoke("tokenUsage:create",e),summary:e=>t.invoke("tokenUsage:summary",e),byModel:e=>t.invoke("tokenUsage:byModel",e),byAgent:e=>t.invoke("tokenUsage:byAgent",e),daily:e=>t.invoke("tokenUsage:daily",e),cleanup:e=>t.invoke("tokenUsage:cleanup",e)},logs:{read:(e,n)=>t.invoke("logs:read",e,n),listDates:()=>t.invoke("logs:listDates"),cleanup:e=>t.invoke("logs:cleanup",e)},chat:{start:e=>t.invoke("chat:start",e),cancel:e=>t.invoke("chat:cancel",e),onStarted:e=>{const n=(i,o)=>e(o);return t.on("chat:started",n),n},onChunk:e=>{const n=(i,o)=>e(o);return t.on("chat:chunk",n),n},onDone:e=>{const n=(i,o)=>e(o);return t.on("chat:done",n),n},onError:e=>{const n=(i,o)=>e(o);return t.on("chat:error",n),n},onCancelled:e=>{const n=(i,o)=>e(o);return t.on("chat:cancelled",n),n},onAuthRequest:e=>{const n=(i,o)=>e(o);return t.on("chat:authRequest",n),n},respondAuth:(e,n)=>t.invoke("agent:authRespond",e,n),removeListeners:()=>{t.removeAllListeners("chat:started"),t.removeAllListeners("chat:chunk"),t.removeAllListeners("chat:done"),t.removeAllListeners("chat:error"),t.removeAllListeners("chat:cancelled"),t.removeAllListeners("chat:authRequest")}},agent:{startRun:e=>t.invoke("agent:startRun",e),cancelRun:e=>t.invoke("agent:cancelRun",e),executeTool:e=>t.invoke("agent:executeTool",e),runSubAgent:e=>t.invoke("agent:runSubAgent",e),compressContext:e=>t.invoke("agent:compressContext",e),generateTitle:e=>t.invoke("agent:generateTitle",e),getRunState:e=>t.invoke("agent:getRunState",e),respondAuth:(e,n)=>t.invoke("agent:authRespond",e,n),healthCheck:(e,n)=>t.invoke("agent:healthCheck",e,n),onChunk:e=>{const n=(i,o)=>e(o);return t.on("agent:chunk",n),n},onDone:e=>{const n=(i,o)=>e(o);return t.on("agent:runDone",n),n},onError:e=>{const n=(i,o)=>e(o);return t.on("agent:runError",n),n},onCancelled:e=>{const n=(i,o)=>e(o);return t.on("agent:runCancelled",n),n},onRunStarted:e=>{const n=(i,o)=>e(o);return t.on("agent:runStarted",n),n},onMaxIterations:e=>{const n=(i,o)=>e(o);return t.on("agent:runMaxIterations",n),n},onAuthRequest:e=>{const n=(i,o)=>e(o);return t.on("agent:authRequest",n),n},onArtifactsCreated:e=>{const n=(i,o)=>e(o);return t.on("agent:artifactsCreated",n),n},removeRunListeners:e=>{t.removeAllListeners("agent:chunk"),t.removeAllListeners("agent:runDone"),t.removeAllListeners("agent:runError"),t.removeAllListeners("agent:runCancelled"),t.removeAllListeners("agent:runStarted"),t.removeAllListeners("agent:runMaxIterations"),t.removeAllListeners("agent:authRequest"),t.removeAllListeners("agent:artifactsCreated")}},skill:{install:(e,n)=>t.invoke("skill:install",e,n),uninstall:e=>t.invoke("skill:uninstall",e),listFiles:e=>t.invoke("skill:listFiles",e),readFile:(e,n)=>t.invoke("skill:readFile",e,n),isInstalled:e=>t.invoke("skill:isInstalled",e),listBuiltin:()=>t.invoke("skill:listBuiltin")},mcp:{testServer:e=>t.invoke("mcp:testServer",e),syncServerTools:e=>t.invoke("mcp:syncServerTools",e),syncServerCapabilities:e=>t.invoke("mcp:syncServerCapabilities",e),readResource:(e,n)=>t.invoke("mcp:readResource",e,n),getPrompt:(e,n,i)=>t.invoke("mcp:getPrompt",e,n,i)},pptx:{exportLocal:(e,n)=>t.invoke("pptx:exportLocal",e,n),exportCloud:(e,n)=>t.invoke("pptx:exportCloud",e,n)},outputs:{scanAll:()=>t.invoke("outputs:scanAll"),scanDateFiles:(e,n)=>t.invoke("outputs:scanDateFiles",e,n),readFile:e=>t.invoke("outputs:readFile",e)},wiki:{list:()=>t.invoke("wiki:list"),get:e=>t.invoke("wiki:get",e),create:e=>t.invoke("wiki:create",e),delete:e=>t.invoke("wiki:delete",e),listPages:e=>t.invoke("wiki:listPages",e),readPage:(e,n)=>t.invoke("wiki:readPage",e,n),listSources:e=>t.invoke("wiki:listSources",e),addSource:(e,n)=>t.invoke("wiki:addSource",e,n),addNoteSource:(e,n)=>t.invoke("wiki:addNoteSource",e,n),reparseSource:(e,n)=>t.invoke("wiki:reparseSource",e,n),deleteSource:(e,n)=>t.invoke("wiki:deleteSource",e,n),listOcrProviders:()=>t.invoke("wiki:listOcrProviders"),createOcrProvider:e=>t.invoke("wiki:createOcrProvider",e),updateOcrProvider:(e,n)=>t.invoke("wiki:updateOcrProvider",e,n),deleteOcrProvider:e=>t.invoke("wiki:deleteOcrProvider",e),listOcrJobs:(e,n)=>t.invoke("wiki:listOcrJobs",e,n),runOcr:(e,n,i)=>t.invoke("wiki:runOcr",e,n,i),getJobs:e=>t.invoke("wiki:getJobs",e),updateAgentConfig:(e,n)=>t.invoke("wiki:updateAgentConfig",e,n),agentDraft:e=>t.invoke("wiki:agentDraft",e),agentRun:e=>t.invoke("wiki:agentRun",e),wikiTool:e=>t.invoke("wiki:tool",e)},genTasks:{create:e=>t.invoke("genTask:create",e),cancel:e=>t.invoke("genTask:cancel",e),pollCloud:e=>t.invoke("genTask:pollCloud",e),onProgress:e=>{const n=(i,o)=>e(o);return t.on("genTask:progress",n),n},onCompleted:e=>{const n=(i,o)=>e(o);return t.on("genTask:completed",n),n},onFailed:e=>{const n=(i,o)=>e(o);return t.on("genTask:failed",n),n},removeListeners:()=>{t.removeAllListeners("genTask:progress"),t.removeAllListeners("genTask:completed"),t.removeAllListeners("genTask:failed")}},db:{spaces:{list:()=>t.invoke("db:spaces:list"),get:e=>t.invoke("db:spaces:get",e),create:e=>t.invoke("db:spaces:create",e),update:(e,n)=>t.invoke("db:spaces:update",e,n),delete:e=>t.invoke("db:spaces:delete",e),docCount:e=>t.invoke("db:spaces:docCount",e)},docs:{list:e=>t.invoke("db:docs:list",e),create:e=>t.invoke("db:docs:create",e),update:(e,n)=>t.invoke("db:docs:update",e,n),delete:e=>t.invoke("db:docs:delete",e)},convs:{list:(e,n)=>t.invoke("db:convs:list",e,n),get:e=>t.invoke("db:convs:get",e),create:e=>t.invoke("db:convs:create",e),update:(e,n)=>t.invoke("db:convs:update",e,n),delete:e=>t.invoke("db:convs:delete",e)},convGroups:{list:()=>t.invoke("db:convGroups:list"),create:e=>t.invoke("db:convGroups:create",e),update:(e,n)=>t.invoke("db:convGroups:update",e,n),delete:e=>t.invoke("db:convGroups:delete",e)},msgs:{list:e=>t.invoke("db:msgs:list",e),listPaginated:(e,n,i)=>t.invoke("db:msgs:listPaginated",e,n,i),count:e=>t.invoke("db:msgs:count",e),create:e=>t.invoke("db:msgs:create",e),update:(e,n)=>t.invoke("db:msgs:update",e,n),delete:e=>t.invoke("db:msgs:delete",e)},agents:{list:()=>t.invoke("db:agents:list"),get:e=>t.invoke("db:agents:get",e),create:e=>t.invoke("db:agents:create",e),update:(e,n)=>t.invoke("db:agents:update",e,n),delete:e=>t.invoke("db:agents:delete",e),isEnglishNameUnique:(e,n)=>t.invoke("db:agents:isEnglishNameUnique",e,n)},skills:{list:()=>t.invoke("db:skills:list"),create:e=>t.invoke("db:skills:create",e),update:(e,n)=>t.invoke("db:skills:update",e,n),delete:e=>t.invoke("db:skills:delete",e)},tools:{list:()=>t.invoke("db:tools:list"),create:e=>t.invoke("db:tools:create",e),update:(e,n)=>t.invoke("db:tools:update",e,n),delete:e=>t.invoke("db:tools:delete",e)},mcpServers:{list:()=>t.invoke("db:mcpServers:list"),get:e=>t.invoke("db:mcpServers:get",e),create:e=>t.invoke("db:mcpServers:create",e),update:(e,n)=>t.invoke("db:mcpServers:update",e,n),delete:e=>t.invoke("db:mcpServers:delete",e)},subAgents:{list:()=>t.invoke("db:subAgents:list"),create:e=>t.invoke("db:subAgents:create",e),update:(e,n)=>t.invoke("db:subAgents:update",e,n),delete:e=>t.invoke("db:subAgents:delete",e)},tasks:{list:()=>t.invoke("db:tasks:list"),listByGroup:(e,n)=>t.invoke("db:tasks:listByGroup",e,n),get:e=>t.invoke("db:tasks:get",e),create:e=>t.invoke("db:tasks:create",e),update:(e,n)=>t.invoke("db:tasks:update",e,n),delete:e=>t.invoke("db:tasks:delete",e)},outputs:{list:()=>t.invoke("db:outputs:list"),create:e=>t.invoke("db:outputs:create",e),delete:e=>t.invoke("db:outputs:delete",e)},artifacts:{listByGroup:e=>t.invoke("db:artifacts:listByGroup",e),create:e=>t.invoke("db:artifacts:create",e),delete:e=>t.invoke("db:artifacts:delete",e),update:(e,n)=>t.invoke("db:artifacts:update",e,n)},settings:{get:e=>t.invoke("db:settings:get",e),set:(e,n)=>t.invoke("db:settings:set",e,n),getAll:()=>t.invoke("db:settings:getAll")},memories:{list:()=>t.invoke("db:memories:list"),create:e=>t.invoke("db:memories:create",e),update:(e,n)=>t.invoke("db:memories:update",e,n),delete:e=>t.invoke("db:memories:delete",e)},trash:{list:()=>t.invoke("db:trash:list"),listByCategory:e=>t.invoke("db:trash:listByCategory",e),get:e=>t.invoke("db:trash:get",e),create:e=>t.invoke("db:trash:create",e),delete:e=>t.invoke("db:trash:delete",e),deleteBatch:e=>t.invoke("db:trash:deleteBatch",e),empty:()=>t.invoke("db:trash:empty"),count:()=>t.invoke("db:trash:count")},tokenUsage:{create:e=>t.invoke("db:tokenUsage:create",e),list:e=>t.invoke("db:tokenUsage:list",e),summary:e=>t.invoke("db:tokenUsage:summary",e),byModel:e=>t.invoke("db:tokenUsage:byModel",e),byAgent:e=>t.invoke("db:tokenUsage:byAgent",e),daily:e=>t.invoke("db:tokenUsage:daily",e),cleanup:e=>t.invoke("db:tokenUsage:cleanup",e)},agentRuns:{create:e=>t.invoke("db:agentRuns:create",e),get:e=>t.invoke("db:agentRuns:get",e),update:(e,n)=>t.invoke("db:agentRuns:update",e,n),listByConv:e=>t.invoke("db:agentRuns:listByConv",e),listByAgent:e=>t.invoke("db:agentRuns:listByAgent",e),delete:e=>t.invoke("db:agentRuns:delete",e)},noteFolders:{list:e=>t.invoke("db:noteFolders:list",e),get:e=>t.invoke("db:noteFolders:get",e),create:e=>t.invoke("db:noteFolders:create",e),update:(e,n)=>t.invoke("db:noteFolders:update",e,n),delete:e=>t.invoke("db:noteFolders:delete",e)},notes:{list:e=>t.invoke("db:notes:list",e),get:e=>t.invoke("db:notes:get",e),create:e=>t.invoke("db:notes:create",e),update:(e,n)=>t.invoke("db:notes:update",e,n),delete:e=>t.invoke("db:notes:delete",e)}},update:{check:()=>t.invoke("update:check"),download:()=>t.invoke("update:download"),install:()=>t.invoke("update:install"),onChecking:e=>{const n=(i,o)=>e(o);return t.on("update:checking",n),n},onAvailable:e=>{const n=(i,o)=>e(o);return t.on("update:available",n),n},onNotAvailable:e=>{const n=(i,o)=>e(o);return t.on("update:not-available",n),n},onProgress:e=>{const n=(i,o)=>e(o);return t.on("update:progress",n),n},onDownloaded:e=>{const n=(i,o)=>e(o);return t.on("update:downloaded",n),n},onError:e=>{const n=(i,o)=>e(o);return t.on("update:error",n),n},removeListeners:()=>{t.removeAllListeners("update:checking"),t.removeAllListeners("update:available"),t.removeAllListeners("update:not-available"),t.removeAllListeners("update:progress"),t.removeAllListeners("update:downloaded"),t.removeAllListeners("update:error")}}};r.exposeInMainWorld("electronAPI",a);
+"use strict";
+const { contextBridge, ipcRenderer } = require("electron");
+const api = {
+  // Dialog
+  openDirectory: () => ipcRenderer.invoke("dialog:openDirectory"),
+  openFile: (options) => ipcRenderer.invoke("dialog:openFile", options),
+  // File system
+  readFile: (filePath, options) => ipcRenderer.invoke("fs:readFile", filePath, options),
+  writeFile: (filePath, content, options) => ipcRenderer.invoke("fs:writeFile", filePath, content, options),
+  listDir: (dirPath, options) => ipcRenderer.invoke("fs:listDir", dirPath, options),
+  rename: (oldPath, newPath) => ipcRenderer.invoke("fs:rename", oldPath, newPath),
+  deleteFile: (filePath) => ipcRenderer.invoke("fs:deleteFile", filePath),
+  mkdir: (dirPath, options) => ipcRenderer.invoke("fs:mkdir", dirPath, options),
+  removeDir: (dirPath) => ipcRenderer.invoke("fs:removeDir", dirPath),
+  copyFile: (src, dest) => ipcRenderer.invoke("fs:copyFile", src, dest),
+  exists: (filePath) => ipcRenderer.invoke("fs:exists", filePath),
+  stat: (filePath) => ipcRenderer.invoke("fs:stat", filePath),
+  // Shell
+  openPath: (filePath) => ipcRenderer.invoke("shell:openPath", filePath),
+  showItemInFolder: (filePath) => ipcRenderer.invoke("shell:showItemInFolder", filePath),
+  openExternal: (url) => ipcRenderer.invoke("shell:openExternal", url),
+  // App
+  getVersion: () => ipcRenderer.invoke("app:getVersion"),
+  getPath: (name) => ipcRenderer.invoke("app:getPath", name),
+  clearCache: () => ipcRenderer.invoke("app:clearCache"),
+  relaunch: () => ipcRenderer.invoke("app:relaunch"),
+  quit: () => ipcRenderer.invoke("app:quit"),
+  getDataSize: () => ipcRenderer.invoke("app:getDataSize"),
+  getSysInfo: () => ipcRenderer.invoke("app:getSysInfo"),
+  checkEnv: (keys) => ipcRenderer.invoke("env:check", keys),
+  installPythonOfficeLibs: () => ipcRenderer.invoke("env:installPythonOfficeLibs"),
+  exportSettings: () => ipcRenderer.invoke("app:exportSettings"),
+  importSettings: (data) => ipcRenderer.invoke("app:importSettings", data),
+  setStartup: (enabled) => ipcRenderer.invoke("app:setStartup", enabled),
+  setMinimizeToTray: (enabled) => ipcRenderer.invoke("app:setMinimizeToTray", enabled),
+  setTrayIcon: (enabled) => ipcRenderer.invoke("app:setTrayIcon", enabled),
+  setSingleInstance: (enabled) => ipcRenderer.invoke("app:setSingleInstance", enabled),
+  notify: (opts) => ipcRenderer.invoke("app:notify", opts),
+  playSound: (name) => ipcRenderer.invoke("app:playSound", name),
+  // Window controls (frameless title bar on Win/Linux)
+  window: {
+    minimize: () => ipcRenderer.invoke("window:minimize"),
+    maximize: () => ipcRenderer.invoke("window:maximize"),
+    close: () => ipcRenderer.invoke("window:close"),
+    isMaximized: () => ipcRenderer.invoke("window:isMaximized"),
+    onMaximizedChanged: (cb) => {
+      const h = (_, v) => cb(v);
+      ipcRenderer.on("window:maximizedChanged", h);
+      return h;
+    },
+    removeMaximizedListeners: () => ipcRenderer.removeAllListeners("window:maximizedChanged")
+  },
+  platform: process.platform,
+  // Event listeners
+  onMainProcessMessage: (callback) => {
+    ipcRenderer.on("main-process-message", (event, ...args) => callback(...args));
+  },
+  onPlaySound: (callback) => {
+    ipcRenderer.on("play-sound", (event, ...args) => callback(...args));
+  },
+  // WorkDir
+  workdir: {
+    init: (rootPath) => ipcRenderer.invoke("workdir:init", rootPath),
+    getStatus: () => ipcRenderer.invoke("workdir:getStatus"),
+    selectRoot: () => ipcRenderer.invoke("workdir:selectRoot"),
+    selectDir: () => ipcRenderer.invoke("workdir:selectDir"),
+    getRoot: async () => {
+      const s = await ipcRenderer.invoke("workdir:getStatus");
+      return (s == null ? void 0 : s.rootPath) || "";
+    }
+  },
+  // Shortcuts
+  shortcuts: {
+    register: (bindings) => ipcRenderer.invoke("shortcuts:register", bindings)
+  },
+  // Recycle Bin (FS + DB combined)
+  recycleBin: {
+    moveToTrash: (itemPath, itemMeta) => ipcRenderer.invoke("recycleBin:moveToTrash", itemPath, itemMeta),
+    trashConversation: (convId) => ipcRenderer.invoke("recycleBin:trashConversation", convId),
+    trashNote: (noteId) => ipcRenderer.invoke("recycleBin:trashNote", noteId),
+    trashNoteFolder: (folderId) => ipcRenderer.invoke("recycleBin:trashNoteFolder", folderId),
+    trashArtifact: (artifactId, options) => ipcRenderer.invoke("recycleBin:trashArtifact", artifactId, options),
+    restore: (trashId) => ipcRenderer.invoke("recycleBin:restore", trashId),
+    restoreBatch: (trashIds) => ipcRenderer.invoke("recycleBin:restoreBatch", trashIds),
+    deletePermanently: (trashId) => ipcRenderer.invoke("recycleBin:deletePermanently", trashId),
+    deleteBatchPermanently: (trashIds) => ipcRenderer.invoke("recycleBin:deleteBatchPermanently", trashIds),
+    emptyTrash: () => ipcRenderer.invoke("recycleBin:emptyTrash")
+  },
+  // Models
+  models: {
+    fetchList: (providerId, apiKey, baseUrl, apiFormat) => ipcRenderer.invoke("models:fetchList", providerId, apiKey, baseUrl, apiFormat),
+    testConnection: (providerId, apiKey, baseUrl, modelId, apiFormat) => ipcRenderer.invoke("models:testConnection", providerId, apiKey, baseUrl, modelId, apiFormat)
+  },
+  // Token Usage
+  tokenUsage: {
+    create: (data) => ipcRenderer.invoke("tokenUsage:create", data),
+    summary: (range) => ipcRenderer.invoke("tokenUsage:summary", range),
+    byModel: (range) => ipcRenderer.invoke("tokenUsage:byModel", range),
+    byAgent: (range) => ipcRenderer.invoke("tokenUsage:byAgent", range),
+    daily: (range) => ipcRenderer.invoke("tokenUsage:daily", range),
+    cleanup: (beforeDate) => ipcRenderer.invoke("tokenUsage:cleanup", beforeDate)
+  },
+  // Logs
+  logs: {
+    read: (date, filters) => ipcRenderer.invoke("logs:read", date, filters),
+    listDates: () => ipcRenderer.invoke("logs:listDates"),
+    cleanup: (beforeDate) => ipcRenderer.invoke("logs:cleanup", beforeDate)
+  },
+  // Chat
+  chat: {
+    start: (req) => ipcRenderer.invoke("chat:start", req),
+    cancel: (reqId) => ipcRenderer.invoke("chat:cancel", reqId),
+    onStarted: (cb) => {
+      const h = (_, d) => cb(d);
+      ipcRenderer.on("chat:started", h);
+      return h;
+    },
+    onChunk: (cb) => {
+      const h = (_, d) => cb(d);
+      ipcRenderer.on("chat:chunk", h);
+      return h;
+    },
+    onDone: (cb) => {
+      const h = (_, d) => cb(d);
+      ipcRenderer.on("chat:done", h);
+      return h;
+    },
+    onError: (cb) => {
+      const h = (_, d) => cb(d);
+      ipcRenderer.on("chat:error", h);
+      return h;
+    },
+    onCancelled: (cb) => {
+      const h = (_, d) => cb(d);
+      ipcRenderer.on("chat:cancelled", h);
+      return h;
+    },
+    onAuthRequest: (cb) => {
+      const h = (_, d) => cb(d);
+      ipcRenderer.on("chat:authRequest", h);
+      return h;
+    },
+    respondAuth: (requestId, approved) => ipcRenderer.invoke("agent:authRespond", requestId, approved),
+    removeListeners: () => {
+      ipcRenderer.removeAllListeners("chat:started");
+      ipcRenderer.removeAllListeners("chat:chunk");
+      ipcRenderer.removeAllListeners("chat:done");
+      ipcRenderer.removeAllListeners("chat:error");
+      ipcRenderer.removeAllListeners("chat:cancelled");
+      ipcRenderer.removeAllListeners("chat:authRequest");
+    }
+  },
+  // Agent (new Agent system IPC)
+  agent: {
+    startRun: (req) => ipcRenderer.invoke("agent:startRun", req),
+    cancelRun: (runId) => ipcRenderer.invoke("agent:cancelRun", runId),
+    executeTool: (req) => ipcRenderer.invoke("agent:executeTool", req),
+    runSubAgent: (req) => ipcRenderer.invoke("agent:runSubAgent", req),
+    compressContext: (req) => ipcRenderer.invoke("agent:compressContext", req),
+    generateTitle: (req) => ipcRenderer.invoke("agent:generateTitle", req),
+    getRunState: (runId) => ipcRenderer.invoke("agent:getRunState", runId),
+    respondAuth: (requestId, approved) => ipcRenderer.invoke("agent:authRespond", requestId, approved),
+    healthCheck: (agentIds, options) => ipcRenderer.invoke("agent:healthCheck", agentIds, options),
+    // All streaming events (content, thinking, tool_start/end/error, subagent_start/chunk/end) flow through agent:chunk
+    onChunk: (cb) => {
+      const h = (_, d) => cb(d);
+      ipcRenderer.on("agent:chunk", h);
+      return h;
+    },
+    onDone: (cb) => {
+      const h = (_, d) => cb(d);
+      ipcRenderer.on("agent:runDone", h);
+      return h;
+    },
+    onError: (cb) => {
+      const h = (_, d) => cb(d);
+      ipcRenderer.on("agent:runError", h);
+      return h;
+    },
+    onCancelled: (cb) => {
+      const h = (_, d) => cb(d);
+      ipcRenderer.on("agent:runCancelled", h);
+      return h;
+    },
+    onRunStarted: (cb) => {
+      const h = (_, d) => cb(d);
+      ipcRenderer.on("agent:runStarted", h);
+      return h;
+    },
+    onMaxIterations: (cb) => {
+      const h = (_, d) => cb(d);
+      ipcRenderer.on("agent:runMaxIterations", h);
+      return h;
+    },
+    onAuthRequest: (cb) => {
+      const h = (_, d) => cb(d);
+      ipcRenderer.on("agent:authRequest", h);
+      return h;
+    },
+    onArtifactsCreated: (cb) => {
+      const h = (_, d) => cb(d);
+      ipcRenderer.on("agent:artifactsCreated", h);
+      return h;
+    },
+    removeRunListeners: (requestId) => {
+      ipcRenderer.removeAllListeners("agent:chunk");
+      ipcRenderer.removeAllListeners("agent:runDone");
+      ipcRenderer.removeAllListeners("agent:runError");
+      ipcRenderer.removeAllListeners("agent:runCancelled");
+      ipcRenderer.removeAllListeners("agent:runStarted");
+      ipcRenderer.removeAllListeners("agent:runMaxIterations");
+      ipcRenderer.removeAllListeners("agent:authRequest");
+      ipcRenderer.removeAllListeners("agent:artifactsCreated");
+    }
+  },
+  // Skill directory operations
+  skill: {
+    install: (skillId, skillData) => ipcRenderer.invoke("skill:install", skillId, skillData),
+    uninstall: (skillId) => ipcRenderer.invoke("skill:uninstall", skillId),
+    listFiles: (skillId) => ipcRenderer.invoke("skill:listFiles", skillId),
+    readFile: (skillId, relativePath) => ipcRenderer.invoke("skill:readFile", skillId, relativePath),
+    isInstalled: (skillId) => ipcRenderer.invoke("skill:isInstalled", skillId),
+    listBuiltin: () => ipcRenderer.invoke("skill:listBuiltin")
+  },
+  // MCP runtime operations (live connection test + sync)
+  mcp: {
+    testServer: (config) => ipcRenderer.invoke("mcp:testServer", config),
+    syncServerTools: (serverId) => ipcRenderer.invoke("mcp:syncServerTools", serverId),
+    syncServerCapabilities: (serverId) => ipcRenderer.invoke("mcp:syncServerCapabilities", serverId),
+    readResource: (serverId, uri) => ipcRenderer.invoke("mcp:readResource", serverId, uri),
+    getPrompt: (serverId, name, args) => ipcRenderer.invoke("mcp:getPrompt", serverId, name, args)
+  },
+  // PPTX export
+  pptx: {
+    exportLocal: (htmlPath, outputPath) => ipcRenderer.invoke("pptx:exportLocal", htmlPath, outputPath),
+    exportCloud: (htmlPath, outputPath) => ipcRenderer.invoke("pptx:exportCloud", htmlPath, outputPath)
+  },
+  // Output scanning (filesystem-based)
+  outputs: {
+    scanAll: () => ipcRenderer.invoke("outputs:scanAll"),
+    scanDateFiles: (agentDirName, date) => ipcRenderer.invoke("outputs:scanDateFiles", agentDirName, date),
+    readFile: (virtualPath) => ipcRenderer.invoke("outputs:readFile", virtualPath)
+  },
+  // Local LLM Wiki workspace
+  wiki: {
+    list: () => ipcRenderer.invoke("wiki:list"),
+    get: (id) => ipcRenderer.invoke("wiki:get", id),
+    create: (data) => ipcRenderer.invoke("wiki:create", data),
+    delete: (id) => ipcRenderer.invoke("wiki:delete", id),
+    listPages: (id) => ipcRenderer.invoke("wiki:listPages", id),
+    readPage: (id, pagePath) => ipcRenderer.invoke("wiki:readPage", id, pagePath),
+    listSources: (id) => ipcRenderer.invoke("wiki:listSources", id),
+    addSource: (id, data) => ipcRenderer.invoke("wiki:addSource", id, data),
+    addNoteSource: (id, noteId) => ipcRenderer.invoke("wiki:addNoteSource", id, noteId),
+    reparseSource: (id, sourceId) => ipcRenderer.invoke("wiki:reparseSource", id, sourceId),
+    deleteSource: (id, sourceId) => ipcRenderer.invoke("wiki:deleteSource", id, sourceId),
+    listOcrProviders: () => ipcRenderer.invoke("wiki:listOcrProviders"),
+    createOcrProvider: (data) => ipcRenderer.invoke("wiki:createOcrProvider", data),
+    updateOcrProvider: (providerId, data) => ipcRenderer.invoke("wiki:updateOcrProvider", providerId, data),
+    deleteOcrProvider: (providerId) => ipcRenderer.invoke("wiki:deleteOcrProvider", providerId),
+    listOcrJobs: (id, sourceId) => ipcRenderer.invoke("wiki:listOcrJobs", id, sourceId),
+    runOcr: (id, sourceId, providerId) => ipcRenderer.invoke("wiki:runOcr", id, sourceId, providerId),
+    getJobs: (id) => ipcRenderer.invoke("wiki:getJobs", id),
+    updateAgentConfig: (id, patch) => ipcRenderer.invoke("wiki:updateAgentConfig", id, patch),
+    agentDraft: (req) => ipcRenderer.invoke("wiki:agentDraft", req),
+    agentRun: (req) => ipcRenderer.invoke("wiki:agentRun", req),
+    wikiTool: (req) => ipcRenderer.invoke("wiki:tool", req)
+  },
+  // Generation Tasks (async creation jobs — mindmap / graph / podcast / etc.)
+  genTasks: {
+    create: (req) => ipcRenderer.invoke("genTask:create", req),
+    cancel: (taskId) => ipcRenderer.invoke("genTask:cancel", taskId),
+    pollCloud: (taskId) => ipcRenderer.invoke("genTask:pollCloud", taskId),
+    onProgress: (cb) => {
+      const h = (_, d) => cb(d);
+      ipcRenderer.on("genTask:progress", h);
+      return h;
+    },
+    onCompleted: (cb) => {
+      const h = (_, d) => cb(d);
+      ipcRenderer.on("genTask:completed", h);
+      return h;
+    },
+    onFailed: (cb) => {
+      const h = (_, d) => cb(d);
+      ipcRenderer.on("genTask:failed", h);
+      return h;
+    },
+    removeListeners: () => {
+      ipcRenderer.removeAllListeners("genTask:progress");
+      ipcRenderer.removeAllListeners("genTask:completed");
+      ipcRenderer.removeAllListeners("genTask:failed");
+    }
+  },
+  // Database API
+  db: {
+    // Spaces
+    spaces: {
+      list: () => ipcRenderer.invoke("db:spaces:list"),
+      get: (id) => ipcRenderer.invoke("db:spaces:get", id),
+      create: (data) => ipcRenderer.invoke("db:spaces:create", data),
+      update: (id, data) => ipcRenderer.invoke("db:spaces:update", id, data),
+      delete: (id) => ipcRenderer.invoke("db:spaces:delete", id),
+      docCount: (id) => ipcRenderer.invoke("db:spaces:docCount", id)
+    },
+    // Documents
+    docs: {
+      list: (spaceId) => ipcRenderer.invoke("db:docs:list", spaceId),
+      create: (data) => ipcRenderer.invoke("db:docs:create", data),
+      update: (id, data) => ipcRenderer.invoke("db:docs:update", id, data),
+      delete: (id) => ipcRenderer.invoke("db:docs:delete", id)
+    },
+    // Conversations
+    convs: {
+      list: (spaceId, groupId) => ipcRenderer.invoke("db:convs:list", spaceId, groupId),
+      get: (id) => ipcRenderer.invoke("db:convs:get", id),
+      create: (data) => ipcRenderer.invoke("db:convs:create", data),
+      update: (id, data) => ipcRenderer.invoke("db:convs:update", id, data),
+      delete: (id) => ipcRenderer.invoke("db:convs:delete", id)
+    },
+    // Conversation Groups
+    convGroups: {
+      list: () => ipcRenderer.invoke("db:convGroups:list"),
+      create: (data) => ipcRenderer.invoke("db:convGroups:create", data),
+      update: (id, data) => ipcRenderer.invoke("db:convGroups:update", id, data),
+      delete: (id) => ipcRenderer.invoke("db:convGroups:delete", id)
+    },
+    // Messages
+    msgs: {
+      list: (convId) => ipcRenderer.invoke("db:msgs:list", convId),
+      listPaginated: (convId, limit, offset) => ipcRenderer.invoke("db:msgs:listPaginated", convId, limit, offset),
+      count: (convId) => ipcRenderer.invoke("db:msgs:count", convId),
+      create: (data) => ipcRenderer.invoke("db:msgs:create", data),
+      update: (id, data) => ipcRenderer.invoke("db:msgs:update", id, data),
+      delete: (id) => ipcRenderer.invoke("db:msgs:delete", id)
+    },
+    // Agents
+    agents: {
+      list: () => ipcRenderer.invoke("db:agents:list"),
+      get: (id) => ipcRenderer.invoke("db:agents:get", id),
+      create: (data) => ipcRenderer.invoke("db:agents:create", data),
+      update: (id, data) => ipcRenderer.invoke("db:agents:update", id, data),
+      delete: (id) => ipcRenderer.invoke("db:agents:delete", id),
+      isEnglishNameUnique: (englishName, excludeId) => ipcRenderer.invoke("db:agents:isEnglishNameUnique", englishName, excludeId)
+    },
+    // Skills
+    skills: {
+      list: () => ipcRenderer.invoke("db:skills:list"),
+      create: (data) => ipcRenderer.invoke("db:skills:create", data),
+      update: (id, data) => ipcRenderer.invoke("db:skills:update", id, data),
+      delete: (id) => ipcRenderer.invoke("db:skills:delete", id)
+    },
+    // Tools
+    tools: {
+      list: () => ipcRenderer.invoke("db:tools:list"),
+      create: (data) => ipcRenderer.invoke("db:tools:create", data),
+      update: (id, data) => ipcRenderer.invoke("db:tools:update", id, data),
+      delete: (id) => ipcRenderer.invoke("db:tools:delete", id)
+    },
+    // MCP Servers (remote URL-based MCP integrations)
+    mcpServers: {
+      list: () => ipcRenderer.invoke("db:mcpServers:list"),
+      get: (id) => ipcRenderer.invoke("db:mcpServers:get", id),
+      create: (data) => ipcRenderer.invoke("db:mcpServers:create", data),
+      update: (id, data) => ipcRenderer.invoke("db:mcpServers:update", id, data),
+      delete: (id) => ipcRenderer.invoke("db:mcpServers:delete", id)
+    },
+    // Sub Agents
+    subAgents: {
+      list: () => ipcRenderer.invoke("db:subAgents:list"),
+      create: (data) => ipcRenderer.invoke("db:subAgents:create", data),
+      update: (id, data) => ipcRenderer.invoke("db:subAgents:update", id, data),
+      delete: (id) => ipcRenderer.invoke("db:subAgents:delete", id)
+    },
+    // Tasks
+    tasks: {
+      list: () => ipcRenderer.invoke("db:tasks:list"),
+      listByGroup: (groupId, toolIds) => ipcRenderer.invoke("db:tasks:listByGroup", groupId, toolIds),
+      get: (id) => ipcRenderer.invoke("db:tasks:get", id),
+      create: (data) => ipcRenderer.invoke("db:tasks:create", data),
+      update: (id, data) => ipcRenderer.invoke("db:tasks:update", id, data),
+      delete: (id) => ipcRenderer.invoke("db:tasks:delete", id)
+    },
+    // Outputs
+    outputs: {
+      list: () => ipcRenderer.invoke("db:outputs:list"),
+      create: (data) => ipcRenderer.invoke("db:outputs:create", data),
+      delete: (id) => ipcRenderer.invoke("db:outputs:delete", id)
+    },
+    // Artifacts
+    artifacts: {
+      listByGroup: (groupId) => ipcRenderer.invoke("db:artifacts:listByGroup", groupId),
+      create: (data) => ipcRenderer.invoke("db:artifacts:create", data),
+      delete: (id) => ipcRenderer.invoke("db:artifacts:delete", id),
+      update: (id, data) => ipcRenderer.invoke("db:artifacts:update", id, data)
+    },
+    // Settings
+    settings: {
+      get: (key) => ipcRenderer.invoke("db:settings:get", key),
+      set: (key, value) => ipcRenderer.invoke("db:settings:set", key, value),
+      getAll: () => ipcRenderer.invoke("db:settings:getAll")
+    },
+    // Memories
+    memories: {
+      list: () => ipcRenderer.invoke("db:memories:list"),
+      create: (data) => ipcRenderer.invoke("db:memories:create", data),
+      update: (id, data) => ipcRenderer.invoke("db:memories:update", id, data),
+      delete: (id) => ipcRenderer.invoke("db:memories:delete", id)
+    },
+    // Trash (DB queries)
+    trash: {
+      list: () => ipcRenderer.invoke("db:trash:list"),
+      listByCategory: (category) => ipcRenderer.invoke("db:trash:listByCategory", category),
+      get: (id) => ipcRenderer.invoke("db:trash:get", id),
+      create: (data) => ipcRenderer.invoke("db:trash:create", data),
+      delete: (id) => ipcRenderer.invoke("db:trash:delete", id),
+      deleteBatch: (ids) => ipcRenderer.invoke("db:trash:deleteBatch", ids),
+      empty: () => ipcRenderer.invoke("db:trash:empty"),
+      count: () => ipcRenderer.invoke("db:trash:count")
+    },
+    // Token Usage (DB queries)
+    tokenUsage: {
+      create: (data) => ipcRenderer.invoke("db:tokenUsage:create", data),
+      list: (filters) => ipcRenderer.invoke("db:tokenUsage:list", filters),
+      summary: (range) => ipcRenderer.invoke("db:tokenUsage:summary", range),
+      byModel: (range) => ipcRenderer.invoke("db:tokenUsage:byModel", range),
+      byAgent: (range) => ipcRenderer.invoke("db:tokenUsage:byAgent", range),
+      daily: (range) => ipcRenderer.invoke("db:tokenUsage:daily", range),
+      cleanup: (beforeDate) => ipcRenderer.invoke("db:tokenUsage:cleanup", beforeDate)
+    },
+    // Agent Runs (DB queries)
+    agentRuns: {
+      create: (data) => ipcRenderer.invoke("db:agentRuns:create", data),
+      get: (id) => ipcRenderer.invoke("db:agentRuns:get", id),
+      update: (id, data) => ipcRenderer.invoke("db:agentRuns:update", id, data),
+      listByConv: (convId) => ipcRenderer.invoke("db:agentRuns:listByConv", convId),
+      listByAgent: (agentId) => ipcRenderer.invoke("db:agentRuns:listByAgent", agentId),
+      delete: (id) => ipcRenderer.invoke("db:agentRuns:delete", id)
+    },
+    // Note Folders
+    noteFolders: {
+      list: (parentId) => ipcRenderer.invoke("db:noteFolders:list", parentId),
+      get: (id) => ipcRenderer.invoke("db:noteFolders:get", id),
+      create: (data) => ipcRenderer.invoke("db:noteFolders:create", data),
+      update: (id, data) => ipcRenderer.invoke("db:noteFolders:update", id, data),
+      delete: (id) => ipcRenderer.invoke("db:noteFolders:delete", id)
+    },
+    // Notes
+    notes: {
+      list: (folderId) => ipcRenderer.invoke("db:notes:list", folderId),
+      get: (id) => ipcRenderer.invoke("db:notes:get", id),
+      create: (data) => ipcRenderer.invoke("db:notes:create", data),
+      update: (id, data) => ipcRenderer.invoke("db:notes:update", id, data),
+      delete: (id) => ipcRenderer.invoke("db:notes:delete", id)
+    }
+  },
+  update: {
+    check: () => ipcRenderer.invoke("update:check"),
+    download: () => ipcRenderer.invoke("update:download"),
+    install: () => ipcRenderer.invoke("update:install"),
+    onChecking: (cb) => {
+      const h = (_, d) => cb(d);
+      ipcRenderer.on("update:checking", h);
+      return h;
+    },
+    onAvailable: (cb) => {
+      const h = (_, d) => cb(d);
+      ipcRenderer.on("update:available", h);
+      return h;
+    },
+    onNotAvailable: (cb) => {
+      const h = (_, d) => cb(d);
+      ipcRenderer.on("update:not-available", h);
+      return h;
+    },
+    onProgress: (cb) => {
+      const h = (_, d) => cb(d);
+      ipcRenderer.on("update:progress", h);
+      return h;
+    },
+    onDownloaded: (cb) => {
+      const h = (_, d) => cb(d);
+      ipcRenderer.on("update:downloaded", h);
+      return h;
+    },
+    onError: (cb) => {
+      const h = (_, d) => cb(d);
+      ipcRenderer.on("update:error", h);
+      return h;
+    },
+    removeListeners: () => {
+      ipcRenderer.removeAllListeners("update:checking");
+      ipcRenderer.removeAllListeners("update:available");
+      ipcRenderer.removeAllListeners("update:not-available");
+      ipcRenderer.removeAllListeners("update:progress");
+      ipcRenderer.removeAllListeners("update:downloaded");
+      ipcRenderer.removeAllListeners("update:error");
+    }
+  }
+};
+contextBridge.exposeInMainWorld("electronAPI", api);

@@ -75,6 +75,9 @@ function startEdit() {
   // Ensure all expected fields exist
   clone.subAgents = Array.isArray(clone.subAgents) ? clone.subAgents : []
   clone.subAgentEnabled = !!clone.subAgentEnabled || clone.subAgents.length > 0
+  clone.tools = Array.isArray(clone.tools) ? clone.tools : []
+  clone.skills = Array.isArray(clone.skills) ? clone.skills : []
+  clone.permissions = (clone.permissions && typeof clone.permissions === 'object') ? clone.permissions : {}
   clone.showAdvanced = !!clone.showAdvanced
   clone.arch = 'react'
   clone.reflectPersist = false

@@ -201,6 +201,7 @@ function toggleProviderEnabled(providerId) {
   p.enabled = !p.enabled
   p.configured = settingsStore.providerConfigured(p)
   hasUnsavedChanges.value = true
+  debouncedAutoSave()
 }
 
 function toggleModelEnabled(providerId, modelId) {
@@ -210,6 +211,7 @@ function toggleModelEnabled(providerId, modelId) {
   if (!m) return
   m.enabled = !m.enabled
   hasUnsavedChanges.value = true
+  debouncedAutoSave()
 }
 
 function toggleApiKeyVisibility(providerId) {
@@ -225,11 +227,23 @@ function onApiKeyInput(providerId) {
   const p = settingsStore.providers.find(p => p.id === providerId)
   if (p) p.configured = settingsStore.providerConfigured(p)
   hasUnsavedChanges.value = true
+  debouncedAutoSave()
 }
 
 function onBaseUrlInput() {
   if (selectedProvider.value) selectedProvider.value.configured = settingsStore.providerConfigured(selectedProvider.value)
   hasUnsavedChanges.value = true
+  debouncedAutoSave()
+}
+
+let _autoSaveTimer = null
+function debouncedAutoSave() {
+  clearTimeout(_autoSaveTimer)
+  _autoSaveTimer = setTimeout(async () => {
+    if (selectedProvider.value) selectedProvider.value.configured = settingsStore.providerConfigured(selectedProvider.value)
+    await settingsStore.saveProviders()
+    hasUnsavedChanges.value = false
+  }, 1500)
 }
 
 function resetOfficialCloudState() {
