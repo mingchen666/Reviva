@@ -444,7 +444,7 @@ function toggleSubAgentEnabled() {
               <!-- Model select -->
               <div class="mb-3 relative">
                 <label class="block text-[11px] font-medium mb-1.5" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">LLM 模型 <span class="text-[9px] font-normal" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">留空则使用全局默认</span></label>
-                <button @click="showModelPicker = !showModelPicker" data-model-trigger class="w-full h-9 px-3 rounded-lg flex items-center gap-2 text-[12px] transition-colors cursor-pointer"
+                <button type="button" @click.stop="showModelPicker = !showModelPicker" data-model-trigger class="w-full h-9 px-3 rounded-lg flex items-center gap-2 text-[12px] transition-colors cursor-pointer"
                   :class="[isDark ? 'bg-d0 border border-d4 text-wt-sub hover:border-brand-400/30' : 'bg-l2 border border-bdrF text-lt-sub hover:border-brand-400', showModelPicker ? (isDark ? 'border-brand-400/40' : 'border-brand-400') : '']">
                   <i v-if="!editAgent.model" class="ri-robot-2-line text-[12px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'" />
                   <template v-if="selectedModelInfo">
