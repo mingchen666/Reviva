@@ -1,7 +1,7 @@
 const READABLE_LOCAL_EXTS = new Set([
   'md', 'markdown', 'txt', 'json', 'csv', 'tsv', 'yaml', 'yml', 'log',
   'html', 'htm', 'xml', 'js', 'ts', 'py', 'java', 'go', 'rs', 'c', 'cpp',
-  'h', 'sql', 'docx', 'xlsx', 'pptx',
+  'h', 'sql', 'docx', 'xlsx', 'pptx', 'pdf',
 ])
 
 function fileExt(value) {
