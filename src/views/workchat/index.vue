@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed, nextTick, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useVirtualizer } from '@tanstack/vue-virtual'
+import { storeToRefs } from 'pinia'
 import { useWindowSize } from '@vueuse/core'
 import { useAppStore } from '@/stores/app'
 import { useConversationsStore } from '@/stores/conversations'
@@ -8,6 +9,7 @@ import { useAgentsStore } from '@/stores/agents'
 import { useWikiStore } from '@/stores/wiki'
 import { useSettingsStore } from '@/stores/settings'
 import { useUserStore } from '@/stores/user'
+import { useWorkchatStore } from '@/stores/workchat'
 import { AgentRuntime } from '@/agents/AgentRuntime'
 import { normalizeFilePath } from '@/utils/fileUrl'
 import { readableGenerationContexts } from '@/utils/generationContext'
@@ -41,6 +43,8 @@ const agentsStore = useAgentsStore()
 const wikiStore = useWikiStore()
 const settingsStore = useSettingsStore()
 const userStore = useUserStore()
+const workchatStore = useWorkchatStore()
+const { ctxItems: globalCtxItems } = storeToRefs(workchatStore)
 const isDark = computed(() => appStore.isDark)
 const msg = useMessage()
 
@@ -168,7 +172,6 @@ function findBuiltinAgentByEnglishName(englishName, fallbackIds = []) {
   ))
 }
 
-const globalCtxItems = ref([])
 const currentCtxItems = computed(() => globalCtxItems.value)
 const selectedWikiIds = ref([])
 const availableWikis = computed(() => wikiStore.wikis || [])
@@ -220,7 +223,15 @@ const hasOlderMessages = computed(() => currentConvId.value && !convStore.allMsg
 
 // Smart scroll
 let userScrolledUp = false
+let suppressScrollEventsUntil = 0
+function shouldIgnoreScrollEvent() {
+  return Date.now() < suppressScrollEventsUntil
+}
+function markProgrammaticScroll(behavior = 'auto') {
+  suppressScrollEventsUntil = Date.now() + (behavior === 'smooth' ? 700 : 160)
+}
 function onChatScroll(e) {
+  if (shouldIgnoreScrollEvent()) return
   const el = e.target
   const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 120
   userScrolledUp = !nearBottom
@@ -254,6 +265,10 @@ const rowVirtualizer = useVirtualizer(computed(() => ({
   overscan: VIRTUAL_OVERSCAN,
   gap: MESSAGE_GAP,
   scrollPaddingEnd: 160,
+  shouldAdjustScrollPositionOnItemSizeChange: item => {
+    const scrollOffset = chatScrollRef.value?.scrollTop || 0
+    return item.end <= scrollOffset + 1
+  },
 })))
 
 const totalVirtualHeight = computed(() => rowVirtualizer.value.getTotalSize())
@@ -289,8 +304,13 @@ function restoreVirtualAnchor(anchor, el = chatScrollRef.value) {
   return true
 }
 
+let pendingMeasureFrame = 0
 function measureVisibleMessagesSoon() {
-  requestAnimationFrame(() => rowVirtualizer.value.measure())
+  if (pendingMeasureFrame) return
+  pendingMeasureFrame = requestAnimationFrame(() => {
+    pendingMeasureFrame = 0
+    rowVirtualizer.value.measure()
+  })
 }
 
 // Resize
@@ -541,7 +561,7 @@ async function sendMessage(text) {
   userScrolledUp = false
   showScrollBtn.value = false
   await nextTick()
-  scrollToBottom()
+  scrollToBottom('auto')
   await agentRuntime.startChat({
     convId,
     userText: trimmed,
@@ -877,19 +897,22 @@ function handlePreviewFile(file) {
 }
 
 // Scroll
-function scrollToBottom(behavior = 'smooth') {
-  const el = chatScrollRef.value || document.getElementById('chat-scroll')
-  if (el) {
-    rowVirtualizer.value.scrollToIndex(Math.max(0, currentMessages.value.length - 1), { align: 'end', behavior })
-    requestAnimationFrame(() => el.scrollTo({ top: el.scrollHeight, behavior: 'auto' }))
-    userScrolledUp = false
-    showScrollBtn.value = false
-  }
+let pendingScrollFrame = 0
+function scrollToBottom(behavior = 'auto') {
+  if (!chatScrollRef.value || !currentMessages.value.length) return
+  markProgrammaticScroll(behavior)
+  rowVirtualizer.value.scrollToIndex(currentMessages.value.length - 1, { align: 'end', behavior })
+  userScrolledUp = false
+  showScrollBtn.value = false
 }
 
-function scheduleScrollToBottom({ force = false, behavior = 'smooth' } = {}) {
+function scheduleScrollToBottom({ force = false, behavior = 'auto' } = {}) {
   if (!force && userScrolledUp) return
-  requestAnimationFrame(() => scrollToBottom(behavior))
+  if (pendingScrollFrame) return
+  pendingScrollFrame = requestAnimationFrame(() => {
+    pendingScrollFrame = 0
+    scrollToBottom(behavior)
+  })
 }
 
 // Load older messages with ScrollLoader
@@ -897,16 +920,10 @@ async function loadOlderMessages() {
   loadingOlder.value = true
   const el = chatScrollRef.value || document.getElementById('chat-scroll')
   const anchor = findVirtualAnchor(el)
-  const prevScrollHeight = el?.scrollHeight || 0
-  const prevScrollTop = el?.scrollTop || 0
   await convStore.loadMoreMessages(currentConvId.value)
   await nextTick()
   rowVirtualizer.value.measure()
-  if (el) {
-    if (!restoreVirtualAnchor(anchor, el)) {
-      el.scrollTop = el.scrollHeight - prevScrollHeight + prevScrollTop
-    }
-  }
+  restoreVirtualAnchor(anchor, el)
   loadingOlder.value = false
 }
 
@@ -957,7 +974,7 @@ watch(() => [
 
 watch(currentConvId, () => {
   userScrolledUp = false
-  rowVirtualizer.value.scrollToOffset(0, { behavior: 'auto' })
+  showScrollBtn.value = false
   nextTick(() => {
     rowVirtualizer.value.measure()
     scrollToBottom('auto')
@@ -1150,7 +1167,7 @@ function animateTitle(convId, targetTitle, tab) {
           </div>
 
           <!-- Scroll to bottom button -->
-          <button v-if="showScrollBtn" @click="userScrolledUp = false; showScrollBtn = false; scrollToBottom()"
+          <button v-if="showScrollBtn" @click="userScrolledUp = false; showScrollBtn = false; scrollToBottom('smooth')"
             class="absolute bottom-[180px] left-1/2 -translate-x-1/2 h-8 px-3 rounded-full flex items-center gap-1.5 text-[12px] font-medium z-10 transition-all duration-200 shadow-lg"
             :class="isDark
               ? 'bg-d2 border border-d4 text-wt-sub hover:bg-d3 hover:text-wt-main'
