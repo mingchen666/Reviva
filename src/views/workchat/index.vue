@@ -1,12 +1,15 @@
 <script setup>
 import { ref, computed, nextTick, onMounted, onBeforeUnmount, watch } from 'vue'
-import { useResizeObserver, useWindowSize } from '@vueuse/core'
+import { useVirtualizer } from '@tanstack/vue-virtual'
+import { storeToRefs } from 'pinia'
+import { useWindowSize } from '@vueuse/core'
 import { useAppStore } from '@/stores/app'
 import { useConversationsStore } from '@/stores/conversations'
 import { useAgentsStore } from '@/stores/agents'
 import { useWikiStore } from '@/stores/wiki'
 import { useSettingsStore } from '@/stores/settings'
 import { useUserStore } from '@/stores/user'
+import { useWorkchatStore } from '@/stores/workchat'
 import { AgentRuntime } from '@/agents/AgentRuntime'
 import { normalizeFilePath } from '@/utils/fileUrl'
 import { readableGenerationContexts } from '@/utils/generationContext'
@@ -40,6 +43,8 @@ const agentsStore = useAgentsStore()
 const wikiStore = useWikiStore()
 const settingsStore = useSettingsStore()
 const userStore = useUserStore()
+const workchatStore = useWorkchatStore()
+const { ctxItems: globalCtxItems } = storeToRefs(workchatStore)
 const isDark = computed(() => appStore.isDark)
 const msg = useMessage()
 
@@ -88,20 +93,12 @@ watch(isStreaming, (streaming) => {
 const loadingOlder = ref(false)
 const showScrollBtn = ref(false)
 
-// Virtualized message list. Store still paginates messages; this keeps mounted DOM bounded.
+// Virtualized message list. Store still paginates messages; TanStack keeps mounted DOM bounded.
 const chatScrollRef = ref(null)
-const virtualListRef = ref(null)
-const virtualScrollTop = ref(0)
-const virtualViewportHeight = ref(0)
-const virtualListTop = ref(0)
-const messageHeights = ref({})
 const MESSAGE_GAP = 20
-const VIRTUAL_OVERSCAN = 900
+const VIRTUAL_OVERSCAN = 8
 const EMPTY_STREAM_OBJECT = Object.freeze({})
 const EMPTY_STREAM_ARRAY = Object.freeze([])
-let virtualViewportFrame = 0
-let messageResizeObserver = null
-const observedMessageRows = new Map()
 
 const pendingAuthRequestsByMessageId = computed(() => {
   const map = {}
@@ -175,7 +172,6 @@ function findBuiltinAgentByEnglishName(englishName, fallbackIds = []) {
   ))
 }
 
-const globalCtxItems = ref([])
 const currentCtxItems = computed(() => globalCtxItems.value)
 const selectedWikiIds = ref([])
 const availableWikis = computed(() => wikiStore.wikis || [])
@@ -227,9 +223,16 @@ const hasOlderMessages = computed(() => currentConvId.value && !convStore.allMsg
 
 // Smart scroll
 let userScrolledUp = false
+let suppressScrollEventsUntil = 0
+function shouldIgnoreScrollEvent() {
+  return Date.now() < suppressScrollEventsUntil
+}
+function markProgrammaticScroll(behavior = 'auto') {
+  suppressScrollEventsUntil = Date.now() + (behavior === 'smooth' ? 700 : 160)
+}
 function onChatScroll(e) {
+  if (shouldIgnoreScrollEvent()) return
   const el = e.target
-  updateVirtualViewport(el)
   const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 120
   userScrolledUp = !nearBottom
   showScrollBtn.value = !nearBottom && currentMessages.value.length > 0
@@ -254,114 +257,61 @@ function pendingAuthRequestsForMessage(messageId) {
   return pendingAuthRequestsByMessageId.value[messageId] || EMPTY_STREAM_ARRAY
 }
 
-const virtualRows = computed(() => {
-  const rows = []
-  let top = 0
-  const msgs = currentMessages.value
-  for (let i = 0; i < msgs.length; i++) {
-    const message = msgs[i]
-    const height = messageHeights.value[message.id] || estimateMessageHeight(message)
-    rows.push({ index: i, message, top, height })
-    top += height + (i === msgs.length - 1 ? 0 : MESSAGE_GAP)
-  }
-  return rows
-})
+const rowVirtualizer = useVirtualizer(computed(() => ({
+  count: currentMessages.value.length,
+  getScrollElement: () => chatScrollRef.value,
+  estimateSize: index => estimateMessageHeight(currentMessages.value[index]),
+  getItemKey: index => currentMessages.value[index]?.id || index,
+  overscan: VIRTUAL_OVERSCAN,
+  gap: MESSAGE_GAP,
+  scrollPaddingEnd: 160,
+  shouldAdjustScrollPositionOnItemSizeChange: item => {
+    const scrollOffset = chatScrollRef.value?.scrollTop || 0
+    return item.end <= scrollOffset + 1
+  },
+})))
 
-const totalVirtualHeight = computed(() => {
-  const rows = virtualRows.value
-  if (!rows.length) return 0
-  const last = rows[rows.length - 1]
-  return Math.max(1, last.top + last.height)
-})
+const totalVirtualHeight = computed(() => rowVirtualizer.value.getTotalSize())
 
-const visibleVirtualMessages = computed(() => {
-  const rows = virtualRows.value
-  if (!rows.length) return []
-  const localTop = Math.max(0, virtualScrollTop.value - virtualListTop.value)
-  const start = Math.max(0, localTop - VIRTUAL_OVERSCAN)
-  const end = localTop + virtualViewportHeight.value + VIRTUAL_OVERSCAN
-  const visible = []
-  for (const row of rows) {
-    const rowEnd = row.top + row.height
-    if (rowEnd < start) continue
-    if (row.top > end) break
-    visible.push(row)
-  }
-  return visible
-})
+const visibleVirtualMessages = computed(() => rowVirtualizer.value.getVirtualItems().map(item => ({
+  ...item,
+  message: currentMessages.value[item.index],
+})).filter(item => item.message))
 
-function updateVirtualViewport(el = chatScrollRef.value) {
-  if (!el) return
-  virtualScrollTop.value = el.scrollTop
-  virtualViewportHeight.value = el.clientHeight
-  virtualListTop.value = virtualListRef.value?.offsetTop || 0
+function measureVirtualMessageRow(el) {
+  if (el) rowVirtualizer.value.measureElement(el)
 }
 
-function queueVirtualViewportUpdate() {
-  if (virtualViewportFrame) return
-  virtualViewportFrame = requestAnimationFrame(() => {
-    virtualViewportFrame = 0
-    updateVirtualViewport()
+function findVirtualAnchor(el = chatScrollRef.value) {
+  if (!el) return null
+  const items = rowVirtualizer.value.getVirtualItems()
+  if (!items.length) return null
+  const first = items.find(item => item.start + item.size > el.scrollTop + 1) || items[0]
+  const message = currentMessages.value[first.index]
+  if (!message?.id) return null
+  return { id: message.id, offset: el.scrollTop - first.start }
+}
+
+function restoreVirtualAnchor(anchor, el = chatScrollRef.value) {
+  if (!el || !anchor?.id) return false
+  const index = currentMessages.value.findIndex(message => message.id === anchor.id)
+  if (index < 0) return false
+  rowVirtualizer.value.scrollToIndex(index, { align: 'start', behavior: 'auto' })
+  requestAnimationFrame(() => {
+    const item = rowVirtualizer.value.getVirtualItems().find(row => row.index === index)
+    if (item) el.scrollTop = Math.max(0, item.start + anchor.offset)
+  })
+  return true
+}
+
+let pendingMeasureFrame = 0
+function measureVisibleMessagesSoon() {
+  if (pendingMeasureFrame) return
+  pendingMeasureFrame = requestAnimationFrame(() => {
+    pendingMeasureFrame = 0
+    rowVirtualizer.value.measure()
   })
 }
-
-function ensureMessageResizeObserver() {
-  if (messageResizeObserver) return messageResizeObserver
-  messageResizeObserver = new ResizeObserver((entries) => {
-    const nextHeights = { ...messageHeights.value }
-    let changed = false
-    for (const entry of entries) {
-      const id = entry.target.dataset.messageId
-      if (!id) continue
-      const height = Math.ceil(entry.contentRect.height)
-      if (height > 0 && Math.abs((nextHeights[id] || 0) - height) > 1) {
-        nextHeights[id] = height
-        changed = true
-      }
-    }
-    if (!changed) return
-    messageHeights.value = nextHeights
-    queueVirtualViewportUpdate()
-    if (!userScrolledUp) requestAnimationFrame(() => scrollToBottom('auto'))
-  })
-  return messageResizeObserver
-}
-
-function observeVirtualMessageRow(el, messageId) {
-  if (!messageId) return
-  const prev = observedMessageRows.get(messageId)
-  if (prev === el) return
-  if (prev) messageResizeObserver?.unobserve(prev)
-  if (!el) {
-    observedMessageRows.delete(messageId)
-    return
-  }
-  const observer = ensureMessageResizeObserver()
-  el.dataset.messageId = messageId
-  observedMessageRows.set(messageId, el)
-  observer.observe(el)
-}
-
-function pruneMessageHeightCache() {
-  const ids = new Set(currentMessages.value.map(m => m.id))
-  const nextHeights = {}
-  for (const [id, height] of Object.entries(messageHeights.value)) {
-    if (ids.has(id)) nextHeights[id] = height
-  }
-  messageHeights.value = nextHeights
-}
-
-function resetVirtualMessages() {
-  observedMessageRows.clear()
-  messageResizeObserver?.disconnect()
-  messageResizeObserver = null
-  messageHeights.value = {}
-  virtualScrollTop.value = 0
-  virtualViewportHeight.value = 0
-  virtualListTop.value = 0
-}
-
-useResizeObserver(chatScrollRef, queueVirtualViewportUpdate)
 
 // Resize
 function onLeftResize(delta) { leftW.value = Math.min(380, Math.max(180, leftW.value + delta)) }
@@ -611,7 +561,7 @@ async function sendMessage(text) {
   userScrolledUp = false
   showScrollBtn.value = false
   await nextTick()
-  scrollToBottom()
+  scrollToBottom('auto')
   await agentRuntime.startChat({
     convId,
     userText: trimmed,
@@ -947,34 +897,33 @@ function handlePreviewFile(file) {
 }
 
 // Scroll
-function scrollToBottom(behavior = 'smooth') {
-  const el = chatScrollRef.value || document.getElementById('chat-scroll')
-  if (el) {
-    el.scrollTo({ top: el.scrollHeight, behavior })
-    updateVirtualViewport(el)
-    userScrolledUp = false
-    showScrollBtn.value = false
-  }
+let pendingScrollFrame = 0
+function scrollToBottom(behavior = 'auto') {
+  if (!chatScrollRef.value || !currentMessages.value.length) return
+  markProgrammaticScroll(behavior)
+  rowVirtualizer.value.scrollToIndex(currentMessages.value.length - 1, { align: 'end', behavior })
+  userScrolledUp = false
+  showScrollBtn.value = false
 }
 
-function scheduleScrollToBottom({ force = false, behavior = 'smooth' } = {}) {
+function scheduleScrollToBottom({ force = false, behavior = 'auto' } = {}) {
   if (!force && userScrolledUp) return
-  requestAnimationFrame(() => scrollToBottom(behavior))
+  if (pendingScrollFrame) return
+  pendingScrollFrame = requestAnimationFrame(() => {
+    pendingScrollFrame = 0
+    scrollToBottom(behavior)
+  })
 }
 
 // Load older messages with ScrollLoader
 async function loadOlderMessages() {
   loadingOlder.value = true
   const el = chatScrollRef.value || document.getElementById('chat-scroll')
-  const prevScrollHeight = el?.scrollHeight || 0
+  const anchor = findVirtualAnchor(el)
   await convStore.loadMoreMessages(currentConvId.value)
   await nextTick()
-  pruneMessageHeightCache()
-  updateVirtualViewport(el)
-  if (el) {
-    el.scrollTop = el.scrollHeight - prevScrollHeight + el.scrollTop
-    updateVirtualViewport(el)
-  }
+  rowVirtualizer.value.measure()
+  restoreVirtualAnchor(anchor, el)
   loadingOlder.value = false
 }
 
@@ -992,7 +941,7 @@ onMounted(() => {
   agentRuntime.registerListeners()
   wikiStore.loadWikis?.().catch(() => {})
   nextTick(() => {
-    updateVirtualViewport()
+    rowVirtualizer.value.measure()
     if (currentMessages.value.length) scrollToBottom('auto')
   })
 })
@@ -1004,8 +953,6 @@ watch(availableWikis, (items) => {
 
 onBeforeUnmount(() => {
   if (_liveTimer) { clearInterval(_liveTimer); _liveTimer = null }
-  if (virtualViewportFrame) cancelAnimationFrame(virtualViewportFrame)
-  messageResizeObserver?.disconnect()
 })
 
 // Smart auto-scroll during streaming
@@ -1021,22 +968,21 @@ watch(() => [
   Object.keys(currentStreamingState.value.subAgents).length,
   currentStreamingState.value.todos.length,
 ], () => {
-  nextTick(queueVirtualViewportUpdate)
+  nextTick(measureVisibleMessagesSoon)
   scheduleScrollToBottom()
 })
 
-watch(currentConvId, (newId, oldId) => {
-  resetVirtualMessages()
+watch(currentConvId, () => {
   userScrolledUp = false
+  showScrollBtn.value = false
   nextTick(() => {
-    updateVirtualViewport()
+    rowVirtualizer.value.measure()
     scrollToBottom('auto')
   })
 })
 
 watch(() => currentMessages.value.map(m => m.id).join('|'), () => {
-  pruneMessageHeightCache()
-  nextTick(queueVirtualViewportUpdate)
+  nextTick(measureVisibleMessagesSoon)
 })
 
 // Typewriter title animation — triggered by titleAnimation signal from AgentRuntime
@@ -1181,14 +1127,14 @@ function animateTitle(convId, targetTitle, tab) {
               :is-dark="isDark"
               @load-more="loadOlderMessages" />
             <div v-if="currentMessages.length"
-              ref="virtualListRef"
               class="relative w-full"
               :style="{ height: totalVirtualHeight + 'px' }">
               <div v-for="item in visibleVirtualMessages"
-                :key="item.message.id"
-                :ref="el => observeVirtualMessageRow(el, item.message.id)"
+                :key="item.key"
+                :data-index="item.index"
+                :ref="measureVirtualMessageRow"
                 class="absolute left-0 right-0 will-change-transform"
-                :style="{ transform: `translateY(${item.top}px)` }">
+                :style="{ transform: `translateY(${item.start}px)` }">
                 <ChatMessage
                   :msg="item.message" :is-dark="isDark"
                   :chat-busy="isStreaming"
@@ -1221,7 +1167,7 @@ function animateTitle(convId, targetTitle, tab) {
           </div>
 
           <!-- Scroll to bottom button -->
-          <button v-if="showScrollBtn" @click="userScrolledUp = false; showScrollBtn = false; scrollToBottom()"
+          <button v-if="showScrollBtn" @click="userScrolledUp = false; showScrollBtn = false; scrollToBottom('smooth')"
             class="absolute bottom-[180px] left-1/2 -translate-x-1/2 h-8 px-3 rounded-full flex items-center gap-1.5 text-[12px] font-medium z-10 transition-all duration-200 shadow-lg"
             :class="isDark
               ? 'bg-d2 border border-d4 text-wt-sub hover:bg-d3 hover:text-wt-main'
