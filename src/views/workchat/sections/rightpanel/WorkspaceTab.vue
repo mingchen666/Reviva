@@ -57,6 +57,18 @@ function taskArtifacts(t) {
   return artifacts.value.filter((a) => ids.includes(a.id))
 }
 
+function clonePlain(value, fallback) {
+  try {
+    return JSON.parse(JSON.stringify(value ?? fallback))
+  } catch {
+    return fallback
+  }
+}
+
+function taskSnapshot(t) {
+  return clonePlain(t, {})
+}
+
 function onTaskProgress(d) {
   const idx = tasks.value.findIndex((t) => t.id === d.taskId)
   if (idx >= 0) {
@@ -184,7 +196,7 @@ async function deleteTaskResults(t) {
   if (!confirmed) return
   const results = []
   for (const artifact of linked) {
-    results.push(await recycleBin.trashArtifact(artifact.id, { title: t.name, task: t }))
+    results.push(await recycleBin.trashArtifact(artifact.id, { title: t.name, task: taskSnapshot(t) }))
   }
   const failed = results.filter((r) => !r.success)
   if (failed.length) {
