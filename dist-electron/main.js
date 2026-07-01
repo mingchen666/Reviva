@@ -98286,10 +98286,11 @@ const TEXT_CONTEXT_EXTS = /* @__PURE__ */ new Set([
   "sql"
 ]);
 const OFFICE_CONTEXT_EXTS = /* @__PURE__ */ new Set(["docx", "xlsx", "pptx"]);
+const PDF_CONTEXT_EXTS = /* @__PURE__ */ new Set(["pdf"]);
 function isReadableLocalContextItem(item) {
   if (!(item == null ? void 0 : item.path) || item.isDirectory || item.type === "folder" || item.type === "local_folder") return false;
   const ext = fileExt(item.path || item.name);
-  return TEXT_CONTEXT_EXTS.has(ext) || OFFICE_CONTEXT_EXTS.has(ext);
+  return TEXT_CONTEXT_EXTS.has(ext) || OFFICE_CONTEXT_EXTS.has(ext) || PDF_CONTEXT_EXTS.has(ext);
 }
 function fileExt(filePath) {
   return String(filePath || "").split(".").pop().toLowerCase();
@@ -98315,6 +98316,9 @@ class FileContextReader {
           if (content) blocks.push({ name: item.name || path__default.basename(item.path), content });
         } else if (OFFICE_CONTEXT_EXTS.has(ext)) {
           const content = await this._readOfficeFile(item.path, MAX_BYTES);
+          if (content) blocks.push({ name: item.name || path__default.basename(item.path), content });
+        } else if (PDF_CONTEXT_EXTS.has(ext)) {
+          const content = await this._readPdfFile(item.path, MAX_BYTES);
           if (content) blocks.push({ name: item.name || path__default.basename(item.path), content });
         }
       } catch (_) {
@@ -98351,6 +98355,30 @@ class FileContextReader {
   }
   async _invokeOfficeRead(input) {
     const raw = await officeRead.invoke(input);
+    const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
+    return (parsed == null ? void 0 : parsed.success) ? parsed : null;
+  }
+  async _readPdfFile(filePath, maxBytes) {
+    const parts = [];
+    const overview = await this._invokePdfRead({
+      path: filePath,
+      mode: "overview",
+      maxChars: maxBytes,
+      maxPages: 3
+    });
+    if (overview == null ? void 0 : overview.content) parts.push(overview.content);
+    const text = await this._invokePdfRead({
+      path: filePath,
+      mode: "text",
+      startPage: 1,
+      maxPages: 5,
+      maxChars: maxBytes
+    });
+    if ((text == null ? void 0 : text.content) && text.content !== (overview == null ? void 0 : overview.content)) parts.push(text.content);
+    return parts.join("\n\n").slice(0, maxBytes * 2);
+  }
+  async _invokePdfRead(input) {
+    const raw = await pdfRead.invoke(input);
     const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
     return (parsed == null ? void 0 : parsed.success) ? parsed : null;
   }

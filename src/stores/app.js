@@ -2,7 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 
 export const useAppStore = defineStore('app', () => {
-  const isDark = ref(true)
+  const isDark = ref(false)
   const leftPanelWidth = ref(260)
   const rightPanelVisible = ref(false)
   const rightPanelWidth = ref(320)
