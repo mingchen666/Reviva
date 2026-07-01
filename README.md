@@ -28,7 +28,7 @@
 
 <p>
   <img src="https://img.shields.io/badge/status-beta-FFB020" alt="Status Beta" />
-  <img src="https://img.shields.io/badge/version-0.0.1--beta-4A6CFF" alt="Version 0.0.1-beta" />
+  <img src="https://img.shields.io/badge/version-0.0.2--beta-4A6CFF" alt="Version 0.0.2-beta" />
   <img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-2E2E3A" alt="Platform" />
   <img src="https://img.shields.io/badge/Electron-30-47848F?logo=electron&logoColor=white" alt="Electron 30" />
   <img src="https://img.shields.io/badge/Vue-3-42B883?logo=vuedotjs&logoColor=white" alt="Vue 3" />
@@ -94,7 +94,7 @@ Reviva 把这些环节拢到一个桌面环境里：资料进来建知识库，A
 
 ## 项目状态
 
-当前版本 `0.0.1-beta`，功能与界面仍在快速迭代。主要面向 Windows 桌面端，macOS / Linux 未来支持。数据本地优先（SQLite + 授权工作目录），AI 支持多模型服务商、OpenAI-compatible、自定义 Agent。
+当前版本 `0.0.2-beta`，功能与界面仍在快速迭代。主要面向 Windows 桌面端，macOS / Linux 未来支持。数据本地优先（SQLite + 授权工作目录），AI 支持多模型服务商、OpenAI-compatible、自定义 Agent。
 
 本项目主要通过 Vibe Coding 方式开发，前后耗时两个多月。可能存在一些 bug，欢迎通过 [GitHub Issues](https://github.com/mingchen666/Reviva/issues) 反馈。
 
