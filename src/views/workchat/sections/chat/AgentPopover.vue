@@ -9,8 +9,14 @@ const props = defineProps({
 
 const emit = defineEmits(['select', 'close'])
 const searchQuery = ref('')
+
+const CREATION_CENTER_ENGLISH_NAMES = new Set([
+  'quiz-generator', 'ppt-generator', 'mindmap-generator', 'graph-generator',
+  'flashcard-generator', 'chart-generator', 'deep-researcher', 'lab-report-assistant',
+])
+
 const customAgents = computed(() => props.agents.filter(a => !a.builtin))
-const builtinAgents = computed(() => props.agents.filter(a => a.builtin))
+const builtinAgents = computed(() => props.agents.filter(a => a.builtin && !CREATION_CENTER_ENGLISH_NAMES.has(a.englishName || a.english_name || '')))
 
 const filteredCustom = computed(() => {
   if (!searchQuery.value) return customAgents.value

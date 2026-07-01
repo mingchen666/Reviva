@@ -18,7 +18,7 @@
   "thinking_intensity": "medium",
 
   "tools": ["file_list", "file_read", "file_write", "office_read", "office_write", "kb_search", "mcp:exa"],
-  "skills": ["error-analysis", "exam-prep", "knowledge-organize", "mock-exam", "practice-quiz", "review-plan", "math-explainer", "officecli-skills"],
+  "skills": ["review-plan", "knowledge-organize", "concept-explainer", "socratic-tutor", "feynman-learning-coach", "practice-quiz", "error-analysis", "mock-exam", "exam-prep", "flashcard-generator", "math-explainer", "officecli-skills"],
   "sub_agents": [],
   "permissions": {
     "fileRead": true,
