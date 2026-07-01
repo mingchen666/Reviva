@@ -246,7 +246,7 @@ function scrollTo(id) {
               Linux
             </span>
             <span class="hero__sep">|</span>
-            <span>v0.0.1beta</span>
+            <span>v0.0.2beta</span>
           </div>
         </div>
 

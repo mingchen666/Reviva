@@ -26,7 +26,7 @@ Desktop · Knowledge Q&A · Creation Workspace
 
 <p>
   <img src="https://img.shields.io/badge/status-beta-FFB020" alt="Status Beta" />
-  <img src="https://img.shields.io/badge/version-0.0.1--beta-4A6CFF" alt="Version 0.0.1-beta" />
+  <img src="https://img.shields.io/badge/version-0.0.2--beta-4A6CFF" alt="Version 0.0.2-beta" />
   <img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-2E2E3A" alt="Platform" />
   <img src="https://img.shields.io/badge/Electron-30-47848F?logo=electron&logoColor=white" alt="Electron 30" />
   <img src="https://img.shields.io/badge/Vue-3-42B883?logo=vuedotjs&logoColor=white" alt="Vue 3" />
@@ -92,7 +92,7 @@ Reviva pulls all of this into one desktop environment: drop in materials to buil
 
 ## Project Status
 
-Current version `0.0.1-beta`, features and UI still evolving rapidly. Primarily for Windows desktop; macOS / Linux support coming later. Data is local-first (SQLite + authorized workspace directory). AI supports multiple model providers, OpenAI-compatible APIs, and custom Agents.
+Current version `0.0.2-beta`, features and UI still evolving rapidly. Primarily for Windows desktop; macOS / Linux support coming later. Data is local-first (SQLite + authorized workspace directory). AI supports multiple model providers, OpenAI-compatible APIs, and custom Agents.
 
 This project was built primarily through Vibe Coding over about two months. There may be bugs — please report them via [GitHub Issues](https://github.com/mingchen666/Reviva/issues).
 
