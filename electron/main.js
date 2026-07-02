@@ -1,6 +1,6 @@
 // electron/main.js
 process.env['ELECTRON_DISABLE_SECURITY_WARNINGS'] = 'true'
-import { app, BrowserWindow, ipcMain, dialog, shell, globalShortcut, Tray, Menu, Notification, nativeImage, protocol, net } from 'electron'
+import { app, BrowserWindow, ipcMain, dialog, shell, globalShortcut, Tray, Menu, nativeImage, protocol, net } from 'electron'
 import { pathToFileURL } from 'node:url'
 import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
@@ -106,6 +106,49 @@ function focusMainWindow() {
   win.focus()
 }
 
+function isMainWindowActivelyVisible() {
+  try {
+    return !!(win && !win.isDestroyed() && win.isFocused() && win.isVisible() && !win.isMinimized())
+  } catch {
+    return false
+  }
+}
+
+function playNotificationSoundFromMain(soundName, { fallbackBeep = false } = {}) {
+  let sentToRenderer = false
+  try {
+    if (win && !win.isDestroyed()) {
+      win.webContents.send('play-sound', soundName || 'complete')
+      sentToRenderer = true
+    }
+  } catch (e) {
+    console.warn('[Notification] Failed to send play-sound:', e.message)
+  }
+
+  if (fallbackBeep && !isMainWindowActivelyVisible()) {
+    try { shell.beep() } catch { /* shell beep is best-effort */ }
+  }
+
+  return { ok: sentToRenderer || fallbackBeep, sentToRenderer }
+}
+
+function notifyAgentTaskSoundFromMain({ kind } = {}) {
+  try {
+    if (!dbService) return { ok: false, error: 'Database service is not ready' }
+    if (dbService.getSetting('notifyDND') === true) return { ok: true, skipped: 'dnd' }
+    if (kind === 'done' && dbService.getSetting('notifyTaskDone') !== true) return { ok: true, skipped: 'done-disabled' }
+    if (kind === 'failed' && dbService.getSetting('notifyTaskFailed') !== true) return { ok: true, skipped: 'failed-disabled' }
+    if (isMainWindowActivelyVisible()) return { ok: true, skipped: 'active-window' }
+    if (dbService.getSetting('notifySound') !== true) return { ok: true, skipped: 'sound-disabled' }
+
+    const soundName = kind === 'failed' ? 'error' : (dbService.getSetting('notifySoundType') || 'complete')
+    return playNotificationSoundFromMain(soundName, { fallbackBeep: true })
+  } catch (e) {
+    console.warn('[Notification] Agent task sound failed:', e.message)
+    return { ok: false, error: e.message }
+  }
+}
+
 function applySingleInstance(enabled, { quitOnFail = false } = {}) {
   if (!enabled) {
     if (singleInstanceLocked) app.releaseSingleInstanceLock()
@@ -173,6 +216,10 @@ function createWindow() {
       e.preventDefault()
       win.hide()
     }
+  })
+
+  win.on('closed', () => {
+    win = null
   })
 
   if (VITE_DEV_SERVER_URL) {
@@ -906,6 +953,12 @@ ipcMain.handle('window:maximize', () => {
 })
 ipcMain.handle('window:close', () => { win?.close() })
 ipcMain.handle('window:isMaximized', () => !!win?.isMaximized())
+ipcMain.handle('app:getWindowPresence', () => ({
+  ok: true,
+  isFocused: !!win?.isFocused(),
+  isVisible: !!win?.isVisible(),
+  isMinimized: !!win?.isMinimized(),
+}))
 
 // ── Skill directory IPC ──
 ipcMain.handle('skill:install', async (event, skillId, skillData) => {
@@ -1578,24 +1631,9 @@ ipcMain.handle('app:setSingleInstance', (_e, enabled) => {
   return applySingleInstance(enabled)
 })
 
-ipcMain.handle('app:notify', (_e, opts) => {
-  try {
-    if (Notification.isSupported()) {
-      const n = new Notification({ title: opts.title || APP_NAME, body: opts.body || '', silent: !opts.sound })
-      n.show()
-    }
-    return { ok: true }
-  } catch (e) {
-    return { ok: false, error: e.message }
-  }
-})
-
 ipcMain.handle('app:playSound', (_e, soundName) => {
   try {
-    if (!win) return { ok: false }
-    const soundFile = soundName || 'complete'
-    win.webContents.send('play-sound', soundFile)
-    return { ok: true }
+    return playNotificationSoundFromMain(soundName || 'complete', { fallbackBeep: true })
   } catch (e) {
     return { ok: false, error: e.message }
   }
@@ -1822,7 +1860,9 @@ app.whenReady().then(async () => {
     console.error('[McpService] Failed to install builtin MCP servers:', err.message)
   }
 
-  agentService = new AgentService(dbService, () => win, workDirService, mcpService)
+  agentService = new AgentService(dbService, () => win, workDirService, mcpService, {
+    notifyTask: notifyAgentTaskSoundFromMain,
+  })
   agentService.init()
 
   skillService = new SkillService(workDirService, {

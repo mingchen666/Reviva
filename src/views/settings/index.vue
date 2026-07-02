@@ -35,7 +35,7 @@ const sectionMap = {
   usage: { name: '用量统计', icon: 'ri-line-chart-line', color: 'emerald', hint: '查看 Token 消耗与成本' },
   preference: { name: '偏好配置', icon: 'ri-equalizer-line', color: 'agent', hint: '外观、风格、显示密度等界面偏好' },
   shortcuts: { name: '快捷键', icon: 'ri-keyboard-line', color: 'brand', hint: '全局与应用内键盘快捷键' },
-  notifications: { name: '通知与启动', icon: 'ri-notification-3-line', color: 'amber', hint: '桌面通知、托盘与开机自启' },
+  notifications: { name: '通知与启动', icon: 'ri-notification-3-line', color: 'amber', hint: '声音通知、托盘与开机自启' },
   data: { name: '数据与备份', icon: 'ri-database-2-line', color: 'emerald', hint: '导出导入配置、缓存清理与数据迁移' },
   about: { name: '系统版本', icon: 'ri-information-line', color: 'rose', hint: '版本、更新日志与系统信息' },
   author: { name: '关于作者', icon: 'ri-user-heart-line', color: 'brand', hint: '作者、开发意图与联系信息' },

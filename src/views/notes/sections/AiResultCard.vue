@@ -95,7 +95,7 @@ function doCopy() {
       <div v-else-if="isError" class="py-3">
         <p class="text-[12px] text-red-400">{{ errorMsg || 'AI 请求失败' }}</p>
       </div>
-      <div v-else-if="resultText" class="ai-result-md min-h-full px-2" :class="isDark ? 'ai-result-dark' : 'ai-result-light'">
+      <div v-else-if="resultText" class="markdown-content markdown-content--compact min-h-full px-2" :class="isDark ? 'markdown-content--dark' : 'markdown-content--light'">
         <div v-if="html" v-html="html" />
         <pre v-else-if="showPlainText" class="ai-result-plain">{{ resultText }}</pre>
       </div>
@@ -136,26 +136,5 @@ function doCopy() {
 .thin-scroll::-webkit-scrollbar-thumb { background: transparent; border-radius: 2px }
 .thin-scroll:hover::-webkit-scrollbar-thumb { background: rgba(108,138,255,0.25) }
 
-.ai-result-md { font-size: 12px; line-height: 1.65; word-break: break-word }
 .ai-result-plain { margin: 0; white-space: pre-wrap; font-family: inherit; font-size: 12px; line-height: 1.65 }
-.ai-result-md p { margin: 4px 0 }
-.ai-result-md h1, .ai-result-md h2, .ai-result-md h3 { font-weight: 600; margin: 8px 0 4px }
-.ai-result-md h1 { font-size: 16px }
-.ai-result-md h2 { font-size: 14px }
-.ai-result-md h3 { font-size: 13px }
-.ai-result-md ul, .ai-result-md ol { margin: 4px 0; padding-left: 18px }
-.ai-result-md li { margin: 2px 6px }
-.ai-result-md blockquote { margin: 6px 0; padding: 6px 12px; border-left: 2px solid #6C8AFF; border-radius: 0 4px 4px 0 }
-.ai-result-md code { font-family: Menlo,Consolas,Monaco,monospace; font-size: 12px; padding: 1px 4px; border-radius: 3px }
-.ai-result-dark { color: #e8e8ed }
-.ai-result-dark code { background: rgba(108,138,255,0.08) }
-.ai-result-dark blockquote { background: rgba(108,138,255,0.06) }
-.ai-result-light { color: #1a1a2e }
-.ai-result-light code { background: rgba(74,108,255,0.06) }
-.ai-result-light blockquote { background: rgba(74,108,255,0.04) }
-.ai-result-md :deep(.math-block) { margin: 8px 0; padding: 8px; border-radius: 4px }
-.ai-result-dark :deep(.math-block) { background: rgba(108,138,255,0.06) }
-.ai-result-light :deep(.math-block) { background: rgba(74,108,255,0.04) }
-.ai-result-md :deep(.katex) { font-size: 1em }
-.ai-result-md :deep(.math-err) { color: #ef4444; background: rgba(239,68,68,0.08); padding: 1px 4px; border-radius: 3px }
 </style>

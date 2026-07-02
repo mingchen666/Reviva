@@ -1397,7 +1397,7 @@ async function iterateDeepStream(agent, input, config, sendFn, channelPrefix, of
 
 
 export class AgentService {
-  constructor(dbService, getWin, workDirService, mcpService) {
+  constructor(dbService, getWin, workDirService, mcpService, notificationHandlers = {}) {
     this._db = dbService
     this._getWin = getWin
     this._workDirService = workDirService
@@ -1408,6 +1408,9 @@ export class AgentService {
     this._titleGenerator = new TitleGenerator()
     this._checkpointer = new MemorySaver()
     this._store = new InMemoryStore()
+    this._notifyTask = typeof notificationHandlers.notifyTask === 'function'
+      ? notificationHandlers.notifyTask
+      : null
 
     setToolProviderConfig({})
     setToolRunContext({})
@@ -1440,6 +1443,20 @@ export class AgentService {
     ipcMain.handle('chat:start', (_, req) => this.handleChatStart(req))
     ipcMain.handle('chat:cancel', (_, reqId) => this.handleChatCancel(reqId))
     ipcMain.handle('chat:authRespond', (_, requestId, approved) => this.handleAuthRespond(requestId, approved))
+  }
+
+  _notifyAgentTask(kind, request, runId, errorMessage = '') {
+    if (!this._notifyTask) return
+    try {
+      this._notifyTask({
+        kind,
+        runId,
+        conversationId: request?.conversationId || '',
+        errorMessage,
+      })
+    } catch (e) {
+      console.warn('[AgentService] notify task failed:', e.message)
+    }
   }
 
   setWikiService(wikiService) {
@@ -2448,6 +2465,13 @@ export class AgentService {
         cost: totalUsage.cost,
       })
 
+      this._notifyAgentTask(
+        recursionHit ? 'failed' : 'done',
+        request,
+        runId,
+        recursionHit ? '迭代次数已达上限，任务中途停止' : '',
+      )
+
       // Register artifacts for builtin 创作中心 agents
       const moduleConfig = this._builtinModules?.find(m => m.english_name === request.agentEnglishName)
       if (moduleConfig) {
@@ -2480,6 +2504,7 @@ export class AgentService {
           completed_at: new Date().toISOString(),
         })
         this._send('agent:runError', { runId, error: { message: classified.userMessage, code: classified.code } })
+        this._notifyAgentTask('failed', request, runId, classified.userMessage)
       }
 
     } finally {
@@ -2719,12 +2744,20 @@ export class AgentService {
         cost: allUsage.cost,
       })
 
+      this._notifyAgentTask(
+        result.recursionHit ? 'failed' : 'done',
+        request,
+        runId,
+        result.recursionHit ? '迭代次数已达上限，任务中途停止' : '',
+      )
+
       return { requestId, approved, resumed: true }
 
     } catch (err) {
       const classified = this._errorClassifier.classify(err)
       this._db.updateMsg(msgId, { status: 'error', error_message: err.message, error_code: classified.code })
       this._send('agent:runError', { runId, error: { message: classified.userMessage, code: classified.code } })
+      this._notifyAgentTask('failed', request, runId, classified.userMessage)
       this._activeRuns.delete(runId)
       return { requestId, approved, resumed: true, error: classified.code }
     } finally {

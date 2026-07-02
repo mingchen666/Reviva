@@ -429,7 +429,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick, true))
             ref="attachBtnRef"
             @click="togglePopover('attach')"
             title="附件"
-            class="toolbar-btn h-7 px-1.5 sm:px-2 rounded-lg flex items-center gap-1 text-[12px] transition-colors shrink-0"
+            class="toolbar-btn toolbar-btn-secondary h-7 px-1.5 sm:px-2 rounded-lg flex items-center gap-1 text-[12px] transition-colors shrink-0"
             :class="
               activePopover === 'attach'
                 ? isDark
@@ -440,7 +440,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick, true))
                   : 'text-lt-aux hover:text-lt-sub hover:bg-l4'
             ">
             <i class="ri-attachment-line text-[12px]" />
-            <span class="toolbar-label toolbar-label-optional hidden xs:inline">附件</span>
+            <span class="toolbar-label toolbar-label-optional">附件</span>
           </button>
 
           <!-- Agent button -->
@@ -448,7 +448,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick, true))
             ref="agentBtnRef"
             @click="togglePopover('agent')"
             :title="selectedAgent ? selectedAgent.name : 'Agent'"
-            class="toolbar-btn h-7 px-1.5 sm:px-2 rounded-lg flex items-center gap-1 text-[12px] transition-colors shrink-0"
+            class="toolbar-btn toolbar-btn-agent h-7 px-1.5 sm:px-2 rounded-lg flex items-center gap-1 text-[12px] transition-colors min-w-0"
             :class="
               selectedAgent || activePopover === 'agent'
                 ? isDark
@@ -459,7 +459,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick, true))
                   : 'text-lt-aux hover:text-lt-sub hover:bg-l4'
             ">
             <i :class="selectedAgent ? 'ri-sparkling-2-line' : 'ri-at-line'" class="text-[12px]" />
-            <span class="toolbar-label toolbar-label-compact truncate max-w-[80px]">{{ selectedAgent ? selectedAgent.name : 'Agent' }}</span>
+            <span class="toolbar-label toolbar-label-primary toolbar-label-agent truncate">{{ selectedAgent ? selectedAgent.name : 'Agent' }}</span>
           </button>
 
           <!-- Wiki context button -->
@@ -467,7 +467,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick, true))
             ref="wikiBtnRef"
             @click="togglePopover('wiki')"
             :title="selectedWikiNames.length ? selectedWikiNames.join('、') : 'Wiki'"
-            class="toolbar-btn h-7 px-1.5 sm:px-2 rounded-lg flex items-center gap-1 text-[12px] transition-colors shrink-0"
+            class="toolbar-btn toolbar-btn-wiki h-7 px-1.5 sm:px-2 rounded-lg flex items-center gap-1 text-[12px] transition-colors min-w-0"
             :class="
               selectedWikiCount || activePopover === 'wiki'
                 ? isDark
@@ -478,7 +478,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick, true))
                   : 'text-lt-aux hover:text-lt-sub hover:bg-l4'
             ">
             <i class="ri-book-2-line text-[12px]" />
-            <span class="toolbar-label toolbar-label-compact truncate max-w-[88px]">{{ wikiButtonLabel }}</span>
+            <span class="toolbar-label toolbar-label-primary toolbar-label-wiki truncate">{{ wikiButtonLabel }}</span>
           </button>
 
           <!-- Context settings button -->
@@ -486,7 +486,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick, true))
             ref="ctxBtnRef"
             @click="togglePopover('ctx')"
             :title="isCompressing ? '压缩中' : '上下文'"
-            class="toolbar-btn h-7 px-1.5 sm:px-2 rounded-lg flex items-center gap-1 text-[12px] transition-colors shrink-0"
+            class="toolbar-btn toolbar-btn-secondary h-7 px-1.5 sm:px-2 rounded-lg flex items-center gap-1 text-[12px] transition-colors shrink-0"
             :class="
               activePopover === 'ctx' || isCompressing
                 ? isDark
@@ -498,7 +498,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick, true))
             ">
             <i v-if="isCompressing" class="ri-loader-4-line text-[12px]" style="animation: spin 1s linear infinite" />
             <i v-else class="ri-text-wrap text-[12px]" />
-            <span class="toolbar-label toolbar-label-optional hidden xs:inline">{{ isCompressing ? '压缩中' : '上下文' }}</span>
+            <span class="toolbar-label toolbar-label-optional">{{ isCompressing ? '压缩中' : '上下文' }}</span>
           </button>
 
           <!-- Clear messages button -->
@@ -506,14 +506,14 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick, true))
             v-if="hasMessages && !isStreaming"
             @click="emit('clear-messages')"
             title="清空聊天记录"
-            class="toolbar-btn text-red h-7 px-1.5 sm:px-2 rounded-lg flex items-center gap-1 text-[12px] transition-colors shrink-0"
+            class="toolbar-btn toolbar-btn-secondary text-red h-7 px-1.5 sm:px-2 rounded-lg flex items-center gap-1 text-[12px] transition-colors shrink-0"
             :class="
               isDark
                 ? 'text-wt-aux hover:text-red-400 hover:bg-red-400/8'
                 : 'text-lt-aux hover:text-red-500 hover:bg-red-50'
             ">
             <i class="ri-delete-bin-7-line text-[12px]" />
-            <span class="toolbar-label toolbar-label-optional hidden xs:inline">清空</span>
+            <span class="toolbar-label toolbar-label-optional">清空</span>
           </button>
 
           <!-- Token counter -->
@@ -590,6 +590,14 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick, true))
   flex-basis: 0;
 }
 
+.chat-toolbar {
+  gap: 6px;
+}
+
+.chat-toolbar-left {
+  gap: 6px;
+}
+
 .chat-send-btn {
   flex: 0 0 auto;
 }
@@ -602,6 +610,46 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick, true))
 }
 
 .toolbar-label {
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.toolbar-label-primary {
+  display: inline-block;
+}
+
+.toolbar-btn-secondary {
+  flex: 0 0 auto;
+}
+
+.toolbar-btn-agent,
+.toolbar-btn-wiki {
+  flex-shrink: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.toolbar-btn-agent {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 216px;
+}
+
+.toolbar-btn-wiki {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 196px;
+}
+
+.toolbar-label-agent {
+  max-width: 180px;
+}
+
+.toolbar-label-wiki {
+  max-width: 160px;
+}
+
+.chat-token-counter {
   min-width: 0;
 }
 
@@ -618,18 +666,20 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick, true))
   transform: translateY(1px);
 }
 
-@container (max-width: 640px) {
-  .toolbar-label-optional {
-    display: none !important;
-  }
-
+@container (max-width: 760px) {
   .toolbar-btn {
     padding-left: 6px;
     padding-right: 6px;
   }
 
-  .toolbar-label-compact {
-    max-width: 58px;
+  .toolbar-btn-agent {
+    flex-basis: auto;
+    max-width: 176px;
+  }
+
+  .toolbar-btn-wiki {
+    flex-basis: auto;
+    max-width: 160px;
   }
 
   .chat-token-extra {
@@ -637,26 +687,123 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick, true))
   }
 }
 
-@container (max-width: 520px) {
-  .toolbar-label-compact {
+@container (max-width: 600px) {
+  .chat-token-counter {
     display: none !important;
   }
 
+  .toolbar-btn-agent {
+    flex-basis: auto;
+    max-width: 160px;
+  }
+
+  .toolbar-btn-wiki {
+    flex-basis: auto;
+    max-width: 148px;
+  }
+}
+
+@container (max-width: 560px) {
+  .chat-toolbar,
+  .chat-toolbar-left {
+    gap: 4px;
+  }
+
   .toolbar-btn {
+    padding-left: 6px;
+    padding-right: 6px;
+  }
+
+  .toolbar-btn-agent {
+    flex-basis: auto;
+    min-width: 0;
+    max-width: 136px;
+  }
+
+  .toolbar-btn-wiki {
+    flex-basis: auto;
+    min-width: 0;
+    max-width: 128px;
+  }
+
+  .toolbar-label-agent {
+    max-width: 100px;
+  }
+
+  .toolbar-label-wiki {
+    max-width: 92px;
+  }
+}
+
+@container (max-width: 480px) {
+  .toolbar-label-optional {
+    display: none !important;
+  }
+
+  .toolbar-btn-secondary {
     width: 28px;
+    min-width: 28px;
     padding-left: 0 !important;
     padding-right: 0 !important;
     justify-content: center;
   }
 
-  .chat-token-counter {
-    gap: 3px;
+  .toolbar-btn-agent {
+    flex-basis: auto;
+    min-width: 0;
+    max-width: 120px;
+  }
+
+  .toolbar-btn-wiki {
+    flex-basis: auto;
+    min-width: 0;
+    max-width: 108px;
+  }
+
+  .toolbar-label-agent {
+    max-width: 84px;
+  }
+
+  .toolbar-label-wiki {
+    max-width: 72px;
   }
 }
 
-@container (max-width: 440px) {
-  .chat-token-counter {
+@container (max-width: 400px) {
+  .toolbar-btn-agent {
+    flex-basis: auto;
+    min-width: 0;
+    max-width: 96px;
+  }
+
+  .toolbar-btn-wiki {
+    flex-basis: auto;
+    min-width: 0;
+    max-width: 88px;
+  }
+
+  .toolbar-label-agent {
+    max-width: 62px;
+  }
+
+  .toolbar-label-wiki {
+    max-width: 54px;
+  }
+}
+
+@container (max-width: 340px) {
+  .toolbar-label-wiki {
     display: none !important;
+  }
+
+  .toolbar-btn-wiki {
+    flex: 0 0 28px;
+    width: 28px;
+    min-width: 28px;
+    max-width: 28px;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    justify-content: center;
   }
 }
 

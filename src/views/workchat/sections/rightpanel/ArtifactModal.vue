@@ -304,8 +304,8 @@ const isFullscreenRenderer = computed(() => isMindmap.value || isGraph.value || 
         </div>
 
         <!-- Markdown file: render content inline -->
-        <div v-else-if="isMdFile && renderedFileContent" class="md-content rounded-lg p-4 text-[13px] leading-relaxed"
-          :class="isDark ? 'bg-d3' : 'bg-l3'" v-html="renderedFileContent" />
+        <div v-else-if="isMdFile && renderedFileContent" class="markdown-content markdown-content--compact rounded-lg p-4"
+          :class="isDark ? 'markdown-content--dark bg-d3' : 'markdown-content--light bg-l3'" v-html="renderedFileContent" />
 
         <!-- Text / JSON file: inline preview -->
         <pre v-else-if="isPlainTextFile && loadedFileContent"
@@ -402,8 +402,8 @@ const isFullscreenRenderer = computed(() => isMindmap.value || isGraph.value || 
         </div>
 
         <!-- Data type: Markdown rendered -->
-        <div v-else-if="isData && renderedContent" class="md-content rounded-lg p-4 text-[13px] leading-relaxed"
-          :class="isDark ? 'bg-d3' : 'bg-l3'" v-html="renderedContent" />
+        <div v-else-if="isData && renderedContent" class="markdown-content markdown-content--compact rounded-lg p-4"
+          :class="isDark ? 'markdown-content--dark bg-d3' : 'markdown-content--light bg-l3'" v-html="renderedContent" />
 
         <!-- Data type: JSON placeholder for unsupported types -->
         <div v-else-if="isRawJsonData" class="flex flex-col items-center gap-3 py-8">
@@ -449,14 +449,3 @@ const isFullscreenRenderer = computed(() => isMindmap.value || isGraph.value || 
     </div>
   </div>
 </template>
-
-<style scoped>
-.md-content h1, .md-content h2, .md-content h3, .md-content h4 { font-weight: 700; margin: 0.6em 0 0.3em; }
-.md-content h1 { font-size: 1.2em; }
-.md-content h2 { font-size: 1.1em; }
-.md-content p { margin: 0.4em 0; }
-.md-content ul, .md-content ol { padding-left: 1.5em; margin: 0.4em 0; }
-.md-content code { font-family: 'SF Mono', ui-monospace, monospace; font-size: 0.88em; padding: 2px 5px; border-radius: 4px; }
-.md-content pre { border-radius: 8px; padding: 12px 16px; margin: 0.6em 0; overflow-x: auto; }
-.md-content a { color: #6C8AFF; cursor: pointer; }
-</style>

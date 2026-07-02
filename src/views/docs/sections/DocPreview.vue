@@ -168,7 +168,7 @@ function showInFolder() {
 
       <!-- Markdown -->
       <div v-else-if="renderedMarkdown" class="p-6">
-        <div class="max-w-4xl mx-auto rounded-xl p-6 chat-markdown" :class="[isDark ? 'bg-d3 chat-markdown--dark' : 'bg-l3']"
+        <div class="max-w-4xl mx-auto rounded-xl p-6 markdown-content" :class="[isDark ? 'markdown-content--dark bg-d3' : 'markdown-content--light bg-l3']"
           v-html="renderedMarkdown" />
       </div>
 
@@ -204,7 +204,6 @@ function showInFolder() {
 </template>
 
 <style scoped lang="scss">
-@use '@/styles/chat-markdown.scss';
 @keyframes pulse { 0%, 100% { opacity: 1 } 50% { opacity: .5 } }
 .pulse { animation: pulse 1.5s ease-in-out infinite }
 .ctx-pill { font-size: 11px; border-radius: 6px; padding: 3px 8px; display: inline-flex; align-items: center; gap: 4px; transition: all .15s }

@@ -16,10 +16,10 @@ const SOUND_OPTIONS = [
 ]
 
 const notificationItems = [
-  { key: 'notifyTaskDone', label: '任务完成通知', desc: 'Agent 完成任务时发送桌面通知', icon: 'ri-checkbox-circle-line', color: 'emerald' },
-  { key: 'notifyTaskFailed', label: '任务失败通知', desc: 'Agent 任务执行失败时发送桌面通知', icon: 'ri-error-warning-line', color: 'red' },
-  { key: 'notifySound', label: '通知声音', desc: '收到通知时播放提示音', icon: 'ri-volume-up-line', color: 'blue' },
-  { key: 'notifyDND', label: '勿扰模式', desc: '暂停所有桌面通知和声音', icon: 'ri-moon-line', color: 'amber' },
+  { key: 'notifyTaskDone', label: '任务完成提示音', desc: 'Agent 后台完成任务时播放声音', icon: 'ri-checkbox-circle-line', color: 'emerald' },
+  { key: 'notifyTaskFailed', label: '任务失败提示音', desc: 'Agent 后台执行失败时播放声音', icon: 'ri-error-warning-line', color: 'red' },
+  { key: 'notifySound', label: '通知声音', desc: '允许任务提示音播放', icon: 'ri-volume-up-line', color: 'blue' },
+  { key: 'notifyDND', label: '勿扰模式', desc: '暂停所有任务提示音', icon: 'ri-moon-line', color: 'amber' },
 ]
 
 const startupItems = [
@@ -32,6 +32,7 @@ const startupItems = [
 function toggle(key) { ss.savePreference(key, !ss[key]) }
 
 function previewSound() {
+  if (ss.notifyDND || !ss.notifySound) return
   if (window.electronAPI?.playSound) {
     window.electronAPI.playSound(ss.notifySoundType || 'complete')
   }
@@ -64,12 +65,23 @@ function getIconColor(item, isDarkMode) {
 
 <template>
   <div class="max-w-6xl mx-auto px-2 lg:px-6 py-4 space-y-3">
-    <!-- Desktop Notifications Card -->
+    <!-- Sound notification settings -->
     <section class="rounded-xl overflow-hidden" :class="isDark ? 'bg-d2 border border-bdr' : 'bg-l2 border border-bdrF'">
       <div class="section-title flex items-center gap-2 px-4 pt-4 pb-2.5">
         <span class="w-[3px] h-3.5 rounded-full bg-amber-400 shrink-0" />
-        <i class="ri-notification-3-line text-[14px]" :class="isDark ? 'text-amber-400' : 'text-amber-500'" />
-        <span class="text-[13px] font-semibold" :class="isDark ? 'text-wt-main' : 'text-lt-main'">桌面通知</span>
+        <i class="ri-volume-up-line text-[14px]" :class="isDark ? 'text-amber-400' : 'text-amber-500'" />
+        <span class="text-[13px] font-semibold" :class="isDark ? 'text-wt-main' : 'text-lt-main'">声音通知</span>
+        <button
+          class="ml-auto h-7 px-2.5 rounded-lg flex items-center gap-1.5 text-[11px] transition-all"
+          :class="ss.notifyDND || !ss.notifySound
+            ? (isDark ? 'bg-d3 text-wt-dim cursor-not-allowed' : 'bg-l3 text-lt-aux cursor-not-allowed')
+            : (isDark ? 'bg-d3 text-wt-sub hover:bg-d4 hover:text-wt-main' : 'bg-l3 text-lt-sub hover:bg-l4 hover:text-lt-main')"
+          :disabled="ss.notifyDND || !ss.notifySound"
+          @click="previewSound"
+        >
+          <i class="ri-play-mini-fill text-[12px]" />
+          <span>测试声音</span>
+        </button>
       </div>
 
       <div class="px-4 pb-3.5 space-y-0.5">

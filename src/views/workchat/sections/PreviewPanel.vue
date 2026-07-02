@@ -106,8 +106,8 @@ const isVideo = computed(() => {
         <video controls :src="fileUrl" class="w-full rounded-lg" style="max-height:400px" />
       </div>
       <!-- Markdown/Text -->
-      <div v-if="renderedContent" class="md-content rounded-lg p-4 text-[13px] leading-relaxed"
-        :class="isDark ? 'bg-d3' : 'bg-l3'" v-html="renderedContent" />
+      <div v-if="renderedContent" class="markdown-content markdown-content--compact rounded-lg p-4"
+        :class="isDark ? 'markdown-content--dark bg-d3' : 'markdown-content--light bg-l3'" v-html="renderedContent" />
       <!-- Code fallback -->
       <div v-if="!isImage && !isAudio && !isVideo && !renderedContent && previewFile.content"
         class="rounded-lg p-4" :class="isDark ? 'bg-d3' : 'bg-l3'">
@@ -131,14 +131,3 @@ const isVideo = computed(() => {
     </div>
   </div>
 </template>
-
-<style scoped>
-.md-content h1, .md-content h2, .md-content h3, .md-content h4 { font-weight: 700; margin: 0.6em 0 0.3em; }
-.md-content h1 { font-size: 1.2em; }
-.md-content h2 { font-size: 1.1em; }
-.md-content p { margin: 0.4em 0; }
-.md-content ul, .md-content ol { padding-left: 1.5em; margin: 0.4em 0; }
-.md-content code { font-family: 'SF Mono', ui-monospace, monospace; font-size: 0.88em; padding: 2px 5px; border-radius: 4px; }
-.md-content pre { border-radius: 8px; padding: 12px 16px; margin: 0.6em 0; overflow-x: auto; }
-.md-content a { color: #6C8AFF; cursor: pointer; }
-</style>

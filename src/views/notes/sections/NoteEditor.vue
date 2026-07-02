@@ -839,7 +839,7 @@ onBeforeUnmount(() => {
           </div>
           <div class="flex-1 relative overflow-hidden min-h-0">
             <textarea ref="textareaRef" v-model="localContent"
-              class="absolute inset-0 p-5 text-[14px] leading-relaxed resize-none outline-none thin-scroll"
+              class="note-editor-textarea absolute inset-0 p-5 text-[14px] leading-relaxed resize-none border-0 outline-none thin-scroll whitespace-pre-wrap break-words"
               :class="isDark ? 'bg-transparent text-wt-sub placeholder:text-wt-dim' : 'bg-transparent text-lt-sub placeholder:text-lt-aux'"
               style="font-family: 'Menlo','Consolas','Monaco',monospace"
               placeholder="开始记录你的笔记... 输入 / 唤起 AI 助手"
@@ -863,7 +863,7 @@ onBeforeUnmount(() => {
             </div>
             <div class="flex-1 relative overflow-hidden min-h-0">
               <textarea ref="textareaRef" v-model="localContent"
-                class="absolute border-0 inset-0 p-4 text-[13px] leading-relaxed resize-none outline-none thin-scroll"
+                class="note-editor-textarea absolute border-0 inset-0 p-4 text-[13px] leading-relaxed resize-none outline-none thin-scroll whitespace-pre-wrap break-words"
                 :class="isDark ? 'bg-transparent text-wt-sub placeholder:text-wt-dim' : 'bg-transparent text-lt-sub placeholder:text-lt-aux'"
                 style="font-family: 'Menlo','Consolas','Monaco',monospace"
                 placeholder="开始书写... 输入 / 唤起 AI 助手"
@@ -961,6 +961,15 @@ onBeforeUnmount(() => {
 .thin-scroll::-webkit-scrollbar-track { background: transparent }
 .thin-scroll::-webkit-scrollbar-thumb { background: transparent; border-radius: 3px }
 .thin-scroll:hover::-webkit-scrollbar-thumb { background: rgba(108,138,255,0.25) }
+.note-editor-textarea,
+.note-editor-textarea:focus,
+.note-editor-textarea:focus-visible {
+  border: 0;
+  outline: none;
+  box-shadow: none;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
 .ai-result-slide-enter-active { transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) }
 .ai-result-slide-leave-active { transition: all 0.15s ease-in }
 .ai-result-slide-enter-from { opacity: 0; transform: translateY(-6px) scaleY(0.96); transform-origin: top }

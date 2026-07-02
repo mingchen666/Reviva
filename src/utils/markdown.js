@@ -128,20 +128,26 @@ export function parseFrontmatter(src) {
   return { meta, body }
 }
 
-const md = new MarkdownIt({
-  html: false,
-  linkify: true,
-  typographer: true,
-  highlight(str, lang) {
-    if (lang && hljs.getLanguage(lang)) {
-      try { return hljs.highlight(str, { language: lang }).value } catch {}
-    }
-    try { return hljs.highlightAuto(str).value } catch {}
-    return ''
-  },
-})
+export function createMarkdownRenderer(options = {}) {
+  const renderer = new MarkdownIt({
+    html: false,
+    linkify: true,
+    typographer: true,
+    ...options,
+    highlight(str, lang) {
+      if (lang && hljs.getLanguage(lang)) {
+        try { return hljs.highlight(str, { language: lang }).value } catch {}
+      }
+      try { return hljs.highlightAuto(str).value } catch {}
+      return ''
+    },
+  })
 
-md.use(katexPlugin)
-md.use(taskListPlugin)
+  renderer.use(katexPlugin)
+  renderer.use(taskListPlugin)
+  return renderer
+}
+
+const md = createMarkdownRenderer()
 
 export default md

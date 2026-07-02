@@ -99,7 +99,7 @@ function playSound(name) {
   }
 }
 
-function onPlaySound(_, name) {
+function onPlaySound(name) {
   playSound(name)
 }
 

@@ -121,7 +121,7 @@ watch(() => props.skill?.id, () => { fileTree.value = []; selectedPath.value = '
             <div v-if="fileLoading" class="flex items-center justify-center py-12">
               <i class="ri-loader-4-line text-[18px] animate-spin" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'" />
             </div>
-            <div v-else-if="selectedPath && isMarkdown && fileContent" class="max-w-5xl skill-md" :class="isDark ? 'skill-md--dark' : 'skill-md--light'">
+            <div v-else-if="selectedPath && isMarkdown && fileContent" class="max-w-5xl markdown-content markdown-content--compact" :class="isDark ? 'markdown-content--dark' : 'markdown-content--light'">
               <!-- Frontmatter card -->
               <div v-if="frontmatter" class="fm-card mb-5 rounded-xl p-4" :class="isDark ? 'bg-d0/80 border border-bdr' : 'bg-l2 border border-bdrF'">
                 <div class="flex items-center gap-1.5 mb-3">
@@ -138,7 +138,7 @@ watch(() => props.skill?.id, () => { fileTree.value = []; selectedPath.value = '
                 </div>
               </div>
               <!-- Markdown body -->
-              <div class="text-[13px] leading-relaxed" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'" v-html="renderedMd" />
+              <div v-html="renderedMd" />
             </div>
             <div v-else-if="selectedPath && !isMarkdown && fileContent">
               <pre class="code-block rounded-xl text-[12px] leading-[1.6] font-mono overflow-x-auto thin-scroll"
@@ -196,38 +196,4 @@ watch(() => props.skill?.id, () => { fileTree.value = []; selectedPath.value = '
 /* Frontmatter card */
 .fm-card { backdrop-filter: blur(4px); }
 
-/* Markdown rendered content — use :deep() for v-html children */
-.skill-md :deep(h1) { font-size: 20px; font-weight: 700; margin-bottom: 12px; margin-top: 4px; line-height: 1.4; letter-spacing: -0.01em; }
-.skill-md :deep(h2) { font-size: 16px; font-weight: 600; margin: 24px 0 10px; line-height: 1.4; }
-.skill-md :deep(h3) { font-size: 14px; font-weight: 600; margin: 20px 0 8px; line-height: 1.4; }
-.skill-md :deep(p) { margin-bottom: 12px; line-height: 1.75; }
-.skill-md :deep(ul), .skill-md :deep(ol) { margin-bottom: 12px; padding-left: 22px; }
-.skill-md :deep(li) { margin-bottom: 5px; line-height: 1.7; }
-.skill-md :deep(li) > :deep(ul), .skill-md :deep(li) > :deep(ol) { margin-top: 4px; margin-bottom: 4px; }
-.skill-md :deep(pre) { margin-bottom: 16px; padding: 16px 20px; border-radius: 12px; overflow-x: auto; }
-.skill-md :deep(pre code) { padding: 0; font-size: 12px; }
-.skill-md :deep(blockquote) { border-left: 3px solid #6C8AFF; padding: 8px 16px; margin: 14px 0; border-radius: 0 8px 8px 0; }
-.skill-md :deep(blockquote p) { margin-bottom: 4px; }
-.skill-md :deep(strong) { font-weight: 600; }
-.skill-md :deep(em) { font-style: italic; }
-.skill-md :deep(hr) { border: none; border-top: 1px solid; margin: 24px 0; opacity: 0.15; }
-.skill-md :deep(a) { color: #6C8AFF; text-decoration: none; transition: opacity 0.15s; }
-.skill-md :deep(a:hover) { text-decoration: underline; opacity: 0.8; }
-.skill-md :deep(table) { width: 100%; border-collapse: collapse; margin: 14px 0; }
-.skill-md :deep(th), .skill-md :deep(td) { padding: 8px 12px; text-align: left; font-size: 12px; }
-.skill-md :deep(img) { max-width: 100%; border-radius: 8px; margin: 12px 0; }
-
-/* Dark theme */
-.skill-md--dark :deep(code) { font-family: 'Menlo', 'Consolas', monospace; font-size: 12px; padding: 3px 7px; border-radius: 5px; background: rgba(255,255,255,0.06); color: #e2e8f0; }
-.skill-md--dark :deep(pre) { background: #0e0e12; border: 1px solid #353542; }
-.skill-md--dark :deep(blockquote) { background: rgba(108,138,255,0.06); color: #b0b8d0; }
-.skill-md--dark :deep(th) { background: rgba(255,255,255,0.04); border-bottom: 1px solid #353542; }
-.skill-md--dark :deep(td) { border-bottom: 1px solid rgba(255,255,255,0.06); }
-
-/* Light theme */
-.skill-md--light :deep(code) { font-family: 'Menlo', 'Consolas', monospace; font-size: 12px; padding: 3px 7px; border-radius: 5px; background: rgba(0,0,0,0.05); color: #1a1a2e; }
-.skill-md--light :deep(pre) { background: #f5f4f3; border: 1px solid #e2e1de; }
-.skill-md--light :deep(blockquote) { background: rgba(108,138,255,0.06); color: #555; }
-.skill-md--light :deep(th) { background: #f0efed; border-bottom: 1px solid #dddcd9; }
-.skill-md--light :deep(td) { border-bottom: 1px solid #ebeae8; }
 </style>

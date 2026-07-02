@@ -1,4 +1,4 @@
-
+@import './styles/markdown-content.css';
 
 /* @import url('markstream-vue/index.css') layer(components); */
 :root {
@@ -466,7 +466,7 @@ button{
 .item-actions { opacity: 0; transition: opacity .12s; }
 .item-row:hover .item-actions { opacity: 1; }
 
-/* Markdown rendered content */
+/* Chat message Markdown wrapper compatibility */
 .md-content .highlight-tag { background: rgba(108,138,255,.12); color: #6C8AFF; padding: 1px 4px; border-radius: 2px; font-size: 13px; }
 .md-content code:not(pre code) { background: rgba(108,138,255,.08); color: #6C8AFF; }
 .theme-dark .md-content pre { background: #1c1c26; }

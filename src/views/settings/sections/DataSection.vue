@@ -140,7 +140,7 @@ async function resetSettings() {
     maxIter: 100, maxTaskMin: 5, searchLimit: 10, fileOpLimit: 30,
     toolCallLimit: 0, modelCallLimit: 0,
     loopGuard: true, auditDays: 30, pathRedact: true,
-    notifyTaskDone: true, notifyTaskFailed: true, notifySound: true, notifyDND: false,
+    notifyTaskDone: false, notifyTaskFailed: false, notifySound: false, notifySoundType: 'complete', notifyDND: false,
     autoStart: false, minimizeToTray: true, trayIcon: true, singleInstance: true,
   }
   for (const [key, value] of Object.entries(defaults)) {

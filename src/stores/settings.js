@@ -89,7 +89,7 @@ function resolveOfficialLlmBaseUrl() {
 
 const DEFAULT_PROVIDERS = [
   {
-    id: 'reviva', name: 'Reviva 官方模型', desc: '官方托管模型服务，登录后按账户积分余额计费', region: '官方',
+    id: 'reviva', name: 'Reviva 官方服务', desc: '官方托管模型服务，登录后按账户积分余额计费', region: '官方',
     iconName: 'reviva', logoBg: 'linear-gradient(135deg, #4A6CFF 0%, #10B981 100%)', logoChar: 'M', builtin: true,
     official: true, recommended: true, managedKey: true,
     enabled: true, configured: false,
@@ -543,9 +543,9 @@ export const useSettingsStore = defineStore('settings', () => {
   const commandBlacklist = ref([...defaultCommandBlacklist])
 
   // ─── Notifications ───
-  const notifyTaskDone = ref(true)
-  const notifyTaskFailed = ref(true)
-  const notifySound = ref(true)
+  const notifyTaskDone = ref(false)
+  const notifyTaskFailed = ref(false)
+  const notifySound = ref(false)
   const notifySoundType = ref('complete')
   const notifyDND = ref(false)
   const autoStart = ref(false)
@@ -730,9 +730,10 @@ export const useSettingsStore = defineStore('settings', () => {
       commandBlacklist.value = all.commandBlacklist ?? [...defaultCommandBlacklist]
 
       // Notifications
-      notifyTaskDone.value = all.notifyTaskDone ?? true
-      notifyTaskFailed.value = all.notifyTaskFailed ?? true
-      notifySound.value = all.notifySound ?? true
+      notifyTaskDone.value = all.notifyTaskDone ?? false
+      notifyTaskFailed.value = all.notifyTaskFailed ?? false
+      notifySound.value = all.notifySound ?? false
+      notifySoundType.value = all.notifySoundType ?? 'complete'
       notifyDND.value = all.notifyDND ?? false
       autoStart.value = all.autoStart ?? false
       minimizeToTray.value = all.minimizeToTray ?? true

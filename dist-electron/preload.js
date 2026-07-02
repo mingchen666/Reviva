@@ -35,7 +35,7 @@ const api = {
   setMinimizeToTray: (enabled) => ipcRenderer.invoke("app:setMinimizeToTray", enabled),
   setTrayIcon: (enabled) => ipcRenderer.invoke("app:setTrayIcon", enabled),
   setSingleInstance: (enabled) => ipcRenderer.invoke("app:setSingleInstance", enabled),
-  notify: (opts) => ipcRenderer.invoke("app:notify", opts),
+  getWindowPresence: () => ipcRenderer.invoke("app:getWindowPresence"),
   playSound: (name) => ipcRenderer.invoke("app:playSound", name),
   // Window controls (frameless title bar on Win/Linux)
   window: {

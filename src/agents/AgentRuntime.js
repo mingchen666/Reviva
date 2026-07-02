@@ -8,6 +8,7 @@ import { genId, toPlain } from './utils'
 import { useUserStore } from '@/stores/user'
 import { BASE_URL } from '@/apis/http'
 import { parseModelRef } from '@/utils/modelRef'
+import { notifyAgentTaskDone, notifyAgentTaskFailed } from '@/services/taskNotifications'
 
 function _buildCloudContext(ctxItems) {
   try {
@@ -479,6 +480,22 @@ export class AgentRuntime {
         errorMessage: data.stopReason === 'recursion_limit' ? '迭代次数已达上限，任务中途停止' : undefined,
       })
       await this._autoGenerateTitle(convId, content)
+      if (status === 'completed') {
+        void notifyAgentTaskDone({
+          convStore: this.convStore,
+          settingsStore: this.settingsStore,
+          convId,
+          runId: data.runId,
+        })
+      } else if (data.stopReason === 'recursion_limit') {
+        void notifyAgentTaskFailed({
+          convStore: this.convStore,
+          settingsStore: this.settingsStore,
+          convId,
+          runId: data.runId,
+          errorMessage: '迭代次数已达上限，任务中途停止',
+        })
+      }
       this._clearRunState(data.runId)
     })
 
@@ -503,6 +520,13 @@ export class AgentRuntime {
         errorCode: data.error?.code || 'API_ERROR',
         latencyMs,
         usage: partialUsage,
+      })
+      void notifyAgentTaskFailed({
+        convStore: this.convStore,
+        settingsStore: this.settingsStore,
+        convId: ctx?.convId,
+        runId: data.runId,
+        errorMessage: typeof data.error?.message === 'string' ? data.error.message : (typeof data.error === 'string' ? data.error : '未知错误'),
       })
       this._clearRunState(data.runId)
     })

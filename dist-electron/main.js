@@ -10,7 +10,7 @@ var __privateAdd = (obj, member, value) => member.has(obj) ? __typeError("Cannot
 var __privateSet = (obj, member, value, setter) => (__accessCheck(obj, member, "write to private field"), setter ? setter.call(obj, value) : member.set(obj, value), value);
 var __privateMethod = (obj, member, method) => (__accessCheck(obj, member, "access private method"), method);
 var _a2, _b, _connections, _hooks, _ConnectionManager_instances, forkClient_fn, queryConnection_fn, createStreamableHTTPTransport_fn, createSSETransport_fn, createStdioTransport_fn, _c, _serverNameToTools, _mcpServers, _loadToolsOptions, _clientConnections, _config, _onConnectionError, _failedServers, _MultiServerMCPClient_instances, cleanupServerResources_fn, _d;
-import { app, shell, Menu, ipcMain, protocol, dialog, Notification, globalShortcut, BrowserWindow, net, nativeImage, Tray } from "electron";
+import { app, shell, Menu, ipcMain, protocol, dialog, globalShortcut, BrowserWindow, net, nativeImage, Tray } from "electron";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { createRequire } from "node:module";
 import * as path$4 from "node:path";
@@ -94860,7 +94860,7 @@ async function iterateDeepStream(agent, input, config2, sendFn, channelPrefix, o
   return { fullContent, thinkingContent, totalUsage, steps, iteration, recursionHit, todos: latestTodos };
 }
 class AgentService {
-  constructor(dbService2, getWin, workDirService2, mcpService2) {
+  constructor(dbService2, getWin, workDirService2, mcpService2, notificationHandlers = {}) {
     this._db = dbService2;
     this._getWin = getWin;
     this._workDirService = workDirService2;
@@ -94871,6 +94871,7 @@ class AgentService {
     this._titleGenerator = new TitleGenerator();
     this._checkpointer = new MemorySaver();
     this._store = new InMemoryStore();
+    this._notifyTask = typeof notificationHandlers.notifyTask === "function" ? notificationHandlers.notifyTask : null;
     setToolProviderConfig({});
     setToolRunContext({});
     this._activeRuns = /* @__PURE__ */ new Map();
@@ -94895,6 +94896,19 @@ class AgentService {
     ipcMain.handle("chat:start", (_, req) => this.handleChatStart(req));
     ipcMain.handle("chat:cancel", (_, reqId) => this.handleChatCancel(reqId));
     ipcMain.handle("chat:authRespond", (_, requestId, approved) => this.handleAuthRespond(requestId, approved));
+  }
+  _notifyAgentTask(kind, request, runId, errorMessage = "") {
+    if (!this._notifyTask) return;
+    try {
+      this._notifyTask({
+        kind,
+        runId,
+        conversationId: (request == null ? void 0 : request.conversationId) || "",
+        errorMessage
+      });
+    } catch (e2) {
+      console.warn("[AgentService] notify task failed:", e2.message);
+    }
   }
   setWikiService(wikiService2) {
     setWikiService(wikiService2);
@@ -95750,6 +95764,12 @@ ${endTag}
         latencyMs,
         cost: totalUsage.cost
       });
+      this._notifyAgentTask(
+        recursionHit ? "failed" : "done",
+        request,
+        runId,
+        recursionHit ? "迭代次数已达上限，任务中途停止" : ""
+      );
       const moduleConfig = (_h = this._builtinModules) == null ? void 0 : _h.find((m) => m.english_name === request.agentEnglishName);
       if (moduleConfig) {
         this._registerArtifacts({
@@ -95778,6 +95798,7 @@ ${endTag}
           completed_at: (/* @__PURE__ */ new Date()).toISOString()
         });
         this._send("agent:runError", { runId, error: { message: classified.userMessage, code: classified.code } });
+        this._notifyAgentTask("failed", request, runId, classified.userMessage);
       }
     } finally {
       this._activeRuns.delete(runId);
@@ -95996,11 +96017,18 @@ ${endTag}
         latencyMs,
         cost: allUsage.cost
       });
+      this._notifyAgentTask(
+        result.recursionHit ? "failed" : "done",
+        request,
+        runId,
+        result.recursionHit ? "迭代次数已达上限，任务中途停止" : ""
+      );
       return { requestId, approved, resumed: true };
     } catch (err2) {
       const classified = this._errorClassifier.classify(err2);
       this._db.updateMsg(msgId, { status: "error", error_message: err2.message, error_code: classified.code });
       this._send("agent:runError", { runId, error: { message: classified.userMessage, code: classified.code } });
+      this._notifyAgentTask("failed", request, runId, classified.userMessage);
       this._activeRuns.delete(runId);
       return { requestId, approved, resumed: true, error: classified.code };
     } finally {
@@ -120800,6 +120828,46 @@ function focusMainWindow() {
   if (win.isMinimized()) win.restore();
   win.focus();
 }
+function isMainWindowActivelyVisible() {
+  try {
+    return !!(win && !win.isDestroyed() && win.isFocused() && win.isVisible() && !win.isMinimized());
+  } catch {
+    return false;
+  }
+}
+function playNotificationSoundFromMain(soundName, { fallbackBeep = false } = {}) {
+  let sentToRenderer = false;
+  try {
+    if (win && !win.isDestroyed()) {
+      win.webContents.send("play-sound", soundName || "complete");
+      sentToRenderer = true;
+    }
+  } catch (e2) {
+    console.warn("[Notification] Failed to send play-sound:", e2.message);
+  }
+  if (fallbackBeep && !isMainWindowActivelyVisible()) {
+    try {
+      shell.beep();
+    } catch {
+    }
+  }
+  return { ok: sentToRenderer || fallbackBeep, sentToRenderer };
+}
+function notifyAgentTaskSoundFromMain({ kind } = {}) {
+  try {
+    if (!dbService) return { ok: false, error: "Database service is not ready" };
+    if (dbService.getSetting("notifyDND") === true) return { ok: true, skipped: "dnd" };
+    if (kind === "done" && dbService.getSetting("notifyTaskDone") !== true) return { ok: true, skipped: "done-disabled" };
+    if (kind === "failed" && dbService.getSetting("notifyTaskFailed") !== true) return { ok: true, skipped: "failed-disabled" };
+    if (isMainWindowActivelyVisible()) return { ok: true, skipped: "active-window" };
+    if (dbService.getSetting("notifySound") !== true) return { ok: true, skipped: "sound-disabled" };
+    const soundName = kind === "failed" ? "error" : dbService.getSetting("notifySoundType") || "complete";
+    return playNotificationSoundFromMain(soundName, { fallbackBeep: true });
+  } catch (e2) {
+    console.warn("[Notification] Agent task sound failed:", e2.message);
+    return { ok: false, error: e2.message };
+  }
+}
 function applySingleInstance(enabled, { quitOnFail = false } = {}) {
   if (!enabled) {
     if (singleInstanceLocked) app.releaseSingleInstanceLock();
@@ -120860,6 +120928,9 @@ function createWindow() {
       e2.preventDefault();
       win.hide();
     }
+  });
+  win.on("closed", () => {
+    win = null;
   });
   if (VITE_DEV_SERVER_URL) {
     const loadDevServer = (retries = 10) => {
@@ -121532,6 +121603,12 @@ ipcMain.handle("window:close", () => {
   win == null ? void 0 : win.close();
 });
 ipcMain.handle("window:isMaximized", () => !!(win == null ? void 0 : win.isMaximized()));
+ipcMain.handle("app:getWindowPresence", () => ({
+  ok: true,
+  isFocused: !!(win == null ? void 0 : win.isFocused()),
+  isVisible: !!(win == null ? void 0 : win.isVisible()),
+  isMinimized: !!(win == null ? void 0 : win.isMinimized())
+}));
 ipcMain.handle("skill:install", async (event, skillId, skillData) => {
   try {
     return await skillService.installSkill(skillId, skillData);
@@ -122213,23 +122290,9 @@ ipcMain.handle("app:setTrayIcon", (_e, enabled) => {
 ipcMain.handle("app:setSingleInstance", (_e, enabled) => {
   return applySingleInstance(enabled);
 });
-ipcMain.handle("app:notify", (_e, opts) => {
-  try {
-    if (Notification.isSupported()) {
-      const n3 = new Notification({ title: opts.title || APP_NAME, body: opts.body || "", silent: !opts.sound });
-      n3.show();
-    }
-    return { ok: true };
-  } catch (e2) {
-    return { ok: false, error: e2.message };
-  }
-});
 ipcMain.handle("app:playSound", (_e, soundName) => {
   try {
-    if (!win) return { ok: false };
-    const soundFile = soundName || "complete";
-    win.webContents.send("play-sound", soundFile);
-    return { ok: true };
+    return playNotificationSoundFromMain(soundName || "complete", { fallbackBeep: true });
   } catch (e2) {
     return { ok: false, error: e2.message };
   }
@@ -122416,7 +122479,9 @@ app.whenReady().then(async () => {
   } catch (err2) {
     console.error("[McpService] Failed to install builtin MCP servers:", err2.message);
   }
-  agentService = new AgentService(dbService, () => win, workDirService, mcpService);
+  agentService = new AgentService(dbService, () => win, workDirService, mcpService, {
+    notifyTask: notifyAgentTaskSoundFromMain
+  });
   agentService.init();
   skillService = new SkillService(workDirService, {
     builtinSkillsDir: app.isPackaged ? path__default.join(process.resourcesPath, "builtin-assets", "skills") : path__default.join(process.env.APP_ROOT, "electron", "builtin-assets", "skills")
