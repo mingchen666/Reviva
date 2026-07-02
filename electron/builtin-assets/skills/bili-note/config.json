@@ -1,0 +1,14 @@
+{
+  "id": "bili-note",
+  "name": "B 站视频笔记",
+  "description": "提取 Bilibili 视频、图文、动态和评论，整理为可检索、可引用的 Markdown 学习笔记；优先使用公开字幕和图文正文，必要时才使用网页 AI 字幕或本地 ASR 兜底。",
+  "icon": "ri-bilibili-line",
+  "color": "#00A1D6",
+  "category": "学习",
+  "source": "platform",
+  "allowedTools": ["exec_command", "file_read", "file_write"],
+  "outputTypes": ["Markdown", "JSON"],
+  "version": "1.0",
+  "author": "Rimagination",
+  "license": "MIT"
+}

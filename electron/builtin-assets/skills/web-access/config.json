@@ -1,0 +1,14 @@
+{
+  "id": "web-access",
+  "name": "web-access",
+  "description": "通过Chrome/Edge CDP 代理进行搜索、网页访问、登录后操作、动态页面操作、截图和浏览器上下文检索；适合需要真实浏览器环境的联网任务。触发场景：用户要求搜索信息、查看网页内容、访问需要登录的网站、操作网页界面、抓取社交媒体内容（小红书、微博、推特等）、读取动态渲染页面、以及任何需要真实浏览器环境的网络任务。",
+  "icon": "ri-global-line",
+  "color": "#0EA5E9",
+  "category": "工具",
+  "source": "platform",
+  "allowedTools": ["exec_command", "file_read", "file_write"],
+  "outputTypes": ["Markdown", "JSON", "PNG"],
+  "version": "2.5.3",
+  "author": "eze-is",
+  "license": "MIT"
+}

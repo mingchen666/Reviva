@@ -1,0 +1,14 @@
+{
+  "id": "classroom-management-differentiation-skill",
+  "name": "课堂管理与分层支持",
+  "description": "为教师设计课堂管理、分组、过渡、注意力维持、学情差异、分层教学、培优补差、特殊支持、课堂风险预案和线上/线下课堂执行方案。",
+  "icon": "ri-user-settings-line",
+  "color": "#F59E0B",
+  "category": "教学",
+  "source": "platform",
+  "allowedTools": ["file_read", "file_write", "office_read"],
+  "outputTypes": ["Markdown", "DOCX"],
+  "version": "1.0",
+  "author": "reviva",
+  "license": "MIT"
+}

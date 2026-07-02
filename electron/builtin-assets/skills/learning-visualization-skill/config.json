@@ -1,0 +1,14 @@
+{
+  "id": "learning-visualization-skill",
+  "name": "学习可视化",
+  "description": "将知识点、流程、概念关系、算法原理或复习内容转换为单文件 HTML 可视化讲解页面，支持流程图、概念图、原理动画、对比图、时间线和 AI/ML 模型演示。",
+  "icon": "ri-flow-chart",
+  "color": "#14B8A6",
+  "category": "学习",
+  "source": "platform",
+  "allowedTools": ["file_read", "file_write"],
+  "outputTypes": ["HTML", "Markdown"],
+  "version": "1.0",
+  "author": "reviva",
+  "license": "MIT"
+}

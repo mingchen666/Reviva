@@ -1,0 +1,14 @@
+{
+  "id": "technical-diagram-skill",
+  "name": "技术图表生成",
+  "description": "基于 dynamic-archify 的专业技术图表能力，可生成架构图、工作流图、时序图、数据流图、生命周期/状态机图，并输出带主题切换和导出功能的单文件 HTML。",
+  "icon": "ri-node-tree",
+  "color": "#0F766E",
+  "category": "开发",
+  "source": "platform",
+  "allowedTools": ["file_read", "file_write", "exec_command"],
+  "outputTypes": ["HTML", "SVG", "PNG", "JPEG", "WebP", "GIF", "WebM", "Markdown"],
+  "version": "2.6",
+  "author": "tt-a1i / reviva",
+  "license": "MIT"
+}

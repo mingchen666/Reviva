@@ -13,7 +13,9 @@ node_modules/
 dist
 dist-ssr
 *.local
-
+*.update.partial
+*.blockmap
+latest.yml
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

@@ -1,0 +1,14 @@
+{
+  "id": "teaching-document-writing-skill",
+  "name": "教学文档撰写",
+  "description": "为教师撰写和改写说课稿、教研总结、听评课记录、教学反思、培训方案、家校沟通、工作计划、工作总结和教学案例等正式文档。",
+  "icon": "ri-file-edit-line",
+  "color": "#0EA5E9",
+  "category": "教学",
+  "source": "platform",
+  "allowedTools": ["file_read", "file_write", "office_read"],
+  "outputTypes": ["Markdown", "DOCX", "PPTX"],
+  "version": "1.0",
+  "author": "reviva",
+  "license": "MIT"
+}

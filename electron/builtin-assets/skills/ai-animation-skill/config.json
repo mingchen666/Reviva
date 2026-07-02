@@ -1,0 +1,14 @@
+{
+  "id": "ai-animation-skill",
+  "name": "AI 演示动画",
+  "description": "将科普、技术或教学内容转换为 PPT 风格 HTML 演示动画，也可基于动画模板重构流程图和平面 UI 演示页面。",
+  "icon": "ri-slideshow-3-line",
+  "color": "#0EA5E9",
+  "category": "创作",
+  "source": "platform",
+  "allowedTools": ["file_read", "file_write"],
+  "outputTypes": ["HTML", "Markdown"],
+  "version": "1.0",
+  "author": "Unclecheng-li",
+  "license": "MIT"
+}

@@ -1,0 +1,14 @@
+{
+  "id": "network-protocol-viz",
+  "name": "网络协议可视化",
+  "description": "生成用于学习、复习和教学的网络协议单文件 HTML 动画，覆盖 TCP/IP、IPv4、以太网帧、交换机、路由、DHCP、HTTPS/TLS、抓包和防火墙过滤等场景。",
+  "icon": "ri-router-line",
+  "color": "#22C55E",
+  "category": "学习",
+  "source": "platform",
+  "allowedTools": ["file_read", "file_write"],
+  "outputTypes": ["HTML", "Markdown"],
+  "version": "1.0",
+  "author": "reviva",
+  "license": "MIT"
+}

@@ -1,0 +1,14 @@
+{
+  "id": "teaching-resource-research-skill",
+  "name": "教学资料检索",
+  "description": "为教师联网检索和筛选课程标准、教材背景、公开资料、案例、时事素材、教学资源和引用依据，输出可用于备课、课件、学案和教研文档的来源清单与素材建议。",
+  "icon": "ri-search-eye-line",
+  "color": "#14B8A6",
+  "category": "教学",
+  "source": "platform",
+  "allowedTools": ["file_read", "file_write", "office_read", "kb_search", "web_search_bing"],
+  "outputTypes": ["Markdown", "DOCX"],
+  "version": "1.0",
+  "author": "reviva",
+  "license": "MIT"
+}

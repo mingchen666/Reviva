@@ -1,0 +1,14 @@
+{
+  "id": "pptx-deck-skill",
+  "name": "PPTX 原生演示设计",
+  "description": "面向 OfficeCLI 原生 PPTX 的模板设计层，覆盖教育学习、办公汇报、研究总结和自适应创作场景，指导 Agent 使用 office_write 生成可编辑且视觉稳定的演示文稿。",
+  "icon": "ri-slideshow-2-line",
+  "color": "#2563EB",
+  "category": "办公",
+  "source": "platform",
+  "allowedTools": ["office_read", "office_write", "file_read"],
+  "outputTypes": ["PPTX"],
+  "version": "1.0",
+  "author": "reviva",
+  "license": "AGPL-3.0"
+}

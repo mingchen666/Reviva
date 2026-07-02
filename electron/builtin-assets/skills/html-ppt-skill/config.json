@@ -1,0 +1,14 @@
+{
+  "id": "html-ppt-skill",
+  "name": "HTML PPT 工作室",
+  "description": "基于主题、布局、动画和完整 deck 模板生成专业静态 HTML 演示文稿，支持键盘导航、演讲者模式、逐字稿和多种场景模板。",
+  "icon": "ri-slideshow-line",
+  "color": "#7C3AED",
+  "category": "创作",
+  "source": "platform",
+  "allowedTools": ["file_read", "file_write"],
+  "outputTypes": ["HTML", "PNG", "Markdown"],
+  "version": "1.0",
+  "author": "lewislulu",
+  "license": "MIT"
+}

@@ -1,0 +1,14 @@
+{
+  "id": "lesson-plan-skill",
+  "name": "教师教案设计",
+  "description": "为教师生成可直接备课使用的教案与教学设计，覆盖不同年级、学科、学情、公开课/赛课、说课稿、单元设计、文档输出和教学反思。",
+  "icon": "ri-file-list-3-line",
+  "color": "#2563EB",
+  "category": "教学",
+  "source": "platform",
+  "allowedTools": ["file_read", "file_write", "office_read"],
+  "outputTypes": ["Markdown", "DOCX", "PPTX"],
+  "version": "1.1",
+  "author": "reviva",
+  "license": "MIT"
+}

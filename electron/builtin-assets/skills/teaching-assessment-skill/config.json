@@ -1,0 +1,14 @@
+{
+  "id": "teaching-assessment-skill",
+  "name": "教学评价设计",
+  "description": "为教师设计目标对齐的评价量规、课堂评价、作业批改标准、形成性评价、出门条、课堂观察表、学习诊断和教学反思。",
+  "icon": "ri-check-double-line",
+  "color": "#8B5CF6",
+  "category": "教学",
+  "source": "platform",
+  "allowedTools": ["file_read", "file_write", "office_read"],
+  "outputTypes": ["Markdown", "DOCX", "XLSX"],
+  "version": "1.1",
+  "author": "reviva",
+  "license": "MIT"
+}

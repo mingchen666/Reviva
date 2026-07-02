@@ -1,0 +1,14 @@
+{
+  "id": "note-skill",
+  "name": "学霸笔记",
+  "description": "将技术内容、漏洞分析、知识总结或学习材料转换为手写笔记本风格的单文件 HTML 学习笔记。",
+  "icon": "ri-sticky-note-line",
+  "color": "#F59E0B",
+  "category": "学习",
+  "source": "platform",
+  "allowedTools": ["file_read", "file_write"],
+  "outputTypes": ["HTML", "Markdown"],
+  "version": "1.0",
+  "author": "Unclecheng-li",
+  "license": "MIT"
+}

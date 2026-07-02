@@ -1,0 +1,14 @@
+{
+  "id": "worksheet-skill",
+  "name": "学案练习设计",
+  "description": "为教师生成学案、导学案、任务单、课堂练习、课后作业、分层作业、错题再练、学生版/教师版答案解析和可打印文档。",
+  "icon": "ri-survey-line",
+  "color": "#10B981",
+  "category": "教学",
+  "source": "platform",
+  "allowedTools": ["file_read", "file_write", "office_read"],
+  "outputTypes": ["Markdown", "DOCX", "PDF"],
+  "version": "1.1",
+  "author": "reviva",
+  "license": "MIT"
+}

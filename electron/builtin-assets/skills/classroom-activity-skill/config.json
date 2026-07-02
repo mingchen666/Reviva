@@ -1,0 +1,14 @@
+{
+  "id": "classroom-activity-skill",
+  "name": "课堂活动设计",
+  "description": "为教师设计服务教学目标的课堂导入、探究任务、小组讨论、提问链、实验活动、互动游戏、课堂检测、公开课互动和出门条。",
+  "icon": "ri-group-line",
+  "color": "#F97316",
+  "category": "教学",
+  "source": "platform",
+  "allowedTools": ["file_read", "file_write"],
+  "outputTypes": ["Markdown", "DOCX"],
+  "version": "1.1",
+  "author": "reviva",
+  "license": "MIT"
+}

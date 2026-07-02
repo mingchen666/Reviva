@@ -1,0 +1,32 @@
+{
+  "id": "presentation-agent",
+  "name": "演示制作助手",
+  "english_name": "Presentation Agent",
+  "description": "面向普通对话的演示制作 Agent，可根据资料生成 HTML 演示网页、PPT 风格动画页面和原生 PPTX 演示文稿。",
+  "icon": "ri-slideshow-3-line",
+  "color": "#0EA5E9",
+
+  "architecture": "plan_exec",
+  "model": "",
+  "temperature": 0.45,
+  "top_p": 1.0,
+  "max_tokens": 16000,
+  "max_iterations": 100,
+  "tool_call_limit": 0,
+  "model_call_limit": 0,
+  "thinking_mode": "auto",
+  "thinking_intensity": "medium",
+
+  "tools": ["file_list", "file_read", "file_write", "office_read", "office_write", "kb_search", "web_search_bing"],
+  "skills": ["html-ppt-skill", "ai-animation-skill", "pptx-deck-skill", "technical-diagram-skill", "officecli-skills"],
+  "sub_agents": [],
+  "permissions": {
+    "fileRead": true,
+    "fileWrite": true,
+    "fileDelete": false,
+    "fileRename": false,
+    "execCommand": false,
+    "webSearch": true,
+    "kbSearch": true
+  }
+}
