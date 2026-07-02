@@ -15,7 +15,7 @@ function initAutoUpdater(mainWindow) {
 
   // 配置
   autoUpdater.autoDownload = false // 不自动下载，先提示用户
-  autoUpdater.autoInstallOnAppQuit = true // 退出时自动安装
+  autoUpdater.autoInstallOnAppQuit = false // 只在用户明确点击“重启并安装”时安装
 
   // 事件监听
   autoUpdater.on('checking-for-update', () => {

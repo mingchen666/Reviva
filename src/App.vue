@@ -12,9 +12,9 @@ import { computed, ref, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import CommandPalette from '@/components/CommandPalette.vue'
-import MsModal from '@/components/MsModal/MsModal.vue'
 import StartupGuideModal from '@/components/onboarding/StartupGuideModal.vue'
 import BetaExpiredScreen from '@/components/BetaExpiredScreen.vue'
+import AppUpdateModal from '@/components/update/AppUpdateModal.vue'
 import { useAppShortcuts } from '@/composables/useAppShortcuts'
 import { useAutoUpdate } from '@/composables/useAutoUpdate'
 import { BETA_RELEASE, isBetaExpired } from '@/config/beta'
@@ -27,7 +27,7 @@ const commandPaletteVisible = ref(false)
 const showStartupGuide = ref(false)
 const showUpdateModal = ref(false)
 const isDark = computed(() => appStore.isDark)
-const { updateInfo, downloading, downloadProgress, downloaded, checkForUpdate, downloadUpdate, installUpdate } =
+const { checking, updateInfo, downloading, downloadProgress, downloaded, error, checkForUpdate, downloadUpdate, installUpdate } =
   useAutoUpdate()
 const betaNow = ref(new Date())
 const betaExpired = computed(() => isBetaExpired(betaNow.value))
@@ -35,6 +35,10 @@ let betaTimer = null
 
 // Show modal when update is available
 watch(updateInfo, (v) => {
+  if (v) showUpdateModal.value = true
+})
+
+watch(error, (v) => {
   if (v) showUpdateModal.value = true
 })
 
@@ -155,86 +159,18 @@ onBeforeUnmount(() => {
       <CommandPalette :visible="commandPaletteVisible" @close="commandPaletteVisible = false" />
       <StartupGuideModal v-model:show="showStartupGuide" />
 
-      <!-- Update notification -->
-      <MsModal v-model:show="showUpdateModal" :width="380" :show-footer="true" :closable="true">
-        <template #header>
-          <div class="flex items-center gap-2.5">
-            <div
-              class="w-9 h-9 rounded-xl flex items-center justify-center"
-              :class="isDark ? 'bg-brand-400/12' : 'bg-brand-50'">
-              <i class="ri-upload-2-line text-[18px]" :class="isDark ? 'text-brand-400' : 'text-brand-500'" />
-            </div>
-            <div>
-              <div class="text-[14px] font-bold" :class="isDark ? 'text-wt-main' : 'text-lt-main'">发现新版本</div>
-              <div class="text-[10.5px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">
-                v{{ updateInfo?.version }} 可用
-              </div>
-            </div>
-          </div>
-        </template>
-
-        <div class="space-y-3" v-if="updateInfo">
-          <p class="text-[12px]" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">
-            新版本
-            <span class="font-semibold" :class="isDark ? 'text-brand-400' : 'text-brand-500'">
-              v{{ updateInfo.version }}
-            </span>
-            已发布，建议更新以获得最新功能和修复。
-          </p>
-          <div
-            v-if="updateInfo.releaseNotes"
-            class="rounded-lg p-3 text-[11px] max-h-[120px] overflow-y-auto"
-            :class="isDark ? 'bg-d0 border border-d4 text-wt-aux' : 'bg-l2 border border-bdrF text-lt-aux'">
-            {{ updateInfo.releaseNotes }}
-          </div>
-
-          <!-- Download progress -->
-          <div v-if="downloading" class="space-y-2">
-            <div class="flex items-center justify-between text-[11px]" :class="isDark ? 'text-wt-aux' : 'text-lt-aux'">
-              <span>正在下载更新...</span>
-              <span>{{ downloadProgress }}%</span>
-            </div>
-            <div class="h-2 rounded-full overflow-hidden" :class="isDark ? 'bg-d4' : 'bg-l4'">
-              <div
-                class="h-full rounded-full bg-brand-400 transition-all duration-300"
-                :style="`width: ${downloadProgress}%`" />
-            </div>
-          </div>
-        </div>
-
-        <template #footer>
-          <template v-if="!downloading && !downloaded">
-            <button
-              @click="showUpdateModal = false"
-              class="h-8 px-4 rounded-lg text-[11px] font-medium transition-colors"
-              :class="isDark ? 'text-wt-aux hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub'">
-              稍后再说
-            </button>
-            <button
-              @click="downloadUpdate"
-              class="h-8 px-4 rounded-lg text-[11px] font-medium transition-colors flex items-center gap-1.5"
-              :class="
-                isDark ? 'bg-brand-400 text-d0 hover:bg-brand-500' : 'bg-brand-500 text-white hover:bg-brand-600'
-              ">
-              <i class="ri-download-line text-[11px]" />
-              立即下载
-            </button>
-          </template>
-          <template v-if="downloaded">
-            <button
-              @click="installUpdate"
-              class="h-8 px-4 rounded-lg text-[11px] font-medium transition-colors flex items-center gap-1.5"
-              :class="
-                isDark
-                  ? 'bg-emerald-400 text-d0 hover:bg-emerald-500'
-                  : 'bg-emerald-500 text-white hover:bg-emerald-600'
-              ">
-              <i class="ri-restart-line text-[11px]" />
-              重启并安装
-            </button>
-          </template>
-        </template>
-      </MsModal>
+      <AppUpdateModal
+        v-model:show="showUpdateModal"
+        :is-dark="isDark"
+        :checking="checking"
+        :update-info="updateInfo"
+        :downloading="downloading"
+        :download-progress="downloadProgress"
+        :downloaded="downloaded"
+        :error="error"
+        @check="checkForUpdate"
+        @download="downloadUpdate"
+        @install="installUpdate" />
     </template>
   </div>
 </template>

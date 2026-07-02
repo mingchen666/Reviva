@@ -21,6 +21,9 @@ export function useAutoUpdate() {
 
     window.electronAPI.update.onAvailable((info) => {
       checking.value = false
+      downloading.value = false
+      downloaded.value = false
+      downloadProgress.value = 0
       updateInfo.value = info
     })
 
@@ -47,6 +50,10 @@ export function useAutoUpdate() {
       msg.warning('更新检查失败~ ')// + e.message
       console.log('更新检查失败:' + e.message)
     })
+
+    window.electronAPI.update.onManualCheck?.(() => {
+      checkForUpdate()
+    })
   }
 
   function checkForUpdate() {
@@ -56,14 +63,20 @@ export function useAutoUpdate() {
     }
     checking.value = true
     error.value = null
-    window.electronAPI.update.check().catch(() => {})
+    window.electronAPI.update.check().catch((e) => {
+      checking.value = false
+      error.value = e?.message || '检查更新失败'
+    })
   }
 
   function downloadUpdate() {
     if (!window.electronAPI?.update) return
     downloading.value = true
     downloadProgress.value = 0
-    window.electronAPI.update.download().catch(() => {})
+    window.electronAPI.update.download().catch((e) => {
+      downloading.value = false
+      error.value = e?.message || '下载更新失败'
+    })
   }
 
   function installUpdate() {

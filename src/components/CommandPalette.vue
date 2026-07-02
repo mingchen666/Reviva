@@ -25,7 +25,7 @@ const NAV_ITEMS = [
   { id: 'nav-learn', label: '学习台', icon: 'ri-chat-smile-2-line', path: '/workchat', group: '导航' },
   { id: 'nav-spaces', label: '知识库', icon: 'ri-database-2-line', path: '/spaces', group: '导航' },
   { id: 'nav-docs', label: '文档管理', icon: 'ri-folder-2-line', path: '/docs', group: '导航' },
-  { id: 'nav-notes', label: '笔记', icon: 'ri-note-line', path: '/notes', group: '导航' },
+  { id: 'nav-notes', label: '笔记', icon: 'ri-booklet-line', path: '/notes', group: '导航' },
   { id: 'nav-workspace', label: '对话工作台', icon: 'ri-chat-3-line', path: '/workspace', group: '导航' },
   { id: 'nav-agents', label: '智能体', icon: 'ri-sparkling-2-line', path: '/agents', group: '导航' },
   { id: 'nav-skills', label: 'Skills', icon: 'ri-flashlight-line', path: '/skills', group: '导航' },
@@ -219,21 +219,29 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onDocKeydown))
           @keydown="onKeydown">
           <!-- Search input -->
           <div
-            class="flex items-center gap-2 px-4 py-3 border-b shrink-0"
+            class="px-3 py-3 border-b shrink-0"
             :class="isDark ? 'border-bdr' : 'border-bdrF'">
-            <i class="ri-search-line text-[16px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'" />
-            <input
-              ref="inputRef"
-              v-model="query"
-              placeholder="搜索页面、设置、对话..."
-              class="flex-1 bg-transparent outline-none text-[14px]"
-              :class="isDark ? 'text-wt-main placeholder:text-wt-dim' : 'text-lt-main placeholder:text-lt-aux'"
-              @keydown="onKeydown" />
-            <kbd
-              class="text-[10px] px-1.5 py-0.5 rounded font-mono"
-              :class="isDark ? 'bg-d3 text-wt-dim border border-bdr' : 'bg-l3 text-lt-aux border border-bdrF'">
-              ESC
-            </kbd>
+            <div
+              class="cmd-search-field h-10 flex items-center gap-2 rounded-xl px-3 border transition-colors"
+              :class="
+                isDark
+                  ? 'bg-d0 border-d4 focus-within:border-brand-400/45 focus-within:bg-d0/80'
+                  : 'bg-l3 border-bdrF focus-within:border-brand-300 focus-within:bg-white'
+              ">
+              <i class="ri-search-line text-[16px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'" />
+              <input
+                ref="inputRef"
+                v-model="query"
+                placeholder="搜索页面、设置、对话..."
+                class="cmd-search-input flex-1 min-w-0 bg-transparent border-0 appearance-none outline-none text-[14px]"
+                :class="isDark ? 'text-wt-main placeholder:text-wt-dim' : 'text-lt-main placeholder:text-lt-aux'"
+                @keydown="onKeydown" />
+              <kbd
+                class="text-[10px] px-1.5 py-0.5 rounded font-mono shrink-0"
+                :class="isDark ? 'bg-d3 text-wt-dim border border-bdr' : 'bg-white text-lt-aux border border-bdrF'">
+                ESC
+              </kbd>
+            </div>
           </div>
 
           <!-- Results -->
@@ -251,7 +259,7 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onDocKeydown))
                   v-for="item in group.items"
                   :key="item.id"
                   :data-active="filtered.indexOf(item) === activeIndex"
-                  class="flex items-center gap-3 px-4 py-2 mx-2 rounded-lg cursor-pointer transition-colors"
+                  class="flex items-center gap-2 px-4 py-2 mx-2 rounded-lg cursor-pointer transition-colors"
                   :class="
                     filtered.indexOf(item) === activeIndex
                       ? isDark
@@ -320,5 +328,18 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onDocKeydown))
 .cmd-fade-enter-from,
 .cmd-fade-leave-to {
   opacity: 0;
+}
+
+.cmd-search-input,
+.cmd-search-input:focus,
+.cmd-search-input:focus-visible {
+  border: 0;
+  outline: none;
+  box-shadow: none;
+}
+
+.cmd-search-input::-webkit-search-decoration,
+.cmd-search-input::-webkit-search-cancel-button {
+  display: none;
 }
 </style>

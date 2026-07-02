@@ -1,7 +1,9 @@
 <script setup>
 import md from '@/utils/markdown'
 import { normalizeFilePath, toFileUrl } from '@/utils/fileUrl'
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
+import HtmlPreviewModal from './HtmlPreviewModal.vue'
+import { buildHtmlPreviewContent } from './htmlPreview'
 
 const props = defineProps({ previewFile: Object, isDark: Boolean })
 
@@ -31,6 +33,16 @@ const hasError = computed(() => !!props.previewFile?.error)
 const isLoading = computed(() => normalizedPath.value && !hasContent.value && !hasError.value && !isImage.value && !isAudio.value && !isVideo.value)
 const isText = computed(() => hasContent.value && !isImage.value && !isAudio.value && !isVideo.value && !isHtml.value)
 const hasFile = computed(() => !!normalizedPath.value)
+const showHtmlPreviewModal = ref(false)
+
+const htmlPreviewContent = computed(() => {
+  const raw = props.previewFile?.content
+  return isHtml.value ? buildHtmlPreviewContent(raw, normalizedPath.value) : ''
+})
+
+watch(normalizedPath, () => {
+  showHtmlPreviewModal.value = false
+})
 
 function openExternally() {
   if (normalizedPath.value && window.electronAPI?.openPath) window.electronAPI.openPath(normalizedPath.value)
@@ -43,6 +55,21 @@ function showInFolder() {
 function copyPath() {
   if (normalizedPath.value) {
     navigator.clipboard.writeText(normalizedPath.value)
+  }
+}
+
+function openHtmlPreview() {
+  if (!isHtml.value || !hasContent.value) return
+  showHtmlPreviewModal.value = true
+}
+
+function handleInlineHtmlFrameLoad(event) {
+  try {
+    const frame = event?.target
+    const height = frame?.contentDocument?.body?.scrollHeight
+    if (height) frame.style.height = `${height + 20}px`
+  } catch {
+    // Cross-origin iframe access can fail if the HTML changes document origin.
   }
 }
 
@@ -59,6 +86,13 @@ function closePreview() {
       <i class="ri-file-3-line text-[12px] shrink-0" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'" />
       <span class="text-[11px] truncate min-w-0" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">{{ fileName }}</span>
       <div class="ml-auto flex items-center gap-0.5 shrink-0">
+        <button v-if="isHtml && hasContent" @click="openHtmlPreview"
+          class="h-6 px-2 rounded-md flex items-center gap-1 text-[11px] font-medium transition-colors"
+          :class="isDark ? 'bg-brand-400/12 text-brand-300 hover:bg-brand-400/20 hover:text-brand-200' : 'bg-brand-50 text-brand-600 hover:bg-brand-100'"
+          title="打开预览">
+          <i class="ri-window-line text-[12px]" />
+          <span>打开预览</span>
+        </button>
         <button @click="openExternally" class="h-5 w-5 rounded flex items-center justify-center transition-colors"
           :class="isDark ? 'text-wt-aux hover:text-wt-sub hover:bg-white/5' : 'text-lt-aux hover:text-lt-sub hover:bg-l4'" title="用系统应用打开">
           <i class="ri-external-link-line text-[11px]" />
@@ -128,8 +162,8 @@ function closePreview() {
       <!-- HTML preview -->
       <div v-else-if="hasFile && isHtml && hasContent" class="p-4">
         <div class="rounded-lg overflow-hidden border" :class="isDark ? 'bg-white border-d4' : 'bg-white border-bdrL'">
-          <iframe :srcdoc="previewFile.content" sandbox="allow-scripts allow-same-origin"
-            class="w-full border-0" style="min-height:300px;max-height:600px" @load="e => e.target.style.height = e.target.contentDocument?.body?.scrollHeight + 20 + 'px'" />
+          <iframe :srcdoc="htmlPreviewContent" sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+            class="w-full border-0" style="min-height:300px;max-height:600px" @load="handleInlineHtmlFrameLoad" />
         </div>
       </div>
 
@@ -163,6 +197,15 @@ function closePreview() {
         </div>
       </div>
     </div>
+
+    <HtmlPreviewModal
+      v-model="showHtmlPreviewModal"
+      :content="previewFile?.content || ''"
+      :file-path="normalizedPath"
+      :title="fileName"
+      :is-dark="isDark"
+      @open-file="openExternally"
+      @show-in-folder="showInFolder" />
   </div>
 </template>
 

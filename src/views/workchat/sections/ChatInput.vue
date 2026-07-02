@@ -6,6 +6,11 @@ import ChatPopoverLayer from './chat/ChatPopoverLayer.vue'
 import { useMessage } from '@/components/MsMessage/useMessage'
 import TextEditContextMenu from '@/components/TextEditContextMenu.vue'
 import { useAgentsStore } from '@/stores/agents'
+import {
+  canCreateAttachmentFromFile,
+  collectFilesFromDataTransfer,
+  createAttachmentContextItems,
+} from './chat/attachmentContext'
 
 const props = defineProps({
   isDark: Boolean,
@@ -334,70 +339,14 @@ watch(() => props.commandInsertRequest?.id, () => {
   insertCommandText(request.text, slashContext.value || getSlashContextAtPosition(lastSelection.value.end) || lastSelection.value)
 })
 
-function imageExtFromType(type) {
-  const value = String(type || '').toLowerCase()
-  if (value.includes('jpeg') || value.includes('jpg')) return 'jpg'
-  if (value.includes('webp')) return 'webp'
-  if (value.includes('gif')) return 'gif'
-  if (value.includes('bmp')) return 'bmp'
-  return 'png'
-}
+// Clipboard files/images become local attachment context items; plain text paste keeps default behavior.
+async function handlePaste(e) {
+  const files = collectFilesFromDataTransfer(e.clipboardData)
+  if (!files.length || !files.some(canCreateAttachmentFromFile)) return
 
-function imageTimestamp() {
-  const d = new Date()
-  const pad = n => String(n).padStart(2, '0')
-  return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`
-}
-
-function normalizePastedImageName(file) {
-  const original = String(file?.name || '').trim()
-  const generic = !original || /^image(?:\s*\(\d+\))?\.(png|jpe?g|webp|gif|bmp)$/i.test(original)
-  if (!generic) return original
-  return `粘贴图片_${imageTimestamp()}_${Math.random().toString(36).slice(2, 6)}.${imageExtFromType(file?.type)}`
-}
-
-// Image paste support
-function handlePaste(e) {
-  const items = e.clipboardData?.items
-  if (!items) return
-  for (const item of items) {
-    if (item.type.startsWith('image/')) {
-      e.preventDefault()
-      const file = item.getAsFile()
-      if (!file) continue
-      const name = normalizePastedImageName(file)
-      const id = 'img_' + Date.now() + '_' + Math.random().toString(36).slice(2)
-      const filePath = file.path || ''
-      if (filePath) {
-        emit('add-ctx', {
-          type: 'image',
-          source: 'attachment',
-          id,
-          name,
-          icon: 'ri-image-line',
-          path: filePath,
-          size: file.size,
-          mime: file.type || '',
-        })
-      } else {
-        const reader = new FileReader()
-        reader.onload = () => {
-          emit('add-ctx', {
-            type: 'image',
-            source: 'attachment',
-            id,
-            name,
-            icon: 'ri-image-line',
-            dataUrl: reader.result,
-            size: file.size,
-            mime: file.type || '',
-          })
-        }
-        reader.readAsDataURL(file)
-      }
-      return
-    }
-  }
+  e.preventDefault()
+  const items = await createAttachmentContextItems(files)
+  for (const item of items) emit('add-ctx', item)
 }
 
 // Click outside to close popover
@@ -429,7 +378,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick, true))
 
     <!-- ═══ Input box ═══ -->
     <div
-      class="relative rounded-xl transition-all"
+      class="chat-input-box relative rounded-xl transition-all"
       :class="
         isDark
           ? 'bg-d1 border border-d4 focus-within:border-brand-400/30 focus-within:shadow-lg focus-within:shadow-brand-400/8'
@@ -473,132 +422,137 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick, true))
       </div>
 
       <!-- Toolbar 工具按钮栏-->
-      <div class="flex items-center gap-1.5 sm:gap-1 px-2 sm:px-3 pb-2">
-        <!-- Attach button -->
-        <button
-          ref="attachBtnRef"
-          @click="togglePopover('attach')"
-          class="toolbar-btn h-7 px-1.5 sm:px-2 rounded-lg flex items-center gap-1 text-[12px] transition-colors shrink-0"
-          :class="
-            activePopover === 'attach'
-              ? isDark
-                ? 'text-brand-400 bg-brand-400/10'
-                : 'text-brand-500 bg-brand-50'
-              : isDark
-                ? 'text-wt-aux hover:text-wt-sub hover:bg-white/5'
-                : 'text-lt-aux hover:text-lt-sub hover:bg-l4'
-          ">
-          <i class="ri-attachment-line text-[12px]" />
-          <span class="hidden xs:inline">附件</span>
-        </button>
+      <div class="chat-toolbar flex items-center gap-1.5 sm:gap-1 px-2 sm:px-3 pb-2 min-w-0">
+        <div class="chat-toolbar-left flex items-center gap-1.5 sm:gap-1 min-w-0 flex-1 overflow-hidden">
+          <!-- Attach button -->
+          <button
+            ref="attachBtnRef"
+            @click="togglePopover('attach')"
+            title="附件"
+            class="toolbar-btn h-7 px-1.5 sm:px-2 rounded-lg flex items-center gap-1 text-[12px] transition-colors shrink-0"
+            :class="
+              activePopover === 'attach'
+                ? isDark
+                  ? 'text-brand-400 bg-brand-400/10'
+                  : 'text-brand-500 bg-brand-50'
+                : isDark
+                  ? 'text-wt-aux hover:text-wt-sub hover:bg-white/5'
+                  : 'text-lt-aux hover:text-lt-sub hover:bg-l4'
+            ">
+            <i class="ri-attachment-line text-[12px]" />
+            <span class="toolbar-label toolbar-label-optional hidden xs:inline">附件</span>
+          </button>
 
-        <!-- Agent button -->
-        <button
-          ref="agentBtnRef"
-          @click="togglePopover('agent')"
-          class="toolbar-btn h-7 px-1.5 sm:px-2 rounded-lg flex items-center gap-1 text-[12px] transition-colors shrink-0"
-          :class="
-            selectedAgent || activePopover === 'agent'
-              ? isDark
-                ? 'text-agent-400 bg-agent-400/10'
-                : 'text-agent-500 bg-agent-50'
-              : isDark
-                ? 'text-wt-aux hover:text-wt-sub hover:bg-white/5'
-                : 'text-lt-aux hover:text-lt-sub hover:bg-l4'
-          ">
-          <i :class="selectedAgent ? 'ri-sparkling-2-line' : 'ri-at-line'" class="text-[12px]" />
-          <span class="truncate max-w-[80px]">{{ selectedAgent ? selectedAgent.name : 'Agent' }}</span>
-        </button>
+          <!-- Agent button -->
+          <button
+            ref="agentBtnRef"
+            @click="togglePopover('agent')"
+            :title="selectedAgent ? selectedAgent.name : 'Agent'"
+            class="toolbar-btn h-7 px-1.5 sm:px-2 rounded-lg flex items-center gap-1 text-[12px] transition-colors shrink-0"
+            :class="
+              selectedAgent || activePopover === 'agent'
+                ? isDark
+                  ? 'text-agent-400 bg-agent-400/10'
+                  : 'text-agent-500 bg-agent-50'
+                : isDark
+                  ? 'text-wt-aux hover:text-wt-sub hover:bg-white/5'
+                  : 'text-lt-aux hover:text-lt-sub hover:bg-l4'
+            ">
+            <i :class="selectedAgent ? 'ri-sparkling-2-line' : 'ri-at-line'" class="text-[12px]" />
+            <span class="toolbar-label toolbar-label-compact truncate max-w-[80px]">{{ selectedAgent ? selectedAgent.name : 'Agent' }}</span>
+          </button>
 
-        <!-- Wiki context button -->
-        <button
-          ref="wikiBtnRef"
-          @click="togglePopover('wiki')"
-          :title="selectedWikiNames.length ? selectedWikiNames.join('、') : 'Wiki'"
-          class="toolbar-btn h-7 px-1.5 sm:px-2 rounded-lg flex items-center gap-1 text-[12px] transition-colors shrink-0"
-          :class="
-            selectedWikiCount || activePopover === 'wiki'
-              ? isDark
-                ? 'text-indigo-300 bg-indigo-400/10'
-                : 'text-indigo-600 bg-indigo-50'
-              : isDark
-                ? 'text-wt-aux hover:text-wt-sub hover:bg-white/5'
-                : 'text-lt-aux hover:text-lt-sub hover:bg-l4'
-          ">
-          <i class="ri-book-2-line text-[12px]" />
-          <span class="truncate max-w-[88px]">{{ wikiButtonLabel }}</span>
-        </button>
+          <!-- Wiki context button -->
+          <button
+            ref="wikiBtnRef"
+            @click="togglePopover('wiki')"
+            :title="selectedWikiNames.length ? selectedWikiNames.join('、') : 'Wiki'"
+            class="toolbar-btn h-7 px-1.5 sm:px-2 rounded-lg flex items-center gap-1 text-[12px] transition-colors shrink-0"
+            :class="
+              selectedWikiCount || activePopover === 'wiki'
+                ? isDark
+                  ? 'text-indigo-300 bg-indigo-400/10'
+                  : 'text-indigo-600 bg-indigo-50'
+                : isDark
+                  ? 'text-wt-aux hover:text-wt-sub hover:bg-white/5'
+                  : 'text-lt-aux hover:text-lt-sub hover:bg-l4'
+            ">
+            <i class="ri-book-2-line text-[12px]" />
+            <span class="toolbar-label toolbar-label-compact truncate max-w-[88px]">{{ wikiButtonLabel }}</span>
+          </button>
 
-        <!-- Context settings button -->
-        <button
-          ref="ctxBtnRef"
-          @click="togglePopover('ctx')"
-          class="toolbar-btn h-7 px-1.5 sm:px-2 rounded-lg flex items-center gap-1 text-[12px] transition-colors shrink-0"
-          :class="
-            activePopover === 'ctx' || isCompressing
-              ? isDark
-                ? 'text-wt-sub bg-white/6'
-                : 'text-lt-sub bg-l3'
-              : isDark
-                ? 'text-wt-aux hover:text-wt-sub hover:bg-white/5'
-                : 'text-lt-aux hover:text-lt-sub hover:bg-l4'
-          ">
-          <i v-if="isCompressing" class="ri-loader-4-line text-[12px]" style="animation: spin 1s linear infinite" />
-          <i v-else class="ri-text-wrap text-[12px]" />
-          <span class="hidden xs:inline">{{ isCompressing ? '压缩中' : '上下文' }}</span>
-        </button>
+          <!-- Context settings button -->
+          <button
+            ref="ctxBtnRef"
+            @click="togglePopover('ctx')"
+            :title="isCompressing ? '压缩中' : '上下文'"
+            class="toolbar-btn h-7 px-1.5 sm:px-2 rounded-lg flex items-center gap-1 text-[12px] transition-colors shrink-0"
+            :class="
+              activePopover === 'ctx' || isCompressing
+                ? isDark
+                  ? 'text-wt-sub bg-white/6'
+                  : 'text-lt-sub bg-l3'
+                : isDark
+                  ? 'text-wt-aux hover:text-wt-sub hover:bg-white/5'
+                  : 'text-lt-aux hover:text-lt-sub hover:bg-l4'
+            ">
+            <i v-if="isCompressing" class="ri-loader-4-line text-[12px]" style="animation: spin 1s linear infinite" />
+            <i v-else class="ri-text-wrap text-[12px]" />
+            <span class="toolbar-label toolbar-label-optional hidden xs:inline">{{ isCompressing ? '压缩中' : '上下文' }}</span>
+          </button>
 
-        <!-- Clear messages button -->
-        <button
-          v-if="hasMessages && !isStreaming"
-          @click="emit('clear-messages')"
-          title="清空聊天记录"
-          class="toolbar-btn text-red h-7 px-1.5 sm:px-2 rounded-lg flex items-center gap-1 text-[12px] transition-colors shrink-0"
-          :class="
-            isDark
-              ? 'text-wt-aux hover:text-red-400 hover:bg-red-400/8'
-              : 'text-lt-aux hover:text-red-500 hover:bg-red-50'
-          ">
-          <i class="ri-delete-bin-7-line text-[12px]" />
-          <span class="hidden xs:inline">清空</span>
-        </button>
+          <!-- Clear messages button -->
+          <button
+            v-if="hasMessages && !isStreaming"
+            @click="emit('clear-messages')"
+            title="清空聊天记录"
+            class="toolbar-btn text-red h-7 px-1.5 sm:px-2 rounded-lg flex items-center gap-1 text-[12px] transition-colors shrink-0"
+            :class="
+              isDark
+                ? 'text-wt-aux hover:text-red-400 hover:bg-red-400/8'
+                : 'text-lt-aux hover:text-red-500 hover:bg-red-50'
+            ">
+            <i class="ri-delete-bin-7-line text-[12px]" />
+            <span class="toolbar-label toolbar-label-optional hidden xs:inline">清空</span>
+          </button>
 
-        <!-- Token counter -->
-        <div
-          v-if="totalTokens > 0"
-          class="flex items-center gap-1.2 text-[11px] tabular-nums shrink-0"
-          :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">
-          <i class="ri-coin-line text-[12px]" />
-          <span :class="isDark ? 'text-brand-400' : 'text-brand-500'">{{ formatTokenCount(totalInputTokens) }}↓</span>
-          <span :class="isDark ? 'text-output-400' : 'text-output-500'">
-            {{ formatTokenCount(totalOutputTokens) }}↑
-          </span>
-          <span v-if="lastLatencyMs" class="flex items-center gap-0.5">
-            <i class="ri-timer-line text-[12px]" />
-            {{ lastLatencyMs < 1000 ? lastLatencyMs + 'ms' : (lastLatencyMs / 1000).toFixed(1) + 's' }}
-          </span>
-          <span v-if="lastCost > 0" class="flex items-center gap-0.5">
-            <i class="ri-money-dollar-circle-line text-[12px]" />
-            {{ lastCost < 0.01 ? '$' + lastCost.toFixed(4) : '$' + lastCost.toFixed(2) }}
-          </span>
+          <!-- Token counter -->
+          <div
+            v-if="totalTokens > 0"
+            class="chat-token-counter flex items-center gap-1.2 text-[11px] tabular-nums shrink-0"
+            :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">
+            <i class="ri-coin-line text-[12px]" />
+            <span :class="isDark ? 'text-brand-400' : 'text-brand-500'">{{ formatTokenCount(totalInputTokens) }}↓</span>
+            <span :class="isDark ? 'text-output-400' : 'text-output-500'">
+              {{ formatTokenCount(totalOutputTokens) }}↑
+            </span>
+            <span v-if="lastLatencyMs" class="chat-token-extra flex items-center gap-0.5">
+              <i class="ri-timer-line text-[12px]" />
+              {{ lastLatencyMs < 1000 ? lastLatencyMs + 'ms' : (lastLatencyMs / 1000).toFixed(1) + 's' }}
+            </span>
+            <span v-if="lastCost > 0" class="chat-token-extra flex items-center gap-0.5">
+              <i class="ri-money-dollar-circle-line text-[12px]" />
+              {{ lastCost < 0.01 ? '$' + lastCost.toFixed(4) : '$' + lastCost.toFixed(2) }}
+            </span>
+          </div>
         </div>
 
         <!-- Send / Stop -->
         <button
           v-if="isStreaming"
           @click="emit('cancel')"
-          class="ml-auto h-8 px-3 rounded-md flex items-center gap-1.5 text-[13px] font-medium transition-colors shrink-0"
+          class="chat-send-btn h-8 px-3 rounded-md flex items-center gap-1.5 text-[13px] font-medium transition-colors shrink-0"
           :class="stopButtonClass">
           <i class="ri-stop-circle-line text-[14px]" />
-          <span>停止</span>
+          <span class="send-label">停止</span>
         </button>
         <button
           v-else
           @click="handleSend"
-          class="ml-auto h-8 px-3 rounded-md flex items-center gap-1.5 text-[13px] font-500 transition-colors shrink-0"
+          class="chat-send-btn h-8 px-3 rounded-md flex items-center gap-1.5 text-[13px] font-500 transition-colors shrink-0"
           :class="sendButtonClass">
           <i class="ri-send-plane-line text-[14px]" />
-          <span>发送</span>
+          <span class="send-label">发送</span>
         </button>
       </div>
     </div>
@@ -628,11 +582,27 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick, true))
 </template>
 
 <style scoped>
+.chat-input-box {
+  container-type: inline-size;
+}
+
+.chat-toolbar-left {
+  flex-basis: 0;
+}
+
+.chat-send-btn {
+  flex: 0 0 auto;
+}
+
 /* 工具栏按钮图标对齐修正 */
 .toolbar-btn {
   display: inline-flex;
   align-items: center;
   gap: 4px;
+}
+
+.toolbar-label {
+  min-width: 0;
 }
 
 .toolbar-btn i {
@@ -646,6 +616,61 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick, true))
 .toolbar-btn .ri-text-wrap,
 .toolbar-btn .ri-delete-bin-7-line {
   transform: translateY(1px);
+}
+
+@container (max-width: 640px) {
+  .toolbar-label-optional {
+    display: none !important;
+  }
+
+  .toolbar-btn {
+    padding-left: 6px;
+    padding-right: 6px;
+  }
+
+  .toolbar-label-compact {
+    max-width: 58px;
+  }
+
+  .chat-token-extra {
+    display: none !important;
+  }
+}
+
+@container (max-width: 520px) {
+  .toolbar-label-compact {
+    display: none !important;
+  }
+
+  .toolbar-btn {
+    width: 28px;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    justify-content: center;
+  }
+
+  .chat-token-counter {
+    gap: 3px;
+  }
+}
+
+@container (max-width: 440px) {
+  .chat-token-counter {
+    display: none !important;
+  }
+}
+
+@container (max-width: 360px) {
+  .chat-send-btn {
+    width: 32px;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    justify-content: center;
+  }
+
+  .send-label {
+    display: none !important;
+  }
 }
 
 @keyframes spin {

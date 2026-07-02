@@ -14,6 +14,52 @@ const DEEPAGENTS_EXECUTION_TOOL_NAME = 'execute'
 const HIDDEN_COMMAND_COMPATIBILITY_TOOL_NAMES = ['bash', 'command', 'shell']
 const DEEPAGENTS_EXECUTION_TOOL_EXCLUSION = [DEEPAGENTS_EXECUTION_TOOL_NAME, ...HIDDEN_COMMAND_COMPATIBILITY_TOOL_NAMES]
 
+function stripYamlQuotes(value) {
+  const str = String(value || '').trim()
+  if (!str) return ''
+  if (str.startsWith('"') && str.endsWith('"')) {
+    try {
+      return JSON.parse(str)
+    } catch {
+      return str.slice(1, -1)
+    }
+  }
+  if (str.startsWith("'") && str.endsWith("'")) {
+    return str.slice(1, -1).replace(/''/g, "'")
+  }
+  return str
+}
+
+function isTopLevelYamlKey(line) {
+  return /^[A-Za-z0-9_-]+:\s*/.test(line)
+}
+
+function parseSkillFrontmatterSummary(content) {
+  const match = String(content || '').replace(/^\uFEFF/, '').match(/^---[ \t]*\r?\n([\s\S]*?)\r?\n---[ \t]*(?:\r?\n|$)/)
+  if (!match) return {}
+
+  const meta = {}
+  const lines = match[1].split(/\r?\n/)
+  for (let i = 0; i < lines.length; i++) {
+    const lineMatch = lines[i].match(/^([A-Za-z0-9_-]+):\s*(.*)$/)
+    if (!lineMatch) continue
+
+    const key = lineMatch[1]
+    const value = lineMatch[2].trim()
+    if (/^[>|][+-]?$/.test(value)) {
+      const block = []
+      while (i + 1 < lines.length && !isTopLevelYamlKey(lines[i + 1])) {
+        block.push(lines[++i].replace(/^\s{1,4}/, ''))
+      }
+      meta[key] = value.startsWith('>') ? block.join(' ').replace(/\s+/g, ' ').trim() : block.join('\n').trim()
+      continue
+    }
+
+    meta[key] = stripYamlQuotes(value)
+  }
+  return meta
+}
+
 for (const provider of ['anthropic', 'openai', 'google']) {
   registerHarnessProfile(provider, { excludedTools: DEEPAGENTS_EXECUTION_TOOL_EXCLUSION })
 }
@@ -164,6 +210,64 @@ class AgentScopedBackend extends FilesystemBackend {
   async read(filePath, offset, limit) {
     try { this._assertAllowed(filePath, 'read') } catch (err) { return this._deny(err.message) }
     return super.read(filePath, offset, limit)
+  }
+
+  async downloadFiles(paths = []) {
+    const allowed = []
+    const positions = []
+    const responses = Array.from({ length: paths.length }, (_, idx) => ({
+      path: paths[idx],
+      content: null,
+      error: null,
+    }))
+
+    for (let idx = 0; idx < paths.length; idx++) {
+      const filePath = paths[idx]
+      try {
+        this._assertAllowed(filePath, 'read')
+        allowed.push(filePath)
+        positions.push(idx)
+      } catch (err) {
+        responses[idx].error = err.message
+      }
+    }
+
+    if (allowed.length) {
+      const allowedResponses = await super.downloadFiles(allowed)
+      for (let idx = 0; idx < allowedResponses.length; idx++) {
+        responses[positions[idx]] = allowedResponses[idx]
+      }
+    }
+    return responses
+  }
+
+  async uploadFiles(files = []) {
+    const allowed = []
+    const positions = []
+    const responses = Array.from({ length: files.length }, (_, idx) => ({
+      path: Array.isArray(files[idx]) ? files[idx][0] : '',
+      error: null,
+    }))
+
+    for (let idx = 0; idx < files.length; idx++) {
+      const entry = files[idx]
+      const filePath = Array.isArray(entry) ? entry[0] : ''
+      try {
+        this._assertAllowed(filePath, 'write')
+        allowed.push(entry)
+        positions.push(idx)
+      } catch (err) {
+        responses[idx].error = err.message
+      }
+    }
+
+    if (allowed.length) {
+      const allowedResponses = await super.uploadFiles(allowed)
+      for (let idx = 0; idx < allowedResponses.length; idx++) {
+        responses[positions[idx]] = allowedResponses[idx]
+      }
+    }
+    return responses
   }
 
   async glob(pattern, searchPath) {
@@ -1698,7 +1802,7 @@ export class AgentService {
         ...(moduleConfig.skills || []),
         ...subAgentConfigs.flatMap(sa => Array.isArray(sa.skills) ? sa.skills : []),
       ]), moduleConfig.permissions), request.cloudContext), webSearchEnabled)
-      setToolRunContext({ agentEnglishName: agentEnglishName || '_shared', permissions: moduleConfig.permissions || {}, wikiContext: request.wikiContext || {}, boundSkillIds: moduleConfig.skills || [], toolIds: effectiveToolIds })
+      setToolRunContext({ agentEnglishName: agentEnglishName || '_shared', permissions: moduleConfig.permissions || {}, wikiContext: request.wikiContext || {}, boundSkillIds: skillData.boundSkillIds, toolIds: effectiveToolIds })
       const customTools = this._buildLocalRuntimeTools(effectiveToolIds, { includeDefaults: false })
       resetTaskCounters()
 
@@ -1730,7 +1834,7 @@ export class AgentService {
       const normalizedRoot = (workRoot || '.').replace(/\\/g, '/')
       const backend = new AgentScopedBackend({ rootDir: normalizedRoot, virtualMode: true }, {
         workDirService: this._workDirService,
-        boundSkillIds: moduleConfig.skills || [],
+        boundSkillIds: skillData.boundSkillIds,
         allowedAgentMemoryDir: memoryDirName,
         agentDirName: agentEnglishName || '_shared',
         wikiContext: request.wikiContext || {},
@@ -1862,43 +1966,49 @@ export class AgentService {
   }
 
   /**
-   * Build DeepAgents skills paths — global skills directory only
+   * Build DeepAgents skills source path — global skills directory only
    * Skills are installed once at {workRoot}/skills/{skillId}/ and shared across agents
-   * Isolation is achieved by only resolving skill IDs the agent is bound to
-   * Returns { paths: string[], info: { id, name, desc }[] }
+   * Isolation is enforced by AgentScopedBackend filtering /skills/ to boundSkillIds.
+   * Returns { paths: string[], info: { id, name, desc }[], boundSkillIds: string[] }
    */
   _buildSkillsPaths(skillIds) {
-    if (!skillIds?.length) return { paths: undefined, info: [] }
+    const normalizedSkillIds = [...new Set((skillIds || []).map(id => this._normalizeSkillId(id)).filter(Boolean))]
+    if (!normalizedSkillIds.length) return { paths: undefined, info: [], boundSkillIds: [] }
     const workRoot = this._workDirService?.getRootPath?.() || ''
-    if (!workRoot) return { paths: undefined, info: [] }
+    if (!workRoot) return { paths: undefined, info: [], boundSkillIds: [] }
 
     const globalSkillsDir = path.join(workRoot, 'skills')
     if (!fs.existsSync(globalSkillsDir)) {
       fs.mkdirSync(globalSkillsDir, { recursive: true })
     }
 
-    const skillPaths = []
     const skillInfo = []
-    for (const skillId of skillIds) {
+    const boundSkillIds = []
+    for (const skillId of normalizedSkillIds) {
       const skillDir = path.join(globalSkillsDir, skillId)
       const skillFile = path.join(skillDir, 'SKILL.md')
       if (fs.existsSync(skillFile)) {
-        skillPaths.push(`/skills/${skillId}/`)
-        // Read first line of SKILL.md for skill name (format: # SkillName)
+        boundSkillIds.push(skillId)
         let skillName = skillId
+        let skillDesc = ''
         try {
-          const firstLine = fs.readFileSync(skillFile, 'utf-8').split('\n')[0]
-          const titleMatch = firstLine.match(/^#\s+(.+)/)
-          if (titleMatch) skillName = titleMatch[1].trim()
+          const skillContent = fs.readFileSync(skillFile, 'utf-8')
+          const meta = parseSkillFrontmatterSummary(skillContent)
+          skillName = String(meta.name || skillId).trim()
+          skillDesc = String(meta.description || '').trim()
+          if (!skillDesc) {
+            const titleMatch = skillContent.split(/\r?\n/).find(line => /^#\s+/.test(line))?.match(/^#\s+(.+)/)
+            if (titleMatch) skillName = titleMatch[1].trim()
+          }
         } catch { /* fallback to skillId */ }
-        skillInfo.push({ id: skillId, name: skillName, desc: `路径: /skills/${skillId}/` })
+        skillInfo.push({ id: skillId, name: skillName, desc: skillDesc || `路径: /skills/${skillId}/`, path: `/skills/${skillId}/` })
         console.log('[AgentService] Skill found:', skillId, '→', skillName)
       } else {
         console.warn('[AgentService] Skill not found:', skillId)
       }
     }
 
-    return { paths: skillPaths.length ? skillPaths : undefined, info: skillInfo }
+    return { paths: boundSkillIds.length ? ['/skills/'] : undefined, info: skillInfo, boundSkillIds }
   }
 
   /**
@@ -2095,7 +2205,7 @@ export class AgentService {
         ...(request.skills || []),
         ...subAgentSkillIds,
       ]), request.permissions), request.cloudContext)
-      setToolRunContext({ agentEnglishName: request.agentEnglishName || '_shared', permissions: request.permissions || {}, wikiContext: request.wikiContext || {}, boundSkillIds: request.skills || [], toolIds: effectiveToolIds })
+      setToolRunContext({ agentEnglishName: request.agentEnglishName || '_shared', permissions: request.permissions || {}, wikiContext: request.wikiContext || {}, boundSkillIds: skillData.boundSkillIds, toolIds: effectiveToolIds })
       const customTools = this._buildLocalRuntimeTools(effectiveToolIds, { includeDefaults: false })
       resetTaskCounters()
       console.log('[AgentService] Tools loaded:', customTools.map(t => t.name))
@@ -2132,10 +2242,9 @@ export class AgentService {
       // Build backend: AgentScopedBackend restricts file tools by VFS policy.
       // DeepAgents expects POSIX-style rootDir (forward slashes) for virtualMode path resolution
       const normalizedRoot = (workRoot || '.').replace(/\\/g, '/')
-      const boundSkillIds = request.skills || []
       const backend = new AgentScopedBackend({ rootDir: normalizedRoot, virtualMode: true }, {
         workDirService: this._workDirService,
-        boundSkillIds,
+        boundSkillIds: skillData.boundSkillIds,
         allowedAgentMemoryDir: memoryDirName,
         agentDirName: request.agentEnglishName || '_shared',
         wikiContext: request.wikiContext || {},
@@ -2215,7 +2324,7 @@ export class AgentService {
             this._interruptedRuns.set(runId, {
               runId,
               request,
-              agentConfig: { model, tools: allCustomTools, toolIds: effectiveToolIds, systemPrompt, subagents, interruptOn, skills: skillData.paths, memory, memoryDirName },
+              agentConfig: { model, tools: allCustomTools, toolIds: effectiveToolIds, systemPrompt, subagents, interruptOn, skills: skillData.paths, boundSkillIds: skillData.boundSkillIds, memory, memoryDirName },
               msgId,
               initialSteps: result.steps,
               initialIteration: result.iteration,
@@ -2253,7 +2362,7 @@ export class AgentService {
           this._interruptedRuns.set(runId, {
             runId,
             request,
-            agentConfig: { model, tools: allCustomTools, systemPrompt, subagents, interruptOn, skills: skillData.paths, memory, memoryDirName },
+            agentConfig: { model, tools: allCustomTools, systemPrompt, subagents, interruptOn, skills: skillData.paths, boundSkillIds: skillData.boundSkillIds, memory, memoryDirName },
             msgId,
             initialSteps: result.steps,
             initialIteration: result.iteration,
@@ -2409,7 +2518,8 @@ export class AgentService {
       // Restore tool provider config for resumed run
       setToolProviderConfig(request.toolProviderConfigs || {})
       const resumeToolIds = withPermissionAgentTools(agentConfig.toolIds || request.toolIds || [], request.permissions)
-      setToolRunContext({ agentEnglishName: request.agentEnglishName || '_shared', permissions: request.permissions || {}, wikiContext: request.wikiContext || {}, boundSkillIds: request.skills || agentConfig.skills || [], toolIds: resumeToolIds })
+      const resumeSkillIds = agentConfig.boundSkillIds || request.skills || []
+      setToolRunContext({ agentEnglishName: request.agentEnglishName || '_shared', permissions: request.permissions || {}, wikiContext: request.wikiContext || {}, boundSkillIds: resumeSkillIds, toolIds: resumeToolIds })
       setExecCommandConfig({
         whitelist: request.permissions?.execCommandWhitelist || null,
         blacklist: request.permissions?.execCommandBlacklist || null,
@@ -2419,8 +2529,6 @@ export class AgentService {
       // Recreate the agent with same config (including backend)
       workRoot = this._workDirService?.getRootPath?.() || ''
       const normalizedRoot = (workRoot || '.').replace(/\\/g, '/')
-      // Extract bound skill IDs from stored skill paths (e.g. '/skills/concept-explainer/' → 'concept-explainer')
-      const resumeSkillIds = (agentConfig.skills || []).map(p => p.replace(/\\/g, '/').replace(/^\/skills\//, '').replace(/\/+$/, ''))
       const resumeMemoryDirName = agentConfig.memoryDirName || this._agentMemoryDirName(request.agentId, request.agentEnglishName)
       const backend = new AgentScopedBackend({ rootDir: normalizedRoot, virtualMode: true }, {
         workDirService: this._workDirService,

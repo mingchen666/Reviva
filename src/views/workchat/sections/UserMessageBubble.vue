@@ -191,7 +191,7 @@ watch(editContent, () => {
         {{ msg.content }}
       </div>
       <div v-if="!isEditing"
-        class="flex items-center justify-end gap-1 mt-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+        class="flex items-center justify-end gap-0 mt-1 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
         <button @click="copyContent" title="复制"
           class="h-6 px-1.5 rounded-md flex items-center gap-0.5 text-[11px] transition-colors"
           :class="copied ? (isDark ? 'text-brand-400' : 'text-brand-500') : (isDark ? 'text-wt-dim hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub')">

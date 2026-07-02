@@ -38,6 +38,8 @@ task("content-planner", "请根据以下需求规划 PPT 内容：\n主题：{�
 
 ### 第3步：幻灯片构建
 
+如果用户明确要求“科普动画”“视频演示素材”“PPT 风格网页动画”“流程图动画”或“用动画模板重构”，优先使用 `ai-animation-skill` 的工作流和内置模板生成 HTML 演示动画；否则按默认 `slide-builder` 流程生成常规演示文稿。
+
 委托 **slide-builder** 子 agent 生成 HTML 幻灯片：
 
 ```

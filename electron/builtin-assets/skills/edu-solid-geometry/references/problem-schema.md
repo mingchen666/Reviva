@@ -48,15 +48,20 @@
   "model": {
     "points": { "P": [0, 1.5, 0], "A": [2.12, 0, 0] },  // three 坐标（y 向上），来自 kernel.to_three
     "spheres": ["P", "A", "B", "C", "D", "E"],           // 画小球+标签的点
+    "faces": [                                           // 始终可见的实体面：低透明度，让图形先“像立体”
+      { "name": "Face_ABC", "pts": ["A", "B", "C"], "color": "baseFace", "opacity": 0.12 },
+      { "name": "Face_PAB", "pts": ["P", "A", "B"], "color": "sideFace", "opacity": 0.1 }
+    ],
     "edges": [                                            // 始终可见的骨架棱
       { "a": "A", "b": "B" },
-      { "a": "D", "b": "A", "dashed": true },             // 虚线
+      { "a": "D", "b": "A", "dashed": true, "hidden": true }, // 背面/隐藏棱：虚线 + 辅助色
       { "a": "B", "b": "D", "color": "aux", "dashed": true, "name": "Line_BD" } // 命名后可被 highlight
     ],
     "elements": {                                         // 可切换命名元素，默认隐藏
       "Line_BE":  { "type": "line",  "a": "B", "b": "E", "color": "emphasis", "depthTest": false },
       "Plane_PAC":{ "type": "plane", "pts": ["P", "A", "C"] },         // 3 或 4 个点
       "Normal_Vector": { "type": "arrow", "origin": "O", "dir": [0,0,1], "length": 1.5, "color": "normal" },
+      "Angle_CMD": { "type": "angle", "vertex": "M", "a": "C", "b": "D", "radius": 0.48, "label": "\\theta" },
       "Axis":     { "type": "axes",  "size": 3 }
     },
     "target": [0, 0.45, 0],        // OrbitControls 注视点（three 坐标）
@@ -67,9 +72,15 @@
 
 ### 元素类型（model.elements[*].type）
 - `line` — 需要 `a`、`b`（点名）；`color`（语义色名）；`dashed`；`depthTest:false` 表示永远画在最前。
-- `plane` — 需要 `pts`（3 或 4 个点名）。
+- `plane` — 需要 `pts`（3 或 4 个点名）；可选 `color`、`opacity`，用于分步强调某个面。
 - `arrow` — 需要 `origin`（点名或坐标）、`dir`（three 方向向量）、`length`、`color`。
 - `axes` — 需要 `size`。
+- `angle` — 角标弧线，用于线面角、截面角、二面角的视觉说明。
+  - `vertex`：角顶点。
+  - `a`、`b`：角的两条边经过的点。
+  - `radius`：角标半径。
+  - `label`：可选 LaTeX 标签，如 `"\\theta"`。
+  - `color`：可选，默认 `angle`。
 - `measure` — 线段长度标注：在 `a`、`b` 两点中点处朝几何体外侧偏移贴一个 **MathJax** 长度标签。
   - `a`、`b`：线段端点（点名）。
   - `label`：长度的 LaTeX（不带 `$`），如 `"2"`、`"2\\sqrt{2}"`、`"\\frac{\\sqrt3}{2}"`。
@@ -78,7 +89,18 @@
   - **总开关**：只要存在任一 `measure`，3D 画布左上会自动出现"长度标注：开/关"按钮，可一键显示/隐藏全部长度标签（叠加在分步 highlight 之上）。无需额外数据。英文输出时在 `lesson.ui` 设 `measureToggleOn` / `measureToggleOff` 文案。
 
 ### 颜色语义名（COLORS）
-`frame`(骨架灰) · `aux`(辅助浅灰) · `emphasis`(强调洋红) · `normal`(法向量红) · `plane`(平面蓝) · `point`(顶点深蓝)
+`frame`(骨架灰) · `aux`(辅助浅灰/隐藏棱) · `emphasis`(强调洋红) · `normal`(法向量红) · `plane`(平面蓝) · `baseFace`(底面蓝) · `sideFace`(侧面紫) · `topFace`(顶面绿) · `section`(截面橙) · `angle`(角标橙) · `point`(顶点深蓝)
+
+### faces 规则
+`model.faces` 是稳定实体外观的基础，不受 `highlight` 控制，透明度要低。分步讲解时如需强调某个面，再在 `model.elements` 中声明一个同点集的 `plane`，并在对应步骤 `highlight`。
+
+常见设置：
+- 底面：`color:"baseFace", opacity:0.10~0.14`
+- 侧面：`color:"sideFace", opacity:0.08~0.12`
+- 顶面：`color:"topFace", opacity:0.08~0.10`
+- 截面/目标面强调：放在 `elements`，`color:"section"` 或 `color:"plane"`，`opacity:0.18~0.26`
+
+没有 `faces` 的三维图会退化成线框，学习效果明显变差。生成立体几何网页时应优先提供 `faces`。
 
 ### highlight 规则
 每步的 `highlight` 是该步**应可见的可切换元素的完整列表**（绝对集合，不是增量）。骨架棱、顶点小球始终可见，不必列入。

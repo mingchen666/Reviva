@@ -17,7 +17,7 @@
     "execCommand": false
   },
   "tools": ["mcp:exa", "web_search_bing", "file_read", "file_write", "kb_search"],
-  "skills": ["ppt-creation"],
+  "skills": ["ppt-creation", "ai-animation-skill"],
   "sub_agents": ["content-planner", "slide-builder", "pptx-exporter", "visual-reviewer"],
   "max_iterations": 0,
   "plan_steps": 6,

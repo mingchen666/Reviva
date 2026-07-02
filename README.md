@@ -11,6 +11,11 @@
   ·
   <a href="./README_EN.md">English</a>
 </p>
+<!-- 下载总量 -->
+![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/mingchen666/Reviva/total?logo=github&label=Downloads)
+
+<!-- 最新版本下载量 -->
+![GitHub Downloads (latest release)](https://img.shields.io/github/downloads/mingchen666/Reviva/latest/total?logo=github&label=Latest%20Downloads)
 
 <p>
   <a href="https://github.com/mingchen666/Reviva/releases">
@@ -270,6 +275,10 @@ Reviva 支持多种模型服务商和 OpenAI-compatible 接口。你可以根据
 
 ## 未来计划
 
+- [ ] 支持检查自动更新
+- [ ] 音视频文件解析处理
+- [ ] wiki支持链接和音视频解析
+- [ ] 支持response api格式
 - [ ] 自定义skill
 - [ ] 更丰富的内置 Agent 和 Skills
 - [ ] 更完善的导入导出与备份能力

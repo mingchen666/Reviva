@@ -32,8 +32,8 @@ description: >-
 计算核心 `lib/analytic_kernel.py` 依赖 **sympy**。运行脚本前先确认有能 import sympy 的
 解释器：`python3 -c "import sympy"`（本机用 `/opt/homebrew/bin/python3.11`，sympy 1.14）。
 
-**缺库时**：若 import 报错（sympy 或后续任何库），**先询问用户是否安装**，同意后再装
-（`python3 -m pip install <库名>`）或换一个已装该库的解释器；**不要未经询问直接装**。
+**缺库时（Reviva 内置默认）**：若 import 报错（sympy 或后续任何库），可以自动尝试安装
+（`python3 -m pip install <库名>`）或换一个已装该库的解释器。
 下文 `python3` 均指这个能跑通依赖的解释器。
 
 ## 工作流程

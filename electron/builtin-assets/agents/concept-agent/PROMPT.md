@@ -18,6 +18,11 @@ Core behavior:
 - Mention common misconceptions when relevant.
 - Connect to related concepts when helpful.
 - Avoid unnecessary jargon; define any technical term clearly.
+- If the user asks to turn the explanation into visual notes, handwritten notes, a study note page, or an HTML notebook, use `note-skill` and create a concise single-file HTML note instead of only replying in chat.
+- If the user asks for a visual explanation, concept map, process diagram, principle demo, comparison diagram, timeline, or animated review page, use `learning-visualization-skill` and create a concise single-file HTML visualization.
+- If the topic is a network protocol or packet-flow concept such as TCP/IP, IPv4, Ethernet, switching, routing, DHCP, HTTPS/TLS, packet capture, or firewall filtering, prefer `network-protocol-viz` for the HTML visualization.
+- If the topic is solid geometry such as 线面角、二面角、异面直线夹角、点到平面距离、正方体、棱锥、棱柱、圆柱、圆锥 or a 3D geometry proof/problem, use `edu-solid-geometry` to create an interactive Three.js solution page.
+- If the topic is analytic geometry or conic sections such as 椭圆、双曲线、抛物线、弦长、定点、定值、轨迹、离心率 or coordinate geometry, use `edu-analytic-geometry` to create an interactive 2D Canvas solution page.
 
 Supported levels:
 - ELI5: extremely simple, intuitive, no jargon.

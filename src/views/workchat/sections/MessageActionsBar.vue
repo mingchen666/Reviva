@@ -73,14 +73,14 @@ const costDisplay = computed(() => {
         </div>
       </template>
     </div>
-    <div class="ml-auto flex items-center gap-1 shrink-0">
+    <div class="ml-auto flex items-center gap-0 shrink-0">
       <button v-if="isAssistant && isCompleted" @click="$emit('compress-context')" title="压缩上下文"
         class="h-6 px-1.5 rounded-md flex items-center gap-0.5 text-[11px] transition-colors"
         :class="isDark ? 'text-wt-dim hover:text-amber-400' : 'text-lt-aux hover:text-amber-500'">
         <i class="ri-compress-line text-[12px]" />
       </button>
       <slot name="copy-btn" />
-      <button v-if="isAssistant && isCompleted" @click="$emit('copy-raw')" title="复制源码"
+      <button v-if="isAssistant && isCompleted" @click="$emit('copy-raw')" title="复制MD"
         class="h-6 px-1.5 rounded-md flex items-center gap-0.5 text-[11px] transition-colors"
         :class="isDark ? 'text-wt-dim hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub'">
         <i class="ri-markdown-line text-[12px]" />

@@ -34,6 +34,11 @@
 - `exam-prep`：考前最后阶段生成速记页、易错清单、公式卡、答题模板和冲刺安排。适合“明天考试”“考前两小时”“速记页”“最后看什么”。
 - `flashcard-generator`：把知识点、笔记、错题或复习材料转成闪卡和复习卡组。适合“做成闪卡”“帮我背”“生成记忆卡片”。
 - `math-explainer`：生成数学/物理概念的可视化讲解、交互网页或 Manim 视频。适合“画出来”“做动画”“生成可视化演示”“数学讲解视频”。
+- `note-skill`：把复习材料、错题归因、考点总结或技术内容整理成手写笔记本风格的单文件 HTML 笔记。适合“做成学霸笔记”“网页笔记”“手写笔记”“整理成好看的 HTML 笔记”。
+- `learning-visualization-skill`：把复习知识点、概念关系、流程、算法原理、对比和时间线做成单文件 HTML 可视化讲解页面。适合“画个流程图”“做概念图”“可视化讲解”“动画复习页”“这个过程怎么走”。
+- `network-protocol-viz`：把计算机网络协议和数据包流转做成单文件 HTML 动画。适合 TCP/IP、IPv4、以太网帧、交换机、路由、DHCP、HTTPS/TLS、抓包和防火墙过滤等网络课程复习。
+- `edu-solid-geometry`：把立体几何题生成 MathJax 分步解析 + Three.js 可交互 3D 模型网页。适合线面角、二面角、异面直线夹角、点到平面距离、体积、正方体、棱锥、棱柱等复习。
+- `edu-analytic-geometry`：把解析几何/圆锥曲线题生成 KaTeX 分步解析 + 2D Canvas 动态画板网页。适合椭圆、双曲线、抛物线、弦长、定点、定值、轨迹、离心率等复习。
 - `officecli-skills`：读取、创建和编辑 Word、PPT、Excel。适合“生成 Word”“可打印版”“整理成文档”“编辑这个 docx/pptx/xlsx”。
 
 ## 技能选择和切换规则
@@ -56,8 +61,13 @@
 | 错题很多 | `error-analysis` → `knowledge-organize` → `practice-quiz` |
 | 临近考试 | `exam-prep` → `mock-exam` 或 `practice-quiz` |
 | 做复习资料包 | `knowledge-organize` / `exam-prep` / `error-analysis` → `officecli-skills` |
+| 做可视化网页笔记 | `knowledge-organize` / `error-analysis` / `exam-prep` → `note-skill` |
+| 做概念/流程可视化复习页 | `concept-explainer` / `knowledge-organize` → `learning-visualization-skill` |
+| 复习计算机网络协议 | `concept-explainer` → `network-protocol-viz` → `practice-quiz` |
+| 复习立体几何题 | `concept-explainer` → `edu-solid-geometry` → `practice-quiz` |
+| 复习解析几何/圆锥曲线 | `concept-explainer` → `edu-analytic-geometry` → `practice-quiz` |
 | 需要记忆和背诵 | `knowledge-organize` → `flashcard-generator` |
-| 数学公式或图像看不懂 | `concept-explainer` → `math-explainer` |
+| 数学公式或图像看不懂 | 优先判断题型；立体几何用 `edu-solid-geometry`，解析几何用 `edu-analytic-geometry`，其他数学/物理可视化再用 `math-explainer` |
 
 ## 默认工作流
 

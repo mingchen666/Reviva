@@ -10,7 +10,7 @@ import { useWikiStore } from '@/stores/wiki'
 import { useSettingsStore } from '@/stores/settings'
 import { useUserStore } from '@/stores/user'
 import { useWorkchatStore } from '@/stores/workchat'
-import { AgentRuntime } from '@/agents/AgentRuntime'
+import { getAgentRuntime } from '@/agents/AgentRuntimeSingleton'
 import { normalizeFilePath } from '@/utils/fileUrl'
 import { readableGenerationContexts } from '@/utils/generationContext'
 import { parseModelRef } from '@/utils/modelRef'
@@ -48,7 +48,7 @@ const { ctxItems: globalCtxItems } = storeToRefs(workchatStore)
 const isDark = computed(() => appStore.isDark)
 const msg = useMessage()
 
-const agentRuntime = new AgentRuntime(convStore, agentsStore, settingsStore)
+const agentRuntime = getAgentRuntime(convStore, agentsStore, settingsStore)
 
 // Data
 const allAgents = computed(() => agentsStore.agents)

@@ -29,6 +29,13 @@ def _centroid(three_points):
     return [sum(three_points[k][i] for k in names) / n for i in range(3)]
 
 
+def _with_faces(model, topo):
+    """Attach topology faces when available."""
+    if topo.get("faces"):
+        model["faces"] = topo["faces"]
+    return model
+
+
 def render_html(data: dict, out_path: Path) -> Path:
     """把数据以 JSON 形式注入模板占位符，写出 html。"""
     template = TEMPLATE.read_text(encoding="utf-8")
@@ -54,7 +61,7 @@ def build_cube_data() -> dict:
     topo = bodies.cuboid()  # spheres + 12 条棱
     center = _centroid(tp)
 
-    model = {
+    model = _with_faces({
         "target": center,
         "initialCamera": [6, 5, 7],
         "points": tp,
@@ -66,7 +73,7 @@ def build_cube_data() -> dict:
             "Normal_Vector": {"type": "arrow", "origin": "A", "dir": [0, 1, 0], "length": 1.6, "color": "normal"},
             "Axis": {"type": "axes", "size": 2.6},
         },
-    }
+    }, topo)
 
     lesson = {
         "language": "zh-CN",
@@ -137,20 +144,14 @@ def build_data(base_edge=2, height=1) -> dict:
     half_tex = gk.tex(gk.sp.sympify(base_edge) * gk.sqrt(2) / 2)
 
     # ---- 3D 模型：顶点坐标取自 kernel（与解题同源）；拓扑/高亮在此声明 ----
-    model = {
+    topo = bodies.quad_pyramid()
+    model = _with_faces({
         "target": [0, 0.45, 0],
         "initialCamera": [5, 4, 5],
         "points": sol["three_points"],
         "spheres": ["O", "P", "A", "B", "C", "D", "E"],
         "edges": [
-            {"a": "A", "b": "B"},
-            {"a": "B", "b": "C"},
-            {"a": "C", "b": "D"},
-            {"a": "D", "b": "A", "dashed": True},
-            {"a": "P", "b": "A"},
-            {"a": "P", "b": "B"},
-            {"a": "P", "b": "C"},
-            {"a": "P", "b": "D"},
+            *topo["edges"],
             {"a": "A", "b": "C", "color": "aux", "dashed": True},
             {"a": "B", "b": "D", "color": "aux", "dashed": True, "name": "Line_BD"},
         ],
@@ -164,7 +165,7 @@ def build_data(base_edge=2, height=1) -> dict:
             "Len_AC": {"type": "measure", "a": "A", "b": "C", "label": diag_tex},
             "Len_PO": {"type": "measure", "a": "P", "b": "O", "label": str(height)},
         },
-    }
+    }, topo)
 
     lesson = {
         "language": "zh-CN",
@@ -255,7 +256,7 @@ def build_box_volume_data(lx=3, ly=4, lz=5) -> dict:
     center = _centroid(tp)
     ans = gk.tex(V)
 
-    model = {
+    model = _with_faces({
         "target": center,
         "initialCamera": [center[0] + 5, center[1] + 4, center[2] + 6],
         "points": tp,
@@ -267,7 +268,7 @@ def build_box_volume_data(lx=3, ly=4, lz=5) -> dict:
             "Edge_H": {"type": "line", "a": "A", "b": "A1", "color": "emphasis"},
             "Axis": {"type": "axes", "size": max(tp_span(tp), 2.5)},
         },
-    }
+    }, topo)
     lesson = {
         "language": "zh-CN",
         "meta": "交互解题 · 体积",
@@ -316,6 +317,101 @@ def tp_span(three_points):
     return max(abs(x) for x in xs) + 0.5
 
 
+def build_tetra_dihedral_data(edge=2) -> dict:
+    """正四面体 ABCD，求二面角 C-AB-D 的余弦值。
+
+    This is the baseline triangular-pyramid scene: transparent faces, hidden base edge,
+    edge AB highlighted, and the cross-section angle CMD shown at the shared foot M.
+    """
+    pts = gk.regular_tetrahedron(edge=edge)
+    A, B, C, D = pts["A"], pts["B"], pts["C"], pts["D"]
+    AB = B - A
+    # C and D project to the same midpoint on AB in a regular tetrahedron.
+    t = (C - A).dot(AB) / AB.dot(AB)
+    M = gk.sp.simplify(A + t * AB)
+    pts["M"] = M
+
+    cos_val = gk.dihedral_cos(A, B, C, D)
+    ans = gk.tex(cos_val)
+    scale = 1.65
+    tp = gk.to_three(pts, scale=scale)
+    topo = bodies.tri_pyramid(apex="D", base=("A", "B", "C"))
+    center = _centroid({k: v for k, v in tp.items() if k != "M"})
+
+    model = _with_faces({
+        "target": center,
+        "initialCamera": [4.5, 3.6, 5.2],
+        "points": tp,
+        "spheres": topo["spheres"] + ["M"],
+        "edges": [
+            *topo["edges"],
+            {"a": "C", "b": "M", "color": "aux", "dashed": True, "name": "Line_CM"},
+            {"a": "D", "b": "M", "color": "aux", "dashed": True, "name": "Line_DM"},
+        ],
+        "elements": {
+            "Edge_AB": {"type": "line", "a": "A", "b": "B", "color": "emphasis", "depthTest": False},
+            "Plane_ABC": {"type": "plane", "pts": ["A", "B", "C"], "color": "baseFace", "opacity": 0.22},
+            "Plane_ABD": {"type": "plane", "pts": ["A", "B", "D"], "color": "section", "opacity": 0.2},
+            "Line_CM_Highlight": {"type": "line", "a": "M", "b": "C", "color": "normal", "depthTest": False},
+            "Line_DM_Highlight": {"type": "line", "a": "M", "b": "D", "color": "normal", "depthTest": False},
+            "Angle_CMD": {"type": "angle", "vertex": "M", "a": "C", "b": "D", "radius": 0.48, "color": "angle", "label": "\\theta", "depthTest": False},
+            "Len_AB": {"type": "measure", "a": "A", "b": "B", "label": str(edge)},
+        },
+    }, topo)
+
+    lesson = {
+        "language": "zh-CN",
+        "meta": "交互解题 · 二面角",
+        "title": f"正四面体 ABCD 的棱长为 {edge}，求二面角 C-AB-D 的余弦值",
+        "answerLabel": "二面角 C-AB-D 的余弦值",
+        "answerValue": f"${ans}$",
+    }
+
+    steps = [
+        {
+            "title": "识别二面角的公共棱",
+            "content": (
+                r"<p>二面角 $C-AB-D$ 的公共棱是 $AB$，两个半平面分别是 $\triangle ABC$ 和 $\triangle ABD$。</p>"
+                r"<p>正四面体四个面都是全等正三角形，所有棱长均为 $" + str(edge) + r"$。</p>"
+            ),
+            "highlight": ["Edge_AB", "Len_AB"],
+            "cameraPos": {"x": 4.5, "y": 3.6, "z": 5.2},
+        },
+        {
+            "title": "取垂直于公共棱的截面角",
+            "content": (
+                r"<p>取 $M$ 为 $AB$ 的中点。因为 $\triangle ABC$ 与 $\triangle ABD$ 都是等边三角形，"
+                r"所以 $CM \perp AB$，$DM \perp AB$。</p>"
+                r"<p>因此，二面角 $C-AB-D$ 等于截面角 $\angle CMD$。</p>"
+            ),
+            "highlight": ["Edge_AB", "Plane_ABC", "Plane_ABD", "Line_CM_Highlight", "Line_DM_Highlight", "Angle_CMD"],
+            "cameraPos": {"x": 3.8, "y": 4.6, "z": 4.8},
+        },
+        {
+            "title": "用向量计算角的余弦",
+            "content": (
+                r"<p>在同一套坐标中计算 $\vec{MC}$ 与 $\vec{MD}$ 的夹角。</p>"
+                r"<p>二面角余弦可由两条截面线的方向向量得到：</p>"
+                r"$$\cos\theta=\frac{\vec{MC}\cdot\vec{MD}}{|\vec{MC}|\,|\vec{MD}|}=" + ans + r"$$"
+            ),
+            "highlight": ["Edge_AB", "Line_CM_Highlight", "Line_DM_Highlight", "Angle_CMD"],
+            "cameraPos": {"x": 3.5, "y": 4.2, "z": 5.6},
+        },
+        {
+            "title": "得到结论",
+            "content": (
+                r"<p>所以正四面体的二面角 $C-AB-D$ 的余弦值为：</p>"
+                r"$$" + ans + r"$$"
+                r"<p>这个角不是凭图估计，而是由与公共棱垂直的截面角精确计算得到。</p>"
+            ),
+            "highlight": ["Plane_ABC", "Plane_ABD", "Line_CM_Highlight", "Line_DM_Highlight", "Angle_CMD"],
+            "cameraPos": {"x": 4.2, "y": 3.8, "z": 5.0},
+        },
+    ]
+
+    return {"lesson": lesson, "steps": steps, "model": model, "_answer": ans}
+
+
 def build_random_data(seed=0) -> dict:
     """随机出题：随机选题型与参数，求解，答案不规整就重抽，返回可渲染数据。
 
@@ -342,6 +438,7 @@ def build_random_data(seed=0) -> dict:
 
 PROBLEMS = {
     "pyramid": build_data,
+    "tetra": build_tetra_dihedral_data,
     "cube": build_cube_data,
     "box": build_box_volume_data,
 }

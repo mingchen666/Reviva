@@ -315,4 +315,4 @@ if __name__ == "__main__":
     assert volume_box(2, 3, 4) == 24 and volume_pyramid(4, 3) == 4
     print("体积 box(2,3,4)=24, pyramid(4,3)=4 通过")
 
-    print("\n全部自检通过 ✅")
+    print("\n全部自检通过")

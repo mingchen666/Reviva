@@ -33,17 +33,20 @@ const AGENT_NUMBER_FIELDS = new Set([
   'max_iterations', 'plan_steps', 'temperature', 'top_p', 'max_tokens',
   'presence_penalty', 'frequency_penalty', 'tool_call_limit', 'model_call_limit',
 ])
-const BUILTIN_AGENT_EDITABLE_FIELDS = [
-  'permissions', 'tools', 'skills', 'sub_agents', 'prompt',
-  'max_iterations',
+const BUILTIN_AGENT_ARRAY_MERGE_FIELDS = ['tools', 'skills', 'sub_agents']
+const BUILTIN_AGENT_USER_SCALAR_FIELDS = [
   'model', 'temperature', 'top_p', 'max_tokens', 'presence_penalty', 'frequency_penalty',
   'thinking_mode', 'thinking_intensity', 'reviewer_model', 'use_same_model',
-  'tool_call_limit', 'model_call_limit',
 ]
+const BUILTIN_AGENT_USER_FIELDS = [...BUILTIN_AGENT_ARRAY_MERGE_FIELDS, ...BUILTIN_AGENT_USER_SCALAR_FIELDS]
 const BUILTIN_AGENT_SYSTEM_FIELDS = [
   'name', 'english_name', 'description', 'icon', 'color', 'architecture',
   'reflect_persist', 'planning_model', 'plan_steps', 'complexity_classifier',
 ]
+const BUILTIN_AGENT_RUNTIME_FIELDS = [
+  'permissions', 'prompt', 'max_iterations', 'tool_call_limit', 'model_call_limit',
+]
+const BUILTIN_AGENT_EDITABLE_FIELDS = [...BUILTIN_AGENT_RUNTIME_FIELDS, ...BUILTIN_AGENT_USER_FIELDS]
 const BUILTIN_AGENT_TEMPLATE_FIELDS = [...BUILTIN_AGENT_SYSTEM_FIELDS, ...BUILTIN_AGENT_EDITABLE_FIELDS]
 
 function stableValue(value) {
@@ -63,6 +66,27 @@ function stableStringify(value) {
 
 function isObject(value) {
   return value && typeof value === 'object' && !Array.isArray(value)
+}
+
+function uniqueStringArray(values) {
+  const seen = new Set()
+  const result = []
+  for (const value of Array.isArray(values) ? values : []) {
+    const item = String(value || '').trim()
+    if (!item || seen.has(item)) continue
+    seen.add(item)
+    result.push(item)
+  }
+  return result
+}
+
+function arrayDiff(values, base) {
+  const baseSet = new Set(uniqueStringArray(base))
+  return uniqueStringArray(values).filter(item => !baseSet.has(item))
+}
+
+function mergeOfficialArray(official, additions) {
+  return uniqueStringArray([...uniqueStringArray(official), ...uniqueStringArray(additions)])
 }
 
 function dynamicUpdate(db, table, id, data, jsonFields = [], boolFields = []) {
@@ -443,29 +467,89 @@ export class DatabaseService {
 
   _deriveBuiltinAgentOverrides(row, template) {
     const overrides = {}
-    for (const field of BUILTIN_AGENT_EDITABLE_FIELDS) {
+    for (const field of BUILTIN_AGENT_USER_SCALAR_FIELDS) {
       const current = this._agentRowFieldValue(row, field)
       const base = this._normalizeAgentField(field, template[field])
       if (stableStringify(current) !== stableStringify(base)) {
         overrides[field] = current
       }
     }
+    for (const field of BUILTIN_AGENT_ARRAY_MERGE_FIELDS) {
+      const current = this._agentRowFieldValue(row, field)
+      const base = this._normalizeAgentField(field, template[field])
+      const added = arrayDiff(current, base)
+      if (added.length) overrides[field] = { added }
+    }
     return overrides
+  }
+
+  _normalizeBuiltinAgentOverrides(row, storedOverrides = {}, nextTemplate = {}) {
+    const overrides = {}
+    const previousTemplate = parseJSON(row?.builtin_template || '{}')
+    const hasPreviousTemplate = isObject(previousTemplate) && Object.keys(previousTemplate).length > 0
+
+    for (const field of BUILTIN_AGENT_USER_SCALAR_FIELDS) {
+      if (!Object.prototype.hasOwnProperty.call(storedOverrides, field)) continue
+      overrides[field] = this._normalizeAgentField(field, storedOverrides[field])
+    }
+
+    for (const field of BUILTIN_AGENT_ARRAY_MERGE_FIELDS) {
+      const stored = storedOverrides[field]
+      const previousBase = this._normalizeAgentField(field, hasPreviousTemplate ? previousTemplate[field] : nextTemplate[field])
+      const additions = []
+
+      if (Array.isArray(stored)) {
+        additions.push(...arrayDiff(stored, previousBase))
+      } else if (isObject(stored)) {
+        additions.push(...uniqueStringArray(stored.added))
+      }
+
+      const current = this._agentRowFieldValue(row, field)
+      additions.push(...arrayDiff(current, previousBase))
+
+      const normalized = uniqueStringArray(additions)
+      if (normalized.length) overrides[field] = { added: normalized }
+    }
+
+    return overrides
+  }
+
+  _applyBuiltinAgentTemplateOverrides(templatePayload, overrides = {}) {
+    const next = { ...templatePayload }
+    for (const field of BUILTIN_AGENT_USER_SCALAR_FIELDS) {
+      if (!Object.prototype.hasOwnProperty.call(overrides, field)) continue
+      next[field] = this._normalizeAgentField(field, overrides[field])
+    }
+    for (const field of BUILTIN_AGENT_ARRAY_MERGE_FIELDS) {
+      const override = isObject(overrides[field]) ? overrides[field] : {}
+      next[field] = mergeOfficialArray(templatePayload[field], override.added)
+    }
+    return next
   }
 
   _applyBuiltinAgentOverrides(row, data = {}) {
     const template = parseJSON(row?.builtin_template || '{}')
     if (!isObject(template) || Object.keys(template).length === 0) return data
 
-    const overrides = isObject(parseJSON(row.user_overrides)) ? parseJSON(row.user_overrides) : {}
+    const stored = parseJSON(row.user_overrides)
+    const overrides = this._normalizeBuiltinAgentOverrides(row, isObject(stored) ? stored : {}, template)
     const payload = {}
-    for (const field of BUILTIN_AGENT_EDITABLE_FIELDS) {
+    for (const field of BUILTIN_AGENT_USER_SCALAR_FIELDS) {
       if (!Object.prototype.hasOwnProperty.call(data, field)) continue
       const incoming = this._normalizeAgentField(field, data[field])
       payload[field] = incoming
       const base = this._normalizeAgentField(field, template[field])
       if (stableStringify(incoming) === stableStringify(base)) delete overrides[field]
       else overrides[field] = incoming
+    }
+    for (const field of BUILTIN_AGENT_ARRAY_MERGE_FIELDS) {
+      if (!Object.prototype.hasOwnProperty.call(data, field)) continue
+      const incoming = this._normalizeAgentField(field, data[field])
+      const base = this._normalizeAgentField(field, template[field])
+      const added = arrayDiff(incoming, base)
+      payload[field] = mergeOfficialArray(base, added)
+      if (added.length) overrides[field] = { added }
+      else delete overrides[field]
     }
     return { ...payload, user_overrides: overrides }
   }
@@ -504,12 +588,11 @@ export class DatabaseService {
 
     const storedOverrides = parseJSON(existing.user_overrides || '{}')
     const overrides = this._hasBuiltinTemplate(existing)
-      ? (isObject(storedOverrides) ? storedOverrides : {})
-      : (this._agentLooksUserEdited(existing) ? this._deriveBuiltinAgentOverrides(existing, template) : {})
+      ? this._normalizeBuiltinAgentOverrides(existing, isObject(storedOverrides) ? storedOverrides : {}, templatePayload)
+      : (this._agentLooksUserEdited(existing) ? this._deriveBuiltinAgentOverrides(existing, templatePayload) : {})
 
     const next = {
-      ...templatePayload,
-      ...overrides,
+      ...this._applyBuiltinAgentTemplateOverrides(templatePayload, overrides),
       builtin: 1,
       builtin_key: builtinKey,
       builtin_version: builtinVersion,

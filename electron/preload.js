@@ -417,6 +417,7 @@ const api = {
     onProgress: (cb) => { const h = (_, d) => cb(d); ipcRenderer.on('update:progress', h); return h },
     onDownloaded: (cb) => { const h = (_, d) => cb(d); ipcRenderer.on('update:downloaded', h); return h },
     onError: (cb) => { const h = (_, d) => cb(d); ipcRenderer.on('update:error', h); return h },
+    onManualCheck: (cb) => { const h = () => cb(); ipcRenderer.on('check-for-update', h); return h },
     removeListeners: () => {
       ipcRenderer.removeAllListeners('update:checking')
       ipcRenderer.removeAllListeners('update:available')
@@ -424,6 +425,7 @@ const api = {
       ipcRenderer.removeAllListeners('update:progress')
       ipcRenderer.removeAllListeners('update:downloaded')
       ipcRenderer.removeAllListeners('update:error')
+      ipcRenderer.removeAllListeners('check-for-update')
     },
   },
 }

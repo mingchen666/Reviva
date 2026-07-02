@@ -212,13 +212,13 @@ function buildContextManagementSection(memoryDirName) {
 
 function buildSkillIsolationSection(skillInfo = []) {
   if (!skillInfo?.length) return ''
-  const boundList = skillInfo.map(s => `- /skills/${s.id}/`).join('\n')
+  const boundList = skillInfo.map(s => `- ${s.id}${s.name && s.name !== s.id ? ` (${s.name})` : ''}: ${s.desc || '无描述'}；路径：/skills/${s.id}/`).join('\n')
   return `## 技能隔离
 
-你只能访问以下已绑定的技能路径：
+你只能访问以下已绑定技能。下面的 ID、名称、描述和路径就是当前 Agent 可用的完整技能清单：
 ${boundList}
 
-禁止尝试 ls /skills/ 来发现其他技能。系统已限制 /skills/ 目录只显示你绑定的技能。技能目录为只读，不要修改、删除或重命名技能文件。`
+可根据任务和技能描述主动隐式使用匹配技能；用户写 /技能ID 时视为显式技能调用而非路径。若 ID 在清单中，读 /skills/技能ID/SKILL.md 后执行；否则说明未绑定。不要 ls /skills/ 发现技能，不要访问未绑定技能；技能目录只读。`
 }
 
 function contextAccessPath(item, workRoot) {

@@ -183,13 +183,8 @@ const AGENT_NUMBER_FIELDS = /* @__PURE__ */ new Set([
   "tool_call_limit",
   "model_call_limit"
 ]);
-const BUILTIN_AGENT_EDITABLE_FIELDS = [
-  "permissions",
-  "tools",
-  "skills",
-  "sub_agents",
-  "prompt",
-  "max_iterations",
+const BUILTIN_AGENT_ARRAY_MERGE_FIELDS = ["tools", "skills", "sub_agents"];
+const BUILTIN_AGENT_USER_SCALAR_FIELDS = [
   "model",
   "temperature",
   "top_p",
@@ -199,10 +194,9 @@ const BUILTIN_AGENT_EDITABLE_FIELDS = [
   "thinking_mode",
   "thinking_intensity",
   "reviewer_model",
-  "use_same_model",
-  "tool_call_limit",
-  "model_call_limit"
+  "use_same_model"
 ];
+const BUILTIN_AGENT_USER_FIELDS = [...BUILTIN_AGENT_ARRAY_MERGE_FIELDS, ...BUILTIN_AGENT_USER_SCALAR_FIELDS];
 const BUILTIN_AGENT_SYSTEM_FIELDS = [
   "name",
   "english_name",
@@ -215,6 +209,14 @@ const BUILTIN_AGENT_SYSTEM_FIELDS = [
   "plan_steps",
   "complexity_classifier"
 ];
+const BUILTIN_AGENT_RUNTIME_FIELDS = [
+  "permissions",
+  "prompt",
+  "max_iterations",
+  "tool_call_limit",
+  "model_call_limit"
+];
+const BUILTIN_AGENT_EDITABLE_FIELDS = [...BUILTIN_AGENT_RUNTIME_FIELDS, ...BUILTIN_AGENT_USER_FIELDS];
 const BUILTIN_AGENT_TEMPLATE_FIELDS = [...BUILTIN_AGENT_SYSTEM_FIELDS, ...BUILTIN_AGENT_EDITABLE_FIELDS];
 function stableValue(value) {
   if (Array.isArray(value)) return value.map(stableValue);
@@ -231,6 +233,24 @@ function stableStringify(value) {
 }
 function isObject$2(value) {
   return value && typeof value === "object" && !Array.isArray(value);
+}
+function uniqueStringArray(values) {
+  const seen = /* @__PURE__ */ new Set();
+  const result = [];
+  for (const value of Array.isArray(values) ? values : []) {
+    const item = String(value || "").trim();
+    if (!item || seen.has(item)) continue;
+    seen.add(item);
+    result.push(item);
+  }
+  return result;
+}
+function arrayDiff(values, base) {
+  const baseSet = new Set(uniqueStringArray(base));
+  return uniqueStringArray(values).filter((item) => !baseSet.has(item));
+}
+function mergeOfficialArray(official, additions) {
+  return uniqueStringArray([...uniqueStringArray(official), ...uniqueStringArray(additions)]);
 }
 function dynamicUpdate(db, table, id2, data, jsonFields = [], boolFields = []) {
   const existingCols = db.prepare(`PRAGMA table_info(${table})`).all().map((c2) => c2.name);
@@ -577,27 +597,79 @@ class DatabaseService {
   }
   _deriveBuiltinAgentOverrides(row, template) {
     const overrides = {};
-    for (const field of BUILTIN_AGENT_EDITABLE_FIELDS) {
+    for (const field of BUILTIN_AGENT_USER_SCALAR_FIELDS) {
       const current = this._agentRowFieldValue(row, field);
       const base = this._normalizeAgentField(field, template[field]);
       if (stableStringify(current) !== stableStringify(base)) {
         overrides[field] = current;
       }
     }
+    for (const field of BUILTIN_AGENT_ARRAY_MERGE_FIELDS) {
+      const current = this._agentRowFieldValue(row, field);
+      const base = this._normalizeAgentField(field, template[field]);
+      const added = arrayDiff(current, base);
+      if (added.length) overrides[field] = { added };
+    }
     return overrides;
+  }
+  _normalizeBuiltinAgentOverrides(row, storedOverrides = {}, nextTemplate = {}) {
+    const overrides = {};
+    const previousTemplate = parseJSON$1((row == null ? void 0 : row.builtin_template) || "{}");
+    const hasPreviousTemplate = isObject$2(previousTemplate) && Object.keys(previousTemplate).length > 0;
+    for (const field of BUILTIN_AGENT_USER_SCALAR_FIELDS) {
+      if (!Object.prototype.hasOwnProperty.call(storedOverrides, field)) continue;
+      overrides[field] = this._normalizeAgentField(field, storedOverrides[field]);
+    }
+    for (const field of BUILTIN_AGENT_ARRAY_MERGE_FIELDS) {
+      const stored = storedOverrides[field];
+      const previousBase = this._normalizeAgentField(field, hasPreviousTemplate ? previousTemplate[field] : nextTemplate[field]);
+      const additions = [];
+      if (Array.isArray(stored)) {
+        additions.push(...arrayDiff(stored, previousBase));
+      } else if (isObject$2(stored)) {
+        additions.push(...uniqueStringArray(stored.added));
+      }
+      const current = this._agentRowFieldValue(row, field);
+      additions.push(...arrayDiff(current, previousBase));
+      const normalized = uniqueStringArray(additions);
+      if (normalized.length) overrides[field] = { added: normalized };
+    }
+    return overrides;
+  }
+  _applyBuiltinAgentTemplateOverrides(templatePayload, overrides = {}) {
+    const next = { ...templatePayload };
+    for (const field of BUILTIN_AGENT_USER_SCALAR_FIELDS) {
+      if (!Object.prototype.hasOwnProperty.call(overrides, field)) continue;
+      next[field] = this._normalizeAgentField(field, overrides[field]);
+    }
+    for (const field of BUILTIN_AGENT_ARRAY_MERGE_FIELDS) {
+      const override = isObject$2(overrides[field]) ? overrides[field] : {};
+      next[field] = mergeOfficialArray(templatePayload[field], override.added);
+    }
+    return next;
   }
   _applyBuiltinAgentOverrides(row, data = {}) {
     const template = parseJSON$1((row == null ? void 0 : row.builtin_template) || "{}");
     if (!isObject$2(template) || Object.keys(template).length === 0) return data;
-    const overrides = isObject$2(parseJSON$1(row.user_overrides)) ? parseJSON$1(row.user_overrides) : {};
+    const stored = parseJSON$1(row.user_overrides);
+    const overrides = this._normalizeBuiltinAgentOverrides(row, isObject$2(stored) ? stored : {}, template);
     const payload = {};
-    for (const field of BUILTIN_AGENT_EDITABLE_FIELDS) {
+    for (const field of BUILTIN_AGENT_USER_SCALAR_FIELDS) {
       if (!Object.prototype.hasOwnProperty.call(data, field)) continue;
       const incoming = this._normalizeAgentField(field, data[field]);
       payload[field] = incoming;
       const base = this._normalizeAgentField(field, template[field]);
       if (stableStringify(incoming) === stableStringify(base)) delete overrides[field];
       else overrides[field] = incoming;
+    }
+    for (const field of BUILTIN_AGENT_ARRAY_MERGE_FIELDS) {
+      if (!Object.prototype.hasOwnProperty.call(data, field)) continue;
+      const incoming = this._normalizeAgentField(field, data[field]);
+      const base = this._normalizeAgentField(field, template[field]);
+      const added = arrayDiff(incoming, base);
+      payload[field] = mergeOfficialArray(base, added);
+      if (added.length) overrides[field] = { added };
+      else delete overrides[field];
     }
     return { ...payload, user_overrides: overrides };
   }
@@ -630,10 +702,9 @@ class DatabaseService {
       return this.getAgent(template.id);
     }
     const storedOverrides = parseJSON$1(existing.user_overrides || "{}");
-    const overrides = this._hasBuiltinTemplate(existing) ? isObject$2(storedOverrides) ? storedOverrides : {} : this._agentLooksUserEdited(existing) ? this._deriveBuiltinAgentOverrides(existing, template) : {};
+    const overrides = this._hasBuiltinTemplate(existing) ? this._normalizeBuiltinAgentOverrides(existing, isObject$2(storedOverrides) ? storedOverrides : {}, templatePayload) : this._agentLooksUserEdited(existing) ? this._deriveBuiltinAgentOverrides(existing, templatePayload) : {};
     const next = {
-      ...templatePayload,
-      ...overrides,
+      ...this._applyBuiltinAgentTemplateOverrides(templatePayload, overrides),
       builtin: 1,
       builtin_key: builtinKey,
       builtin_version: builtinVersion,
@@ -93357,13 +93428,13 @@ function buildContextManagementSection(memoryDirName) {
 }
 function buildSkillIsolationSection(skillInfo = []) {
   if (!(skillInfo == null ? void 0 : skillInfo.length)) return "";
-  const boundList = skillInfo.map((s) => `- /skills/${s.id}/`).join("\n");
+  const boundList = skillInfo.map((s) => `- ${s.id}${s.name && s.name !== s.id ? ` (${s.name})` : ""}: ${s.desc || "无描述"}；路径：/skills/${s.id}/`).join("\n");
   return `## 技能隔离
 
-你只能访问以下已绑定的技能路径：
+你只能访问以下已绑定技能。下面的 ID、名称、描述和路径就是当前 Agent 可用的完整技能清单：
 ${boundList}
 
-禁止尝试 ls /skills/ 来发现其他技能。系统已限制 /skills/ 目录只显示你绑定的技能。技能目录为只读，不要修改、删除或重命名技能文件。`;
+可根据任务和技能描述主动隐式使用匹配技能；用户写 /技能ID 时视为显式技能调用而非路径。若 ID 在清单中，读 /skills/技能ID/SKILL.md 后执行；否则说明未绑定。不要 ls /skills/ 发现技能，不要访问未绑定技能；技能目录只读。`;
 }
 function contextAccessPath(item, workRoot) {
   const name2 = item.name || path__default.basename(item.path || "");
@@ -93594,6 +93665,46 @@ class TitleGenerator {
 const DEEPAGENTS_EXECUTION_TOOL_NAME = "execute";
 const HIDDEN_COMMAND_COMPATIBILITY_TOOL_NAMES = ["bash", "command", "shell"];
 const DEEPAGENTS_EXECUTION_TOOL_EXCLUSION = [DEEPAGENTS_EXECUTION_TOOL_NAME, ...HIDDEN_COMMAND_COMPATIBILITY_TOOL_NAMES];
+function stripYamlQuotes(value) {
+  const str = String(value || "").trim();
+  if (!str) return "";
+  if (str.startsWith('"') && str.endsWith('"')) {
+    try {
+      return JSON.parse(str);
+    } catch {
+      return str.slice(1, -1);
+    }
+  }
+  if (str.startsWith("'") && str.endsWith("'")) {
+    return str.slice(1, -1).replace(/''/g, "'");
+  }
+  return str;
+}
+function isTopLevelYamlKey(line) {
+  return /^[A-Za-z0-9_-]+:\s*/.test(line);
+}
+function parseSkillFrontmatterSummary(content) {
+  const match = String(content || "").replace(/^\uFEFF/, "").match(/^---[ \t]*\r?\n([\s\S]*?)\r?\n---[ \t]*(?:\r?\n|$)/);
+  if (!match) return {};
+  const meta = {};
+  const lines = match[1].split(/\r?\n/);
+  for (let i = 0; i < lines.length; i++) {
+    const lineMatch = lines[i].match(/^([A-Za-z0-9_-]+):\s*(.*)$/);
+    if (!lineMatch) continue;
+    const key = lineMatch[1];
+    const value = lineMatch[2].trim();
+    if (/^[>|][+-]?$/.test(value)) {
+      const block = [];
+      while (i + 1 < lines.length && !isTopLevelYamlKey(lines[i + 1])) {
+        block.push(lines[++i].replace(/^\s{1,4}/, ""));
+      }
+      meta[key] = value.startsWith(">") ? block.join(" ").replace(/\s+/g, " ").trim() : block.join("\n").trim();
+      continue;
+    }
+    meta[key] = stripYamlQuotes(value);
+  }
+  return meta;
+}
 for (const provider of ["anthropic", "openai", "google"]) {
   registerHarnessProfile(provider, { excludedTools: DEEPAGENTS_EXECUTION_TOOL_EXCLUSION });
 }
@@ -93727,6 +93838,58 @@ class AgentScopedBackend extends FilesystemBackend {
       return this._deny(err2.message);
     }
     return super.read(filePath, offset, limit2);
+  }
+  async downloadFiles(paths = []) {
+    const allowed = [];
+    const positions = [];
+    const responses = Array.from({ length: paths.length }, (_, idx) => ({
+      path: paths[idx],
+      content: null,
+      error: null
+    }));
+    for (let idx = 0; idx < paths.length; idx++) {
+      const filePath = paths[idx];
+      try {
+        this._assertAllowed(filePath, "read");
+        allowed.push(filePath);
+        positions.push(idx);
+      } catch (err2) {
+        responses[idx].error = err2.message;
+      }
+    }
+    if (allowed.length) {
+      const allowedResponses = await super.downloadFiles(allowed);
+      for (let idx = 0; idx < allowedResponses.length; idx++) {
+        responses[positions[idx]] = allowedResponses[idx];
+      }
+    }
+    return responses;
+  }
+  async uploadFiles(files = []) {
+    const allowed = [];
+    const positions = [];
+    const responses = Array.from({ length: files.length }, (_, idx) => ({
+      path: Array.isArray(files[idx]) ? files[idx][0] : "",
+      error: null
+    }));
+    for (let idx = 0; idx < files.length; idx++) {
+      const entry = files[idx];
+      const filePath = Array.isArray(entry) ? entry[0] : "";
+      try {
+        this._assertAllowed(filePath, "write");
+        allowed.push(entry);
+        positions.push(idx);
+      } catch (err2) {
+        responses[idx].error = err2.message;
+      }
+    }
+    if (allowed.length) {
+      const allowedResponses = await super.uploadFiles(allowed);
+      for (let idx = 0; idx < allowedResponses.length; idx++) {
+        responses[positions[idx]] = allowedResponses[idx];
+      }
+    }
+    return responses;
   }
   async glob(pattern2, searchPath) {
     try {
@@ -95026,7 +95189,7 @@ class AgentService {
         ...moduleConfig.skills || [],
         ...subAgentConfigs.flatMap((sa) => Array.isArray(sa.skills) ? sa.skills : [])
       ]), moduleConfig.permissions), request.cloudContext), webSearchEnabled);
-      setToolRunContext({ agentEnglishName: agentEnglishName || "_shared", permissions: moduleConfig.permissions || {}, wikiContext: request.wikiContext || {}, boundSkillIds: moduleConfig.skills || [], toolIds: effectiveToolIds });
+      setToolRunContext({ agentEnglishName: agentEnglishName || "_shared", permissions: moduleConfig.permissions || {}, wikiContext: request.wikiContext || {}, boundSkillIds: skillData.boundSkillIds, toolIds: effectiveToolIds });
       const customTools = this._buildLocalRuntimeTools(effectiveToolIds, { includeDefaults: false });
       resetTaskCounters();
       let mcp = { tools: [], clients: [] };
@@ -95054,7 +95217,7 @@ class AgentService {
       const normalizedRoot = (workRoot || ".").replace(/\\/g, "/");
       const backend = new AgentScopedBackend({ rootDir: normalizedRoot, virtualMode: true }, {
         workDirService: this._workDirService,
-        boundSkillIds: moduleConfig.skills || [],
+        boundSkillIds: skillData.boundSkillIds,
         allowedAgentMemoryDir: memoryDirName,
         agentDirName: agentEnglishName || "_shared",
         wikiContext: request.wikiContext || {}
@@ -95172,41 +95335,48 @@ class AgentService {
     return Object.keys(interruptOn).length ? interruptOn : void 0;
   }
   /**
-   * Build DeepAgents skills paths — global skills directory only
+   * Build DeepAgents skills source path — global skills directory only
    * Skills are installed once at {workRoot}/skills/{skillId}/ and shared across agents
-   * Isolation is achieved by only resolving skill IDs the agent is bound to
-   * Returns { paths: string[], info: { id, name, desc }[] }
+   * Isolation is enforced by AgentScopedBackend filtering /skills/ to boundSkillIds.
+   * Returns { paths: string[], info: { id, name, desc }[], boundSkillIds: string[] }
    */
   _buildSkillsPaths(skillIds) {
-    var _a3, _b2;
-    if (!(skillIds == null ? void 0 : skillIds.length)) return { paths: void 0, info: [] };
+    var _a3, _b2, _c2;
+    const normalizedSkillIds = [...new Set((skillIds || []).map((id2) => this._normalizeSkillId(id2)).filter(Boolean))];
+    if (!normalizedSkillIds.length) return { paths: void 0, info: [], boundSkillIds: [] };
     const workRoot = ((_b2 = (_a3 = this._workDirService) == null ? void 0 : _a3.getRootPath) == null ? void 0 : _b2.call(_a3)) || "";
-    if (!workRoot) return { paths: void 0, info: [] };
+    if (!workRoot) return { paths: void 0, info: [], boundSkillIds: [] };
     const globalSkillsDir = path__default.join(workRoot, "skills");
     if (!fs__default.existsSync(globalSkillsDir)) {
       fs__default.mkdirSync(globalSkillsDir, { recursive: true });
     }
-    const skillPaths = [];
     const skillInfo = [];
-    for (const skillId of skillIds) {
+    const boundSkillIds = [];
+    for (const skillId of normalizedSkillIds) {
       const skillDir = path__default.join(globalSkillsDir, skillId);
       const skillFile = path__default.join(skillDir, "SKILL.md");
       if (fs__default.existsSync(skillFile)) {
-        skillPaths.push(`/skills/${skillId}/`);
+        boundSkillIds.push(skillId);
         let skillName = skillId;
+        let skillDesc = "";
         try {
-          const firstLine = fs__default.readFileSync(skillFile, "utf-8").split("\n")[0];
-          const titleMatch = firstLine.match(/^#\s+(.+)/);
-          if (titleMatch) skillName = titleMatch[1].trim();
+          const skillContent = fs__default.readFileSync(skillFile, "utf-8");
+          const meta = parseSkillFrontmatterSummary(skillContent);
+          skillName = String(meta.name || skillId).trim();
+          skillDesc = String(meta.description || "").trim();
+          if (!skillDesc) {
+            const titleMatch = (_c2 = skillContent.split(/\r?\n/).find((line) => /^#\s+/.test(line))) == null ? void 0 : _c2.match(/^#\s+(.+)/);
+            if (titleMatch) skillName = titleMatch[1].trim();
+          }
         } catch {
         }
-        skillInfo.push({ id: skillId, name: skillName, desc: `路径: /skills/${skillId}/` });
+        skillInfo.push({ id: skillId, name: skillName, desc: skillDesc || `路径: /skills/${skillId}/`, path: `/skills/${skillId}/` });
         console.log("[AgentService] Skill found:", skillId, "→", skillName);
       } else {
         console.warn("[AgentService] Skill not found:", skillId);
       }
     }
-    return { paths: skillPaths.length ? skillPaths : void 0, info: skillInfo };
+    return { paths: boundSkillIds.length ? ["/skills/"] : void 0, info: skillInfo, boundSkillIds };
   }
   /**
    * Build DeepAgents memory paths — per-agent isolated memory
@@ -95376,7 +95546,7 @@ ${endTag}
         ...request.skills || [],
         ...subAgentSkillIds
       ]), request.permissions), request.cloudContext);
-      setToolRunContext({ agentEnglishName: request.agentEnglishName || "_shared", permissions: request.permissions || {}, wikiContext: request.wikiContext || {}, boundSkillIds: request.skills || [], toolIds: effectiveToolIds });
+      setToolRunContext({ agentEnglishName: request.agentEnglishName || "_shared", permissions: request.permissions || {}, wikiContext: request.wikiContext || {}, boundSkillIds: skillData.boundSkillIds, toolIds: effectiveToolIds });
       const customTools = this._buildLocalRuntimeTools(effectiveToolIds, { includeDefaults: false });
       resetTaskCounters();
       console.log("[AgentService] Tools loaded:", customTools.map((t) => t.name));
@@ -95397,10 +95567,9 @@ ${endTag}
       this._injectSemanticMemories(workRoot);
       const memory = this._buildMemoryPaths({ agentId: request.agentId, agentEnglishName: request.agentEnglishName });
       const normalizedRoot = (workRoot || ".").replace(/\\/g, "/");
-      const boundSkillIds = request.skills || [];
       const backend = new AgentScopedBackend({ rootDir: normalizedRoot, virtualMode: true }, {
         workDirService: this._workDirService,
-        boundSkillIds,
+        boundSkillIds: skillData.boundSkillIds,
         allowedAgentMemoryDir: memoryDirName,
         agentDirName: request.agentEnglishName || "_shared",
         wikiContext: request.wikiContext || {}
@@ -95475,7 +95644,7 @@ ${endTag}
             this._interruptedRuns.set(runId, {
               runId,
               request,
-              agentConfig: { model, tools: allCustomTools, toolIds: effectiveToolIds, systemPrompt, subagents, interruptOn, skills: skillData.paths, memory, memoryDirName },
+              agentConfig: { model, tools: allCustomTools, toolIds: effectiveToolIds, systemPrompt, subagents, interruptOn, skills: skillData.paths, boundSkillIds: skillData.boundSkillIds, memory, memoryDirName },
               msgId,
               initialSteps: result.steps,
               initialIteration: result.iteration,
@@ -95507,7 +95676,7 @@ ${endTag}
           this._interruptedRuns.set(runId, {
             runId,
             request,
-            agentConfig: { model, tools: allCustomTools, systemPrompt, subagents, interruptOn, skills: skillData.paths, memory, memoryDirName },
+            agentConfig: { model, tools: allCustomTools, systemPrompt, subagents, interruptOn, skills: skillData.paths, boundSkillIds: skillData.boundSkillIds, memory, memoryDirName },
             msgId,
             initialSteps: result.steps,
             initialIteration: result.iteration,
@@ -95638,7 +95807,8 @@ ${endTag}
     try {
       setToolProviderConfig(request.toolProviderConfigs || {});
       const resumeToolIds = withPermissionAgentTools(agentConfig.toolIds || request.toolIds || [], request.permissions);
-      setToolRunContext({ agentEnglishName: request.agentEnglishName || "_shared", permissions: request.permissions || {}, wikiContext: request.wikiContext || {}, boundSkillIds: request.skills || agentConfig.skills || [], toolIds: resumeToolIds });
+      const resumeSkillIds = agentConfig.boundSkillIds || request.skills || [];
+      setToolRunContext({ agentEnglishName: request.agentEnglishName || "_shared", permissions: request.permissions || {}, wikiContext: request.wikiContext || {}, boundSkillIds: resumeSkillIds, toolIds: resumeToolIds });
       setExecCommandConfig({
         whitelist: ((_a3 = request.permissions) == null ? void 0 : _a3.execCommandWhitelist) || null,
         blacklist: ((_b2 = request.permissions) == null ? void 0 : _b2.execCommandBlacklist) || null
@@ -95646,7 +95816,6 @@ ${endTag}
       setCloudContext(request.cloudContext || {});
       workRoot = ((_d2 = (_c2 = this._workDirService) == null ? void 0 : _c2.getRootPath) == null ? void 0 : _d2.call(_c2)) || "";
       const normalizedRoot = (workRoot || ".").replace(/\\/g, "/");
-      const resumeSkillIds = (agentConfig.skills || []).map((p) => p.replace(/\\/g, "/").replace(/^\/skills\//, "").replace(/\/+$/, ""));
       const resumeMemoryDirName = agentConfig.memoryDirName || this._agentMemoryDirName(request.agentId, request.agentEnglishName);
       const backend = new AgentScopedBackend({ rootDir: normalizedRoot, virtualMode: true }, {
         workDirService: this._workDirService,
@@ -120502,7 +120671,7 @@ function initAutoUpdater(mainWindow) {
     return;
   }
   autoUpdater.autoDownload = false;
-  autoUpdater.autoInstallOnAppQuit = true;
+  autoUpdater.autoInstallOnAppQuit = false;
   autoUpdater.on("checking-for-update", () => {
     console.log("[AutoUpdater] 正在检查更新...");
     sendToRenderer("update:checking");

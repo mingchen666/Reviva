@@ -18,12 +18,28 @@ description: >-
 右侧是题目对应的 3D 模型（Three.js，可旋转缩放，分步高亮关键元素并切换镜头）。
 形态与 `template/lesson.html` 一致。
 
+## 3D 可视化质量要求
+立体几何图必须先像一个正确的立体图形，再谈解题步骤。生成 `model` 时优先提供：
+
+- `faces`：低透明度实体面。不要只画线框。
+- `edges`：骨架棱；背面/隐藏棱标记 `hidden:true` 或 `dashed:true`。
+- `elements`：分步强调用的目标线、目标面、法向量、投影线、截面线、角标、长度标注。
+- `cameraPos`：每一步都给合理镜头，默认视角应能一眼看出空间结构。
+
+常见三维结构必须使用确定性拓扑与坐标：
+- 正方体/长方体：用 `bodies.cuboid` + `geometry_kernel.cuboid/cube`。
+- 三棱锥/正四面体：用 `bodies.tri_pyramid` + `geometry_kernel.regular_tetrahedron` 或题面坐标。
+- 四棱锥：用 `bodies.quad_pyramid` + `geometry_kernel.regular_quad_pyramid`。
+- 棱柱：用 `bodies.prism`。
+
+不要让模型临时想象哪些边/面存在。点、边、面、辅助线、垂足、投影、角标都应来自同一份 problem spec 和 kernel 计算结果。
+
 ## 依赖（重要）
 计算核心 `lib/geometry_kernel.py` 依赖 **sympy**。运行脚本前先确认有一个能 import sympy 的
 `python3`：跑 `python3 -c "import sympy"`。
 
-**缺库时的处理（重要）**：若 import 报错（sympy 或后续用到的任何库都同理），**先询问用户是否安装**，
-得到同意后再帮忙安装（`python3 -m pip install <库名>`），或换一个已装该库的解释器；**不要未经询问直接装**。
+**缺库时的处理（Reviva 内置默认）**：若 import 报错（sympy 或后续用到的任何库都同理），
+可以自动尝试安装（`python3 -m pip install <库名>`），或换一个已装该库的解释器。
 下文命令里的 `python3` 均指这个能跑通依赖的解释器。
 
 ## 工作流程
@@ -66,6 +82,7 @@ generate.render_html(data, out)
 - `steps[*].content` 里的所有数值**直接引用 kernel 的计算结果**，模型只负责组织讲解文字（按目标语言书写）。
 - `model.points` 用 `kernel.to_three(...)` 的结果；`model.spheres`/`edges` 用 `lib/bodies.py` 的拓扑
   （`quad_pyramid` / `tri_pyramid` / `cuboid` / `cube` / `prism`），罕见几何体可手写 edges。
+- `model.faces` 优先使用 `lib/bodies.py` 返回的 faces；罕见几何体也要手写 faces，避免只显示线框。
 - 每步配 `highlight`（该步可见元素的绝对集合）与 `cameraPos`。
 - **题面给出线段长度时**：为对应棱加 `measure` 元素（`label` 用 LaTeX，如 `2\sqrt{2}`），
   并把它放进"建系/列已知条件"那步的 `highlight`，在 3D 图中点处标出长度（见 problem-schema）。

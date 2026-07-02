@@ -688,6 +688,11 @@
             emphasis: 0xd946ef,
             normal: 0xef4444,
             plane: 0x0ea5e9,
+            baseFace: 0x38bdf8,
+            sideFace: 0xa78bfa,
+            topFace: 0x34d399,
+            section: 0xf59e0b,
+            angle: 0xf97316,
             point: 0x0f172a
         };
         function colorOf(name, fallback) {
@@ -927,7 +932,7 @@
             return createTubeSegment(p1, p2, radius, material);
         }
 
-        function makePlane(points) {
+        function makePlane(points, options = {}) {
             const geo = new THREE.BufferGeometry();
             const flat = [];
             points.forEach((p) => { flat.push(p.x, p.y, p.z); });
@@ -938,12 +943,51 @@
                 geo.setIndex([0, 1, 2, 0, 2, 3]);
             }
             const mat = new THREE.MeshBasicMaterial({
-                color: COLORS.plane,
+                color: colorOf(options.color, COLORS.plane),
                 side: THREE.DoubleSide,
                 transparent: true,
-                opacity: 0.2
+                opacity: options.opacity != null ? options.opacity : 0.2,
+                depthWrite: false
             });
             return new THREE.Mesh(geo, mat);
+        }
+
+        function makeAngleMarker(el) {
+            const center = pt(el.vertex || el.center);
+            const a = pt(el.a).sub(center).normalize();
+            const b = pt(el.b).sub(center).normalize();
+            const radius = el.radius || 0.42;
+            const segments = el.segments || 36;
+            const angle = a.angleTo(b);
+            const pts = [];
+            for (let i = 0; i <= segments; i++) {
+                const t = i / segments;
+                const dir = a.clone().multiplyScalar(Math.sin((1 - t) * angle))
+                    .add(b.clone().multiplyScalar(Math.sin(t * angle)))
+                    .divideScalar(Math.sin(angle) || 1)
+                    .normalize();
+                pts.push(center.clone().add(dir.multiplyScalar(radius)));
+            }
+            const geo = new THREE.BufferGeometry().setFromPoints(pts);
+            const mat = new THREE.LineBasicMaterial({
+                color: colorOf(el.color, COLORS.angle),
+                linewidth: 2,
+                transparent: true,
+                opacity: el.opacity != null ? el.opacity : 0.95,
+                depthTest: el.depthTest !== false
+            });
+            const group = new THREE.Group();
+            group.add(new THREE.Line(geo, mat));
+            if (el.label) {
+                const mid = pts[Math.floor(pts.length / 2)].clone();
+                const div = document.createElement('div');
+                div.className = 'measure-label';
+                div.innerHTML = '$' + el.label + '$';
+                const label = new CSS2DObject(div);
+                label.position.copy(mid);
+                group.add(label);
+            }
+            return group;
         }
 
         function buildModel() {
@@ -973,10 +1017,20 @@
                 sphere.add(label);
             });
 
-            // 3. 骨架棱（始终可见）
+            // 3. 立体面（始终可见，低透明度；具体步骤可再用 elements 叠加强调面）
+            const faceGroup = new THREE.Group();
+            (model.faces || []).forEach((f) => {
+                const obj = makePlane((f.pts || []).map((p) => pt(p)), f);
+                faceGroup.add(obj);
+                if (f.name) objects[f.name] = obj;
+            });
+            scene.add(faceGroup);
+            objects['Faces'] = faceGroup;
+
+            // 4. 骨架棱（始终可见）
             const frame = new THREE.Group();
             (model.edges || []).forEach((e) => {
-                const line = makeLine(pt(e.a), pt(e.b), colorOf(e.color, COLORS.frame), !!e.dashed);
+                const line = makeLine(pt(e.a), pt(e.b), colorOf(e.color, e.hidden ? COLORS.aux : COLORS.frame), !!(e.dashed || e.hidden));
                 frame.add(line);
                 if (e.name) objects[e.name] = line;
             });
@@ -1008,7 +1062,7 @@
                     if (obj.isGroup) obj.children.forEach(setNoDepth); else setNoDepth(obj);
                 }
             } else if (el.type === 'plane') {
-                obj = makePlane((el.pts || []).map((p) => pt(p)));
+                obj = makePlane((el.pts || []).map((p) => pt(p)), el);
             } else if (el.type === 'arrow') {
                 const dir = v3(el.dir).normalize();
                 const origin = pt(el.origin);
@@ -1033,6 +1087,8 @@
                 obj = group;
             } else if (el.type === 'axes') {
                 obj = new THREE.AxesHelper(el.size || 3);
+            } else if (el.type === 'angle') {
+                obj = makeAngleMarker(el);
             } else if (el.type === 'measure') {
                 // 线段长度标注：中点朝几何体外侧偏移，贴一个 MathJax 长度标签
                 // 注意：CSS2DRenderer 只看 CSS2DObject 自身的 .visible（不看父级），

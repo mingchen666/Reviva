@@ -488,6 +488,11 @@ const api = {
       ipcRenderer.on("update:error", h);
       return h;
     },
+    onManualCheck: (cb) => {
+      const h = () => cb();
+      ipcRenderer.on("check-for-update", h);
+      return h;
+    },
     removeListeners: () => {
       ipcRenderer.removeAllListeners("update:checking");
       ipcRenderer.removeAllListeners("update:available");
@@ -495,6 +500,7 @@ const api = {
       ipcRenderer.removeAllListeners("update:progress");
       ipcRenderer.removeAllListeners("update:downloaded");
       ipcRenderer.removeAllListeners("update:error");
+      ipcRenderer.removeAllListeners("check-for-update");
     }
   }
 };
