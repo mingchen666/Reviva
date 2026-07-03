@@ -1,12 +1,14 @@
 <script setup>
-import { ref, computed,onMounted } from 'vue'
+import { ref, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAppStore } from '@/stores/app'
 import { useSettingsStore } from '@/stores/settings'
 import { useUserStore } from '@/stores/user'
 import LeftPanel from '@/components/layout/LeftPanel.vue'
 import MainContent from '@/components/layout/MainContent.vue'
+import { getAppVersion } from '@/utils/tools'
 
+const appVersion = getAppVersion()
 const route = useRoute()
 const router = useRouter()
 const appStore = useAppStore()
@@ -52,18 +54,7 @@ const activeSection = computed(() => {
 })
 
 const currentSectionInfo = computed(() => sectionMap[activeSection.value])
-const version=ref(null)
-async function loadVersion() {
-  if (!window.electronAPI) return
-  try {
-    const ver = await window.electronAPI.getVersion()
-    version.value = ver || '--'
-  } catch (e) {
-    console.error('loadVersion error:', e)
-  }
-}
 
-onMounted(loadVersion)
 </script>
 
 <template>
@@ -119,7 +110,7 @@ onMounted(loadVersion)
 
       <!-- Footer -->
       <div class="px-4 py-2.5 flex items-center justify-between" :class="isDark ? 'border-t border-d4' : 'border-t border-bdrL'">
-        <span class="text-[10px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">v{{version}}</span>
+        <span class="text-[10px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">v{{appVersion}}</span>
         <span class="text-[10px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">© Reviva</span>
       </div>
     </LeftPanel>

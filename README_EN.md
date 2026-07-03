@@ -26,7 +26,7 @@ Desktop · Knowledge Q&A · Creation Workspace
 
 <p>
   <img src="https://img.shields.io/badge/status-beta-FFB020" alt="Status Beta" />
-  <img src="https://img.shields.io/badge/version-0.0.2--beta-4A6CFF" alt="Version 0.0.2-beta" />
+  <img src="https://img.shields.io/badge/version-0.1.0--beta-4A6CFF" alt="Version 0.1.0-beta" />
   <img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-2E2E3A" alt="Platform" />
   <img src="https://img.shields.io/badge/Electron-30-47848F?logo=electron&logoColor=white" alt="Electron 30" />
   <img src="https://img.shields.io/badge/Vue-3-42B883?logo=vuedotjs&logoColor=white" alt="Vue 3" />
@@ -55,11 +55,11 @@ For anyone who wants AI woven into a real learning and knowledge workflow — no
 
 Most users should just download a packaged installer. No development setup needed.
 
-| Channel | Link | Notes |
-| --- | --- | --- |
-| GitHub Releases | [Github Release](https://github.com/mingchen666/Reviva/releases) | Recommended — easy to check version updates |
-| Baidu Netdisk | [Click to download](https://pan.quark.cn/s/9cbc820db4ef#/list/share) | Mirror for users in mainland China |
-| Quark Netdisk | [Click to download](https://pan.quark.cn/s/9cbc820db4ef#/list/share) | Mirror for users in mainland China |
+| Channel         | Link                                                                 | Notes                                       |
+| --------------- | -------------------------------------------------------------------- | ------------------------------------------- |
+| GitHub Releases | [Github Release](https://github.com/mingchen666/Reviva/releases)     | Recommended — easy to check version updates |
+| Baidu Netdisk   | [Click to download](https://pan.quark.cn/s/9cbc820db4ef#/list/share) | Mirror for users in mainland China          |
+| Quark Netdisk   | [Click to download](https://pan.quark.cn/s/9cbc820db4ef#/list/share) | Mirror for users in mainland China          |
 
 Currently focused on Windows desktop. macOS / Linux packaging will follow.
 
@@ -92,7 +92,7 @@ Reviva pulls all of this into one desktop environment: drop in materials to buil
 
 ## Project Status
 
-Current version `0.0.2-beta`, features and UI still evolving rapidly. Primarily for Windows desktop; macOS / Linux support coming later. Data is local-first (SQLite + authorized workspace directory). AI supports multiple model providers, OpenAI-compatible APIs, and custom Agents.
+Current version `0.1.0-beta`, features and UI still evolving rapidly. Primarily for Windows desktop; macOS / Linux support coming later. Data is local-first (SQLite + authorized workspace directory). AI supports multiple model providers, OpenAI-compatible APIs, and custom Agents.
 
 This project was built primarily through Vibe Coding over about two months. There may be bugs — please report them via [GitHub Issues](https://github.com/mingchen666/Reviva/issues).
 
@@ -180,20 +180,20 @@ Reviva supports multiple model providers and OpenAI-compatible APIs. Configure f
 
 ## Product Modules
 
-| Module | Description |
-| --- | --- |
-| Dashboard | Recent activity, quick entries, task status |
-| Learning Workspace | Chat with Agents, reference materials, trigger creation tasks |
-| Agents | Create, edit, and manage AI Agents |
-| Skills | Manage built-in and custom capability modules |
-| Tools | Manage built-in tools, custom tools, and MCP services |
+| Module                | Description                                                                          |
+| --------------------- | ------------------------------------------------------------------------------------ |
+| Dashboard             | Recent activity, quick entries, task status                                          |
+| Learning Workspace    | Chat with Agents, reference materials, trigger creation tasks                        |
+| Agents                | Create, edit, and manage AI Agents                                                   |
+| Skills                | Manage built-in and custom capability modules                                        |
+| Tools                 | Manage built-in tools, custom tools, and MCP services                                |
 | Knowledge Base / Wiki | Manage system and user knowledge bases — courses, papers, projects, review materials |
-| Documents | Manage local files and folders |
-| Notes | Markdown notes and folder management |
-| Tasks | Track generation and learning tasks |
-| Output Center | Manage Agent-generated artifacts |
-| Recycle Bin | Unified restore or permanent delete for documents, notes, conversations, etc. |
-| Settings | Models, appearance, data, environment, usage stats, and more |
+| Documents             | Manage local files and folders                                                       |
+| Notes                 | Markdown notes and folder management                                                 |
+| Tasks                 | Track generation and learning tasks                                                  |
+| Output Center         | Manage Agent-generated artifacts                                                     |
+| Recycle Bin           | Unified restore or permanent delete for documents, notes, conversations, etc.        |
+| Settings              | Models, appearance, data, environment, usage stats, and more                         |
 
 ## Use Cases
 

@@ -37,7 +37,15 @@
 - `math-explainer`：生成数学/物理概念的可视化讲解、交互网页或 Manim 视频。适合“画出来”“做动画”“生成可视化演示”“数学讲解视频”。
 - `note-skill`：把复习材料、错题归因、考点总结或技术内容整理成手写笔记本风格的单文件 HTML 笔记。适合“做成学霸笔记”“网页笔记”“手写笔记”“整理成好看的 HTML 笔记”。
 - `learning-visualization-skill`：把复习知识点、概念关系、流程、算法原理、对比和时间线做成单文件 HTML 可视化讲解页面。适合“画个流程图”“做概念图”“可视化讲解”“动画复习页”“这个过程怎么走”。
+- `technical-diagram-skill`：生成专业技术图。适合 408/计算机专业课里的 CPU 数据通路、Cache 地址划分、页表转换、资源分配图、调度队列、算法流程、状态机和时序图。
+- `cs-course-learning`：计算机专业课统一复习技能。适合数据结构、计算机组成原理、操作系统、计算机网络、408/考研和课程期末的路线规划、章节梳理、题型训练和错因诊断。
+- `data-structure-visualization`：数据结构与算法可视化。适合树、图、查找、排序、哈希、递归、动态规划和算法手算过程。
+- `computer-organization-visualization`：组成原理可视化。适合数据表示、Cache、指令执行、CPU 数据通路、流水线、总线、I/O 和 DMA。
+- `operating-system-visualization`：操作系统可视化。适合进程状态、调度、PV、死锁、页表地址转换、页面置换、文件系统和磁盘调度。
 - `network-protocol-viz`：把计算机网络协议和数据包流转做成单文件 HTML 动画。适合 TCP/IP、IPv4、以太网帧、交换机、路由、DHCP、HTTPS/TLS、抓包和防火墙过滤等网络课程复习。
+- `computer-network-learning`：计算机网络课程复习主技能。适合 OSI/TCP-IP、链路层、网络层、传输层、应用层、子网划分、路由、DNS、HTTP、TCP/UDP、拥塞控制、安全基础等系统梳理。
+- `network-packet-lab`：抓包实验和 Wireshark/tcpdump 输出理解。适合实验步骤、协议字段解释、抓包报告、DNS/TCP/HTTP/DHCP/TLS 等实验复习。
+- `network-exam-practice`：计算机网络期末、章节测验和 408/考研网络基础训练。适合出题、批改、错因诊断、子网/路由/TCP 序号等计算题。
 - `edu-solid-geometry`：把立体几何题生成 MathJax 分步解析 + Three.js 可交互 3D 模型网页。适合线面角、二面角、异面直线夹角、点到平面距离、体积、正方体、棱锥、棱柱等复习。
 - `edu-analytic-geometry`：把解析几何/圆锥曲线题生成 KaTeX 分步解析 + 2D Canvas 动态画板网页。适合椭圆、双曲线、抛物线、弦长、定点、定值、轨迹、离心率等复习。
 - `officecli-skills`：读取、创建和编辑 Word、PPT、Excel。适合“生成 Word”“可打印版”“整理成文档”“编辑这个 docx/pptx/xlsx”。
@@ -65,7 +73,14 @@
 | 做复习资料包 | `knowledge-organize` / `exam-prep` / `error-analysis` → `officecli-skills` |
 | 做可视化网页笔记 | `knowledge-organize` / `error-analysis` / `exam-prep` → `note-skill` |
 | 做概念/流程可视化复习页 | `concept-explainer` / `knowledge-organize` → `learning-visualization-skill` |
-| 复习计算机网络协议 | `concept-explainer` → `network-protocol-viz` → `practice-quiz` |
+| 复习计算机专业课/408 | `cs-course-learning` → `practice-quiz` / `mock-exam` → `error-analysis` |
+| 复习 408 机制可视化 | `cs-course-learning` → `technical-diagram-skill` / `learning-visualization-skill` |
+| 复习数据结构可视化 | `cs-course-learning` → `data-structure-visualization` → `practice-quiz` |
+| 复习组成原理可视化 | `cs-course-learning` → `computer-organization-visualization` → `practice-quiz` |
+| 复习操作系统可视化 | `cs-course-learning` → `operating-system-visualization` → `practice-quiz` |
+| 复习计算机网络课程 | `computer-network-learning` → `network-exam-practice` → `flashcard-generator` |
+| 复习计算机网络协议 | `computer-network-learning` → `network-protocol-viz` → `network-exam-practice` |
+| 复习抓包实验 | `network-packet-lab` → `network-protocol-viz` → `network-exam-practice` |
 | 复习立体几何题 | `concept-explainer` → `edu-solid-geometry` → `practice-quiz` |
 | 复习解析几何/圆锥曲线 | `concept-explainer` → `edu-analytic-geometry` → `practice-quiz` |
 | 需要记忆和背诵 | `knowledge-organize` → `flashcard-generator` |

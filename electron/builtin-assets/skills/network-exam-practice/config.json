@@ -1,0 +1,14 @@
+{
+  "id": "network-exam-practice",
+  "name": "计算机网络考试训练",
+  "description": "面向计算机网络课程期末、408/考研基础和章节测验的题目生成、答题诊断、错因分析、考点归纳和冲刺复习。覆盖选择题、填空题、简答题、计算题、协议分析题和综合题。",
+  "icon": "ri-questionnaire-line",
+  "color": "#F97316",
+  "category": "学习",
+  "source": "platform",
+  "allowedTools": ["file_read", "file_write", "office_read", "pdf_read", "kb_search", "web_search_bing"],
+  "outputTypes": ["Markdown", "HTML", "DOCX"],
+  "version": "1.0",
+  "author": "reviva",
+  "license": "MIT"
+}

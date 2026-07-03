@@ -1,12 +1,14 @@
 <script setup>
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
-import { useAppStore } from '@/stores/app'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
+import { useAppStore } from '@/stores/app';
+import { getAppVersion } from '@/utils/tools'
 
-const appStore = useAppStore()
-const isDark = computed(() => appStore.isDark)
+const appVersion = getAppVersion()
+const appStore = useAppStore();
+const isDark = computed(() => appStore.isDark);
 
-const mobileOpen = ref(false)
-const visMap = ref(new Set())
+const mobileOpen = ref(false);
+const visMap = ref(new Set());
 
 const features = [
   {
@@ -14,88 +16,88 @@ const features = [
     title: '智能体系统',
     desc: '创建专属 AI Agent，绑定模型、Skills 与工具，像和真人助手协作一样自然。',
     tags: ['多轮对话', '上下文管理', '流式响应', '角色提示词'],
-    accent: '#6C8AFF',
+    accent: '#6C8AFF'
   },
   {
     icon: 'ri-flashlight-line',
     title: 'Skills 市场',
     desc: '一键安装 Prompt 能力模块，即装即用，为 Agent 注入专业技能。',
     tags: ['翻译助手', '文档摘要', '代码审查', '创意写作'],
-    accent: '#A78BFA',
+    accent: '#A78BFA'
   },
   {
     icon: 'ri-database-2-line',
     title: '知识库',
     desc: '导入本地资料，建立结构化知识知识库，Agent 可直接检索引用。',
     tags: ['向量检索', '40+ 格式', '知识库隔离', '批量管理'],
-    accent: '#34D399',
+    accent: '#34D399'
   },
   {
     icon: 'ri-chat-smile-2-line',
     title: '学习台',
     desc: '不是被动阅读，而是主动探索——AI 根据你的理解程度动态调整学习路径。',
     tags: ['对话问答', '闪卡记忆', '智能测验', '学习统计'],
-    accent: '#F59E0B',
+    accent: '#F59E0B'
   },
   {
     icon: 'ri-folder-line',
     title: '文档中心',
     desc: '树形目录管理，拖拽上传，统一回收站，误删可还原。',
     tags: ['PDF / DOCX / MD', '拖拽上传', '批量操作', '软删除'],
-    accent: '#F472B6',
+    accent: '#F472B6'
   },
   {
     icon: 'ri-shield-check-line',
     title: '安全沙箱',
     desc: '授权根目录隔离，Agent 所有文件读写限制在安全区域内。',
     tags: ['路径沙箱', '权限控制', '操作审计', '系统隔离'],
-    accent: '#38BDF8',
+    accent: '#38BDF8'
   },
   {
     icon: 'ri-note-line',
     title: '笔记系统',
     desc: 'Markdown 笔记与文件夹管理，支持嵌套目录，和对话、文档统一回收站。',
     tags: ['Markdown', '文件夹', '软删除', '搜索'],
-    accent: '#8B5CF6',
+    accent: '#8B5CF6'
   },
   {
     icon: 'ri-dashboard-3-line',
     title: '仪表盘',
     desc: '一览今日学习进度、活跃 Agent、最近文档和任务状态。',
     tags: ['学习统计', '快捷入口', '最近活动', '任务概览'],
-    accent: '#EC4899',
+    accent: '#EC4899'
   },
   {
     icon: 'ri-tools-line',
     title: '工具管理',
     desc: '注册自定义工具供 Agent 调用，支持 MCP 协议接入外部工具服务器。',
     tags: ['自定义工具', 'MCP 协议', '参数配置', '调试面板'],
-    accent: '#14B8A6',
-  },
-]
+    accent: '#14B8A6'
+  }
+];
 
 const localReasons = [
   {
     icon: 'ri-lock-line',
     title: '数据不出本机',
-    desc: '所有笔记、对话、文档、Agent 配置都存在你自己的磁盘上。不经过任何第三方服务器，不需要信任任何云服务商。',
+    desc: '所有笔记、对话、文档、Agent 配置都存在你自己的磁盘上。不经过任何第三方服务器，不需要信任任何云服务商。'
   },
   {
     icon: 'ri-speed-line',
     title: '零延迟响应',
-    desc: '本地 SQLite 查询、本地文件读写、本地索引检索——没有网络往返，没有加载转圈。',
+    desc: '本地 SQLite 查询、本地文件读写、本地索引检索——没有网络往返，没有加载转圈。'
   },
   {
     icon: 'ri-wifi-off-line',
     title: '离线可用',
-    desc: '断网不影响笔记编辑、文档浏览、知识库管理。AI 对话需要网络，但其他一切照常工作。',
+    desc: '断网不影响笔记编辑、文档浏览、知识库管理。AI 对话需要网络，但其他一切照常工作。'
   },
   {
     icon: 'ri-hard-drive-2-line',
     title: '你的数据你做主',
-    desc: '标准 SQLite 数据库 + 普通文件目录。随时可以备份、迁移、用其他工具读取。没有锁定，没有专有格式。',
-  },
-]
+    desc: '标准 SQLite 数据库 + 普通文件目录。随时可以备份、迁移、用其他工具读取。没有锁定，没有专有格式。'
+  }
+];
 
 const modules = [
   { icon: 'ri-dashboard-3-line', name: '仪表盘', desc: '学习进度、快捷入口、最近活动' },
@@ -107,67 +109,67 @@ const modules = [
   { icon: 'ri-folder-line', name: '文档', desc: '文件管理与预览' },
   { icon: 'ri-note-line', name: '笔记', desc: 'Markdown 笔记系统' },
   { icon: 'ri-list-check-3', name: '任务', desc: '学习任务跟踪' },
-  { icon: 'ri-file-chart-line', name: '输出中心', desc: 'Agent 产出物管理' },
-]
+  { icon: 'ri-file-chart-line', name: '输出中心', desc: 'Agent 产出物管理' }
+];
 
 const workflowSteps = [
   { num: '01', title: '导入资料', desc: '拖入 PDF、笔记、文档，Reviva 自动归类到知识库' },
   { num: '02', title: '创建 Agent', desc: '选择模型、绑定 Skills、设定角色提示词，打造专属助手' },
   { num: '03', title: '对话协作', desc: '基于你的资料进行问答、分析、创作，实时流式响应' },
-  { num: '04', title: '产出沉淀', desc: '输出文档、闪卡、思维导图，回到知识库形成闭环' },
-]
+  { num: '04', title: '产出沉淀', desc: '输出文档、闪卡、思维导图，回到知识库形成闭环' }
+];
 
 const archCards = [
   {
     icon: 'ri-server-line',
     title: '多 Provider 适配',
     desc: '支持 6 大模型服务商，Anthropic Claude 和 OpenAI GPT 双适配器架构，自动路由切换。',
-    items: ['Anthropic Claude', 'OpenAI GPT', '6 大模型服务商', '自动路由切换'],
+    items: ['Anthropic Claude', 'OpenAI GPT', '6 大模型服务商', '自动路由切换']
   },
   {
     icon: 'ri-puzzle-line',
     title: '可扩展架构',
     desc: '基于 DeepAgents 框架和 MCP 协议，Skills、工具、Agent 均可自由扩展。',
-    items: ['DeepAgents 框架', 'MCP 工具协议', '自定义 Skills', 'Sub-Agent 编排'],
+    items: ['DeepAgents 框架', 'MCP 工具协议', '自定义 Skills', 'Sub-Agent 编排']
   },
   {
     icon: 'ri-database-2-line',
     title: '本地优先存储',
     desc: 'better-sqlite3 驱动的本地数据库，文件系统管理，软删除回收站，数据完全可控。',
-    items: ['SQLite 数据库', '文件系统管理', '软删除回收站', '数据导入导出'],
+    items: ['SQLite 数据库', '文件系统管理', '软删除回收站', '数据导入导出']
   },
   {
     icon: 'ri-palette-line',
     title: '精致桌面体验',
     desc: 'Electron 30 跨平台，Naive UI 组件库，暗色浅色主题，面板自由拖拽。',
-    items: ['暗色 / 浅色主题', '面板自由拖拽', '全局快捷键', '系统通知集成'],
-  },
-]
+    items: ['暗色 / 浅色主题', '面板自由拖拽', '全局快捷键', '系统通知集成']
+  }
+];
 
-let observer = null
+let observer = null;
 
 onMounted(() => {
   observer = new IntersectionObserver(
     (entries) => {
       entries.forEach((e) => {
-        if (e.isIntersecting) visMap.value.add(e.target.dataset.aId)
-      })
+        if (e.isIntersecting) visMap.value.add(e.target.dataset.aId);
+      });
     },
-    { threshold: 0.1, rootMargin: '0px 0px -40px 0px' },
-  )
-  document.querySelectorAll('[data-a-id]').forEach((el) => observer.observe(el))
-})
+    { threshold: 0.1, rootMargin: '0px 0px -40px 0px' }
+  );
+  document.querySelectorAll('[data-a-id]').forEach((el) => observer.observe(el));
+});
 
 onBeforeUnmount(() => {
-  observer?.disconnect()
-})
+  observer?.disconnect();
+});
 
 function vis(id) {
-  return visMap.value.has(id)
+  return visMap.value.has(id);
 }
 function scrollTo(id) {
-  mobileOpen.value = false
-  document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' })
+  mobileOpen.value = false;
+  document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
 }
 </script>
 
@@ -189,7 +191,11 @@ function scrollTo(id) {
           <button @click="scrollTo('download')">下载</button>
         </nav>
         <div class="nav__right">
-          <button class="nav__theme" @click="appStore.isDark = !isDark" :title="isDark ? '浅色模式' : '深色模式'">
+          <button
+            class="nav__theme"
+            @click="appStore.isDark = !isDark"
+            :title="isDark ? '浅色模式' : '深色模式'"
+          >
             <i :class="isDark ? 'ri-sun-line' : 'ri-moon-line'" />
           </button>
           <a class="nav__gh" href="https://github.com" target="_blank" rel="noopener">
@@ -246,7 +252,7 @@ function scrollTo(id) {
               Linux
             </span>
             <span class="hero__sep">|</span>
-            <span>v0.0.2beta</span>
+            <span>{{appVersion}}</span>
           </div>
         </div>
 
@@ -298,7 +304,9 @@ function scrollTo(id) {
                   </div>
                 </div>
                 <div class="mockup__msgs">
-                  <div class="mockup__msg mockup__msg--u">帮我分析这篇论文的核心论点，用中文总结</div>
+                  <div class="mockup__msg mockup__msg--u">
+                    帮我分析这篇论文的核心论点，用中文总结
+                  </div>
                   <div class="mockup__msg mockup__msg--a">
                     <span class="typing">
                       <i />
@@ -340,8 +348,12 @@ function scrollTo(id) {
       <div class="sec__inner">
         <div class="sec__head" data-a-id="f-head">
           <div class="sec__tag" :class="{ 'fade-up': vis('f-head') }">核心功能</div>
-          <h2 class="sec__h2" :class="{ 'fade-up': vis('f-head') }">不只是聊天，是完整的学习链路</h2>
-          <p class="sec__p" :class="{ 'fade-up': vis('f-head') }">从资料导入到知识产出，Reviva 覆盖学习的每一个环节</p>
+          <h2 class="sec__h2" :class="{ 'fade-up': vis('f-head') }">
+            不只是聊天，是完整的学习链路
+          </h2>
+          <p class="sec__p" :class="{ 'fade-up': vis('f-head') }">
+            从资料导入到知识产出，Reviva 覆盖学习的每一个环节
+          </p>
         </div>
 
         <div class="feat-grid">
@@ -351,7 +363,8 @@ function scrollTo(id) {
             class="feat"
             :data-a-id="'f-' + i"
             :class="{ 'fade-up': vis('f-' + i) }"
-            :style="{ '--d': i * 50 + 'ms', '--accent': f.accent }">
+            :style="{ '--d': i * 50 + 'ms', '--accent': f.accent }"
+          >
             <div class="feat__icon"><i :class="f.icon" /></div>
             <h3 class="feat__title">{{ f.title }}</h3>
             <p class="feat__desc">{{ f.desc }}</p>
@@ -369,7 +382,9 @@ function scrollTo(id) {
         <div class="sec__head" data-a-id="loc-head">
           <div class="sec__tag" :class="{ 'fade-up': vis('loc-head') }">设计理念</div>
           <h2 class="sec__h2" :class="{ 'fade-up': vis('loc-head') }">为什么是本地优先？</h2>
-          <p class="sec__p" :class="{ 'fade-up': vis('loc-head') }">你的知识应该住在你的电脑上，而不是别人的服务器里</p>
+          <p class="sec__p" :class="{ 'fade-up': vis('loc-head') }">
+            你的知识应该住在你的电脑上，而不是别人的服务器里
+          </p>
         </div>
 
         <div class="loc-grid">
@@ -379,7 +394,8 @@ function scrollTo(id) {
             class="loc-card"
             :data-a-id="'loc-' + i"
             :class="{ 'fade-up': vis('loc-' + i) }"
-            :style="{ '--d': i * 80 + 'ms' }">
+            :style="{ '--d': i * 80 + 'ms' }"
+          >
             <div class="loc-card__icon"><i :class="r.icon" /></div>
             <h3>{{ r.title }}</h3>
             <p>{{ r.desc }}</p>
@@ -403,7 +419,8 @@ function scrollTo(id) {
             class="step"
             :data-a-id="'w-' + i"
             :class="{ 'fade-up': vis('w-' + i) }"
-            :style="{ '--d': i * 80 + 'ms' }">
+            :style="{ '--d': i * 80 + 'ms' }"
+          >
             <span class="step__num">{{ s.num }}</span>
             <h3 class="step__title">{{ s.title }}</h3>
             <p class="step__desc">{{ s.desc }}</p>
@@ -418,7 +435,9 @@ function scrollTo(id) {
         <div class="sec__head" data-a-id="m-head">
           <div class="sec__tag" :class="{ 'fade-up': vis('m-head') }">产品模块</div>
           <h2 class="sec__h2" :class="{ 'fade-up': vis('m-head') }">一个应用，十个模块</h2>
-          <p class="sec__p" :class="{ 'fade-up': vis('m-head') }">从仪表盘到回收站，覆盖完整的本地学习工作流</p>
+          <p class="sec__p" :class="{ 'fade-up': vis('m-head') }">
+            从仪表盘到回收站，覆盖完整的本地学习工作流
+          </p>
         </div>
 
         <div class="mod-grid">
@@ -428,7 +447,8 @@ function scrollTo(id) {
             class="mod"
             :data-a-id="'m-' + i"
             :class="{ 'fade-up': vis('m-' + i) }"
-            :style="{ '--d': i * 40 + 'ms' }">
+            :style="{ '--d': i * 40 + 'ms' }"
+          >
             <i :class="m.icon" class="mod__icon" />
             <div>
               <span class="mod__name">{{ m.name }}</span>
@@ -457,7 +477,8 @@ function scrollTo(id) {
             class="arch"
             :data-a-id="'a-' + i"
             :class="{ 'fade-up': vis('a-' + i) }"
-            :style="{ '--d': i * 80 + 'ms' }">
+            :style="{ '--d': i * 80 + 'ms' }"
+          >
             <div class="arch__icon"><i :class="a.icon" /></div>
             <h3>{{ a.title }}</h3>
             <p class="arch__desc">{{ a.desc }}</p>
@@ -470,7 +491,12 @@ function scrollTo(id) {
           </div>
         </div>
 
-        <div class="tech-row" data-a-id="tech" :class="{ 'fade-up': vis('tech') }" style="--d: 100ms">
+        <div
+          class="tech-row"
+          data-a-id="tech"
+          :class="{ 'fade-up': vis('tech') }"
+          style="--d: 100ms"
+        >
           <span
             v-for="t in [
               'Electron 30',
@@ -482,10 +508,11 @@ function scrollTo(id) {
               'SQLite',
               'LangChain',
               'better-sqlite3',
-              'Axios',
+              'Axios'
             ]"
             :key="t"
-            class="tech-pill">
+            class="tech-pill"
+          >
             {{ t }}
           </span>
         </div>

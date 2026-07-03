@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Computer Organization Visualizer</title>
+  <style>
+    :root { --bg:#f6f7fb; --panel:#fff; --ink:#111827; --muted:#64748b; --line:#d8deea; --brand:#4f46e5; --hot:#f59e0b; --ok:#16a34a; --bad:#dc2626; --shadow:0 12px 28px rgba(15,23,42,.07); }
+    * { box-sizing:border-box; }
+    body { margin:0; background:var(--bg); color:var(--ink); font-family:Inter, "Noto Sans SC", system-ui, sans-serif; }
+    header { background:#fff; border-bottom:1px solid var(--line); padding:18px 28px 14px; }
+    h1 { margin:0; font-size:22px; letter-spacing:0; }
+    .meta { color:var(--muted); margin-top:10px; font-size:13px; display:flex; gap:8px; flex-wrap:wrap; }
+    .meta span { min-height:26px; display:inline-flex; align-items:center; border:1px solid #e2e8f0; border-radius:999px; padding:0 10px; background:#f8fafc; }
+    main { padding:16px; display:grid; grid-template-columns:minmax(0,1fr) 360px; gap:16px; }
+    .card { background:var(--panel); border:1px solid var(--line); border-radius:8px; box-shadow:var(--shadow); }
+    .machine { padding:16px; min-height:520px; display:grid; grid-template-rows:1fr auto; gap:12px; }
+    .diagram { position:relative; min-height:420px; border:1px solid #e2e8f0; border-radius:6px; background:linear-gradient(180deg,#fbfcff,#eef2ff); overflow:hidden; }
+    .unit { position:absolute; min-width:112px; min-height:56px; border:2px solid #a5b4fc; background:#eef2ff; border-radius:8px; display:grid; place-items:center; text-align:center; font-weight:800; padding:8px; }
+    .unit.hot { border-color:var(--hot); background:#fef3c7; box-shadow:0 0 0 4px rgba(245,158,11,.15); }
+    .wire { position:absolute; height:3px; background:#94a3b8; transform-origin:left center; }
+    .wire.hot { background:var(--hot); box-shadow:0 0 0 3px rgba(245,158,11,.18); }
+    .controls { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+    button { height:36px; min-width:72px; border:1px solid var(--line); background:#fff; border-radius:6px; padding:0 12px; font-weight:700; cursor:pointer; transition:background .16s ease, border-color .16s ease, transform .16s ease; }
+    button:hover { background:#f8fafc; border-color:#cbd5e1; }
+    button:active { transform:translateY(1px); }
+    button:focus-visible { outline:3px solid rgba(79,70,229,.22); outline-offset:2px; }
+    button.primary { background:var(--brand); border-color:var(--brand); color:#fff; }
+    aside { padding:16px; display:flex; flex-direction:column; gap:14px; }
+    .kicker { color:var(--brand); font-size:12px; font-weight:900; }
+    .title { font-size:18px; font-weight:900; margin-top:4px; }
+    .text { color:#334155; font-size:14px; line-height:1.65; }
+    .grid { margin:0; padding:12px; border-radius:6px; background:#0f172a; color:#e2e8f0; font:12px/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; white-space:pre-wrap; }
+    footer { padding:0 16px 16px; }
+    .tables { padding:14px; overflow:auto; }
+    table { width:100%; border-collapse:collapse; font-size:13px; }
+    th,td { padding:8px 10px; border-bottom:1px solid var(--line); text-align:left; }
+    th { color:var(--muted); font-size:12px; }
+    tbody tr:nth-child(even) { background:#f8fafc; }
+    .note { margin-top:12px; background:#eef2ff; border-left:4px solid var(--brand); padding:12px; font-size:13px; line-height:1.6; }
+    @media (max-width: 980px) { header { padding:16px; } main { grid-template-columns:1fr; padding:12px; } .diagram { min-height:360px; } .unit { min-width:92px; font-size:12px; } }
+  </style>
+</head>
+<body>
+  <header>
+    <h1 id="title">组成原理可视化模板</h1>
+    <div class="meta"><span>CPU / Cache / Pipeline</span><span id="mode">单周期/流水线/Cache 均可改造</span></div>
+  </header>
+  <main>
+    <section class="card machine">
+      <div class="diagram" id="diagram"></div>
+      <div class="controls">
+        <button id="prev">上一步</button><button id="play" class="primary">播放</button><button id="next">下一步</button><button id="reset">重置</button>
+      </div>
+    </section>
+    <aside class="card">
+      <div><div class="kicker" id="stepNo">STEP 1</div><div class="title" id="stepTitle">取指</div><div class="text" id="stepText"></div></div>
+      <pre class="grid" id="registers"></pre>
+      <pre class="grid" id="formula"></pre>
+    </aside>
+  </main>
+  <footer>
+    <section class="card tables">
+      <table><thead><tr><th>周期</th><th>指令/事件</th><th>活跃部件</th><th>考试检查点</th></tr></thead><tbody id="rows"></tbody></table>
+      <div class="note">考试迁移：组成原理可视化必须保留位数、字段、单位、数据方向和公式代入，不能只给结论。</div>
+    </section>
+  </footer>
+  <script>
+    const DATA = {
+      title: "LOAD 指令数据通路示例",
+      units: [
+        { id:"pc", label:"PC", x:7, y:18 }, { id:"im", label:"Instruction Memory", x:28, y:18 },
+        { id:"reg", label:"Register File", x:52, y:18 }, { id:"alu", label:"ALU", x:52, y:48 },
+        { id:"dm", label:"Data Memory", x:73, y:48 }, { id:"wb", label:"Write Back", x:73, y:18 }
+      ],
+      wires: [
+        { a:"pc", b:"im" }, { a:"im", b:"reg" }, { a:"reg", b:"alu" }, { a:"alu", b:"dm" }, { a:"dm", b:"wb" }, { a:"wb", b:"reg" }
+      ],
+      steps: [
+        { title:"取指", hot:["pc","im"], text:"PC 给出指令地址，指令存储器读出当前指令。", regs:"PC=0x0040\nIR=LOAD R1, 8(R2)", formula:"检查点: PC 位宽、指令地址单位" },
+        { title:"译码/读寄存器", hot:["im","reg"], text:"译码得到操作码和寄存器字段，同时读取基址寄存器。", regs:"R2=0x1000\nImm=8", formula:"有效地址 = R2 + Imm" },
+        { title:"地址计算", hot:["reg","alu"], text:"ALU 计算访存有效地址。", regs:"R2=0x1000\nImm=8\nEA=0x1008", formula:"0x1000 + 8 = 0x1008" },
+        { title:"访存", hot:["alu","dm"], text:"数据存储器按有效地址读取数据。", regs:"Mem[0x1008]=42", formula:"Cache 题需补 hit/miss 与块号/组号" },
+        { title:"写回", hot:["dm","wb","reg"], text:"把读出的数据写回目标寄存器。", regs:"R1=42", formula:"最终答案必须说明写回目标" }
+      ]
+    }
+    let i = 0, timer = null
+    const $ = id => document.getElementById(id)
+    function unitById(id){ return DATA.units.find(u => u.id === id) }
+    function renderDiagram(step) {
+      const html = []
+      for (const w of DATA.wires) {
+        const a = unitById(w.a), b = unitById(w.b)
+        const x1 = a.x + 11, y1 = a.y + 5, x2 = b.x + 2, y2 = b.y + 5
+        const dx = x2 - x1, dy = y2 - y1, len = Math.hypot(dx, dy), angle = Math.atan2(dy, dx) * 180 / Math.PI
+        const hot = step.hot.includes(w.a) && step.hot.includes(w.b)
+        html.push(`<div class="wire ${hot?'hot':''}" style="left:${x1}%;top:${y1}%;width:${len}%;transform:rotate(${angle}deg)"></div>`)
+      }
+      for (const u of DATA.units) html.push(`<div class="unit ${step.hot.includes(u.id)?'hot':''}" style="left:${u.x}%;top:${u.y}%">${u.label}</div>`)
+      $("diagram").innerHTML = html.join("")
+    }
+    function render() {
+      const s = DATA.steps[i]
+      $("title").textContent = DATA.title
+      $("stepNo").textContent = `STEP ${i + 1} / ${DATA.steps.length}`
+      $("stepTitle").textContent = s.title
+      $("stepText").textContent = s.text
+      $("registers").textContent = s.regs
+      $("formula").textContent = s.formula
+      $("rows").innerHTML = DATA.steps.map((r, idx) => `<tr><td>${idx + 1}</td><td>${r.title}</td><td>${r.hot.join(", ")}</td><td>${r.formula}</td></tr>`).join("")
+      renderDiagram(s)
+    }
+    function next(){ i = Math.min(DATA.steps.length - 1, i + 1); render(); if(i === DATA.steps.length - 1) stop() }
+    function prev(){ i = Math.max(0, i - 1); render() }
+    function stop(){ clearInterval(timer); timer = null; $("play").textContent = "播放" }
+    $("next").onclick = next; $("prev").onclick = prev; $("reset").onclick = () => { stop(); i = 0; render() }
+    $("play").onclick = () => { if(timer) return stop(); $("play").textContent = "暂停"; timer = setInterval(next, 900) }
+    render()
+  </script>
+</body>
+</html>

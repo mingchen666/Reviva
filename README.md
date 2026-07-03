@@ -15,6 +15,7 @@
 ![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/mingchen666/Reviva/total?logo=github&label=Downloads)
 
 <!-- 最新版本下载量 -->
+
 ![GitHub Downloads (latest release)](https://img.shields.io/github/downloads/mingchen666/Reviva/latest/total?logo=github&label=Latest%20Downloads)
 
 <p>
@@ -25,7 +26,6 @@
     <img src="https://img.shields.io/github/stars/mingchen666/Reviva?style=flat&color=F59E0B" alt="GitHub Stars" />
   </a>
 
-
   <a href="#开源协议与商业授权">
     <img src="https://img.shields.io/badge/license-AGPL--3.0%20%2B%20Commercial-111827" alt="License AGPL-3.0 + Commercial" />
   </a>
@@ -33,7 +33,7 @@
 
 <p>
   <img src="https://img.shields.io/badge/status-beta-FFB020" alt="Status Beta" />
-  <img src="https://img.shields.io/badge/version-0.0.2--beta-4A6CFF" alt="Version 0.0.2-beta" />
+  <img src="https://img.shields.io/badge/version-0.1.0--beta-4A6CFF" alt="Version 0.1.0-beta" />
   <img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-2E2E3A" alt="Platform" />
   <img src="https://img.shields.io/badge/Electron-30-47848F?logo=electron&logoColor=white" alt="Electron 30" />
   <img src="https://img.shields.io/badge/Vue-3-42B883?logo=vuedotjs&logoColor=white" alt="Vue 3" />
@@ -60,13 +60,13 @@ Reviva = 本地资料库 + Wiki 知识库 + AI Agent + 知识库检索 + 笔记�
 
 ## 下载与安装
 
-普通用户推荐直接下载已经打包好的安装包，不需要自行配置开发环境。
+推荐直接下载已经打包好的exe安装包。
 
-| 渠道 | 下载地址 | 说明 |
-| --- | --- | --- |
-| GitHub Releases | [Github Release]( https://github.com/mingchen666/Reviva/releases)  | 推荐优先使用，便于查看版本更新 |
-| 百度网盘 | [点击下载](https://pan.quark.cn/s/9cbc820db4ef#/list/share) | 国内网络备用下载 |
-| 夸克网盘 | [点击下载](https://pan.quark.cn/s/9cbc820db4ef#/list/share) | 国内网络备用下载 |
+| 渠道            | 下载地址                                                         | 说明                           |
+| --------------- | ---------------------------------------------------------------- | ------------------------------ |
+| GitHub Releases | [Github Release](https://github.com/mingchen666/Reviva/releases) | 推荐优先使用，便于查看版本更新 |
+| 百度网盘        | [点击下载](https://pan.quark.cn/s/9cbc820db4ef#/list/share)      | 国内网络备用下载(推荐)         |
+| 夸克网盘        | [点击下载](https://pan.quark.cn/s/9cbc820db4ef#/list/share)      | 国内网络备用下载(推荐)         |
 
 当前主要面向 Windows 桌面端使用，后续会支持 macOS / Linux 打包。
 
@@ -99,7 +99,7 @@ Reviva 把这些环节拢到一个桌面环境里：资料进来建知识库，A
 
 ## 项目状态
 
-当前版本 `0.0.2-beta`，功能与界面仍在快速迭代。主要面向 Windows 桌面端，macOS / Linux 未来支持。数据本地优先（SQLite + 授权工作目录），AI 支持多模型服务商、OpenAI-compatible、自定义 Agent。
+当前版本 `0.1.0-beta`，功能与界面仍在快速迭代。主要面向 Windows 桌面端，macOS / Linux 未来支持。数据本地优先（SQLite + 授权工作目录），AI 支持多模型服务商、OpenAI-compatible、自定义 Agent。
 
 本项目主要通过 Vibe Coding 方式开发，前后耗时两个多月。可能存在一些 bug，欢迎通过 [GitHub Issues](https://github.com/mingchen666/Reviva/issues) 反馈。
 
@@ -150,7 +150,6 @@ Reviva 支持创建多个专属 AI Agent。每个 Agent 都可以有自己的：
 
 Skills 是可以绑定到 Agent 的能力模块，用于增强 Agent 在特定领域的表现。它可以理解为一组可复用的专业提示词、规则、模板和参考资料。
 
-
 ### Wiki 知识库与资料检索
 
 Reviva 支持创建 Wiki 风格的知识库，将本地资料、学习主题、项目文档和长期积累的内容整理成可检索、可沉淀、可持续扩展的知识集合。Agent 可以基于知识库内容进行问答、总结和分析，减少纯模型幻觉，让回答更贴近你的真实资料。
@@ -188,23 +187,22 @@ Reviva 支持多种模型服务商和 OpenAI-compatible 接口。你可以根据
 
 ## 产品模块
 
-| 模块 | 说明 |
-| --- | --- |
-| 仪表盘 | 查看最近活动、快捷入口和任务状态 |
-| 学习工作台 | 与 Agent 对话，引用资料，触发创作任务 |
-| 智能体 | 创建、编辑和管理 AI Agent |
-| Skills | 管理内置和自定义能力模块 |
-| 工具 | 管理内置工具、自定义工具和 MCP 服务 |
+| 模块          | 说明                                                       |
+| ------------- | ---------------------------------------------------------- |
+| 仪表盘        | 查看最近活动、快捷入口和任务状态                           |
+| 学习工作台    | 与 Agent 对话，引用资料，触发创作任务                      |
+| 智能体        | 创建、编辑和管理 AI Agent                                  |
+| Skills        | 管理内置和自定义能力模块                                   |
+| 工具          | 管理内置工具、自定义工具和 MCP 服务                        |
 | 知识库 / Wiki | 管理系统知识库和用户知识库，沉淀课程、论文、项目和复习资料 |
-| 文档 | 管理本地资料和文件夹 |
-| 笔记 | Markdown 笔记与目录管理 |
-| 任务 | 跟踪生成任务和学习任务 |
-| 输出中心 | 管理 Agent 生成的成果 |
-| 回收站 | 统一恢复或永久删除文档、笔记、对话等内容 |
-| 设置 | 模型、外观、数据、环境、用量统计等配置 |
+| 文档          | 管理本地资料和文件夹                                       |
+| 笔记          | Markdown 笔记与目录管理                                    |
+| 任务          | 跟踪生成任务和学习任务                                     |
+| 输出中心      | 管理 Agent 生成的成果                                      |
+| 回收站        | 统一恢复或永久删除文档、笔记、对话等内容                   |
+| 设置          | 模型、外观、数据、环境、用量统计等配置                     |
 
 ## 典型使用场景
-
 
 ### 课程学习
 
@@ -221,7 +219,6 @@ Reviva 支持多种模型服务商和 OpenAI-compatible 接口。你可以根据
 3. 让 Agent 根据资料整理章节大纲、重点概念、公式清单和高频考点。
 4. 针对薄弱章节生成测验题、闪卡和错题回顾。
 5. 复习结束后把总结沉淀为笔记，下一轮复习可以继续检索和追问。
-
 
 ### 个人第二大脑
 
@@ -248,7 +245,6 @@ Reviva 支持多种模型服务商和 OpenAI-compatible 接口。你可以根据
 - 文件读写受授权根目录限制，降低误访问系统敏感路径的风险。
 - AI 请求是否发送到云端，取决于你配置的模型服务商。
 - 使用云端模型、搜索工具或远程 MCP 服务时，请自行确认对应服务商的数据政策。
-
 
 ## 开源协议与商业授权
 

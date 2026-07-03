@@ -17,6 +17,20 @@ const settingsStore = useSettingsStore()
 const healthResult = computed(() => store.healthCheckResults[props.agent.id] || null)
 const subAgentIds = computed(() => props.agent?.subAgents || props.agent?.sub_agents || [])
 const selectedSubAgents = computed(() => subAgentIds.value.map(findSubAgent).filter(Boolean))
+const agentDirName = computed(() => resolveAgentDirName(props.agent))
+
+function safeAgentDirName(value) {
+  const safe = String(value || '').trim().replace(/[^a-zA-Z0-9._-]+/g, '-').replace(/^-+|-+$/g, '')
+  return safe || '_shared'
+}
+
+function resolveAgentDirName(agent) {
+  const id = String(agent?.id || '').trim()
+  const englishName = String(agent?.englishName || agent?.english_name || '').trim()
+  if (id && !/^agent_/i.test(id)) return safeAgentDirName(id)
+  if (englishName) return safeAgentDirName(englishName)
+  return safeAgentDirName(id || '_shared')
+}
 
 function modelLabel(modelRef, fallback = '默认') {
   if (!modelRef) return fallback
@@ -106,7 +120,7 @@ const visiblePermissions = computed(() => Object.entries(props.agent?.permission
           <div class="flex-1 min-w-0">
             <h1 class="text-[20px] font-bold mb-1" :class="isDark ? 'text-wt-main' : 'text-lt-main'">{{ agent.name }}</h1>
             <div class="flex items-center gap-2 mb-1">
-              <p class="text-[11px] font-mono" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">/agents/{{ agent.englishName || '_shared' }}/</p>
+              <p class="text-[11px] font-mono" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">/agents/{{ agentDirName }}/</p>
             </div>
             <p class="text-[12px] leading-relaxed" :class="isDark ? 'text-wt-aux' : 'text-lt-aux'">{{ agent.desc }}</p>
           </div>

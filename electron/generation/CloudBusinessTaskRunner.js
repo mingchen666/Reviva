@@ -12,6 +12,19 @@ const UPLOAD_EXTS = new Set([
   'md', 'markdown', 'txt', 'csv', 'json', 'html', 'htm',
 ])
 
+function safeAgentDirName(value) {
+  const safe = String(value || '').trim().replace(/[^a-zA-Z0-9._-]+/g, '-').replace(/^-+|-+$/g, '')
+  return safe || '_shared'
+}
+
+function agentRuntimeDirName(agentId, agentEnglishName) {
+  const id = String(agentId || '').trim()
+  const englishName = String(agentEnglishName || '').trim()
+  if (id && !/^agent_/i.test(id)) return safeAgentDirName(id)
+  if (englishName) return safeAgentDirName(englishName)
+  return safeAgentDirName(id || '_shared')
+}
+
 export class CloudBusinessTaskRunner {
   constructor({ db, workDirService, emitProgress }) {
     this._db = db
@@ -151,7 +164,7 @@ export class CloudBusinessTaskRunner {
 
   async _persistArtifacts({ task, profile, moduleConfig, baseUrl, token, cloudTask, cloudArtifacts, signal }) {
     const selected = this._selectArtifacts(profile, cloudTask, cloudArtifacts)
-    const outputDir = await this._ensureOutputDir(moduleConfig?.english_name || profile.defaultAgentEnglishName)
+    const outputDir = await this._ensureOutputDir(moduleConfig?.id, moduleConfig?.english_name || profile.defaultAgentEnglishName)
     const created = []
 
     for (const artifact of selected) {
@@ -364,10 +377,10 @@ export class CloudBusinessTaskRunner {
     return candidate
   }
 
-  async _ensureOutputDir(agentEnglishName) {
+  async _ensureOutputDir(agentId, agentEnglishName) {
     const root = this._workDir.getRootPath()
     const date = new Date().toISOString().slice(0, 10)
-    const dir = path.join(root, 'agents', agentEnglishName || '_shared', 'outputs', date)
+    const dir = path.join(root, 'agents', agentRuntimeDirName(agentId, agentEnglishName), 'outputs', date)
     await fs.promises.mkdir(dir, { recursive: true })
     this._workDir.resolveAndValidate(dir, 'any')
     return dir

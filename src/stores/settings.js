@@ -124,7 +124,6 @@ const DEFAULT_PROVIDERS = [
     models: [
       providerModel('claude-3-5-sonnet-latest', 'Claude 3.5 Sonnet', { ctx: '200k', maxOutput: '8k', tier: 'flagship', enabled: true, vision: true, costInput: 21, costOutput: 105, costCacheRead: 2.1, costCacheWrite: 26.25 }),
       providerModel('claude-3-5-haiku-latest', 'Claude 3.5 Haiku', { ctx: '200k', maxOutput: '8k', tier: 'fast', enabled: true, vision: true, costInput: 5.6, costOutput: 28, costCacheRead: 0.56, costCacheWrite: 7 }),
-      providerModel('claude-3-opus-latest', 'Claude 3 Opus', { ctx: '200k', maxOutput: '4k', tier: 'flagship', enabled: false, vision: true, costInput: 105, costOutput: 525, costCacheRead: 10.5, costCacheWrite: 131.25 }),
     ],
   }),
 

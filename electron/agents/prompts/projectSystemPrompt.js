@@ -111,7 +111,7 @@ function buildRuntimeEnvironmentSection() {
 - 当前宿主系统：${label} (${platform}/${process.arch})
 ${windowsRules.join('\n')}
 - 优先使用工作空间虚拟路径和上方工作空间根目录。不要自行构造未授权的系统路径。
-- 注意区分 Reviva 虚拟路径 `/tmp/...` 与宿主系统临时目录；本提示中的 `/tmp/${agentDirName}/${today}/` 指工作空间授权根目录下的虚拟临时目录。
+- 注意区分 Reviva 虚拟路径 /tmp/... 与宿主系统临时目录；提示中的 /tmp/{agent}/{date}/ 指工作空间授权根目录下的虚拟临时目录。
 - 需要运行命令时使用 exec_command，并优先使用结构化参数 cmd/args/cwd；cwd 和文件参数使用 /project、/docs、/context、/agents/... 等虚拟路径。不要调用 bash、sh、command 这类工具名，也不要用 Linux 路径习惯绕过当前平台和命令安全策略。`
 }
 
@@ -147,9 +147,11 @@ function buildOfficeReadSection() {
   return `## Office 文档读取
 
 - 所有智能体都默认拥有 office_read 工具，用于读取 .docx、.xlsx、.pptx 文件。
-- Office 文件是压缩二进制文档，禁止用 read_file/file_read 直接读取；如果已经读到乱码、ZIP 片段、XML 片段或不可解释的二进制内容，立即停止该路线并改用 office_read。
+- Office 文件是压缩二进制文档，默认不要用 read_file/file_read 直接读取；优先走 office_read/officecli。只有 office_read 不可用、返回能力不足，或用户明确要求底层诊断时，才考虑通过 exec_command 使用 Python/zip/python-docx/openpyxl/pptx 等备用方案，并说明这是兜底路径。
 - 标准流程：先调用 office_read(path, mode="overview") 获取 stats/outline 和 next 建议，再根据任务需要继续读取。
 - 需要正文内容时，调用 office_read(path, mode="text", start, maxLines, maxChars) 分段读取，并优先沿用工具返回的 next 参数继续读取。
+- 需要文档内图片、图表截图或图文并茂回答时，调用 office_read(path, mode="images", exportImages=true)。工具会通过 officecli 导出嵌入图片到 /context/office-images/...，随后可在 Markdown 中使用 ![说明](/context/office-images/.../xxx.png) 展示。
+- 只需要定位图片时，可先调用 office_read(path, mode="images") 获取 DOM path；需要单张图片时再传 imagePath 精确导出。
 - 只需要结构、表格/工作表概览或格式问题时，优先使用 mode="outline"、mode="stats" 或 mode="issues"，不要为了概览读取全文。
 - 不要默认一次性读取全文；除非用户明确要求完整导出，否则只读取完成任务所需的片段。
 - 如果 office_read 返回 OFFICECLI_NOT_INSTALLED 或 OFFICECLI_UNAVAILABLE，告诉用户需要在“设置 > 环境检测”安装或修复 officecli。`
@@ -260,13 +262,14 @@ export function buildProjectSystemPrompt({
   workRoot,
   ctxPaths = [],
   cloudContext = {},
+  agentDirName: explicitAgentDirName = '',
   agentEnglishName,
   skillInfo = [],
   answerStyle = 'default',
   agentMemoryDirName = null,
 } = {}) {
   const today = new Date().toISOString().slice(0, 10)
-  const agentDirName = agentEnglishName || '_shared'
+  const agentDirName = explicitAgentDirName || agentEnglishName || '_shared'
   const memoryDirName = agentMemoryDirName || agentDirName
 
   return [

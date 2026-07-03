@@ -2,6 +2,9 @@
 import { computed } from 'vue';
 import { useAppStore } from '@/stores/app';
 import logoUrl from '@/assets/logo-light.png';
+import { getAppVersion } from '@/utils/tools'
+
+const appVersion = getAppVersion()
 const appStore = useAppStore();
 const isDark = computed(() => appStore.isDark);
 
@@ -114,7 +117,7 @@ const stats = [
   { label: '开发阶段', value: '内测中', icon: 'ri-flask-line', iconColor: 'text-amber-400' },
   {
     label: '当前版本',
-    value: 'v0.0.2-beta',
+    value: appVersion,
     icon: 'ri-code-s-slash-line',
     iconColor: 'text-brand-400'
   },

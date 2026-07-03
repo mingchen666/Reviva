@@ -1,0 +1,14 @@
+{
+  "id": "data-structure-visualization",
+  "name": "数据结构可视化",
+  "description": "面向数据结构与算法学习、期末和 408 复习的可视化技能，生成树、图、查找、排序、递归、复杂度和算法手算过程的单文件 HTML 交互讲解页或技术图。",
+  "icon": "ri-git-branch-line",
+  "color": "#22C55E",
+  "category": "学习",
+  "source": "platform",
+  "allowedTools": ["file_read", "file_write"],
+  "outputTypes": ["HTML", "Markdown"],
+  "version": "1.0",
+  "author": "reviva",
+  "license": "MIT"
+}

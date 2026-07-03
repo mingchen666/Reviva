@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Tree / Graph Stepper</title>
+  <style>
+    :root { --bg:#f7f8fb; --panel:#fff; --ink:#172033; --muted:#64748b; --line:#dbe2ee; --brand:#16a34a; --hot:#f59e0b; --done:#22c55e; --shadow:0 12px 28px rgba(15,23,42,.07); }
+    * { box-sizing:border-box; }
+    body { margin:0; background:var(--bg); color:var(--ink); font-family:Inter, "Noto Sans SC", system-ui, sans-serif; }
+    header { padding:18px 28px 14px; background:#fff; border-bottom:1px solid var(--line); }
+    h1 { margin:0; font-size:22px; letter-spacing:0; }
+    .meta { margin-top:10px; color:var(--muted); font-size:13px; display:flex; gap:8px; flex-wrap:wrap; }
+    .meta span { min-height:26px; display:inline-flex; align-items:center; border:1px solid #e2e8f0; border-radius:999px; padding:0 10px; background:#f8fafc; }
+    main { padding:16px; display:grid; grid-template-columns:minmax(0,1fr) 340px; gap:16px; }
+    .card { background:var(--panel); border:1px solid var(--line); border-radius:8px; box-shadow:var(--shadow); }
+    .stage { min-height:540px; padding:16px; display:grid; grid-template-rows:1fr auto; gap:12px; }
+    svg { width:100%; height:420px; border:1px solid #e2e8f0; border-radius:6px; background:linear-gradient(180deg,#fbfcff,#ecfdf5); }
+    .edge { stroke:#94a3b8; stroke-width:2.5; }
+    .edge.hot { stroke:var(--hot); stroke-width:4; }
+    .node { fill:#dcfce7; stroke:#22c55e; stroke-width:2.5; }
+    .node.hot { fill:#fef3c7; stroke:var(--hot); stroke-width:4; }
+    .node.done { fill:#bbf7d0; stroke:var(--done); }
+    text { font-weight:800; fill:#172033; dominant-baseline:middle; text-anchor:middle; }
+    .controls { display:flex; gap:8px; flex-wrap:wrap; }
+    button { height:36px; min-width:72px; border:1px solid var(--line); background:#fff; border-radius:6px; padding:0 12px; font-weight:800; cursor:pointer; transition:background .16s ease, border-color .16s ease, transform .16s ease; }
+    button:hover { background:#f8fafc; border-color:#cbd5e1; }
+    button:active { transform:translateY(1px); }
+    button:focus-visible { outline:3px solid rgba(22,163,74,.22); outline-offset:2px; }
+    button.primary { background:var(--brand); color:#fff; border-color:var(--brand); }
+    aside { padding:16px; display:flex; flex-direction:column; gap:14px; }
+    .kicker { color:var(--brand); font-size:12px; font-weight:900; }
+    .title { font-size:18px; font-weight:900; margin-top:4px; }
+    .text { color:#334155; font-size:14px; line-height:1.65; }
+    .state { margin:0; padding:12px; border-radius:6px; background:#0f172a; color:#e2e8f0; font:12px/1.55 ui-monospace, Menlo, Consolas, monospace; white-space:pre-wrap; }
+    footer { padding:0 16px 16px; }
+    .table { padding:14px; overflow:auto; }
+    table { width:100%; border-collapse:collapse; font-size:13px; }
+    th,td { padding:8px 10px; border-bottom:1px solid var(--line); text-align:left; }
+    th { color:var(--muted); font-size:12px; }
+    tbody tr:nth-child(even) { background:#f8fafc; }
+    @media (max-width: 900px) { header { padding:16px; } main { grid-template-columns:1fr; padding:12px; } svg { height:360px; } }
+  </style>
+</head>
+<body>
+  <header><h1 id="title">树 / 图算法可视化模板</h1><div class="meta"><span>DFS/BFS/最短路/MST/树遍历</span><span>单文件 HTML</span></div></header>
+  <main>
+    <section class="card stage"><svg id="svg" viewBox="0 0 800 420"></svg><div class="controls"><button id="prev">上一步</button><button id="play" class="primary">播放</button><button id="next">下一步</button><button id="reset">重置</button></div></section>
+    <aside class="card"><div><div class="kicker" id="stepNo"></div><div class="title" id="stepTitle"></div><div class="text" id="stepText"></div></div><pre class="state" id="state"></pre></aside>
+  </main>
+  <footer><section class="card table"><table><thead><tr><th>步</th><th>访问/松弛</th><th>结构状态</th><th>考试书写点</th></tr></thead><tbody id="rows"></tbody></table></section></footer>
+  <script>
+    const DATA = {
+      title:"BFS 遍历示例",
+      nodes:[["A",400,70],["B",240,170],["C",560,170],["D",170,300],["E",320,300],["F",560,300]],
+      edges:[["A","B"],["A","C"],["B","D"],["B","E"],["C","F"]],
+      steps:[
+        { title:"从 A 开始", hot:["A"], done:[], edge:null, text:"A 入队，作为 BFS 起点。", state:"queue=[A]\nvisited={A}", exam:"写出起点和初始队列" },
+        { title:"访问 A", hot:["B","C"], done:["A"], edge:["A","B"], text:"A 出队，发现 B 和 C。", state:"queue=[B,C]\nvisited={A,B,C}", exam:"按邻接顺序入队" },
+        { title:"访问 B", hot:["D","E"], done:["A","B"], edge:["B","D"], text:"B 出队，发现 D 和 E。", state:"queue=[C,D,E]\nvisited={A,B,C,D,E}", exam:"记录队列变化" },
+        { title:"访问 C", hot:["F"], done:["A","B","C"], edge:["C","F"], text:"C 出队，发现 F。", state:"queue=[D,E,F]\nvisited={A,B,C,D,E,F}", exam:"避免重复访问" },
+        { title:"完成", hot:[], done:["A","B","C","D","E","F"], edge:null, text:"得到 BFS 序列 A,B,C,D,E,F。", state:"order=A,B,C,D,E,F", exam:"最终序列 + 队列过程" }
+      ]
+    }
+    let i=0,timer=null; const $=id=>document.getElementById(id)
+    function render(){
+      const s=DATA.steps[i]; $("title").textContent=DATA.title; $("stepNo").textContent=`STEP ${i+1}/${DATA.steps.length}`; $("stepTitle").textContent=s.title; $("stepText").textContent=s.text; $("state").textContent=s.state
+      const pos=Object.fromEntries(DATA.nodes.map(n=>[n[0],{x:n[1],y:n[2]}])); let html=""
+      for(const [a,b] of DATA.edges){ const hot=s.edge&&((s.edge[0]===a&&s.edge[1]===b)||(s.edge[0]===b&&s.edge[1]===a)); html+=`<line class="edge ${hot?'hot':''}" x1="${pos[a].x}" y1="${pos[a].y}" x2="${pos[b].x}" y2="${pos[b].y}"/>` }
+      for(const [id,x,y] of DATA.nodes){ html+=`<circle class="node ${s.hot.includes(id)?'hot':''} ${s.done.includes(id)?'done':''}" cx="${x}" cy="${y}" r="28"/><text x="${x}" y="${y}">${id}</text>` }
+      $("svg").innerHTML=html
+      $("rows").innerHTML=DATA.steps.map((r,idx)=>`<tr><td>${idx+1}</td><td>${r.title}</td><td>${r.state.replace(/\n/g,"; ")}</td><td>${r.exam}</td></tr>`).join("")
+    }
+    function next(){i=Math.min(DATA.steps.length-1,i+1);render();if(i===DATA.steps.length-1)stop()} function prev(){i=Math.max(0,i-1);render()} function stop(){clearInterval(timer);timer=null;$("play").textContent="播放"}
+    $("next").onclick=next; $("prev").onclick=prev; $("reset").onclick=()=>{stop();i=0;render()}; $("play").onclick=()=>{if(timer)return stop();$("play").textContent="暂停";timer=setInterval(next,900)}; render()
+  </script>
+</body>
+</html>

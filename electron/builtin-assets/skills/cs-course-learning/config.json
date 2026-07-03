@@ -1,0 +1,14 @@
+{
+  "id": "cs-course-learning",
+  "name": "计算机专业课学习",
+  "description": "计算机专业核心课程统一学习技能，覆盖数据结构、计算机组成原理、操作系统、计算机网络、408/考研和课程期末复习。支持章节梳理、概念讲解、题型训练、错因诊断、学习计划、资料整理和复习产物设计。",
+  "icon": "ri-cpu-line",
+  "color": "#2563EB",
+  "category": "学习",
+  "source": "platform",
+  "allowedTools": ["file_read", "file_write", "office_read", "pdf_read", "kb_search", "web_search_bing", "mcp:exa"],
+  "outputTypes": ["Markdown", "HTML", "DOCX"],
+  "version": "1.0",
+  "author": "reviva",
+  "license": "MIT"
+}

@@ -1,9 +1,9 @@
 import { spawn } from 'node:child_process'
-import crypto from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
 import { getOfficeCliCommandCandidates, getOfficeCliSpawnEnv } from '../officeCliResolver.js'
 import { getSystemEnv } from '../systemEnv.js'
+import { extractOfficeImages } from '../tools/officecli/OfficeImageExtractor.js'
 
 const OFFICE_EXTS = new Set(['.docx', '.xlsx', '.pptx'])
 const PDF_EXTS = new Set(['.pdf'])
@@ -171,101 +171,6 @@ function compactDetail(value, max = 600) {
 
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms))
-}
-
-function safeSegment(value, fallback = 'asset') {
-  const raw = String(value || '').trim().toLowerCase()
-  const safe = raw
-    .normalize('NFKD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z0-9_-]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 80)
-  return safe || fallback
-}
-
-function toPosix(value) {
-  return String(value || '').replace(/\\/g, '/')
-}
-
-function imageExtensionFromMime(mime = '') {
-  const text = String(mime || '').toLowerCase()
-  if (text.includes('png')) return '.png'
-  if (text.includes('jpeg') || text.includes('jpg')) return '.jpg'
-  if (text.includes('webp')) return '.webp'
-  if (text.includes('gif')) return '.gif'
-  if (text.includes('bmp')) return '.bmp'
-  if (text.includes('svg')) return '.svg'
-  if (text.includes('tiff') || text.includes('tif')) return '.tif'
-  return ''
-}
-
-function imageExtensionFromBuffer(buffer) {
-  if (!Buffer.isBuffer(buffer) || buffer.length < 8) return ''
-  if (buffer.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))) return '.png'
-  if (buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) return '.jpg'
-  if (buffer.subarray(0, 6).toString('ascii') === 'GIF87a' || buffer.subarray(0, 6).toString('ascii') === 'GIF89a') return '.gif'
-  if (buffer.subarray(0, 4).toString('ascii') === 'RIFF' && buffer.subarray(8, 12).toString('ascii') === 'WEBP') return '.webp'
-  if (buffer.subarray(0, 2).toString('ascii') === 'BM') return '.bmp'
-  const head = buffer.subarray(0, 256).toString('utf8').trimStart().toLowerCase()
-  if (head.startsWith('<svg') || head.startsWith('<?xml')) return '.svg'
-  return ''
-}
-
-function imageExtensionFromName(value = '') {
-  const ext = path.extname(String(value || '').split(/[?#]/)[0]).toLowerCase()
-  return ['.png', '.jpg', '.jpeg', '.webp', '.gif', '.bmp', '.tif', '.tiff', '.svg'].includes(ext)
-    ? (ext === '.jpeg' ? '.jpg' : ext)
-    : ''
-}
-
-function collectOfficeImagePaths(value, results = []) {
-  if (!value) return results
-  if (Array.isArray(value)) {
-    for (const item of value) collectOfficeImagePaths(item, results)
-    return results
-  }
-  if (typeof value !== 'object') return results
-  const itemPath = value.path || value.Path || value.domPath || value.dom_path
-  const type = String(value.type || value.kind || value.nodeType || value.element || '').toLowerCase()
-  if (itemPath && (!type || type.includes('picture') || type.includes('image') || type.includes('pic'))) {
-    results.push({
-      path: String(itemPath),
-      name: String(value.name || value.alt || value.title || ''),
-      raw: value,
-    })
-  }
-  for (const item of Object.values(value)) collectOfficeImagePaths(item, results)
-  return results
-}
-
-function parseOfficeImageQueryOutput(stdout, stderr = '') {
-  const parsed = parseJsonLike(stdout, stderr)
-  const items = collectOfficeImagePaths(parsed.data)
-  const raw = parsed.raw || String(stdout || stderr || '')
-  for (const line of raw.split(/\r?\n/)) {
-    const text = line.trim()
-    if (!text) continue
-    const match = text.match(/^(\/\S+)\s+\((picture|image|pic)\)\b/i) || text.match(/^(\/\S+)/)
-    if (!match) continue
-    const nameMatch = text.match(/\bname=("[^"]+"|'[^']+'|\S+)/i)
-    const name = nameMatch ? nameMatch[1].replace(/^["']|["']$/g, '') : ''
-    items.push({ path: match[1], name, raw: text })
-  }
-  const seen = new Set()
-  return items
-    .filter(item => item.path && !seen.has(item.path) && seen.add(item.path))
-    .slice(0, OFFICE_MAX_IMAGES)
-}
-
-function extractSavedContentType(stdout = '', stderr = '') {
-  const text = `${stdout || ''}\n${stderr || ''}`
-  const match = text.match(/\bsavedContentType=([^\s]+)/i) || text.match(/\bcontentType=([^\s]+)/i)
-  return match ? match[1] : ''
-}
-
-async function hashBuffer(buffer) {
-  return crypto.createHash('sha256').update(buffer).digest('hex')
 }
 
 function usefulPdfTextLength(value) {
@@ -439,79 +344,20 @@ export class DocumentReadService {
         chars: body.length,
         asset_count: imageResult.assets.length,
         asset_error_count: imageResult.errors.length,
+        asset_cache_hits: imageResult.cache?.hits || 0,
+        asset_cache_misses: imageResult.cache?.misses || 0,
       },
     }
   }
 
   async _extractOfficeImages(filePath, { sourceId = '', imageOutputDir = '', imageOutputRelDir = '' } = {}) {
-    if (!imageOutputDir || !imageOutputRelDir) return { assets: [], errors: [] }
-
-    const outputRoot = path.resolve(imageOutputDir)
-    await fs.promises.mkdir(outputRoot, { recursive: true })
-
-    const queryItems = []
-    const errors = []
-    for (const selector of ['picture', 'image']) {
-      const result = await runOfficeCli(['query', filePath, selector, '--json'], { timeoutMs: 30000, maxBuffer: 2 * 1024 * 1024 })
-      if (result.code === 0) {
-        queryItems.push(...parseOfficeImageQueryOutput(result.stdout, result.stderr))
-      } else {
-        const textResult = await runOfficeCli(['query', filePath, selector], { timeoutMs: 30000, maxBuffer: 2 * 1024 * 1024 })
-        if (textResult.code === 0) queryItems.push(...parseOfficeImageQueryOutput(textResult.stdout, textResult.stderr))
-      }
-    }
-
-    const seenPaths = new Set()
-    const items = queryItems.filter(item => item.path && !seenPaths.has(item.path) && seenPaths.add(item.path)).slice(0, OFFICE_MAX_IMAGES)
-    const assets = []
-    const safeSourceId = safeSegment(sourceId || 'source')
-
-    for (let index = 0; index < items.length; index += 1) {
-      const item = items[index]
-      const tempPath = path.join(outputRoot, `.office-image-${process.pid}-${Date.now()}-${index}.bin`)
-      try {
-        const saveResult = await runOfficeCli(['get', filePath, item.path, '--save', tempPath], { timeoutMs: 60000, maxBuffer: 512 * 1024 })
-        if (saveResult.code !== 0) {
-          errors.push({ path: item.path, detail: compactDetail(saveResult.stderr || saveResult.stdout) })
-          await fs.promises.unlink(tempPath).catch(() => {})
-          continue
-        }
-        const buffer = await fs.promises.readFile(tempPath)
-        const hash = await hashBuffer(buffer)
-        const contentType = extractSavedContentType(saveResult.stdout, saveResult.stderr)
-        const ext = imageExtensionFromMime(contentType) || imageExtensionFromBuffer(buffer) || imageExtensionFromName(item.name) || '.png'
-        const base = safeSegment(path.basename(item.name || `office-image-${index + 1}`, path.extname(item.name || '')), `office-image-${index + 1}`)
-        const fileName = `${base}-${hash.slice(0, 10)}${ext}`
-        const finalPath = path.join(outputRoot, fileName)
-        const resolvedFinal = path.resolve(finalPath)
-        if (!resolvedFinal.toLowerCase().startsWith(outputRoot.toLowerCase() + path.sep) && resolvedFinal.toLowerCase() !== outputRoot.toLowerCase()) {
-          throw new Error('Resolved image path escaped asset directory')
-        }
-        if (!fs.existsSync(finalPath)) await fs.promises.rename(tempPath, finalPath)
-        else await fs.promises.unlink(tempPath).catch(() => {})
-        const stat = await fs.promises.stat(finalPath)
-        const assetRel = toPosix(path.posix.join(toPosix(imageOutputRelDir), fileName))
-        assets.push({
-          id: `asset_${safeSourceId}_${hash.slice(0, 12)}`,
-          source_id: sourceId || '',
-          kind: 'office_image',
-          path: assetRel,
-          original_path: `${filePath}#${item.path}`,
-          content_hash: `sha256:${hash}`,
-          size: stat.size,
-          page: 0,
-          name: item.name || '',
-          dom_path: item.path,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        })
-      } catch (error) {
-        errors.push({ path: item.path, detail: compactDetail(error?.message || error) })
-        await fs.promises.unlink(tempPath).catch(() => {})
-      }
-    }
-
-    return { assets, errors }
+    const result = await extractOfficeImages(filePath, {
+      sourceId,
+      outputDir: imageOutputDir,
+      outputRelDir: imageOutputRelDir,
+      maxImages: OFFICE_MAX_IMAGES,
+    })
+    return { assets: result.assets, errors: result.errors, cache: result.cache }
   }
 
   async _readPdf(filePath, { title }) {

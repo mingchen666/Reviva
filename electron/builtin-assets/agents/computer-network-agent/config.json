@@ -1,0 +1,32 @@
+{
+  "id": "computer-network-agent",
+  "name": "计算机网络学习助手",
+  "english_name": "Computer Network Tutor",
+  "description": "面向计算机网络课程学习、实验抓包、协议理解、期末复习和 408 网络部分训练的专业学习 Agent，覆盖 OSI/TCP-IP、链路层、网络层、传输层、应用层、子网、路由、DNS、HTTP、TCP/UDP、拥塞控制和网络安全基础。",
+  "icon": "ri-router-line",
+  "color": "#0EA5E9",
+
+  "architecture": "plan_exec",
+  "model": "",
+  "temperature": 0.5,
+  "top_p": 1.0,
+  "max_tokens": 16000,
+  "max_iterations": 100,
+  "tool_call_limit": 0,
+  "model_call_limit": 0,
+  "thinking_mode": "auto",
+  "thinking_intensity": "medium",
+
+  "tools": ["file_list", "file_read", "file_write", "office_read", "pdf_read", "office_write", "kb_search", "web_search_bing", "mcp:exa", "exec_command"],
+  "skills": ["computer-network-learning", "network-protocol-viz", "network-packet-lab", "network-exam-practice", "concept-explainer", "socratic-tutor", "feynman-learning-coach", "knowledge-organize", "review-plan", "practice-quiz", "mock-exam", "exam-prep", "error-analysis", "flashcard-generator", "note-skill", "learning-visualization-skill", "technical-diagram-skill", "research-brief-skill", "web-access", "officecli-skills"],
+  "sub_agents": [],
+  "permissions": {
+    "fileRead": true,
+    "fileWrite": true,
+    "fileDelete": false,
+    "fileRename": false,
+    "execCommand": true,
+    "webSearch": true,
+    "kbSearch": true
+  }
+}

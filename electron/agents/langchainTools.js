@@ -13,6 +13,7 @@ import { createFfmpegTool } from '../tools/FfmpegToolService.js'
 import { createPandocTool } from '../tools/PandocToolService.js'
 import { createManimTool } from '../tools/ManimToolService.js'
 import { createOfficeWriteTool } from '../tools/officecli/index.js'
+import { extractOfficeImages, queryOfficeImages } from '../tools/officecli/OfficeImageExtractor.js'
 import { PptxExportService } from '../PptxExportService.js'
 import { getOfficeCliCommandCandidates, getOfficeCliSpawnEnv } from '../officeCliResolver.js'
 import { getSystemEnv } from '../systemEnv.js'
@@ -725,6 +726,8 @@ const OFFICE_DEFAULT_MAX_CHARS = 40000
 const OFFICE_MAX_CHARS = 80000
 const OFFICE_DEFAULT_MAX_LINES = 100
 const OFFICE_MAX_LINES = 300
+const OFFICE_DEFAULT_MAX_IMAGES = 200
+const OFFICE_MAX_IMAGES = 500
 
 function _clipText(text, maxChars) {
   const content = String(text || '')
@@ -742,51 +745,15 @@ function _parseOfficeCliOutput(stdout, stderr) {
   }
 }
 
-function _collectOfficeImagePaths(value, results = []) {
-  if (!value) return results
-  if (Array.isArray(value)) {
-    for (const item of value) _collectOfficeImagePaths(item, results)
-    return results
-  }
-  if (typeof value !== 'object') return results
-  const itemPath = value.path || value.Path || value.domPath || value.dom_path
-  const type = String(value.type || value.kind || value.nodeType || value.element || '').toLowerCase()
-  if (itemPath && (!type || type.includes('picture') || type.includes('image') || type.includes('pic'))) {
-    results.push({
-      path: String(itemPath),
-      name: String(value.name || value.alt || value.title || ''),
-      width: value.width || value.w || '',
-      height: value.height || value.h || '',
-      relId: value.relId || value.rId || value.relationshipId || '',
-    })
-  }
-  for (const item of Object.values(value)) _collectOfficeImagePaths(item, results)
-  return results
-}
-
-function _parseOfficeImageQueryOutput(stdout, stderr = '') {
-  const parsed = _parseOfficeCliOutput(stdout, stderr)
-  const items = _collectOfficeImagePaths(parsed.structured)
-  const raw = parsed.raw || String(stdout || stderr || '')
-  for (const line of raw.split(/\r?\n/)) {
-    const text = line.trim()
-    if (!text) continue
-    const match = text.match(/^(\/\S+)\s+\((picture|image|pic)\)\b/i) || text.match(/^(\/\S+)/)
-    if (!match) continue
-    const nameMatch = text.match(/\bname=("[^"]+"|'[^']+'|\S+)/i)
-    const widthMatch = text.match(/\bwidth=([^\s]+)/i)
-    const heightMatch = text.match(/\bheight=([^\s]+)/i)
-    const relIdMatch = text.match(/\brelId=([^\s]+)/i)
-    items.push({
-      path: match[1],
-      name: nameMatch ? nameMatch[1].replace(/^["']|["']$/g, '') : '',
-      width: widthMatch ? widthMatch[1] : '',
-      height: heightMatch ? heightMatch[1] : '',
-      relId: relIdMatch ? relIdMatch[1] : '',
-    })
-  }
-  const seen = new Set()
-  return items.filter(item => item.path && !seen.has(item.path) && seen.add(item.path))
+function _safeOfficeSegment(value, fallback = 'document') {
+  const raw = String(value || '').trim().toLowerCase()
+  const safe = raw
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9_-]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 80)
+  return safe || fallback
 }
 
 async function _getOfficeCliEnv() {
@@ -899,7 +866,7 @@ function _officeError(code, message, extra = {}) {
 }
 
 export const officeRead = tool(
-  async ({ path: filePath, mode = 'overview', start, end, maxLines, maxChars }) => {
+  async ({ path: filePath, mode = 'overview', start, end, maxLines, maxChars, exportImages = false, imagePath = '', maxImages }) => {
     if (!_workDirService) {
       return _officeError('NO_WORKSPACE', '未初始化工作空间，无法读取 Office 文档。')
     }
@@ -932,6 +899,7 @@ export const officeRead = tool(
     const safeMode = OFFICE_MODES.has(mode) ? mode : 'overview'
     const safeMaxChars = Math.min(Math.max(Number(maxChars) || OFFICE_DEFAULT_MAX_CHARS, 1000), OFFICE_MAX_CHARS)
     const safeMaxLines = Math.min(Math.max(Number(maxLines) || OFFICE_DEFAULT_MAX_LINES, 1), OFFICE_MAX_LINES)
+    const safeMaxImages = Math.min(Math.max(Number(maxImages) || OFFICE_DEFAULT_MAX_IMAGES, 1), OFFICE_MAX_IMAGES)
     const safeStart = Math.max(Number(start) || 1, 1)
     const safeEnd = end ? Math.max(Number(end), safeStart) : undefined
     const format = ext.slice(1)
@@ -984,20 +952,25 @@ export const officeRead = tool(
     }
 
     if (safeMode === 'images') {
-      const queryItems = []
-      const errors = []
-      for (const selector of ['picture', 'image']) {
-        const result = await _runOfficeCli(['query', resolved, selector, '--json'], { timeoutMs: 30000, maxBuffer: 2 * 1024 * 1024 })
-        if (result.code === 0) {
-          queryItems.push(..._parseOfficeImageQueryOutput(result.stdout, result.stderr))
-        } else {
-          const textResult = await _runOfficeCli(['query', resolved, selector], { timeoutMs: 30000, maxBuffer: 2 * 1024 * 1024 })
-          if (textResult.code === 0) queryItems.push(..._parseOfficeImageQueryOutput(textResult.stdout, textResult.stderr))
-          else errors.push({ selector, detail: (result.stderr || result.stdout || textResult.stderr || textResult.stdout || '').slice(0, 600) })
-        }
+      const listed = await queryOfficeImages(resolved, { maxImages: safeMaxImages })
+      const imageNeedle = String(imagePath || '').trim()
+      const images = imageNeedle
+        ? listed.images.filter(item => [item.path, item.name, item.relId].some(value => String(value || '') === imageNeedle || String(value || '').includes(imageNeedle)))
+        : listed.images
+      let exportResult = null
+      if (exportImages === true) {
+        const root = _workDirService.getRootPath()
+        const docBase = _safeOfficeSegment(path.basename(resolved, ext), 'document')
+        const outputDir = path.join(root, 'context', 'office-images', docBase)
+        const outputRelDir = _toVirtualWorkspacePath(outputDir)
+        exportResult = await extractOfficeImages(resolved, {
+          outputDir,
+          outputRelDir,
+          sourceId: docBase,
+          imagePath: imageNeedle,
+          maxImages: safeMaxImages,
+        })
       }
-      const seen = new Set()
-      const images = queryItems.filter(item => item.path && !seen.has(item.path) && seen.add(item.path))
       return JSON.stringify({
         success: true,
         path: virtualPath,
@@ -1005,8 +978,13 @@ export const officeRead = tool(
         mode: safeMode,
         images,
         image_count: images.length,
-        errors,
-        note: '图片路径是 officecli DOM path，可用于定位嵌入图片；Wiki 来源解析会自动提取并登记图片资产。',
+        exported: exportResult ? exportResult.assets : [],
+        exported_count: exportResult ? exportResult.assets.length : 0,
+        cache: exportResult ? exportResult.cache : null,
+        errors: exportResult ? exportResult.errors : listed.errors,
+        note: exportImages === true
+          ? '已通过 officecli get --save 导出文档内图片。exported[].path 可作为工作区图片路径供支持视觉的模型读取。'
+          : '图片路径是 officecli DOM path；需要本地图片文件时再次调用 office_read(mode="images", exportImages=true)，可用 imagePath 指定单张图片。',
       })
     }
 
@@ -1044,18 +1022,24 @@ export const officeRead = tool(
   {
     name: 'office_read',
     description: [
-      '读取 Office 文档的受控工具，支持 .docx、.xlsx、.pptx。不要用 read_file 读取 Office 文件。',
+      '读取 Office 文档的受控工具，支持 .docx、.xlsx、.pptx。读取 Office 时优先使用本工具；Python、zip 解包或第三方脚本只作为 office_read 不可用/能力不足/用户明确要求底层诊断时的备用方案。',
       '默认 mode=overview，只返回结构概览和下一步建议，避免长文档撑爆上下文。',
       '需要正文时使用 mode=text，并用 start/maxLines 分段读取。还支持 outline、stats、issues。',
+      '需要文档内图片或图文并茂回答时，使用 mode=images；需要把图片保存为可渲染本地 Markdown 图片时传 exportImages=true，返回 exported[].path，可写成 ![说明](/context/office-images/.../xxx.png)。',
+      '图片导出会在对应目录写入 .manifest.json 缓存；同一文档同一 DOM path 再次导出会优先返回已有图片路径。',
+      '只需要定位图片时先用 mode=images；只需要单张图片时传 imagePath 匹配 DOM path、图片名或 relId。',
       '依赖本机或随应用内置的 officecli；不可用时会返回 OFFICECLI_NOT_INSTALLED。',
     ].join('\n'),
     schema: z.object({
       path: z.string().describe('Office 文件路径，必须位于授权工作空间内。'),
-      mode: z.enum(['overview', 'text', 'outline', 'stats', 'issues', 'images']).optional().describe('读取模式。默认 overview；正文用 text 分段读取；images 只列出嵌入图片 DOM 路径。'),
+      mode: z.enum(['overview', 'text', 'outline', 'stats', 'issues', 'images']).optional().describe('读取模式。默认 overview；正文用 text 分段读取；images 默认只列出嵌入图片 DOM 路径。'),
       start: z.number().optional().describe('text/html 等支持分页/分段模式的起始位置，默认 1。'),
       end: z.number().optional().describe('text/html 等支持分页/分段模式的结束位置。'),
       maxLines: z.number().optional().describe('text 模式最多读取行数，默认 100，最大 300。'),
       maxChars: z.number().optional().describe('返回内容最大字符数，默认 40000，最大 80000。'),
+      exportImages: z.boolean().optional().describe('仅 mode=images 有效。true 时通过 officecli get --save 将文档内图片导出到 /context/office-images/...。默认 false。'),
+      imagePath: z.string().optional().describe('仅 mode=images 有效。可传 officecli DOM path、图片名称或 relId 片段，只列出/导出匹配图片。'),
+      maxImages: z.number().optional().describe('仅 mode=images 有效。最多列出/导出图片数，默认 200，最大 500。'),
     }),
   },
 )

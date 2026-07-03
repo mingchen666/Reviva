@@ -12,6 +12,7 @@ const userStore = useUserStore()
 const router = useRouter()
 const msg = useMessage()
 const isDark = computed(() => appStore.isDark)
+const profileCenterEnabled = false
 
 const typeFilter = ref('all') // all | consume | recharge | reward
 const featureFilter = ref('all')
@@ -116,19 +117,33 @@ const hasMore = computed(() => {
   return loaded < total
 })
 
-onMounted(() => {
-  if (!userStore.isLoggedIn) return
-  if (profileStore.transactions.length === 0) {
-    profileStore.loadRecords({ page: 1, pageSize: 20 }).catch(() => {})
-  }
-})
+if (profileCenterEnabled) {
+  onMounted(() => {
+    if (!userStore.isLoggedIn) return
+    if (profileStore.transactions.length === 0) {
+      profileStore.loadRecords({ page: 1, pageSize: 20 }).catch(() => {})
+    }
+  })
+}
 </script>
 
 <template>
   <div class="h-full overflow-y-auto" :class="isDark ? 'bg-d0' : 'bg-l0'">
+    <div v-if="!profileCenterEnabled" class="h-full flex items-center justify-center px-6">
+      <div class="text-center max-w-[420px]">
+        <div class="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4"
+          :class="isDark ? 'bg-d3 border border-bdr' : 'bg-l3 border border-bdrF'">
+          <i class="ri-user-settings-line text-[28px]" :class="isDark ? 'text-wt-aux' : 'text-lt-aux'" />
+        </div>
+        <h2 class="text-[16px] font-bold mb-2" :class="isDark ? 'text-wt-main' : 'text-lt-main'">个人中心即将支持</h2>
+        <p class="text-[12px] leading-relaxed" :class="isDark ? 'text-wt-aux' : 'text-lt-aux'">
+          账号资料、积分流水和云端配额正在准备中，后续接入后将开放完整个人中心。
+        </p>
+      </div>
+    </div>
 
     <!-- ═══ Unauthenticated — login prompt ═══ -->
-    <div v-if="!userStore.isLoggedIn" class="h-full flex items-center justify-center">
+    <div v-else-if="!userStore.isLoggedIn" class="h-full flex items-center justify-center">
       <div class="text-center max-w-[320px]">
         <div class="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4"
           :class="isDark ? 'bg-d3 border border-bdr' : 'bg-l3 border border-bdrF'">

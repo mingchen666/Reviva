@@ -14,6 +14,7 @@ export class BuiltinAgentTaskRunner {
     const result = await this._agentService.runBuiltinTask({
       taskId: task.id,
       toolId,
+      agentId: moduleConfig.id,
       agentEnglishName: moduleConfig.english_name,
       topic,
       params,

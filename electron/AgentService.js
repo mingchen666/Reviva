@@ -1821,7 +1821,8 @@ export class AgentService {
     try {
       onProgress(18, '准备上下文...')
       setToolProviderConfig(request.toolProviderConfigs || {})
-      setToolRunContext({ agentEnglishName: agentEnglishName || '_shared', permissions: moduleConfig.permissions || {}, wikiContext: request.wikiContext || {}, boundSkillIds: moduleConfig.skills || [] })
+      const agentDirName = this._agentRuntimeDirName(request.agentId || moduleConfig.id, agentEnglishName)
+      setToolRunContext({ agentEnglishName: agentDirName, permissions: moduleConfig.permissions || {}, wikiContext: request.wikiContext || {}, boundSkillIds: moduleConfig.skills || [] })
       setExecCommandConfig({
         whitelist: moduleConfig.permissions?.execCommandWhitelist || null,
         blacklist: moduleConfig.permissions?.execCommandBlacklist || null,
@@ -1849,11 +1850,11 @@ export class AgentService {
 
       onProgress(28, '加载技能和工具...')
       const skillData = this._buildSkillsPaths(moduleConfig.skills || [])
-      const memoryDirName = this._agentMemoryDirName(request.agentId || moduleConfig.id, agentEnglishName)
+      const memoryDirName = agentDirName
       let systemPrompt = moduleConfig.prompt || ''
-      systemPrompt += '\n\n' + this._buildProjectSystemPrompt(workRoot, preparedCtxPaths, agentEnglishName, skillData.info, request.answerStyle, memoryDirName, request.cloudContext)
+      systemPrompt += '\n\n' + this._buildProjectSystemPrompt(workRoot, preparedCtxPaths, agentDirName, skillData.info, request.answerStyle, memoryDirName, request.cloudContext)
 
-      const agentDir = path.join(workRoot, 'agents', agentEnglishName || '_shared')
+      const agentDir = path.join(workRoot, 'agents', agentDirName)
       fs.mkdirSync(agentDir, { recursive: true })
       fs.writeFileSync(path.join(agentDir, 'AGENT.md'), systemPrompt, 'utf-8')
       fs.writeFileSync(path.join(agentDir, 'skills.json'), JSON.stringify(moduleConfig.skills || [], null, 2), 'utf-8')
@@ -1869,7 +1870,7 @@ export class AgentService {
         ...(moduleConfig.skills || []),
         ...subAgentConfigs.flatMap(sa => Array.isArray(sa.skills) ? sa.skills : []),
       ]), moduleConfig.permissions), request.cloudContext), webSearchEnabled)
-      setToolRunContext({ agentEnglishName: agentEnglishName || '_shared', permissions: moduleConfig.permissions || {}, wikiContext: request.wikiContext || {}, boundSkillIds: skillData.boundSkillIds, toolIds: effectiveToolIds })
+      setToolRunContext({ agentEnglishName: agentDirName, permissions: moduleConfig.permissions || {}, wikiContext: request.wikiContext || {}, boundSkillIds: skillData.boundSkillIds, toolIds: effectiveToolIds })
       const customTools = this._buildLocalRuntimeTools(effectiveToolIds, { includeDefaults: false })
       resetTaskCounters()
 
@@ -1903,7 +1904,7 @@ export class AgentService {
         workDirService: this._workDirService,
         boundSkillIds: skillData.boundSkillIds,
         allowedAgentMemoryDir: memoryDirName,
-        agentDirName: agentEnglishName || '_shared',
+        agentDirName,
         wikiContext: request.wikiContext || {},
       })
 
@@ -1995,6 +1996,7 @@ export class AgentService {
         conversationId: request.conversationId || '',
         groupId: request.groupId || 'default',
         agentEnglishName,
+        agentDirName,
         workRoot,
         runStartTime: startTime,
       })
@@ -2088,8 +2090,18 @@ export class AgentService {
     return safe || '_shared'
   }
 
+  _agentRuntimeDirName(agentId, agentEnglishName) {
+    const id = String(agentId || '').trim()
+    const englishName = String(agentEnglishName || '').trim()
+    // Built-in asset ids such as computer-network-agent are the stable routing key.
+    // Legacy built-ins use ids like agent_researcher, so keep their english_name directories.
+    if (id && !/^agent_/i.test(id)) return this._safeAgentDirName(id)
+    if (englishName) return this._safeAgentDirName(englishName)
+    return this._safeAgentDirName(id || '_shared')
+  }
+
   _agentMemoryDirName(agentId, agentEnglishName) {
-    return this._safeAgentDirName(agentEnglishName || agentId || '_shared')
+    return this._agentRuntimeDirName(agentId, agentEnglishName)
   }
 
   _buildMemoryPaths(agentRef = {}) {
@@ -2206,11 +2218,12 @@ export class AgentService {
 
     let workRoot = ''
     let mcpClients = []
+    const agentDirName = this._agentRuntimeDirName(request.agentId, request.agentEnglishName)
 
     try {
       // Set tool provider config (for web_search Tavily/SearXNG/Bing per-agent config)
       setToolProviderConfig(request.toolProviderConfigs || {})
-      setToolRunContext({ agentEnglishName: request.agentEnglishName || '_shared', permissions: request.permissions || {}, wikiContext: request.wikiContext || {}, boundSkillIds: request.skills || [] })
+      setToolRunContext({ agentEnglishName: agentDirName, permissions: request.permissions || {}, wikiContext: request.wikiContext || {}, boundSkillIds: request.skills || [] })
       setExecCommandConfig({
         whitelist: request.permissions?.execCommandWhitelist || null,
         blacklist: request.permissions?.execCommandBlacklist || null,
@@ -2247,12 +2260,11 @@ export class AgentService {
       console.log('[AgentService] Skills:', skillData.paths || 'none')
 
       // Renderer sends agent.prompt as systemPrompt; main process injects project rules + context paths + skills
-      const memoryDirName = this._agentMemoryDirName(request.agentId, request.agentEnglishName)
+      const memoryDirName = agentDirName
       let systemPrompt = request.systemPrompt || ''
-      systemPrompt += '\n\n' + this._buildProjectSystemPrompt(workRoot, preparedCtxPaths, request.agentEnglishName, skillData.info, request.answerStyle, memoryDirName, request.cloudContext)
+      systemPrompt += '\n\n' + this._buildProjectSystemPrompt(workRoot, preparedCtxPaths, agentDirName, skillData.info, request.answerStyle, memoryDirName, request.cloudContext)
 
       // Write per-agent runtime files (AGENT.md, skills.json) to agent sandbox directory
-      const agentDirName = request.agentEnglishName || '_shared'
       const agentDir = path.join(workRoot, 'agents', agentDirName)
       fs.mkdirSync(agentDir, { recursive: true })
       fs.writeFileSync(path.join(agentDir, 'AGENT.md'), systemPrompt, 'utf-8')
@@ -2272,7 +2284,7 @@ export class AgentService {
         ...(request.skills || []),
         ...subAgentSkillIds,
       ]), request.permissions), request.cloudContext)
-      setToolRunContext({ agentEnglishName: request.agentEnglishName || '_shared', permissions: request.permissions || {}, wikiContext: request.wikiContext || {}, boundSkillIds: skillData.boundSkillIds, toolIds: effectiveToolIds })
+      setToolRunContext({ agentEnglishName: agentDirName, permissions: request.permissions || {}, wikiContext: request.wikiContext || {}, boundSkillIds: skillData.boundSkillIds, toolIds: effectiveToolIds })
       const customTools = this._buildLocalRuntimeTools(effectiveToolIds, { includeDefaults: false })
       resetTaskCounters()
       console.log('[AgentService] Tools loaded:', customTools.map(t => t.name))
@@ -2313,7 +2325,7 @@ export class AgentService {
         workDirService: this._workDirService,
         boundSkillIds: skillData.boundSkillIds,
         allowedAgentMemoryDir: memoryDirName,
-        agentDirName: request.agentEnglishName || '_shared',
+        agentDirName,
         wikiContext: request.wikiContext || {},
       })
 
@@ -2391,7 +2403,7 @@ export class AgentService {
             this._interruptedRuns.set(runId, {
               runId,
               request,
-              agentConfig: { model, tools: allCustomTools, toolIds: effectiveToolIds, systemPrompt, subagents, interruptOn, skills: skillData.paths, boundSkillIds: skillData.boundSkillIds, memory, memoryDirName },
+              agentConfig: { model, tools: allCustomTools, toolIds: effectiveToolIds, systemPrompt, subagents, interruptOn, skills: skillData.paths, boundSkillIds: skillData.boundSkillIds, memory, memoryDirName, agentDirName },
               msgId,
               initialSteps: result.steps,
               initialIteration: result.iteration,
@@ -2429,7 +2441,7 @@ export class AgentService {
           this._interruptedRuns.set(runId, {
             runId,
             request,
-            agentConfig: { model, tools: allCustomTools, systemPrompt, subagents, interruptOn, skills: skillData.paths, boundSkillIds: skillData.boundSkillIds, memory, memoryDirName },
+            agentConfig: { model, tools: allCustomTools, systemPrompt, subagents, interruptOn, skills: skillData.paths, boundSkillIds: skillData.boundSkillIds, memory, memoryDirName, agentDirName },
             msgId,
             initialSteps: result.steps,
             initialIteration: result.iteration,
@@ -2528,6 +2540,7 @@ export class AgentService {
         this._registerArtifacts({
           conversationId: request.conversationId,
           agentEnglishName: request.agentEnglishName,
+          agentDirName,
           workRoot,
           runStartTime: startTime,
         })
@@ -2592,9 +2605,10 @@ export class AgentService {
     try {
       // Restore tool provider config for resumed run
       setToolProviderConfig(request.toolProviderConfigs || {})
+      const agentDirName = agentConfig.agentDirName || this._agentRuntimeDirName(request.agentId, request.agentEnglishName)
       const resumeToolIds = withPermissionAgentTools(agentConfig.toolIds || request.toolIds || [], request.permissions)
       const resumeSkillIds = agentConfig.boundSkillIds || request.skills || []
-      setToolRunContext({ agentEnglishName: request.agentEnglishName || '_shared', permissions: request.permissions || {}, wikiContext: request.wikiContext || {}, boundSkillIds: resumeSkillIds, toolIds: resumeToolIds })
+      setToolRunContext({ agentEnglishName: agentDirName, permissions: request.permissions || {}, wikiContext: request.wikiContext || {}, boundSkillIds: resumeSkillIds, toolIds: resumeToolIds })
       setExecCommandConfig({
         whitelist: request.permissions?.execCommandWhitelist || null,
         blacklist: request.permissions?.execCommandBlacklist || null,
@@ -2604,12 +2618,12 @@ export class AgentService {
       // Recreate the agent with same config (including backend)
       workRoot = this._workDirService?.getRootPath?.() || ''
       const normalizedRoot = (workRoot || '.').replace(/\\/g, '/')
-      const resumeMemoryDirName = agentConfig.memoryDirName || this._agentMemoryDirName(request.agentId, request.agentEnglishName)
+      const resumeMemoryDirName = agentConfig.memoryDirName || agentDirName
       const backend = new AgentScopedBackend({ rootDir: normalizedRoot, virtualMode: true }, {
         workDirService: this._workDirService,
         boundSkillIds: resumeSkillIds,
         allowedAgentMemoryDir: resumeMemoryDirName,
-        agentDirName: request.agentEnglishName || '_shared',
+        agentDirName,
         wikiContext: request.wikiContext || {},
       })
 
@@ -2817,8 +2831,9 @@ export class AgentService {
 
   async handleExecuteTool(request) {
     setCloudContext(request.cloudContext || {})
+    const agentDirName = this._agentRuntimeDirName(request.agentId, request.agentEnglishName)
     const effectiveToolIds = withContextualAgentTools(withPermissionAgentTools(this._withSkillTools(request.toolIds, request.skills), request.permissions), request.cloudContext)
-    setToolRunContext({ agentEnglishName: request.agentEnglishName || '_shared', permissions: request.permissions || {}, wikiContext: request.wikiContext || {}, boundSkillIds: request.skills || [], toolIds: effectiveToolIds })
+    setToolRunContext({ agentEnglishName: agentDirName, permissions: request.permissions || {}, wikiContext: request.wikiContext || {}, boundSkillIds: request.skills || [], toolIds: effectiveToolIds })
     const tools = this._buildLocalRuntimeTools(effectiveToolIds)
     const tool = tools.find(t => t.name === request.toolName)
     if (!tool) return { content: `Unknown tool: ${request.toolName}`, isError: true }
@@ -2835,13 +2850,14 @@ export class AgentService {
     const { providerId, apiKey, baseUrl, apiFormat, model: modelName, context, task, toolIds } = request
     try {
       setCloudContext(request.cloudContext || context?.cloudContext || {})
+      const agentDirName = this._agentRuntimeDirName(request.agentId || context?.agentId, request.agentEnglishName || context?.agentEnglishName)
       const effectiveToolIds = withContextualAgentTools(withPermissionAgentTools(
         this._withSkillTools(toolIds, request.skills || context?.skills),
         request.permissions || context?.permissions,
       ),
         request.cloudContext || context?.cloudContext,
       )
-      setToolRunContext({ agentEnglishName: request.agentEnglishName || context?.agentEnglishName || '_shared', permissions: request.permissions || context?.permissions || {}, wikiContext: request.wikiContext || context?.wikiContext || {}, boundSkillIds: request.skills || context?.skills || [], toolIds: effectiveToolIds })
+      setToolRunContext({ agentEnglishName: agentDirName, permissions: request.permissions || context?.permissions || {}, wikiContext: request.wikiContext || context?.wikiContext || {}, boundSkillIds: request.skills || context?.skills || [], toolIds: effectiveToolIds })
       const subModel = this._createModel(providerId, apiKey, baseUrl, modelName, { streaming: false, apiFormat })
       const subAgent = createDeepAgent({
         model: subModel,
@@ -2909,9 +2925,10 @@ export class AgentService {
         enrichMessagesWithCtx(preparedMessages, preparedCtxPaths, workRoot),
         { modelHasVision: !!request.modelHasVision },
       )
-      const memoryDirName = this._agentMemoryDirName(request.agentId, request.agentEnglishName)
+      const agentDirName = this._agentRuntimeDirName(request.agentId, request.agentEnglishName)
+      const memoryDirName = agentDirName
       let systemPrompt = request.systemPrompt || ''
-      systemPrompt += '\n\n' + this._buildProjectSystemPrompt(workRoot, preparedCtxPaths, request.agentEnglishName, [], request.answerStyle, memoryDirName, request.cloudContext)
+      systemPrompt += '\n\n' + this._buildProjectSystemPrompt(workRoot, preparedCtxPaths, agentDirName, [], request.answerStyle, memoryDirName, request.cloudContext)
 
       const model = this._createModel(
         request.providerId,
@@ -2990,6 +3007,7 @@ export class AgentService {
         this._registerArtifacts({
           conversationId: request.conversationId,
           agentEnglishName: request.agentEnglishName,
+          agentDirName,
           workRoot,
           runStartTime: Date.now() - latencyMs,
         })
@@ -3149,9 +3167,10 @@ export class AgentService {
     }
   }
 
-  async _registerArtifacts({ conversationId, groupId, agentEnglishName, workRoot, runStartTime }) {
+  async _registerArtifacts({ conversationId, groupId, agentEnglishName, agentDirName = '', workRoot, runStartTime }) {
     const date = new Date(runStartTime).toISOString().slice(0, 10)
-    const outputDir = path.join(workRoot, 'agents', agentEnglishName, 'outputs', date)
+    const runtimeDirName = agentDirName || this._agentRuntimeDirName('', agentEnglishName)
+    const outputDir = path.join(workRoot, 'agents', runtimeDirName, 'outputs', date)
 
     if (!fs.existsSync(outputDir)) return []
 
@@ -3210,12 +3229,12 @@ export class AgentService {
    * Build project-specific system prompt additions
    * Injects output rules, behavioral guidelines, and user-provided context file paths
    */
-  _buildProjectSystemPrompt(workRoot, ctxPaths, agentEnglishName, skillInfo = [], answerStyle = 'default', agentMemoryDirName = null, cloudContext = {}) {
+  _buildProjectSystemPrompt(workRoot, ctxPaths, agentDirName, skillInfo = [], answerStyle = 'default', agentMemoryDirName = null, cloudContext = {}) {
     return buildProjectSystemPrompt({
       workRoot,
       ctxPaths,
       cloudContext,
-      agentEnglishName,
+      agentDirName,
       skillInfo,
       answerStyle,
       agentMemoryDirName,

@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Data Structure Visualizer</title>
+  <style>
+    :root { color-scheme: light; --bg:#f7f8fb; --panel:#fff; --ink:#172033; --muted:#657083; --line:#d9deea; --brand:#2563eb; --ok:#16a34a; --warn:#f59e0b; --bad:#dc2626; --shadow:0 12px 28px rgba(15,23,42,.07); }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family: Inter, "Noto Sans SC", system-ui, sans-serif; background:var(--bg); color:var(--ink); }
+    .app { min-height:100vh; display:grid; grid-template-rows:auto 1fr auto; }
+    header { padding:18px 28px 14px; border-bottom:1px solid var(--line); background:var(--panel); }
+    h1 { margin:0; font-size:22px; line-height:1.25; letter-spacing:0; }
+    .meta { margin-top:10px; color:var(--muted); font-size:13px; display:flex; gap:8px; flex-wrap:wrap; }
+    .meta span { min-height:26px; display:inline-flex; align-items:center; border:1px solid #e2e8f0; border-radius:999px; padding:0 10px; background:#f8fafc; }
+    main { display:grid; grid-template-columns:minmax(0, 1fr) 340px; gap:16px; padding:16px; }
+    .board, .side, .table-panel { background:var(--panel); border:1px solid var(--line); border-radius:8px; box-shadow:var(--shadow); }
+    .board { min-height:480px; padding:18px; display:grid; grid-template-rows:1fr auto; gap:14px; }
+    #canvas { width:100%; min-height:380px; position:relative; overflow:hidden; border-radius:6px; background:linear-gradient(180deg,#fbfcff,#eef3ff); border:1px solid #e2e8f0; }
+    .array { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); display:flex; align-items:flex-end; gap:8px; height:240px; }
+    .bar { width:42px; min-height:28px; border-radius:6px 6px 3px 3px; background:#93c5fd; border:1px solid #60a5fa; display:flex; align-items:flex-start; justify-content:center; padding-top:6px; font-weight:800; box-shadow:0 8px 18px rgba(37,99,235,.12); transition:height .25s ease, background .2s ease, transform .2s ease; }
+    .bar.active { background:#fbbf24; border-color:#f59e0b; transform:translateY(-8px); }
+    .bar.done { background:#86efac; border-color:#22c55e; }
+    .controls { display:flex; gap:8px; align-items:center; flex-wrap:wrap; padding-top:2px; }
+    button { height:36px; min-width:72px; border:1px solid var(--line); background:#fff; color:var(--ink); border-radius:6px; padding:0 12px; cursor:pointer; font-weight:700; transition:background .16s ease, border-color .16s ease, transform .16s ease; }
+    button:hover { background:#f8fafc; border-color:#cbd5e1; }
+    button:active { transform:translateY(1px); }
+    button:focus-visible { outline:3px solid rgba(37,99,235,.22); outline-offset:2px; }
+    button.primary { background:var(--brand); color:#fff; border-color:var(--brand); }
+    input[type="range"] { width:120px; }
+    .side { padding:16px; display:flex; flex-direction:column; gap:14px; }
+    .step-kicker { color:var(--brand); font-size:12px; font-weight:800; text-transform:uppercase; }
+    .step-title { font-size:18px; font-weight:800; margin-top:4px; }
+    .step-text { color:#334155; font-size:14px; line-height:1.65; }
+    .code { margin:0; padding:12px; border-radius:6px; background:#0f172a; color:#e2e8f0; font:12px/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; white-space:pre-wrap; }
+    .code .hot { color:#fde68a; font-weight:800; }
+    footer { padding:0 16px 16px; }
+    .table-panel { padding:14px; overflow:auto; }
+    table { width:100%; border-collapse:collapse; font-size:13px; }
+    th, td { border-bottom:1px solid var(--line); padding:8px 10px; text-align:left; }
+    th { color:var(--muted); font-size:12px; }
+    tbody tr:nth-child(even) { background:#f8fafc; }
+    .exam { margin-top:12px; padding:12px; border-left:4px solid var(--brand); background:#eff6ff; font-size:13px; line-height:1.6; }
+    @media (max-width: 900px) { header { padding:16px; } main { grid-template-columns:1fr; padding:12px; } .side { min-height:auto; } .board { min-height:420px; } .array { gap:6px; } .bar { width:36px; } }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <h1 id="title">排序算法可视化模板</h1>
+      <div class="meta"><span id="topic">数据结构与算法</span><span id="complexity">时间复杂度: O(n^2)</span><span id="exam">408/期末手算友好</span></div>
+    </header>
+    <main>
+      <section class="board">
+        <div id="canvas" aria-label="visualization canvas"></div>
+        <div class="controls">
+          <button id="prev">上一步</button>
+          <button id="play" class="primary">播放</button>
+          <button id="next">下一步</button>
+          <button id="reset">重置</button>
+          <label>速度 <input id="speed" type="range" min="250" max="1600" step="50" value="800"></label>
+        </div>
+      </section>
+      <aside class="side">
+        <div>
+          <div class="step-kicker" id="stepNo">STEP 1</div>
+          <div class="step-title" id="stepTitle">初始化</div>
+          <div class="step-text" id="stepText">把用户输入转换成可观察的状态。替换 DATA.steps 即可复用本模板。</div>
+        </div>
+        <pre class="code" id="pseudo"></pre>
+      </aside>
+    </main>
+    <footer>
+      <section class="table-panel">
+        <table>
+          <thead><tr><th>步骤</th><th>数组状态</th><th>比较/操作</th><th>考试书写点</th></tr></thead>
+          <tbody id="stateRows"></tbody>
+        </table>
+        <div class="exam" id="examNote">考试迁移：手算题必须写出每一趟状态、比较对象、是否交换，以及最终复杂度/稳定性结论。</div>
+      </section>
+    </footer>
+  </div>
+  <script>
+    const DATA = {
+      title: "冒泡排序可视化",
+      topic: "排序 / Bubble Sort",
+      complexity: "时间复杂度: O(n^2), 稳定",
+      pseudo: [
+        "for i = 0..n-2:",
+        "  for j = 0..n-2-i:",
+        "    if a[j] > a[j+1]:",
+        "      swap(a[j], a[j+1])"
+      ],
+      steps: [
+        { title:"初始数组", array:[5,3,8,1], active:[], done:[], op:"准备开始", exam:"写出初始序列" },
+        { title:"比较 5 和 3", array:[5,3,8,1], active:[0,1], done:[], op:"5 > 3，交换", hot:2, exam:"相邻逆序则交换" },
+        { title:"交换后", array:[3,5,8,1], active:[0,1], done:[], op:"得到 3,5,8,1", hot:3, exam:"记录交换后的序列" },
+        { title:"比较 5 和 8", array:[3,5,8,1], active:[1,2], done:[], op:"5 < 8，不交换", hot:2, exam:"顺序正确不交换" },
+        { title:"比较 8 和 1", array:[3,5,8,1], active:[2,3], done:[], op:"8 > 1，交换", hot:2, exam:"最大值继续后移" },
+        { title:"第一趟结束", array:[3,5,1,8], active:[], done:[3], op:"8 已归位", exam:"每趟确定一个最大元素" }
+      ]
+    }
+    let index = 0, timer = null
+    const $ = (id) => document.getElementById(id)
+    function render() {
+      const s = DATA.steps[index]
+      $("title").textContent = DATA.title
+      $("topic").textContent = DATA.topic
+      $("complexity").textContent = DATA.complexity
+      $("stepNo").textContent = `STEP ${index + 1} / ${DATA.steps.length}`
+      $("stepTitle").textContent = s.title
+      $("stepText").textContent = `${s.op}。${s.exam}`
+      $("pseudo").innerHTML = DATA.pseudo.map((line, i) => `${i === s.hot ? '<span class="hot">' : ''}${line}${i === s.hot ? '</span>' : ''}`).join("\n")
+      $("canvas").innerHTML = `<div class="array">${s.array.map((v,i)=>`<div class="bar ${s.active.includes(i)?'active':''} ${s.done.includes(i)?'done':''}" style="height:${32 + v * 24}px">${v}</div>`).join("")}</div>`
+      $("stateRows").innerHTML = DATA.steps.map((row, i) => `<tr><td>${i + 1}</td><td>${row.array.join(", ")}</td><td>${row.op}</td><td>${row.exam}</td></tr>`).join("")
+    }
+    function next(){ index = Math.min(DATA.steps.length - 1, index + 1); render(); if(index === DATA.steps.length - 1) stop() }
+    function prev(){ index = Math.max(0, index - 1); render() }
+    function stop(){ clearInterval(timer); timer = null; $("play").textContent = "播放" }
+    $("next").onclick = next
+    $("prev").onclick = prev
+    $("reset").onclick = () => { stop(); index = 0; render() }
+    $("play").onclick = () => { if(timer) return stop(); $("play").textContent = "暂停"; timer = setInterval(next, Number($("speed").value)) }
+    render()
+  </script>
+</body>
+</html>

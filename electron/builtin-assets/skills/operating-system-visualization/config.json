@@ -1,0 +1,14 @@
+{
+  "id": "operating-system-visualization",
+  "name": "操作系统可视化",
+  "description": "面向操作系统学习、期末和 408 复习的可视化技能，生成进程状态、调度算法、同步互斥、死锁、页表地址转换、页面置换、文件系统和磁盘调度的单文件 HTML 讲解页或技术图。",
+  "icon": "ri-window-line",
+  "color": "#F97316",
+  "category": "学习",
+  "source": "platform",
+  "allowedTools": ["file_read", "file_write"],
+  "outputTypes": ["HTML", "Markdown"],
+  "version": "1.0",
+  "author": "reviva",
+  "license": "MIT"
+}

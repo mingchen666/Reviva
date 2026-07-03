@@ -1,0 +1,14 @@
+{
+  "id": "computer-organization-visualization",
+  "name": "组成原理可视化",
+  "description": "面向计算机组成原理学习、期末和 408 复习的可视化技能，生成数据表示、Cache、主存、指令执行、CPU 数据通路、流水线、总线和 I/O 的单文件 HTML 讲解页或技术图。",
+  "icon": "ri-cpu-line",
+  "color": "#6366F1",
+  "category": "学习",
+  "source": "platform",
+  "allowedTools": ["file_read", "file_write"],
+  "outputTypes": ["HTML", "Markdown"],
+  "version": "1.0",
+  "author": "reviva",
+  "license": "MIT"
+}

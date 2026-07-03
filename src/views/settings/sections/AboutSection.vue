@@ -1,13 +1,14 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAppStore } from '@/stores/app';
+import { getAppVersion } from '@/utils/tools'
 
+const appVersion = getAppVersion()
 const router = useRouter();
 const appStore = useAppStore();
 const isDark = computed(() => appStore.isDark);
 
-const version = ref('--');
 const updateNotice = ref('');
 
 const betaChecklist = [
@@ -32,7 +33,7 @@ const betaChecklist = [
 const releaseNotes = [
   {
     title: '当前内测版',
-    meta: '0.0.2-beta',
+    meta: appVersion,
     type: 'preview',
     items: [
       '调整首页和关于页为内测版表达，减少正式发布语气。',
@@ -85,18 +86,6 @@ const relatedLinks = [
   // { label: '隐私政策', desc: '了解数据边界和隐私说明', icon: 'ri-lock-line', route: '/legal/privacy-policy' },
   // { label: '用户协议', desc: '查看软件使用条款', icon: 'ri-scroll-line', route: '/legal/user-agreement' },
 ];
-
-async function loadVersion() {
-  if (!window.electronAPI) return;
-  try {
-    const ver = await window.electronAPI.getVersion();
-    version.value = ver || '--';
-  } catch (e) {
-    console.error('loadVersion error:', e);
-  }
-}
-
-onMounted(loadVersion);
 
 function go(route) {
   if (!route) return;
@@ -171,7 +160,7 @@ function releaseTone(type) {
                       ? 'bg-d0 text-wt-sub border border-bdr'
                       : 'bg-l2 text-lt-sub border border-bdrF'
                   "
-                  >v{{ version }}</span
+                  >v{{ appVersion }}</span
                 >
               </div>
               <p

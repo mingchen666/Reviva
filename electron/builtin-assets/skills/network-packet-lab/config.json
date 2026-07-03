@@ -1,0 +1,14 @@
+{
+  "id": "network-packet-lab",
+  "name": "网络抓包实验",
+  "description": "设计和讲解计算机网络抓包实验，帮助用户理解 Wireshark/tcpdump 输出、协议字段、请求响应流程、故障定位和实验报告撰写。强调教学、复习和防御性分析，不提供攻击操作。",
+  "icon": "ri-radar-line",
+  "color": "#14B8A6",
+  "category": "学习",
+  "source": "platform",
+  "allowedTools": ["file_read", "file_write", "office_read", "pdf_read", "kb_search"],
+  "outputTypes": ["Markdown", "HTML", "DOCX"],
+  "version": "1.0",
+  "author": "reviva",
+  "license": "MIT"
+}

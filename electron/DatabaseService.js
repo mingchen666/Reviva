@@ -1698,7 +1698,7 @@ export class DatabaseService {
   _ensureCreationCenterSubAgentSeeds() {
     const seeds = [
       { id: 'sa_web-researcher', name: '网络搜索研究员', icon: 'ri-global-line', color: '#38BDF8', desc: '对给定主题进行网络搜索研究，返回带引用编号的发现', prompt: '你是一位专业的网络搜索研究员。对用户指定的主题进行深入的网络搜索研究。先宽后窄检索，优先选择权威、近期、可核验的来源。每条关键发现都给出 [1] 格式引用，并在末尾列出 Sources。始终使用中文描述发现。', tools: ['mcp:exa', 'mcp:jina-mcp-server', 'web_search_bing'] },
-      { id: 'sa_local-analyst', name: '本地资料分析员', icon: 'ri-folder-open-line', color: '#4ADE80', desc: '读取和分析用户提供的本地文件，提取关键信息', prompt: '你是一位专业的本地资料分析员。读取和分析用户提供的文件，提取核心论点、关键数据、重要结论和潜在问题。标注来源文件，对跨文件矛盾信息标注 [矛盾]。输出分析发现，不要撰写最终报告。', tools: ['file_read', 'kb_search'] },
+      { id: 'sa_local-analyst', name: '本地资料分析员', icon: 'ri-folder-open-line', color: '#4ADE80', desc: '读取和分析用户提供的本地文件，提取关键信息', prompt: '你是一位专业的本地资料分析员。读取和分析用户提供的文件，提取核心论点、关键数据、重要结论和潜在问题。Office 文档必须优先使用 office_read；需要文档内图片或图文并茂回答时调用 office_read(mode="images", exportImages=true)，并用返回的 /context/office-images/... 路径写 Markdown 图片。Python、zip 解包或底层脚本仅作为 office_read 不可用、能力不足或用户明确要求底层诊断时的备用方案。标注来源文件，对跨文件矛盾信息标注 [矛盾]。输出分析发现，不要撰写最终报告。', tools: ['file_read', 'office_read', 'pdf_read', 'kb_search'] },
       { id: 'sa_report-writer', name: '报告撰写员', icon: 'ri-file-edit-line', color: '#FACC15', desc: '综合所有研究发现，撰写 Markdown 研究报告和 HTML 可视化报告', prompt: '你是一位专业的研究报告撰写员。综合本地分析和网络研究发现，撰写结构清晰、引用完整的中文研究报告。需要创建文件时写入 /agents/deep-researcher/outputs/{date}/。不要编造来源。', tools: ['file_read', 'file_write'] },
       { id: 'sa_content-planner', name: '内容规划师', icon: 'ri-layout-4-line', color: '#6C8AFF', desc: '分析资料，规划 PPT 内容结构和叙事逻辑', prompt: '你是一位专业的演示文稿内容规划师。分析资料和用户需求，确定演示目标、受众、叙事模式和页面结构。输出包含标题、副标题、页面类型、要点和视觉建议的 JSON 大纲。', tools: ['file_read', 'kb_search', 'mcp:exa', 'web_search_bing'] },
       { id: 'sa_slide-builder', name: '幻灯片构建师', icon: 'ri-code-s-slash-line', color: '#4ADE80', desc: '根据大纲生成 HTML 幻灯片', prompt: '你是一位专业的 HTML 演示文稿开发师。根据内容大纲生成单文件 HTML 幻灯片，注意布局、配色、字号、动画和响应式。每页使用 <div class="slide slide-{type}" data-type="{type}"> 根容器。输出写入 /agents/ppt-generator/outputs/{date}/。', tools: ['file_write'] },
@@ -1763,6 +1763,30 @@ export class DatabaseService {
         if (JSON.stringify(nextTools) !== JSON.stringify(tools)) {
           this._db.prepare('UPDATE custom_sub_agents SET tools = ? WHERE id = ?').run(JSON.stringify(nextTools), 'sa_web-researcher')
         }
+      }
+    }
+
+    const localAnalystSeed = seeds.find(sa => sa.id === 'sa_local-analyst')
+    const localAnalystRow = this._db.prepare('SELECT tools, prompt, builtin FROM custom_sub_agents WHERE id = ?').get('sa_local-analyst')
+    if (localAnalystSeed && localAnalystRow?.builtin) {
+      const tools = parseJSON(localAnalystRow.tools)
+      if (Array.isArray(tools)) {
+        const nextTools = [
+          ...localAnalystSeed.tools,
+          ...tools.filter(t => t && !localAnalystSeed.tools.includes(t)),
+        ]
+        if (JSON.stringify(nextTools) !== JSON.stringify(tools)) {
+          this._db.prepare('UPDATE custom_sub_agents SET tools = ? WHERE id = ?').run(JSON.stringify(nextTools), 'sa_local-analyst')
+        }
+      }
+      if (!String(localAnalystRow.prompt || '').includes('exportImages=true')) {
+        const nextPrompt = [
+          String(localAnalystRow.prompt || localAnalystSeed.prompt || '').trim(),
+          '## Office 文档读取',
+          '- 对 Office 文档优先使用 office_read；需要文档内图片或图文并茂回答时调用 office_read(mode="images", exportImages=true)，并用返回的 /context/office-images/... 路径写 Markdown 图片。',
+          '- Python、zip 解包或底层脚本仅作为 office_read 不可用、能力不足或用户明确要求底层诊断时的备用方案。',
+        ].filter(Boolean).join('\n\n')
+        this._db.prepare('UPDATE custom_sub_agents SET prompt = ? WHERE id = ?').run(nextPrompt, 'sa_local-analyst')
       }
     }
     if (inserted) console.log(`[DB] Migrated: ensured ${inserted} creation-center sub-agents`)
@@ -2127,7 +2151,7 @@ export class DatabaseService {
       // Seed deep-researcher sub-agents
       const saSeeds = [
         { id: 'sa_web-researcher', name: '网络搜索研究员', icon: 'ri-global-line', color: '#38BDF8', desc: '对给定主题进行网络搜索研究，返回带引用编号的发现', prompt: '你是一位专业的网络搜索研究员。对用户指定的主题进行深入的网络搜索研究。\n\n## 搜索策略\n- 搜索预算：简单查询 2-3 次搜索，复杂查询最多 5 次\n- 先宽后窄：先广泛搜索，再针对性补充\n- 找到 3+ 相关来源即可停止，不追求完美\n\n## 引用格式\n- 使用 [1], [2], [3] 格式内联引用\n- 末尾列出 ### Sources，格式：[编号] 标题: URL\n\n## 返回格式\n## 关键发现\n详细描述发现...\n\n### Sources\n[1] 标题: URL\n[2] 标题: URL', tools: ['mcp:exa', 'mcp:jina-mcp-server', 'web_search_bing'] },
-        { id: 'sa_local-analyst', name: '本地资料分析员', icon: 'ri-folder-open-line', color: '#4ADE80', desc: '读取和分析用户提供的本地文件，提取关键信息', prompt: '你是一位专业的本地资料分析员。读取和分析用户提供的文件，提取关键信息。\n\n## 分析要点\n- 提取：核心论点、关键数据、重要结论、潜在问题\n- 标注文件来源（哪个文件、哪一节）\n- 对矛盾信息标注 [⚠️ 矛盾]\n\n## 返回格式\n## 本地资料摘要\n### 文件1: 文件名\n- 核心论点：...\n- 关键数据：...\n- 重要结论：...\n\n### 跨文件发现\n- 共同主题：...\n- 矛盾点：[⚠️ 矛盾] ...', tools: ['file_read', 'kb_search'] },
+        { id: 'sa_local-analyst', name: '本地资料分析员', icon: 'ri-folder-open-line', color: '#4ADE80', desc: '读取和分析用户提供的本地文件，提取关键信息', prompt: '你是一位专业的本地资料分析员。读取和分析用户提供的文件，提取关键信息。\n\n## 分析要点\n- 提取：核心论点、关键数据、重要结论、潜在问题\n- 标注文件来源（哪个文件、哪一节）\n- 对 Office 文档优先使用 office_read；需要文档内图片或图文并茂回答时调用 office_read(mode="images", exportImages=true)，并用返回的 /context/office-images/... 路径写 Markdown 图片\n- Python、zip 解包或底层脚本仅作为 office_read 不可用、能力不足或用户明确要求底层诊断时的备用方案\n- 对矛盾信息标注 [⚠️ 矛盾]\n\n## 返回格式\n## 本地资料摘要\n### 文件1: 文件名\n- 核心论点：...\n- 关键数据：...\n- 重要结论：...\n\n### 跨文件发现\n- 共同主题：...\n- 矛盾点：[⚠️ 矛盾] ...', tools: ['file_read', 'office_read', 'pdf_read', 'kb_search'] },
         { id: 'sa_report-writer', name: '报告撰写员', icon: 'ri-file-edit-line', color: '#FACC15', desc: '综合所有研究发现，撰写 Markdown 研究报告和 HTML 可视化报告', prompt: '你是一位专业的研究报告撰写员。综合所有子 agent 的研究发现，撰写完整的研究报告。\n\n## 报告要求\n\n### Markdown 报告\n- 结构：摘要 → 背景 → 分析 → 结论 → 来源\n- 统一引用编号（每个 URL 一个编号，跨所有子 agent 发现统一编排）\n- 使用中文撰写\n- 每个论断都有来源引用\n\n### HTML 可视化报告\n- 完全自包含（内联 CSS/JS，无外部依赖）\n- 响应式布局（max-width: 960px）\n- 中文排版优化\n- 左侧粘性锚点目录（IntersectionObserver）\n- 关键发现彩色卡片\n- 内联 SVG 图表\n- 来源可点击链接\n- prefers-color-scheme 暗色模式\n- 系统字体栈\n\n## 输出路径\n- Markdown: /agents/deep-researcher/outputs/{date}/research-report.md\n- HTML: /agents/deep-researcher/outputs/{date}/research-report.html', tools: ['file_write'] },
       ]
       for (const sa of saSeeds) {

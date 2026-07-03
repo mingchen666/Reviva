@@ -1,0 +1,14 @@
+{
+  "id": "computer-network-learning",
+  "name": "计算机网络学习",
+  "description": "面向计算机网络课程的系统学习、章节梳理、概念讲解、协议对比、学习路线和复习闭环设计，覆盖 OSI/TCP-IP、物理层、数据链路层、网络层、传输层、应用层、网络安全基础和常见实验。",
+  "icon": "ri-router-line",
+  "color": "#0EA5E9",
+  "category": "学习",
+  "source": "platform",
+  "allowedTools": ["file_read", "file_write", "office_read", "pdf_read", "kb_search", "web_search_bing", "mcp:exa"],
+  "outputTypes": ["Markdown", "HTML", "DOCX"],
+  "version": "1.0",
+  "author": "reviva",
+  "license": "MIT"
+}

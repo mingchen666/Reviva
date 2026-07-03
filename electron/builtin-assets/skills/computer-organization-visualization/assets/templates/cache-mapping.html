@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Cache Mapping Visualizer</title>
+  <style>
+    :root{--bg:#f6f7fb;--panel:#fff;--ink:#111827;--muted:#64748b;--line:#dbe2ee;--brand:#4f46e5;--hot:#f59e0b;--ok:#22c55e;--bad:#ef4444;--shadow:0 12px 28px rgba(15,23,42,.07)}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,"Noto Sans SC",system-ui,sans-serif}header{padding:18px 28px 14px;background:#fff;border-bottom:1px solid var(--line)}h1{margin:0;font-size:22px;letter-spacing:0}header::after{content:"组成原理 · Cache 映射 · 字段拆分/命中判断";display:flex;width:max-content;max-width:100%;min-height:26px;align-items:center;margin-top:10px;padding:0 10px;border:1px solid #e2e8f0;border-radius:999px;background:#f8fafc;color:var(--muted);font-size:13px}main{padding:16px;display:grid;grid-template-columns:minmax(0,1fr)340px;gap:16px}.card{background:var(--panel);border:1px solid var(--line);border-radius:8px;box-shadow:var(--shadow)}.stage{padding:16px;min-height:520px;overflow:auto}.bits{display:flex;gap:4px;margin:12px 0 18px;overflow:auto;padding-bottom:4px}.bit{height:44px;min-width:38px;border:1px solid #c7d2fe;background:#eef2ff;border-radius:6px;display:grid;place-items:center;font-weight:900}.bit.tag{background:#dbeafe}.bit.index{background:#fef3c7}.bit.offset{background:#dcfce7}.bit.hot{outline:3px solid rgba(245,158,11,.28);outline-offset:1px}.cache{display:grid;grid-template-columns:120px repeat(4,minmax(96px,1fr));gap:6px;min-width:560px}.cell{min-height:46px;border:1px solid var(--line);border-radius:6px;padding:8px;background:#fff}.cell.head{font-weight:900;background:#f8fafc;color:var(--muted)}.cell.hot{border-color:var(--hot);background:#fef3c7}.cell.hit{border-color:var(--ok);background:#dcfce7}.controls{margin-top:16px;display:flex;gap:8px;flex-wrap:wrap}button{height:36px;min-width:72px;border:1px solid var(--line);background:#fff;border-radius:6px;padding:0 12px;font-weight:800;cursor:pointer;transition:background .16s ease,border-color .16s ease,transform .16s ease}button:hover{background:#f8fafc;border-color:#cbd5e1}button:active{transform:translateY(1px)}button:focus-visible{outline:3px solid rgba(79,70,229,.22);outline-offset:2px}button.primary{background:var(--brand);border-color:var(--brand);color:#fff}aside{padding:16px}.kicker{font-size:12px;font-weight:900;color:var(--brand)}.title{font-size:18px;font-weight:900;margin:4px 0}.text{font-size:14px;line-height:1.65;color:#334155}.formula{margin-top:12px;padding:12px;border-radius:6px;background:#0f172a;color:#e2e8f0;font:12px/1.55 ui-monospace,Menlo,Consolas,monospace;white-space:pre-wrap}.formula::before{content:"推导记录";display:block;margin-bottom:6px;color:#93c5fd;font-weight:800}@media(max-width:900px){header{padding:16px}main{grid-template-columns:1fr;padding:12px}.stage{min-height:auto}}
+  </style>
+</head>
+<body>
+  <header><h1>Cache 映射可视化模板</h1></header>
+  <main>
+    <section class="card stage">
+      <div id="bits" class="bits"></div>
+      <div id="cache" class="cache"></div>
+      <div class="controls"><button id="prev">上一步</button><button id="play" class="primary">播放</button><button id="next">下一步</button><button id="reset">重置</button></div>
+    </section>
+    <aside class="card"><div class="kicker" id="stepNo"></div><div class="title" id="stepTitle"></div><div class="text" id="stepText"></div><pre class="formula" id="formula"></pre></aside>
+  </main>
+  <script>
+    const DATA={address:"101101011010", split:{tag:5,index:3,offset:4}, lines:[
+      ["0","tag=10110","valid=1","block A"],["1","tag=00101","valid=1","block B"],["2","empty","valid=0","-"],["3","tag=11101","valid=1","block C"],["4","tag=01100","valid=1","block D"],["5","tag=10110","valid=1","target"],["6","empty","valid=0","-"],["7","tag=00011","valid=1","block E"]
+    ],steps:[
+      {title:"拆分地址",hotBits:["tag","index","offset"],hotLine:null,text:"按题目给定地址宽度、块大小和组/行数切分字段。",formula:"address = tag | index | block offset"},
+      {title:"读取 index",hotBits:["index"],hotLine:5,text:"index 字段选择 Cache 第 5 行。",formula:"index = 101₂ = 5"},
+      {title:"比较 tag",hotBits:["tag"],hotLine:5,text:"地址 tag 与第 5 行 tag 相同且 valid=1，因此命中。",formula:"tag = 10110\nline tag = 10110\nvalid = 1\n=> HIT"},
+      {title:"给出结论",hotBits:["offset"],hotLine:5,text:"用 offset 在块内选择字节/字，写出最终 hit/miss 和访问位置。",formula:"offset = 1010₂\n考试必须写字段位数和替换依据"}
+    ]}
+    let i=0, timer=null; const $=id=>document.getElementById(id)
+    function render(){const s=DATA.steps[i], {tag,index,offset}=DATA.split; const chars=DATA.address.split(""); let p=0; $("bits").innerHTML=chars.map((c,k)=>{let cls="tag"; if(k>=tag&&k<tag+index)cls="index"; if(k>=tag+index)cls="offset"; return `<div class="bit ${cls} ${s.hotBits.includes(cls)?"hot":""}">${c}</div>`}).join(""); $("cache").innerHTML=`<div class="cell head">line</div><div class="cell head">tag</div><div class="cell head">valid</div><div class="cell head">data</div>`+DATA.lines.map(r=>r.map((c,ci)=>`<div class="cell ${Number(r[0])===s.hotLine?"hot":""}">${c}</div>`).join("")).join(""); $("stepNo").textContent=`STEP ${i+1}/${DATA.steps.length}`; $("stepTitle").textContent=s.title; $("stepText").textContent=s.text; $("formula").textContent=s.formula}
+    function stop(){ clearInterval(timer); timer=null; $("play").textContent="播放" }
+    function next(){ i=Math.min(DATA.steps.length-1,i+1); render(); if(i===DATA.steps.length-1) stop() }
+    $("next").onclick=next; $("prev").onclick=()=>{i=Math.max(0,i-1);render()}; $("reset").onclick=()=>{stop();i=0;render()}; $("play").onclick=()=>{ if(timer) return stop(); $("play").textContent="暂停"; timer=setInterval(next,900) }; render()
+  </script>
+</body>
+</html>
