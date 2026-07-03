@@ -111,15 +111,17 @@ function buildRuntimeEnvironmentSection() {
 - 当前宿主系统：${label} (${platform}/${process.arch})
 ${windowsRules.join('\n')}
 - 优先使用工作空间虚拟路径和上方工作空间根目录。不要自行构造未授权的系统路径。
+- 注意区分 Reviva 虚拟路径 `/tmp/...` 与宿主系统临时目录；本提示中的 `/tmp/${agentDirName}/${today}/` 指工作空间授权根目录下的虚拟临时目录。
 - 需要运行命令时使用 exec_command，并优先使用结构化参数 cmd/args/cwd；cwd 和文件参数使用 /project、/docs、/context、/agents/... 等虚拟路径。不要调用 bash、sh、command 这类工具名，也不要用 Linux 路径习惯绕过当前平台和命令安全策略。`
 }
 
 function buildOutputRulesSection(agentDirName, today) {
   return `## 输出规则
 
-当你需要创建文件（代码、文档、报告等）时，必须将文件写入 /agents/${agentDirName}/outputs/${today}/ 目录；文件工具会拒绝写入其他普通目录。
+当你需要创建最终文件（代码、文档、报告等）时，必须将文件写入 /agents/${agentDirName}/outputs/${today}/ 目录；文件工具会拒绝写入其他普通目录。
+临时中间文件可以写入 /tmp/${agentDirName}/${today}/ 目录；这是当前工作空间授权根目录下的临时目录，不是真实系统临时目录。临时路径不要作为最终交付路径返回给用户。
 ⚠️ 重要：你的专属输出目录是 /agents/${agentDirName}/outputs/。
-/agents/... 是工作空间授权根目录下的虚拟绝对路径，写入时不要改成真实磁盘路径。
+/agents/... 和 /tmp/... 都是工作空间授权根目录下的虚拟绝对路径，写入时不要改成真实磁盘路径。
 调用 write_file 时必须使用参数名 file_path 和 content，例如：
 write_file({ "file_path": "/agents/${agentDirName}/outputs/${today}/文件名.md", "content": "文件内容" })
 不要使用 path 作为 write_file 的路径参数名；不要使用 YYYY-MM-DD、{date}、202x-0x-0x 等日期占位符，必须使用上方给出的当前日期目录 ${today}。

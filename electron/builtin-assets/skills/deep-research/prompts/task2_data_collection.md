@@ -62,37 +62,15 @@
 
 | 文件类型 | 处理方式 |
 |:--------|:---------|
-| `.md` / `.txt` | `read` 工具直接读取 |
-| `.pdf` | **先用 `read` 工具尝试**（模型如支持 PDF 输入则直接理解）；如失败 → 自动安装 PyPDF2 提取文本 |
-| `.docx` | **自动安装 python-docx 后提取**（见下方说明）|
+| `.md` / `.txt` / `.csv` | `file_read` / `read` 工具直接读取 |
+| `.pdf` | 使用 `pdf_read` 分段读取；不可用时标记为未解析，不要安装 PyPDF2 |
+| `.docx` / `.pptx` / `.xlsx` | 使用 `office_read` 读取结构和正文；不可用时标记为未解析，不要安装 python-docx |
 | 其他格式 | 标记为不支持，加入 gaps |
 
-**PDF 文件处理**（如果 `read` 工具返回的不是可读文本而是"PDF read successfully"，说明模型不支持直接解析 PDF）：
-```
-pip install pypdf2 -q
-python3 -c "
-from PyPDF2 import PdfReader
-import sys
-reader = PdfReader(sys.argv[1])
-for page in reader.pages:
-    print(page.extract_text())
-" "{文件路径}" > "{TMPDIR}/extracted-{文件名}.txt"
-```
-然后用 `read` 工具读取提取后的 `.txt` 文件。
-
-**DOCX 文件处理**（同样需要额外提取）：
-```
-pip install python-docx -q
-python3 -c "
-import docx, sys
-doc = docx.Document(sys.argv[1])
-for p in doc.paragraphs:
-    print(p.text)
-" "{文件路径}" > "{TMPDIR}/extracted-{文件名}.txt"
-```
-然后用 `read` 工具读取提取后的 `.txt` 文件。
-
-> 以上格式转换是纯 I/O 操作，不属于"核心数据处理"，可豁免"严禁编写内联代码"的铁律。转换后读取 `.txt` 即可。
+**Office/PDF 处理规则**：
+- 不要用 `file_read` 直接读取 Office/PDF 二进制文件。
+- 不要自动安装 Python 包或转换依赖。
+- 如果 `office_read` / `pdf_read` 不可用，在 gaps 中写明“当前环境无法解析该文件类型”，继续处理其它可读资料。
 
 📝 读取完成后向用户报告：`📄 已读取 N 个本地文件`
 
@@ -129,7 +107,7 @@ for p in doc.paragraphs:
 ☐ 创建 `{TMPDIR}/task2_manifest.json`：
 
 ```json
-{"task":2,"source_count":N,"fact_count":N,"search_engine":"local_files","fetch_method":"本地读取","data_pool_path":"{TMPDIR}/data-pool.json","cautions_path":"{TMPDIR}/cautions.json","data_limited":false,"searxng_available":false,"exa_available":false,"engines":[]}
+{"task":2,"source_count":N,"fact_count":N,"search_engine":"local_files","fetch_method":"本地读取","data_pool_path":"{TMPDIR}/data-pool.json","cautions_path":"{TMPDIR}/cautions.json","data_limited":false,"optional_tools_available":[],"optional_tools_unavailable":[],"engines":[]}
 ```
 
 > `source_count` = 本地文件数，`fact_count` = 提取到的事实总数。`data_limited` 固定为 false（用户选择了只看本地）。
@@ -186,14 +164,14 @@ Step 2 — 多源搜索（按可用工具自适应）
 当 {LANG} ≠ "en" 且 **所有子问题合计可用 URL < 3** 时，执行英文补搜：
 
 ☐ 对每个子问题，使用自然语言将其 `question` 和 `search_keywords` 翻译为英文
-☐ 使用 SearXNG 用英文关键词重新搜索，一次性并行发出
+☐ 使用当前可用搜索工具用英文关键词重新搜索
 ☐ 反方关键词同理翻译为英文后重搜
 ☐ 结果去重后合并到 Step 2 的 URL 队列中
 ☐ 在 manifest 的 `search_engine` 中追加标记 `+english_fallback`
 
 > 专有名词处理示例：`"Türkiye enerji piyasası"` → `"Turkey energy market"`，不要硬翻。
 
-Step 3 — 免费数据源补强（Layer 4，与 Scrapling 抓取并行）
+Step 3 — 来源补强
     触发条件：基于**逐子问题矩阵**的质量评估。
 
     对每个子问题独立评估：
@@ -218,16 +196,11 @@ Step 3 — 免费数据源补强（Layer 4，与 Scrapling 抓取并行）
 
     当 `all_search_unavailable=true` 时，限时保持 **30s**。
 
-   **核心原则**：所有检测和搜索操作**一次性并行发出**，不逐个串行。每个操作用独立 timeout，总耗时硬上限 30s，超时立即终止。
+   **核心原则**：只使用当前实际可用的搜索或网页读取工具，不安装依赖，不访问固定私有端点。每个操作用独立 timeout，总耗时硬上限 30s，超时立即终止。
 
-   ### Step 3a — 并行检测 + 多源搜索（一个批次全部发出）
+   ### Step 3a — 多源补强搜索
 
-   **检测 1 — Scrapling 可用性** (timeout=15s)
-   ```
-   scrapling_bulk_get(urls=["https://example.com"], timeout=10, extraction_type="text")
-   ```
-
-   **检测 2 — A 类搜索引擎搜索** (每个 timeout=8s，全部同时发出，不分条件)
+   **A 类公开来源搜索**（每个 timeout=8s，使用当前可用工具；如无网页读取工具则跳过直连 URL）
     对所有子问题（同一个 query 模板，替换不同关键词），一次性发出。
     **语言规则**：通用引擎和学术引擎始终发出；中文专用引擎仅 {LANG}=zh 时发出：
       ```
@@ -254,7 +227,7 @@ Step 3 — 免费数据源补强（Layer 4，与 Scrapling 抓取并行）
 
    **检测 3 — B 类国内源搜索**（{LANG}=zh 时启用，其他语言跳过）
     ⚠️ 本步骤仅在 {LANG}=zh 时执行。
-    timeout=30s，全部同时发出。对每个子问题，构造以下搜索 URL 并用 `scrapling_bulk_get(urls=[全部B类URL], timeout=30, extraction_type="markdown")` **一次性批量抓取**（不逐个调用）：
+    timeout=30s。对每个子问题，构造以下搜索 URL；如果有网页读取工具则读取页面，如果没有则用搜索工具查询对应站点，不要安装 Scrapling：
      | 源 | 搜索 URL 模板 | 说明 |
      |:----|:-------------|:------|
       | 百度百科 | `https://baike.baidu.com/item/{URL编码的词条名}` | 先搜索词条名，再拼 URL |
@@ -276,7 +249,7 @@ Step 3 — 免费数据源补强（Layer 4，与 Scrapling 抓取并行）
    | 结果类型 | 操作 |
    |:---------|:-----|
    | A 类（webfetch）返回的链接 | 从 HTML 提取所有 a[href]，过滤掉搜索站自身域名 |
-   | B 类（Scrapling）返回的内容 | 直接作为参考来源，不额外提取 URL |
+   | B 类返回的内容 | 直接作为参考来源；如果只是摘要，标记 summary_only |
    | 所有成功返回的内容 | 标记时间戳和来源类型 |
 
    **禁止**：在 Step 3 内部调用 explore agent 或其他子 agent 做搜索——搜索引擎直连更快。
@@ -286,38 +259,23 @@ Step 3 — 免费数据源补强（Layer 4，与 Scrapling 抓取并行）
    从 Step 3a 发出第一个工具调用开始计时，以下任一条件成立则**立即终止 Step 3**：
    - ⏱ 总运行时间 > 30 秒
    - ✅ 每个子问题至少从补强来源获得 2 条有效 URL
-   - ❌ 所有补强来源均不可用（Scrapling 不可用 + 所有搜索引擎超时）
+   - ❌ 所有补强来源均不可用
 
    终止后，已获得的 URL 直接进入 Step 4 抓取队列。未完成的子问题在数据池中标记 gap。
 
-Step 4 — Scrapling 批量抓取（与 Step 3 并行）
+Step 4 — 内容读取与证据分级
 
-### Scrapling 批量抓取（与补强搜索并行）
-    收集全部 URL（SearXNG 搜索结果 + 年度专项）→ 去重 → 立即启动抓取，不等补强：
-   ```
-   scrapling_bulk_get(urls=[去重URL], timeout=60, extraction_type="markdown")
-   ```
-   ☐ 全部成功 → 标记 `🔧 Scrapling 抓取`
-   ☐ 部分失败 → 对失败 URL 补抓：
-     ☐ Cloudflare/WAF → scrapling_bulk_stealthy_fetch(timeout=30)
-     ☐ 需 JS 渲染   → scrapling_bulk_fetch(timeout=30)
-     ☐ 仍失败       → webfetch(url, format="markdown") 孤立回退
-     📝 标记为 `🔧 Scrapling 抓取（N 个 URL 回退 webfetch）`
-   ☐ 工具不存在（Scrapling 未注册/已损坏）→ 全部 URL 走 webfetch
-     ```
-     for each url in urls:
-         webfetch(url=url, format="markdown")
-     ```
-     📝 标记为 `🌐 webfetch 抓取（Scrapling 不可用，请重新安装）`
-     ⚠️ 不尝试自动修复，安装环节已要求前置依赖就绪
-   ⏳ 第一轮抓取完成后，检查 Step 3 是否产生新 URL。如有 → 补抓第二轮。
+   对来源队列中的 URL，按可用工具读取正文：
+   - 有 `mcp:jina-mcp-server`、webfetch、Scrapling 或其它网页读取工具时，优先阅读全文。
+   - 只有搜索工具时，使用搜索结果的标题/摘要/来源信息，标记为 `summary_only`，置信度不得高于 medium。
+   - 全部联网工具不可用时，跳过网页读取，转本地资料/知识库/模型常识，并在 gaps 中说明。
 
-   ⚡ 阻断点：全部抓取未完成 → 禁止进入数据池构建
-   ┌─────────────────────────────────────────────────────┐
-    │ 数据池唯一来源必须是抓取到的全文（Scrapling 或 webfetch）。│
-    │ 禁止从搜索引擎摘要片段直接提取数据。                  │
-   │ 所有抓取工具全部失败则标记"来源稀缺"并跳过该子问题。    │
-   └─────────────────────────────────────────────────────┘
+   不要为了读取网页而安装 Scrapling、Playwright 或任何额外依赖。
+
+   进入数据池构建前为每条来源标记：
+   - `read_status`: `full_text` / `summary_only` / `unavailable`
+   - `fetch_method`: 实际使用的工具名或 `search_summary_only`
+   - `confidence_cap`: `high` / `medium` / `low`
 
 Step 5 — 直接提取数据池（不嵌套子 agent，I/O 并行）
 
@@ -401,21 +359,22 @@ manifest 中的 `fetch_method` 字段根据 Step 4 的实际抓取情况填写�
 
 | 情况 | fetch_method 值 |
 |:----|:--------------|
-| Scrapling 全部成功 | `🔧 Scrapling` |
-| 部分 URL 回退 webfetch | `🔧 Scrapling（N 个回退）` |
-| Scrapling 完全不可用，全部走 webfetch | `🌐 webfetch` |
+| 使用 Bing/Exa/Jina/其它搜索工具 | 写实际工具名，如 `web_search_bing` / `mcp:exa` / `mcp:jina-mcp-server` |
+| 使用 Scrapling 或 webfetch 阅读全文 | 写实际抓取方式 |
+| 只能使用搜索结果摘要 | `search_summary_only`，并降低置信度 |
+| 无联网工具 | `local_or_knowledge_only` |
 
 ## 硬规则
-1. **搜索引擎策略**：CLI 内置引擎（Layer 0，如有）为主力 + SearXNG（Layer 1-2）补充并行，搜索结果合并去重。搜索结果质量不足时（URL < 3 / 年份过旧 / 来源过少）触发免费源补强（Layer 4 兜底）。
+1. **搜索引擎策略**：使用当前 Agent 实际可用的搜索工具。`web_search_bing`、`mcp:exa`、`mcp:jina-mcp-server`、SearXNG 或其它搜索工具都可以作为来源通道；没有任何单一工具是必需项。搜索结果质量不足时（URL < 3 / 年份过旧 / 来源过少）触发来源补强。
 2. **年份时效（默认强制）**：`time_anchor.mode != "relaxed"` 时，search_keywords 必须含 `{target_year}`；`user_specified` 时用用户指定年份替代 `{target_year}`
-3. Scrapling 为默认抓取工具，不可跳过、不可替代；若 Scrapling MCP 不可用则回退 webfetch，并在输出中明确标注所用抓取方式
+3. 网页全文读取是增强能力，不是硬要求。Scrapling、webfetch、Jina 或其它网页读取工具可用时使用；不可用时可以基于搜索结果摘要、知识库和本地资料继续，但必须降低置信度并说明限制。
 4. 连续 3 次域名 404/403 → 标记"来源稀缺"并跳过
 5. 不在不同子问题间重复使用同一来源的同一数据
 6. 矛盾数据并排记录，不得合并
 7. **补强限时**：Step 3 从启动到终止总耗时默认 ≤ 30 秒。超时后已获得的 URL 继续进入 Step 4，未完成的子问题标记 gap。不得因为补强未完成阻塞 Step 4 抓取或数据池构建。
 
 ## 作业
-1. 完成 SearXNG（Layer 1-2） + Step 0 补充引擎（如有） + sources.json 优质源（Layer 3） + Scrapling/webfetch 数据收集 + 数据池提取
+1. 完成当前可用搜索工具 + sources.json 优质源（如可读）+ 可用网页读取/抓取工具（如有）+ 数据池提取
 2. Step 6 数据质检（来源可信度/乱码/一致性/Adversarial 检查）
 3. 清理 tool-output/ 中的中间文件
 4. 使用 `write` 工具创建 `{TMPDIR}/cautions.json`：
@@ -439,11 +398,11 @@ manifest 中的 `fetch_method` 字段根据 Step 4 的实际抓取情况填写�
    1. `search_layer_trace`（对象）——各搜索层的贡献度：
    ```json
    {
-     "layer0_exa": {"used": true, "sub_questions_covered": 10, "urls_contributed": 30},
-     "layer1_searxng_site": {"used": true, "domains_active": ["moe.gov.cn"], "urls_contributed": 5},
-     "layer2_searxng": {"used": false, "reason": "结果已充足"},
+     "reviva_search_tools": {"used": ["web_search_bing"], "optional_tools": ["mcp:exa"], "sub_questions_covered": 10, "urls_contributed": 30},
+     "suggested_source_search": {"used": true, "domains_active": ["moe.gov.cn"], "urls_contributed": 5},
+     "supplemental_search": {"used": false, "reason": "结果已充足"},
      "layer3_sources_json": {"sources_checked": 6, "alive": 4, "dead": 2, "urls_contributed": 6},
-     "layer4_free_fallback": {"triggered": false, "reason": "达标"}
+     "source_fallback": {"triggered": false, "reason": "达标"}
    }
    ```
 
@@ -474,22 +433,22 @@ manifest 中的 `fetch_method` 字段根据 Step 4 的实际抓取情况填写�
      "source_count": 14,
      "fact_count": 41,
      "unique_domains": 11,
-     "search_engine": "exa+searxng",
-     "fetch_method": "🔧 Scrapling",
-     "engines": ["websearch", "searxng"],
-     "exa_available": true,
-     "searxng_available": false,
+     "search_engine": "web_search_bing+mcp:exa",
+     "fetch_method": "mcp:jina-mcp-server",
+     "engines": ["web_search_bing", "mcp:exa"],
+     "optional_tools_available": ["mcp:exa", "mcp:jina-mcp-server"],
+     "optional_tools_unavailable": ["searxng", "scrapling"],
      "free_fallback": false,
      "english_fallback": false,
      "data_limited": false,
      "data_pool_path": "{TMPDIR}/data-pool.json",
      "cautions_path": "{TMPDIR}/cautions.json",
      "search_layer_trace": {
-       "layer0_exa": {"used": true, "sub_questions_covered": 10, "urls_contributed": 30},
-       "layer1_searxng_site": {"used": true, "domains_active": ["moe.gov.cn"], "urls_contributed": 5},
-       "layer2_searxng": {"used": false, "reason": "结果已充足"},
+       "reviva_search_tools": {"used": ["web_search_bing", "mcp:exa"], "sub_questions_covered": 10, "urls_contributed": 30},
+       "suggested_source_search": {"used": true, "domains_active": ["moe.gov.cn"], "urls_contributed": 5},
+       "supplemental_search": {"used": false, "reason": "结果已充足"},
        "layer3_sources_json": {"sources_checked": 6, "alive": 4, "dead": 2, "urls_contributed": 8},
-       "layer4_free_fallback": {"triggered": false, "reason": "达标"}
+       "source_fallback": {"triggered": false, "reason": "达标"}
      },
      "coverage": [
        {"q_index": 0, "status": "adequate", "facts": 4, "recent": 3, "data_types": ["actual", "estimate"], "gaps": []},

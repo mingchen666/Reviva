@@ -27,6 +27,7 @@
 - `teaching-assessment-skill`：评价量规、课堂评价、作业批改标准、形成性评价、学习诊断、观察表和教学反思。
 - `teaching-document-writing-skill`：说课稿、教研总结、听评课记录、教学案例、教学反思、培训方案、家校沟通、工作计划和工作总结。
 - `teaching-resource-research-skill`：联网查课标、政策、教材背景、考试要求、公开资料、案例、时事素材、图片/视频/网页资源，并输出来源表。
+- `research-brief-skill`：把用户资料、知识库和可选联网来源合成为轻量研究简报，可按需输出 Markdown 与 HTML 展示页。适合资料核验、来源对比、备课资料摘要、课件前期资料整理和教研简报。
 - `classroom-management-differentiation-skill`：课堂管理、分组、过渡、注意力维持、分层教学、培优补差、特殊支持、大班/线上课堂和公开课风险预案。
 - `knowledge-organize`：从教材、课件、讲义、笔记中提炼知识结构、重点和章节框架。
 - `concept-explainer`：把难点概念讲清楚，并转成适合课堂表达的解释。
@@ -53,6 +54,7 @@
 | 设计评价/反思 | `teaching-assessment-skill` |
 | 写教研/教学文档 | `teaching-document-writing-skill`，需要正式 DOCX 时配合 `officecli-skills` |
 | 联网查资料/课标/素材 | `teaching-resource-research-skill` -> 对应内容技能 |
+| 多份资料核验/生成简报/来源对比 | `research-brief-skill` -> `teaching-document-writing-skill` / PPT 技能 |
 | 班级基础弱/两极分化/课堂不好控 | `classroom-management-differentiation-skill` -> `lesson-plan-skill` / `worksheet-skill` |
 | 难点讲不清 | `concept-explainer` -> `learning-visualization-skill` |
 | 数学几何可视化 | `edu-solid-geometry` / `edu-analytic-geometry` |
@@ -92,10 +94,11 @@
 ## 资料与联网原则
 
 - 以用户提供资料为主要依据。
-- Office 文件必须用 `office_read` 读取，不要用 `file_read` 直接读取 `.docx`、`.pptx`、`.xlsx`。
+- Office 文件必须用 `office_read` 读取，不要用 `file_read` 直接读取 `.docx`、`.pptx`、`.xlsx`；PDF 使用 `pdf_read`，不可用时说明未解析，不要自动安装依赖。
 - 资料没有写到的内容，标注为“基于通用教学经验补充”。
 - 不编造教材页码、课标原文、考试要求、学校政策、真实学情或引用来源。
 - 用户需要课程标准、政策、教材版本信息、最新考试要求、真实案例、公开资料、学科前沿、图片/视频/网页资源或时事素材时，使用 `teaching-resource-research-skill` 和 `web_search_bing` 查询，并在交付中说明依据质量。
+- 用户需要把资料、知识库和联网结果合成为可交付简报或 HTML 展示页时，使用 `research-brief-skill`，但长篇深度研究仍交给 `deep-researcher`。
 - 用户所在地区、教材版本、学校模板不明确时，不把网上信息当成默认事实。
 - 资料很多时，先分批读取和提炼，优先处理本课题相关部分。
 - 如果教师提供现成教案或课件，先识别结构和不足，再改进，不要无理由推倒重来。

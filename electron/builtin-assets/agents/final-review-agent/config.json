@@ -17,8 +17,8 @@
   "thinking_mode": "auto",
   "thinking_intensity": "medium",
 
-  "tools": ["file_list", "file_read", "file_write", "office_read", "office_write", "kb_search", "mcp:exa", "exec_command"],
-  "skills": ["review-plan", "knowledge-organize", "concept-explainer", "socratic-tutor", "feynman-learning-coach", "practice-quiz", "error-analysis", "mock-exam", "exam-prep", "flashcard-generator", "math-explainer", "note-skill", "learning-visualization-skill", "network-protocol-viz", "edu-solid-geometry", "edu-analytic-geometry", "officecli-skills"],
+  "tools": ["file_list", "file_read", "file_write", "office_read", "pdf_read", "office_write", "kb_search", "mcp:exa", "web_search_bing", "exec_command"],
+  "skills": ["review-plan", "knowledge-organize", "research-brief-skill", "concept-explainer", "socratic-tutor", "feynman-learning-coach", "practice-quiz", "error-analysis", "mock-exam", "exam-prep", "flashcard-generator", "math-explainer", "note-skill", "learning-visualization-skill", "network-protocol-viz", "edu-solid-geometry", "edu-analytic-geometry", "officecli-skills"],
   "sub_agents": [],
   "permissions": {
     "fileRead": true,

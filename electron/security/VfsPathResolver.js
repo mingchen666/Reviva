@@ -103,6 +103,7 @@ export class VfsPathResolver {
       { name: 'wiki', virtualPrefix: '/wiki', realRoot: path.join(root, 'wiki') },
       { name: 'context', virtualPrefix: '/context', realRoot: path.join(root, 'context') },
       { name: 'agents', virtualPrefix: '/agents', realRoot: path.join(root, 'agents') },
+      { name: 'tmp', virtualPrefix: '/tmp', realRoot: path.join(root, 'tmp') },
       { name: 'skills', virtualPrefix: '/skills', realRoot: path.join(root, 'skills') },
       { name: 'memories', virtualPrefix: '/memories', realRoot: path.join(root, 'memories') },
     ]
@@ -223,7 +224,7 @@ export class VfsPathResolver {
     if (/^[a-zA-Z]:\//.test(value)) return false
     if (/^\/\/[^/]+/.test(value)) return false
     return value === '/' ||
-      /^\/(project|docs|notes|context|wikis|wiki|agents|skills|memories)(\/|$)/i.test(value) ||
+      /^\/(project|docs|notes|context|wikis|wiki|agents|tmp|skills|memories)(\/|$)/i.test(value) ||
       /^\/\.reviva(\/|$)/i.test(value)
   }
 
@@ -285,6 +286,7 @@ export class VfsPathResolver {
     if (this._isAllowedSkill(virtualPath, ctx)) return true
     if (this._isAllowedWiki(virtualPath, ctx)) return true
     if (this._isSelfAgentOutput(virtualPath, ctx)) return true
+    if (this._isSelfAgentTemp(virtualPath, ctx)) return true
     if (this._matchesAny(virtualPath, ['/docs', '/notes', '/context'])) return true
     if (virtualPath === '/project' || virtualPath.startsWith('/project/')) return true
     if (virtualPath === '/memories' || virtualPath.startsWith('/memories/')) return true
@@ -294,12 +296,14 @@ export class VfsPathResolver {
   _assertWriteAllowed(virtualPath, ctx) {
     if ((ctx.op === 'memory_write' || ctx.op === 'memory_edit') && this._isAllowedMemoryPath(virtualPath, ctx)) return true
     if (this._isSelfAgentOutput(virtualPath, ctx)) return true
-    throw makeVfsError('VFS_OPERATION_DENIED', `Write is only allowed in this agent's outputs: ${virtualPath}`)
+    if (this._isSelfAgentTemp(virtualPath, ctx)) return true
+    throw makeVfsError('VFS_OPERATION_DENIED', `Write is only allowed in this agent's outputs or tmp directory: ${virtualPath}`)
   }
 
   _assertDeleteAllowed(virtualPath, ctx) {
     if (this._isSelfAgentOutput(virtualPath, ctx)) return true
-    throw makeVfsError('VFS_OPERATION_DENIED', `Delete is only allowed in this agent's outputs: ${virtualPath}`)
+    if (this._isSelfAgentTemp(virtualPath, ctx)) return true
+    throw makeVfsError('VFS_OPERATION_DENIED', `Delete is only allowed in this agent's outputs or tmp directory: ${virtualPath}`)
   }
 
   _isAllowedSkill(virtualPath, ctx) {
@@ -339,6 +343,13 @@ export class VfsPathResolver {
     return pathValue === prefix || pathValue.startsWith(prefix + '/')
   }
 
+  _isSelfAgentTemp(virtualPath, ctx) {
+    const agentDirName = safeDirName(ctx.agentDirName || '_shared')
+    const prefix = `/tmp/${agentDirName}`
+    const pathValue = ensureVirtualPath(virtualPath)
+    return pathValue === prefix || pathValue.startsWith(prefix + '/')
+  }
+
   _matchesAny(virtualPath, prefixes) {
     const pathValue = ensureVirtualPath(virtualPath)
     return prefixes.some(prefix => pathValue === prefix || pathValue.startsWith(prefix + '/'))
@@ -346,7 +357,7 @@ export class VfsPathResolver {
 
   _looksLikePathArgument(value) {
     const text = String(value || '')
-    return /^\/(project|docs|notes|context|wikis|wiki|agents|skills|memories)(\/|$)/i.test(text) ||
+    return /^\/(project|docs|notes|context|wikis|wiki|agents|tmp|skills|memories)(\/|$)/i.test(text) ||
       /^[a-zA-Z]:[\\/]/.test(text) ||
       /^file:\/\//i.test(text)
   }
@@ -356,7 +367,7 @@ export class VfsPathResolver {
   }
 
   _resolveInlineExecArg(value, ctx) {
-    const match = String(value || '').match(/^([^=]+)=(\/(?:project|docs|notes|context|wikis|wiki|agents|skills|memories)(?:\/.*)?|[a-zA-Z]:[\\/].*)$/i)
+    const match = String(value || '').match(/^([^=]+)=(\/(?:project|docs|notes|context|wikis|wiki|agents|tmp|skills|memories)(?:\/.*)?|[a-zA-Z]:[\\/].*)$/i)
     if (!match) return null
     const resolved = this.resolve(match[2], { ...ctx, op: 'exec_arg' })
     return {

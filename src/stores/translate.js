@@ -168,28 +168,6 @@ export const useTranslateStore = defineStore('translate', () => {
     return result
   }
 
-  function readTranslationDeltaFromSseLine(line) {
-    const trimmed = String(line || '').trim()
-    if (!trimmed.startsWith('data:')) return ''
-    const payload = trimmed.slice(5).trim()
-    if (!payload || payload === '[DONE]') return ''
-    try {
-      const json = JSON.parse(payload)
-      return json.choices?.[0]?.delta?.content || json.choices?.[0]?.message?.content || ''
-    } catch {
-      return ''
-    }
-  }
-
-  function readTranslationFromJsonResponse(payload) {
-    try {
-      const json = JSON.parse(String(payload || '').trim())
-      return json.choices?.[0]?.message?.content || json.choices?.[0]?.text || ''
-    } catch {
-      return ''
-    }
-  }
-
   async function translate() {
     if (!sourceText.value.trim()) return
     const modelRef = selectedModelId.value || settingsStore.defaultModels.translation || settingsStore.defaultModels.chat
@@ -205,67 +183,39 @@ export const useTranslateStore = defineStore('translate', () => {
     translatedText.value = ''
 
     try {
-      const baseUrl = provider.baseUrl.replace(/\/$/, '')
-      const headers = { 'Content-Type': 'application/json' }
       const temp = Number.isFinite(Number(temperature.value)) ? Math.min(1, Math.max(0, Number(temperature.value))) : 0.1
       const translationSystemPrompt = buildTranslationSystemPrompt()
       const translationUserMessage = buildTranslationUserMessage()
-
       const apiFormat = provider.apiFormat || (provider.id === 'anthropic' ? 'anthropic' : 'openai')
-      if (apiFormat === 'anthropic') {
-        if (!provider.apiKey) {
-          translatedText.value = '错误：Anthropic 需要配置 API Key'
-          return
-        }
-        headers['x-api-key'] = provider.apiKey
-        headers['anthropic-version'] = '2023-06-01'
-        const response = await fetch(baseUrl + '/messages', {
-          method: 'POST', headers,
-          body: JSON.stringify({ model: modelId, max_tokens: 4096, temperature: temp, system: translationSystemPrompt, messages: [{ role: 'user', content: translationUserMessage }] }),
-        })
-        if (!response.ok) { translatedText.value = `翻译失败: HTTP ${response.status}`; isTranslating.value = false; return }
-        const data = await response.json()
-        translatedText.value = normalizeTranslationOutput(data.content?.[0]?.text) || '翻译结果为空'
-      } else {
-        headers['Authorization'] = `Bearer ${provider.apiKey}`
-        const messages = [{ role: 'system', content: translationSystemPrompt }, { role: 'user', content: translationUserMessage }]
-        const response = await fetch(baseUrl + '/chat/completions', {
-          method: 'POST', headers,
-          body: JSON.stringify({ model: modelId, max_tokens: 4096, temperature: temp, messages, stream: true }),
-        })
-        if (!response.ok) { translatedText.value = `翻译失败: HTTP ${response.status}`; isTranslating.value = false; return }
-        const reader = response.body.getReader()
-        const decoder = new TextDecoder()
-        let buffer = ''
-        let rawStream = ''
-        while (true) {
-          const { done, value } = await reader.read()
-          if (done) break
-          const chunk = decoder.decode(value, { stream: true })
-          rawStream += chunk
-          buffer += chunk
-          const lines = buffer.split('\n')
-          buffer = lines.pop()
-          for (const line of lines) {
-            const content = readTranslationDeltaFromSseLine(line)
-            if (content) translatedText.value += content
-          }
-        }
-        const flush = decoder.decode()
-        if (flush) {
-          rawStream += flush
-          buffer += flush
-        }
-        const trailingContent = readTranslationDeltaFromSseLine(buffer)
-        if (trailingContent) translatedText.value += trailingContent
-        if (!translatedText.value) translatedText.value = readTranslationFromJsonResponse(rawStream)
-        translatedText.value = normalizeTranslationOutput(translatedText.value)
+
+      if (!window.electronAPI?.translate?.run) {
+        translatedText.value = '翻译失败: 当前环境不支持翻译 IPC'
+        return
       }
+
+      const result = await window.electronAPI.translate.run({
+        providerId: provider.id,
+        apiFormat,
+        apiKey: provider.apiKey,
+        baseUrl: provider.baseUrl,
+        modelId,
+        temperature: temp,
+        system: translationSystemPrompt,
+        userMessage: translationUserMessage,
+      })
+
+      if (!result?.success) {
+        translatedText.value = `翻译失败: ${result?.error || '未知错误'}`
+        return
+      }
+
+      translatedText.value = normalizeTranslationOutput(result.text) || '翻译结果为空'
       addToHistory()
     } catch (e) {
       translatedText.value = `翻译失败: ${e.message}`
+    } finally {
+      isTranslating.value = false
     }
-    isTranslating.value = false
   }
 
   return {

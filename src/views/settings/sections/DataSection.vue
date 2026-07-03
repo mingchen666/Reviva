@@ -2,10 +2,12 @@
 import { ref, computed, onMounted } from 'vue'
 import { useAppStore } from '@/stores/app'
 import { useSettingsStore } from '@/stores/settings'
+import { useMessage } from '@/components/MsMessage/useMessage'
 
 const appStore = useAppStore()
 const ss = useSettingsStore()
 const isDark = computed(() => appStore.isDark)
+const msg = useMessage()
 
 const cacheSize = ref('--')
 const dataSize = ref('--')
@@ -14,6 +16,9 @@ const sizeError = ref('')
 const loading = ref(false)
 const resetConfirm = ref(false)
 const clearConfirm = ref(false)
+const backupLoadingMode = ref('')
+const backupResult = ref(null)
+const backupError = ref('')
 
 function fmtSize(bytes) {
   if (bytes < 1024) return bytes + ' B'
@@ -127,6 +132,38 @@ async function exportMemory() {
   a.download = `reviva-memories-${new Date().toISOString().slice(0, 10)}.json`
   a.click()
   URL.revokeObjectURL(url)
+}
+
+async function createBackup(mode) {
+  if (!window.electronAPI?.backup?.create) return
+  backupLoadingMode.value = mode
+  backupResult.value = null
+  backupError.value = ''
+  try {
+    const result = await window.electronAPI.backup.create({ mode })
+    if (result?.canceled) return
+    if (!result?.success) throw new Error(result?.error || '备份失败')
+    backupResult.value = result.data
+    msg.success(`已创建 ${result.data.fileName}`, {
+      title: '备份完成',
+      duration: 4200,
+    })
+    await loadDataMetrics()
+  } catch (err) {
+    backupError.value = err.message || '备份失败'
+    msg.error(backupError.value, {
+      title: '备份失败',
+      duration: 5200,
+    })
+  } finally {
+    backupLoadingMode.value = ''
+  }
+}
+
+async function revealBackup() {
+  const filePath = backupResult.value?.path
+  if (!filePath || !window.electronAPI?.showItemInFolder) return
+  await window.electronAPI.showItemInFolder(filePath)
 }
 
 async function resetSettings() {
@@ -246,6 +283,61 @@ onMounted(() => {
       <div class="mt-3 pt-3 flex items-center gap-2 text-[10px]" :class="isDark ? 'text-wt-dim border-t border-d4' : 'text-lt-aux border-t border-bdrF'">
         <i class="ri-shield-check-line text-emerald-400 text-[11px]" />
         <span>导出文件中 API Key 默认加密，可选择不导出敏感信息</span>
+      </div>
+    </div>
+
+    <!-- Data Backup -->
+    <div class="rounded-xl p-4" :class="isDark ? 'bg-d3 border border-bdr' : 'bg-l3 border border-bdrF'">
+      <div class="flex items-center gap-2 mb-1">
+        <i class="ri-safe-2-line text-cyan-400 text-[14px]" />
+        <span class="section-title" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">数据备份</span>
+      </div>
+      <p class="text-[11px] mb-3" :class="isDark ? 'text-wt-aux' : 'text-lt-aux'">创建本地备份包；配置 JSON 导入导出仍保留在上方</p>
+      <div class="grid gap-2" style="grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));">
+        <button @click="createBackup('full')" :disabled="!!backupLoadingMode" class="row flex items-center gap-3 py-3 px-3 rounded-lg text-left transition-colors disabled:opacity-50 disabled:cursor-not-allowed" :class="isDark ? 'bg-d0 border border-d4 hover:border-cyan-400/30' : 'bg-l2 border border-bdrF hover:border-cyan-200'">
+          <i class="ri-database-2-line text-[16px] text-cyan-400" />
+          <div class="flex-1 min-w-0">
+            <div class="text-[12px] font-bold" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">完整数据备份</div>
+            <div class="text-[10px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">数据库 / 文档 / 笔记 / 知识库 / 产物</div>
+          </div>
+          <i v-if="backupLoadingMode === 'full'" class="ri-loader-4-line text-[12px] animate-spin" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'" />
+          <i v-else class="ri-download-line text-[12px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'" />
+        </button>
+        <button @click="createBackup('compact')" :disabled="!!backupLoadingMode" class="row flex items-center gap-3 py-3 px-3 rounded-lg text-left transition-colors disabled:opacity-50 disabled:cursor-not-allowed" :class="isDark ? 'bg-d0 border border-d4 hover:border-emerald-400/30' : 'bg-l2 border border-bdrF hover:border-emerald-200'">
+          <i class="ri-filter-3-line text-[16px] text-emerald-400" />
+          <div class="flex-1 min-w-0">
+            <div class="text-[12px] font-bold" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">精简备份</div>
+            <div class="text-[10px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">不包含产物、输出、大型附件</div>
+          </div>
+          <i v-if="backupLoadingMode === 'compact'" class="ri-loader-4-line text-[12px] animate-spin" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'" />
+          <i v-else class="ri-download-line text-[12px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'" />
+        </button>
+        <button @click="createBackup('database')" :disabled="!!backupLoadingMode" class="row flex items-center gap-3 py-3 px-3 rounded-lg text-left transition-colors disabled:opacity-50 disabled:cursor-not-allowed" :class="isDark ? 'bg-d0 border border-d4 hover:border-amber-400/30' : 'bg-l2 border border-bdrF hover:border-amber-200'">
+          <i class="ri-hard-drive-line text-[16px] text-amber-400" />
+          <div class="flex-1 min-w-0">
+            <div class="text-[12px] font-bold" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">数据库备份</div>
+            <div class="text-[10px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">仅 SQLite 快照，高级用途</div>
+          </div>
+          <i v-if="backupLoadingMode === 'database'" class="ri-loader-4-line text-[12px] animate-spin" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'" />
+          <i v-else class="ri-download-line text-[12px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'" />
+        </button>
+        <button disabled class="row flex items-center gap-3 py-3 px-3 rounded-lg text-left transition-colors opacity-55 cursor-not-allowed" :class="isDark ? 'bg-d0 border border-d4' : 'bg-l2 border border-bdrF'">
+          <i class="ri-upload-2-line text-[16px] text-sky-400" />
+          <div class="flex-1 min-w-0">
+            <div class="text-[12px] font-bold" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">恢复数据</div>
+            <div class="text-[10px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">导入备份包，即将支持</div>
+          </div>
+          <span class="ctx-pill" :class="isDark ? 'bg-d4 text-wt-dim border border-bdr' : 'bg-l4 text-lt-aux border border-bdrF'">即将支持</span>
+        </button>
+      </div>
+      <div v-if="backupResult" class="mt-3 pt-3 flex items-center gap-2 text-[10px]" :class="isDark ? 'text-wt-dim border-t border-d4' : 'text-lt-aux border-t border-bdrF'">
+        <i class="ri-checkbox-circle-line text-emerald-400 text-[11px]" />
+        <span class="flex-1 min-w-0 truncate">已创建 {{ backupResult.fileName }}，包大小 {{ fmtSize(backupResult.size) }}，包含 {{ backupResult.fileCount }} 个文件</span>
+        <button @click="revealBackup" class="px-2 py-1 rounded-md font-medium" :class="isDark ? 'bg-d4 text-wt-sub hover:bg-white/8' : 'bg-l4 text-lt-sub hover:bg-l5'">定位</button>
+      </div>
+      <div v-if="backupError" class="mt-3 pt-3 flex items-center gap-2 text-[10px]" :class="isDark ? 'text-red-400 border-t border-d4' : 'text-red-500 border-t border-bdrF'">
+        <i class="ri-error-warning-line text-[11px]" />
+        <span>{{ backupError }}</span>
       </div>
     </div>
 

@@ -164,6 +164,20 @@ export class DatabaseService {
     if (this._db) { this._db.close(); this._db = null }
   }
 
+  async backupTo(filePath) {
+    if (!this._db) throw new Error('Database is not initialized')
+    const targetPath = path.resolve(filePath)
+    const targetDir = path.dirname(targetPath)
+    if (!fs.existsSync(targetDir)) fs.mkdirSync(targetDir, { recursive: true })
+    if (typeof this._db.backup === 'function') {
+      await this._db.backup(targetPath)
+      return targetPath
+    }
+    if (!this._dbPath || this._dbPath === ':memory:') throw new Error('Database backup API is unavailable')
+    await fs.promises.copyFile(this._dbPath, targetPath)
+    return targetPath
+  }
+
   async relocateToWorkspace(rootPath) {
     if (!rootPath || !BetterSqlite3 || !this._db) return false
     const dbDir = path.join(rootPath, WORKSPACE_META_DIR)

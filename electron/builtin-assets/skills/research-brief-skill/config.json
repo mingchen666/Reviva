@@ -1,0 +1,14 @@
+{
+  "id": "research-brief-skill",
+  "name": "轻量研究简报",
+  "description": "为普通 Agent 提供轻量但可靠的资料研究、来源核验和简报合成能力，支持用户本地资料、知识库和可选联网搜索，按需输出 Markdown 简报和 HTML 展示页。",
+  "icon": "ri-file-search-line",
+  "color": "#0F766E",
+  "category": "研究",
+  "source": "platform",
+  "allowedTools": ["file_read", "file_write", "office_read", "pdf_read", "kb_search", "web_search_bing", "mcp:exa"],
+  "outputTypes": ["Markdown", "HTML"],
+  "version": "1.0",
+  "author": "reviva",
+  "license": "MIT"
+}

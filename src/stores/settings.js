@@ -741,11 +741,16 @@ export const useSettingsStore = defineStore('settings', () => {
       singleInstance.value = all.singleInstance ?? true
 
       // LLM Config (objects/arrays — already parsed by getAllSettings)
-      providers.value = _mergeBuiltinProviders(all.providers ?? JSON.parse(JSON.stringify(DEFAULT_PROVIDERS)))
+      const storedProviders = all.providers ?? JSON.parse(JSON.stringify(DEFAULT_PROVIDERS))
+      const mergedProviders = _mergeBuiltinProviders(storedProviders)
+      providers.value = mergedProviders
       defaultModels.value = _sanitizeDefaultModels(all.defaultModels ?? { ...DEFAULT_DEFAULT_MODELS }, providers.value)
 
       // Update configured status based on apiKey presence
       providers.value.forEach(p => { p.configured = providerConfigured(p) })
+      if (JSON.stringify(storedProviders) !== JSON.stringify(providers.value)) {
+        await saveProviders()
+      }
     } catch (e) {
       console.error('Failed to load settings:', e)
     }

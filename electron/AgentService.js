@@ -68,7 +68,7 @@ for (const provider of ['anthropic', 'openai', 'google']) {
  * AgentScopedBackend: policy wrapper for DeepAgents filesystem tools.
  * Keeps existing memory compatibility while enforcing:
  * - bound skills are read-only;
- * - writes/deletes are limited to this agent's outputs;
+ * - writes/deletes are limited to this agent's outputs and tmp directory;
  * - .reviva and foreign agent memory are denied;
  * - reads are filtered through VFS policy.
  */
@@ -1469,6 +1469,45 @@ export class AgentService {
     return (apiFormat || '').toLowerCase() === 'anthropic' || (providerId || '').toLowerCase() === 'anthropic'
   }
 
+  _normalizeThinkingMode(mode) {
+    const value = String(mode || 'auto').toLowerCase()
+    if (value === 'off') return 'disabled'
+    if (value === 'on') return 'enabled'
+    return ['auto', 'enabled', 'disabled'].includes(value) ? value : 'auto'
+  }
+
+  _resolveThinkingIntensity(intensity, fallback = 'medium') {
+    const value = String(intensity || fallback).toLowerCase()
+    return ['low', 'medium', 'high'].includes(value) ? value : fallback
+  }
+
+  _openAIReasoningEffort(providerId, modelName, options = {}) {
+    const mode = this._normalizeThinkingMode(options.thinkingMode)
+    if (mode === 'disabled') return ''
+    const model = String(modelName || '').toLowerCase()
+    const isOpenAI = String(providerId || '').toLowerCase() === 'openai'
+    const isReasoningModel = /^(o\d|gpt-5)/.test(model)
+    if (!isOpenAI || (mode === 'auto' && !isReasoningModel)) return ''
+    return this._resolveThinkingIntensity(options.thinkingIntensity)
+  }
+
+  _deepSeekThinkingParams(providerId, modelName, options = {}) {
+    const id = String(providerId || '').toLowerCase()
+    const model = String(modelName || '').toLowerCase()
+    if (id !== 'deepseek' && !(id === 'official' && model.startsWith('deepseek-'))) return null
+
+    const mode = this._normalizeThinkingMode(options.thinkingMode)
+    const params = {}
+    if (mode === 'enabled' || mode === 'disabled') {
+      params.thinking = { type: mode }
+    }
+    if (mode === 'enabled') {
+      const intensity = this._resolveThinkingIntensity(options.thinkingIntensity)
+      params.reasoning_effort = intensity
+    }
+    return Object.keys(params).length ? params : null
+  }
+
   _createModel(providerId, apiKey, baseUrl, modelName, options = {}) {
     const common = { apiKey, model: modelName, maxRetries: 1 }
     if (options.temperature !== undefined) common.temperature = options.temperature
@@ -1479,11 +1518,11 @@ export class AgentService {
       const anthropicBaseURL = (baseUrl || '').replace(/\/v1\/?$/, '').replace(/\/$/, '') || undefined
       const anthropicOpts = { ...common, timeout: 180000 }
       if (anthropicBaseURL) anthropicOpts.baseURL = anthropicBaseURL
-      if (options.thinkingMode === 'enabled') {
+      if (this._normalizeThinkingMode(options.thinkingMode) === 'enabled') {
         const budgetMap = { low: 2000, medium: 10000, high: 32000 }
         anthropicOpts.thinking = {
           type: 'enabled',
-          budget_tokens: budgetMap[options.thinkingIntensity] || 10000,
+          budget_tokens: budgetMap[this._resolveThinkingIntensity(options.thinkingIntensity)] || 10000,
         }
       }
       return new ChatAnthropic(anthropicOpts)
@@ -1497,7 +1536,10 @@ export class AgentService {
       // Third-party OpenAI-compatible gateways don't implement the Responses API
       openaiOpts.useResponsesApi = false
     }
-    if (options.reasoningEffort) openaiOpts.reasoningEffort = options.reasoningEffort
+    const deepSeekThinkingParams = this._deepSeekThinkingParams(providerId, modelName, options)
+    if (deepSeekThinkingParams) openaiOpts.modelKwargs = { ...(openaiOpts.modelKwargs || {}), ...deepSeekThinkingParams }
+    const reasoningEffort = options.reasoningEffort || this._openAIReasoningEffort(providerId, modelName, options)
+    if (reasoningEffort) openaiOpts.reasoningEffort = reasoningEffort
     return new ChatOpenAI(openaiOpts)
   }
 
@@ -1647,7 +1689,14 @@ export class AgentService {
           request.apiKey,
           request.baseUrl,
           saModelId,
-          { temperature: request.temperature, maxTokens: request.maxTokens || 4096, streaming: false, apiFormat: request.apiFormat },
+          {
+            temperature: request.temperature,
+            maxTokens: request.maxTokens || 4096,
+            thinkingMode: request.thinkingMode,
+            thinkingIntensity: request.thinkingIntensity,
+            streaming: false,
+            apiFormat: request.apiFormat,
+          },
         )
       }
 

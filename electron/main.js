@@ -18,6 +18,7 @@ import { PptxExportService } from './PptxExportService'
 import { GenerationTaskService } from './GenerationTaskService'
 import { McpService } from './McpService'
 import { WikiService } from './WikiService.js'
+import { BackupService } from './BackupService.js'
 import { getOfficeCliCommandCandidates, getOfficeCliSpawnEnv } from './officeCliResolver.js'
 import { getSystemEnv } from './systemEnv.js'
 import path from 'node:path'
@@ -61,6 +62,7 @@ let outputScanService = null
 let generationTaskService = null
 let mcpService = null
 let wikiService = null
+let backupService = null
 let tray = null
 let minimizeToTray = false
 let forceQuit = false
@@ -1474,6 +1476,33 @@ ipcMain.handle('app:importSettings', async (event, data) => {
   }
 })
 
+ipcMain.handle('backup:getModes', async () => {
+  try {
+    if (!backupService) throw new Error('备份服务未就绪')
+    return { success: true, data: backupService.getModes() }
+  } catch (err) {
+    return { success: false, error: err.message }
+  }
+})
+
+ipcMain.handle('backup:create', async (event, options = {}) => {
+  try {
+    if (!backupService) throw new Error('备份服务未就绪')
+    const mode = options?.mode || 'full'
+    const result = await dialog.showOpenDialog(win, {
+      title: '选择备份保存目录',
+      defaultPath: app.getPath('documents'),
+      properties: ['openDirectory', 'createDirectory'],
+    })
+    if (result.canceled || !result.filePaths?.[0]) return { success: false, canceled: true }
+    const outputPath = backupService.getOutputPath(result.filePaths[0], mode)
+    return await backupService.createBackup({ mode, outputPath })
+  } catch (err) {
+    console.error('[BackupService] create failed:', err)
+    return { success: false, error: err.message }
+  }
+})
+
 // ========== WorkDir IPC Handlers (module-scope) ==========
 
 ipcMain.handle('workdir:init', async (event, rootPath) => {
@@ -1673,6 +1702,23 @@ function isAnthropicFormat(providerId, apiFormat) {
   return (apiFormat || '').toLowerCase() === 'anthropic' || (providerId || '').toLowerCase() === 'anthropic'
 }
 
+function readOpenAITranslationText(data) {
+  return data?.choices?.[0]?.message?.content || data?.choices?.[0]?.text || ''
+}
+
+function readAnthropicTranslationText(data) {
+  const content = data?.content
+  if (typeof content === 'string') return content
+  if (!Array.isArray(content)) return ''
+  return content
+    .map((part) => {
+      if (typeof part === 'string') return part
+      if (part?.type === 'text') return part.text || ''
+      return part?.text || ''
+    })
+    .join('')
+}
+
 ipcMain.handle('models:fetchList', async (event, providerId, apiKey, baseUrl, apiFormat = '') => {
   if (!apiKey) return { success: false, error: '缺少 API Key' }
   if (!baseUrl) return { success: false, error: '缺少 Base URL' }
@@ -1700,6 +1746,78 @@ ipcMain.handle('models:fetchList', async (event, providerId, apiKey, baseUrl, ap
     return { success: true, models }
   } catch (err) {
     return { success: false, error: err.message }
+  }
+})
+
+ipcMain.handle('translate:run', async (_, req = {}) => {
+  const {
+    providerId = '',
+    apiFormat = '',
+    apiKey = '',
+    baseUrl = '',
+    modelId = '',
+    temperature = 0.1,
+    system = '',
+    userMessage = '',
+  } = req || {}
+
+  if (!baseUrl) return { success: false, error: '缺少 Base URL' }
+  if (!modelId) return { success: false, error: '缺少模型 ID' }
+  if (!apiKey) return { success: false, error: '缺少 API Key' }
+  if (!userMessage) return { success: false, error: '缺少待翻译内容' }
+
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 120000)
+
+  try {
+    const base = String(baseUrl).replace(/\/$/, '')
+    const temp = Number.isFinite(Number(temperature)) ? Math.min(1, Math.max(0, Number(temperature))) : 0.1
+    const headers = { 'Content-Type': 'application/json' }
+    let url
+    let body
+
+    if (isAnthropicFormat(providerId, apiFormat)) {
+      headers['x-api-key'] = apiKey
+      headers['anthropic-version'] = '2023-06-01'
+      url = base + '/messages'
+      body = JSON.stringify({
+        model: modelId,
+        max_tokens: 4096,
+        temperature: temp,
+        system,
+        messages: [{ role: 'user', content: userMessage }],
+      })
+    } else {
+      headers['Authorization'] = `Bearer ${apiKey}`
+      url = base + '/chat/completions'
+      body = JSON.stringify({
+        model: modelId,
+        max_tokens: 4096,
+        temperature: temp,
+        messages: [
+          { role: 'system', content: system },
+          { role: 'user', content: userMessage },
+        ],
+        stream: false,
+      })
+    }
+
+    const response = await fetch(url, { method: 'POST', headers, body, signal: controller.signal })
+    if (!response.ok) {
+      const text = await response.text()
+      return { success: false, error: `HTTP ${response.status}: ${text.slice(0, 500)}` }
+    }
+
+    const data = await response.json()
+    const text = isAnthropicFormat(providerId, apiFormat)
+      ? readAnthropicTranslationText(data)
+      : readOpenAITranslationText(data)
+    return { success: true, text }
+  } catch (err) {
+    const message = err?.name === 'AbortError' ? '请求超时，请检查网络或模型服务' : err.message
+    return { success: false, error: message }
+  } finally {
+    clearTimeout(timeout)
   }
 })
 
@@ -1883,6 +2001,10 @@ app.whenReady().then(async () => {
   wikiService = new WikiService(workDirService, dbService, agentService)
   wikiService.init()
   agentService.setWikiService?.(wikiService)
+
+  backupService = new BackupService(dbService, workDirService, {
+    appVersion: app.getVersion(),
+  })
 
   // Ensure agents directory exists in workspace
   const workspaceRoot = workDirService.getRootPath()

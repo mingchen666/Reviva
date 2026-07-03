@@ -21,6 +21,7 @@ const userStore = useUserStore()
 const msg = useMessage()
 
 const isDark = computed(() => appStore.isDark)
+const knowledgeBaseEnabled = false
 
 const activeScope = ref('mine')
 const searchQuery = ref('')
@@ -318,11 +319,14 @@ async function leaveSystemKb(kb) {
   }
 }
 
-onMounted(ensureKbs)
+if (knowledgeBaseEnabled) {
+  onMounted(ensureKbs)
+}
 
 watch(
   () => userStore.isLoggedIn,
   (loggedIn) => {
+    if (!knowledgeBaseEnabled) return
     if (loggedIn) ensureKbs()
     else {
       spacesStore.clear()
@@ -335,7 +339,21 @@ watch(
 
 <template>
   <div class="h-full min-h-0 flex flex-col" :class="isDark ? 'bg-d2' : 'bg-l2'">
-    <div v-if="!userStore.isLoggedIn" class="flex-1 flex items-center justify-center px-6">
+    <div v-if="!knowledgeBaseEnabled" class="flex-1 flex items-center justify-center px-6">
+      <div class="max-w-[420px] text-center">
+        <div
+          class="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4"
+          :class="isDark ? 'bg-d1 border border-bdr' : 'bg-l3 border border-bdrF'">
+          <i class="ri-book-shelf-line text-[30px]" :class="isDark ? 'text-wt-aux' : 'text-lt-aux'" />
+        </div>
+        <h2 class="text-[16px] font-semibold" :class="isDark ? 'text-wt-main' : 'text-lt-main'">知识库即将支持</h2>
+        <p class="mt-2 text-[12px] leading-relaxed" :class="isDark ? 'text-wt-aux' : 'text-lt-aux'">
+          知识库能力正在准备中，后续将支持创建知识库、导入文档和管理资料。
+        </p>
+      </div>
+    </div>
+
+    <div v-else-if="!userStore.isLoggedIn" class="flex-1 flex items-center justify-center px-6">
       <div class="max-w-[340px] text-center">
         <div
           class="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4"

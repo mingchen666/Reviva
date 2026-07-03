@@ -35,6 +35,10 @@ const api = {
   installPythonOfficeLibs: () => ipcRenderer.invoke('env:installPythonOfficeLibs'),
   exportSettings: () => ipcRenderer.invoke('app:exportSettings'),
   importSettings: (data) => ipcRenderer.invoke('app:importSettings', data),
+  backup: {
+    getModes: () => ipcRenderer.invoke('backup:getModes'),
+    create: (options) => ipcRenderer.invoke('backup:create', options),
+  },
   setStartup: (enabled) => ipcRenderer.invoke('app:setStartup', enabled),
   setMinimizeToTray: (enabled) => ipcRenderer.invoke('app:setMinimizeToTray', enabled),
   setTrayIcon: (enabled) => ipcRenderer.invoke('app:setTrayIcon', enabled),
@@ -100,6 +104,11 @@ const api = {
   models: {
     fetchList: (providerId, apiKey, baseUrl, apiFormat) => ipcRenderer.invoke('models:fetchList', providerId, apiKey, baseUrl, apiFormat),
     testConnection: (providerId, apiKey, baseUrl, modelId, apiFormat) => ipcRenderer.invoke('models:testConnection', providerId, apiKey, baseUrl, modelId, apiFormat),
+  },
+
+  // Translate
+  translate: {
+    run: (req) => ipcRenderer.invoke('translate:run', req),
   },
 
   // Token Usage

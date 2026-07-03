@@ -64,6 +64,18 @@ declare global {
         settings?: any
       }
       recycleBin?: any
+      translate?: {
+        run: (req: {
+          providerId?: string
+          apiFormat?: string
+          apiKey: string
+          baseUrl: string
+          modelId: string
+          temperature?: number
+          system?: string
+          userMessage: string
+        }) => Promise<{ success: boolean; text?: string; error?: string }>
+      }
       onMainProcessMessage: (callback: (...args: any[]) => void) => void
     }
   }

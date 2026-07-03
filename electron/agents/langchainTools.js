@@ -689,10 +689,9 @@ export const deleteFile = tool(
 
     // Enforce deleteScope setting
     if (deleteScope === 'outputs-only') {
-      // Allow deleting files under any authorized directory segment named outputs,
-      // e.g. /agents/{name}/outputs/... or /context/{task}/outputs/...
-      if (!_hasPathSegment(resolved, 'outputs')) {
-        return JSON.stringify({ error: '安全限制：当前删除范围设置为"仅 outputs/ 目录"，只能删除任意层级 outputs/ 目录内的文件或目录。如需更宽范围请在设置中调整。' })
+      // Allow deleting files under authorized outputs/ or tmp/ directories.
+      if (!_hasPathSegment(resolved, 'outputs') && !_hasPathSegment(resolved, 'tmp')) {
+        return JSON.stringify({ error: '安全限制：当前删除范围设置为"仅 outputs/tmp 目录"，只能删除授权 outputs/ 或 tmp/ 目录内的文件或目录。如需更宽范围请在设置中调整。' })
       }
     }
     // VFS policy keeps Agent deletes scoped to this agent's outputs even if the legacy setting says workspace.

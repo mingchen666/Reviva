@@ -29,7 +29,8 @@ repository: https://github.com/hoolulu/deep-research
 本 skill 在 Reviva 中作为 `deep-researcher` 的专属核心技能使用。执行时优先遵循这些规则：
 
 - `/skills/deep-research/` 是只读技能目录，只能读取 `SKILL.md`、`RULES.md`、`TYPES.md`、`profiles.json`、`prompts/`、`tools/` 等参考资源；不要在 skill 目录内写入、删除、更新 `reports/` 或 `reports-browser/`。
-- 默认输出目录是 `/agents/deep-researcher/outputs/{今天日期}/`。Markdown、HTML、临时可交付文件都写到这个目录或用户显式指定的工作区输出目录。
+- 默认输出目录是 `/agents/deep-researcher/outputs/{今天日期}/`。这是当前工作空间授权根目录下的 Reviva 虚拟路径，不是真实磁盘根目录。Markdown、HTML 等最终产物必须写到当前 Agent 的授权输出目录内。
+- 默认临时目录是 `/tmp/deep-researcher/{今天日期}/deep-research-{时间戳}/`。`/tmp/...` 是当前工作空间授权根目录下的 Reviva 虚拟路径，不是真实系统临时目录。中间文件写到这里，不要构造宿主系统盘符路径、系统临时目录或平台特定绝对路径。
 - 联网必须服从用户消息中的 `[联网搜索]` 开关。未启用联网时，不要调用搜索、网页读取、浏览器或抓取工具，并在报告中说明外部时效信息未校验。
 - `web_search_bing`、`mcp:exa`、`mcp:jina-mcp-server`、SearXNG、Scrapling、Python 辅助脚本都只是可选增强路线；没有任何单一搜索提供方是必需项。优先使用当前 Agent 实际绑定且可用的工具，不可用时改用其它搜索工具、`kb_search`、用户本地资料和模型已有知识完成研究，并明确标注覆盖范围。
 - 默认不要安装 Python 包、ASR 模型、浏览器自动化组件或抓取依赖。只有用户明确同意、当前 Agent 开启 `exec_command` 且工具可用时，才运行本 skill 附带的 Python 辅助脚本。
@@ -84,7 +85,8 @@ repository: https://github.com/hoolulu/deep-research
 
 ══ Setup (必须先执行) ══
 
- → 创建一个带时间戳的临时目录作为 TMPDIR（例如 D:\TEMP\opencode\deep-research-YYYYMMDD-HHMMSS）
+ → 创建一个带时间戳的临时目录作为 TMPDIR：`/tmp/deep-researcher/{今天日期}/deep-research-YYYYMMDD-HHMMSS/`
+ → TMPDIR 必须位于当前授权工作空间的 `/tmp/deep-researcher/{今天日期}/` 下，不要使用真实磁盘路径、系统临时目录或固定盘符
  → 同时确定 TOOLSDIR（本 skill 的 tools/ 目录）、PROMPTSDIR（本 skill 的 prompts/ 目录）、SKILLDIR（本 skill 的根目录）
  → 读取本 SKILL.md + RULES.md + TYPES.md
 
@@ -196,7 +198,7 @@ repository: https://github.com/hoolulu/deep-research
        - todowrite 标记每章 completed
        - 向用户报告最终章节完成情况（使用 $LANG 语言）
      8. ══ Task 4 — 验证 + 装配 + QA（**主 agent 直接执行**） ══
-     → **Step 0 — 输出目录准备**：确定 `REVIVA_OUTPUT_DIR=/agents/deep-researcher/outputs/{今天日期}/`，不要清理或写入 `{SKILLDIR}/reports/`
+     → **Step 0 — 输出目录准备**：确定 `REVIVA_OUTPUT_DIR=/agents/deep-researcher/outputs/{今天日期}/`，并确定 `TMPDIR=/tmp/deep-researcher/{今天日期}/deep-research-{时间戳}/`。两者都是 Reviva 工作空间虚拟路径。不要清理或写入 `{SKILLDIR}/reports/`，不要使用宿主系统盘符路径。
      → **Step 1 — 批量验证**：`python {TOOLSDIR}/dr_tools.py validate-all-chapters --chapters-dir {TMPDIR}/chapters/ --chapters {chapter_count}`，内部 ThreadPoolExecutor 并行验证所有章节。从输出 JSON 的 `failed_chapters` 中找到失败章节，逐个重新生成（重新派发章节 agent → 重新验证该章）。
      → **Step 1b — 章节深度均衡检查**：`python {TOOLSDIR}/dr_tools.py depth-balance --chapters-dir {TMPDIR}/chapters/ --chapters {chapter_count}`。如果某章行数 < 平均值的 50%，标记告警（not blocking，仅提示）。
      → Step 1 或 Step 2 失败时，**先删除本次已写入的产物**（报告文件、中间文件等），再重新执行对应步骤，避免残留文件干扰下次运行
@@ -359,7 +361,7 @@ repository: https://github.com/hoolulu/deep-research
 5. `escape-currency` → 货币符号转义
 4. `qa-report` → 质量检查
 
-**清理**：装配完成后主 agent 执行 `Remove-Item -Recurse -Force "{TMPDIR}"` 清理临时文件。
+**清理**：装配完成后只清理本次 `{TMPDIR}`（即 `/tmp/deep-researcher/{今天日期}/deep-research-{时间戳}/`）。如果当前工具策略不允许删除，保留该临时目录并在 manifest 中记录，不要改用真实磁盘路径或跨目录删除。
 
 ---
 
@@ -369,8 +371,8 @@ repository: https://github.com/hoolulu/deep-research
 
 最终报告保存路径按以下优先级判定：
 
-1. **用户自定义路径** — 如果用户显式指定了输出目录（如 `D:\Reports\`），使用指定路径
-2. **Reviva 默认路径** — `/agents/deep-researcher/outputs/{今天日期}/`
+1. **Reviva 默认路径** — `/agents/deep-researcher/outputs/{今天日期}/`
+2. **用户自定义子路径** — 仅当用户指定的是当前授权工作空间内、且文件工具允许写入的 Reviva 虚拟路径时才使用；如果用户给出真实磁盘路径或未授权路径，说明无法直接写入，并改写到默认输出目录。
 
 装配阶段（Step 3）根据实际使用的路径写入，文件名格式不变：`<主题>-YYYYMMDD-HHmmss.md`。
 
@@ -385,9 +387,10 @@ Step 4 QA 必须确认报告文件的保存路径为上述两者之一，如果�
 ### 清理机制
 
 ```
-Task 4 装配 + QA 通过后，内部已完成清理：
-1. 清理中间文件 `{TMPDIR}` 目录：Windows 用 `Remove-Item -Recurse -Force "{TMPDIR}"`，Linux 用 `rm -rf {TMPDIR}`
-2. 确认 tool-output/ 无残留
+Task 4 装配 + QA 通过后：
+1. 中间文件位于 `{TMPDIR}`，即 `/tmp/deep-researcher/{今天日期}/deep-research-{时间戳}/`
+2. 可以在文件工具允许时清理该临时目录；如果删除受限，保留并在 manifest 中记录
+3. 不使用宿主系统盘符路径、系统临时目录或其它平台特定绝对路径
 ```
 
 ---
@@ -396,79 +399,47 @@ Task 4 装配 + QA 通过后，内部已完成清理：
 
 | 工具 | 用途 | 免费？ | 国内源？ |
 |:----|:-----|:-----:|:--------:|
-| `websearch` | **主力**搜索引擎（CLI 内置 Exa，运行时探测） | ✅ 共享免费（Exa） | ❌ 国外引擎 |
-| `searxng` | 搜索引擎（自定义 SearXNG，运行时探测） | ✅ 自建零费用 | ✅ 70+引擎含百度/搜狗 |
-| 其他搜索引擎 | 不同 CLI 工具的内置搜索（运行时自动适配） | 取决于环境 | — |
-| `scrapling_bulk_get/stealthy/fetch` | 全文抓取（MCP，依赖 opencode.json 注册） | ✅ | **✅ 推荐，国内源主力** |
-| `webfetch` | 抓取回退（Scrapling 不可用时替代） | ✅ | ❌ 远端受限，国内源效果一般 |
+| `web_search_bing` | Reviva 内置 Bing 搜索，适合通用联网检索 | 取决于配置 | ✅ |
+| `mcp:exa` | 可选 Exa MCP 搜索，适合英文/国际资料 | 取决于用户配置 | ❌ |
+| `mcp:jina-mcp-server` | 可选网页读取/搜索增强，适合读取网页内容 | 取决于用户配置 | 取决于目标站 |
+| `searxng` / `websearch` / 其它搜索工具 | 可选补充搜索通道，运行时探测 | 取决于环境 | 取决于引擎 |
+| `scrapling_bulk_get/stealthy/fetch` / `webfetch` | 可选全文抓取/网页读取增强 | 取决于环境 | 取决于目标站 |
 | `bash` | date 时间戳 / 文件操作 | ✅ | — |
 | `write` | 写文件 | ✅ | — |
 
-搜索策略由 agent 在运行时根据工具集**自动适配**，不依赖预设的搜索引擎配置。
+搜索策略由 agent 在运行时根据工具集**自动适配**，不依赖预设的搜索引擎配置。Exa、Bing、Jina、SearXNG 都是可选通道；谁可用就用谁，不要求全部存在。
 
 **搜索链路**：
 ```
-Layer 0 — CLI 内置引擎探测（扫描可用工具集）
+Layer 0 — Reviva 已绑定搜索工具探测（扫描可用工具集）
   │
-  ├─ 发现内置引擎 → 作为主力搜索，与后续层并行
-  └─ 未发现 → 跳过此层，不影响后续
+  ├─ 发现 Bing/Exa/Jina/其它搜索工具 → 使用可用工具检索
+  └─ 未发现 → 跳过联网搜索，转本地资料/知识库/模型常识
 
-Layer 1 — 大纲建议源（SearXNG site:定向搜索）+ Layer 2 — SearXNG 全网补充搜索 并行
+Layer 1 — 大纲建议源定向搜索（用当前可用搜索工具）
          ↓
-Layer 3 — sources.json 优质源搜索（并行）
+Layer 2 — 补充全网搜索 + 反方关键词搜索（用当前可用搜索工具）
          ↓
 搜索结果质量评估（Step 3 质量门）
   ├─ 达标 → 直接进入抓取
-  └─ 不达标 → Layer 4 免费源补强（A/B 类源 + 区域引擎）
+  └─ 不达标 → 来源补强（官方/学术/行业机构/主流媒体/用户资料）
          ↓
-全部 URL → 检测 Scrapling MCP 可用性
-    ├─ 🔧 可用 → Scrapling 批量抓取全文 → 数据池
-    └─ 🌐 不可用 → webfetch 逐个抓取全文（标注回退）→ 数据池
+全部来源 → 检测可用网页读取工具
+    ├─ 可用 → 阅读全文 → 数据池
+    └─ 不可用 → 使用搜索摘要/知识库/本地资料，降低置信度并标注限制
 ```
 
 ---
 
-## 8. 安装与配置
+## 8. 可选增强与配置
 
-### 前置条件
+Reviva 默认不要求用户安装 SearXNG、Scrapling、Playwright 或额外 Python 包。
 
-- Python 3.10+
-- Scrapling（安装方式由 AI 根据官方文档和当前系统自动适配）
-- Playwright（可选，用于 JS 渲染和反检测抓取）
-
-### 注册 Scrapling MCP Server
-
-Scrapling 通过 MCP（Model Context Protocol）与 AI agent 通信，需注册到 `opencode.json` 后才能被 agent 调用。
-
-**推荐方式**：运行一次 `/research`，Task 2 在检测到 Scrapling 未注册时，会自动完成安装和注册。
-
-**参考实现**：本项目提供了 `scrapling-mcp-server.py`（与本文件同目录），是一份标准 MCP Server 实现，覆盖了标准抓取、反检测抓取、JS 渲染抓取三种模式。AI 可根据本机环境参考此脚本，如有问题再参考 Scrapling 官方文档。
-
-**手动注册格式**（在 `opencode.json` 的 `mcp` 中添加，供 AI 安装时参考）：
-  ```json
-  {
-    "mcp": {
-      "scrapling": {
-        "type": "local",
-        "command": ["<python-path>", "<mcp-server-script-path>"],
-        "enabled": true
-      }
-    }
-  }
-  ```
-  > 注意：OpenCode 使用 `"mcp"` 键（数组格式 `command`），非 Claude Desktop 的 `"mcpServers"`
-
-### 重启 OpenCode
-
-MCP Server 在 OpenCode 启动时加载，注册后**必须重启**才能生效。
-
-### 验证是否生效
-
-运行 `/research` 调研时，Task 2 阶段如显示 `🔧 Scrapling 抓取` 则表示 MCP 工作正常。若显示 `🌐 webfetch 抓取（Scrapling 已自动安装，重启后生效）` 则表示 Scrapling 已自动安装，重启 OC 后下次生效。若显示 `🌐 webfetch 抓取` 则表示安装失败，需检查 Python 环境和网络连接。
-
-### 抓取回退说明
-
-若 Scrapling 抓取某 URL 失败（WAF/超时/JS 渲染需求），会自动回退到 webfetch 孤立抓取该 URL，不影响其他 URL 的 Scrapling 抓取。若 Scrapling MCP 完全不可用，则全部走 webfetch。调研**不会阻塞**。
+- 如果用户已配置 `mcp:exa`，可以把 Exa 作为搜索来源之一。
+- 如果用户已配置 `mcp:jina-mcp-server`，可以把 Jina 作为网页读取/搜索增强之一。
+- 如果当前 Agent 只有 `web_search_bing`，就用 Bing 完成联网检索。
+- 如果用户未来显式安装了 SearXNG、Scrapling 或其它网页抓取工具，可以把它们作为补充通道。
+- 如果没有任何联网工具，使用本地资料、知识库和模型常识完成，并在报告中说明“未启用或不可用联网搜索，外部时效信息未校验”。
 
 ---
 

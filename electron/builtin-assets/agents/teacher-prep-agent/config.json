@@ -17,8 +17,8 @@
   "thinking_mode": "auto",
   "thinking_intensity": "medium",
 
-  "tools": ["file_list", "file_read", "file_write", "office_read", "office_write", "kb_search", "web_search_bing", "exec_command"],
-  "skills": ["lesson-plan-skill", "worksheet-skill", "classroom-activity-skill", "teaching-assessment-skill", "teaching-document-writing-skill", "teaching-resource-research-skill", "classroom-management-differentiation-skill", "knowledge-organize", "concept-explainer", "learning-visualization-skill", "edu-solid-geometry", "edu-analytic-geometry", "network-protocol-viz", "practice-quiz", "pptx-deck-skill", "html-ppt-skill", "ai-animation-skill", "officecli-skills"],
+  "tools": ["file_list", "file_read", "file_write", "office_read", "pdf_read", "office_write", "kb_search", "web_search_bing", "exec_command"],
+  "skills": ["lesson-plan-skill", "worksheet-skill", "classroom-activity-skill", "teaching-assessment-skill", "teaching-document-writing-skill", "teaching-resource-research-skill", "research-brief-skill", "classroom-management-differentiation-skill", "knowledge-organize", "concept-explainer", "learning-visualization-skill", "edu-solid-geometry", "edu-analytic-geometry", "network-protocol-viz", "practice-quiz", "pptx-deck-skill", "html-ppt-skill", "ai-animation-skill", "officecli-skills"],
   "sub_agents": [],
   "permissions": {
     "fileRead": true,

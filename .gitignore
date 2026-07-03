@@ -36,6 +36,7 @@ release/
 **/release/
 **/release/**
 备注.txt
+dist-electron/
 CLAUDE.md
 .agents/
 .claude/
