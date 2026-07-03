@@ -16,9 +16,14 @@
     "fileRename": false,
     "execCommand": false
   },
-  "tools": ["mcp:exa", "mcp:jina-mcp-server", "web_search_bing", "file_read", "file_write", "kb_search"],
+  "tools": ["mcp:exa", "mcp:jina-mcp-server", "web_search_bing", "file_read", "file_write", "office_read", "pdf_read", "kb_search"],
   "skills": ["deep-research"],
   "sub_agents": ["web-researcher", "local-analyst", "report-writer"],
+  "subagent_tools": {
+    "web-researcher": ["mcp:exa", "mcp:jina-mcp-server", "web_search_bing"],
+    "local-analyst": ["file_read", "office_read", "pdf_read", "kb_search"],
+    "report-writer": ["file_read", "file_write"]
+  },
   "max_iterations": 15,
   "plan_steps": 7,
   "temperature": 0.3,
@@ -26,7 +31,7 @@
   "thinking_mode": "auto",
   "thinking_intensity": "medium",
   "hard_timeout_ms": 600000,
-  "required_tools": ["mcp:exa"],
+  "required_tools": [],
   "prompt_file": "orchestrator.md",
   "subagent_dir": "subagents",
   "artifact_rules_file": "artifact-rules.json",

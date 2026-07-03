@@ -31,7 +31,7 @@ latest.yml
 
 **/dist
 **/*.zip
-
+/docs/**/*.md
 release/
 **/release/
 **/release/**

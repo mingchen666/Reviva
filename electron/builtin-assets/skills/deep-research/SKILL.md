@@ -1,6 +1,7 @@
 ---
 name: deep-research
-description: "Professional deep research report generation — multi-agent collaboration with parallel chapter writing, automatic latest-data targeting, multilingual output, and built-in quality checks."
+description: "Deep research report generation for Reviva's built-in deep-researcher agent. Use for learning and education research, teacher preparation research, document-based synthesis, literature/source reviews, office research, industry analysis, competitor scans, policy interpretation, and any request for a cited long-form research report."
+allowed-tools: file_read, file_write, office_read, pdf_read, kb_search, web_search_bing
 version: 3.0.0
 updated: 2026-06-08
 risk: medium
@@ -14,14 +15,25 @@ repository: https://github.com/hoolulu/deep-research
 生成对标券商/第三方研究机构标准的深度调研报告。
 
 - **架构**：主 agent 调度 4 个子 agent Task（大纲/数据/预检/装配）+ 1 轮主控并行派发章节，中间数据走临时文件
-- **数据源**：在线模式 → CLI 内置引擎（Layer 0，如有）+ SearXNG（Layer 1） + sources.json 优质源搜索（Layer 2）并行 → 按质量触发免费源补强（Layer 3 兜底）→ Scrapling 批量抓取；离线模式 → 用户指定的本地文件（md/txt/pdf/docx）
+- **数据源**：在线模式 → 根据 Reviva 当前可用工具自适应使用 `web_search_bing`、`mcp:exa`、`mcp:jina-mcp-server`、SearXNG 或其他搜索/网页读取工具 → 按质量触发来源补强；离线模式 → 用户指定的本地文件（md/txt/pdf/docx/pptx/xlsx）
 - **安装**：见下方「安装与配置」
 - **输出**：`$TMPDIR/outline.json`（临时，非最终报告）
-- **最终报告**：保存到 skill 目录下的 `reports/`
+- **最终报告**：Reviva 中保存到 `/agents/deep-researcher/outputs/{今天日期}/`
 - **参考文件**：`RULES.md`（硬约束/反模式）、`TYPES.md`（分类标准/编号规范）、**`profiles.json`（三档模式参数，修改后重启软件即全局生效）**
 - **容错原则**：调研不阻塞。所有脚本/命令调用必须有兜底路径。主路径失败 → 自动尝试替代方案（换 `sys.executable`/检查路径/直接 Python 实现）→ 三次失败后向用户报告具体问题。详见「容错原则」。
 
 ---
+
+## Reviva 内置适配规则
+
+本 skill 在 Reviva 中作为 `deep-researcher` 的专属核心技能使用。执行时优先遵循这些规则：
+
+- `/skills/deep-research/` 是只读技能目录，只能读取 `SKILL.md`、`RULES.md`、`TYPES.md`、`profiles.json`、`prompts/`、`tools/` 等参考资源；不要在 skill 目录内写入、删除、更新 `reports/` 或 `reports-browser/`。
+- 默认输出目录是 `/agents/deep-researcher/outputs/{今天日期}/`。Markdown、HTML、临时可交付文件都写到这个目录或用户显式指定的工作区输出目录。
+- 联网必须服从用户消息中的 `[联网搜索]` 开关。未启用联网时，不要调用搜索、网页读取、浏览器或抓取工具，并在报告中说明外部时效信息未校验。
+- `web_search_bing`、`mcp:exa`、`mcp:jina-mcp-server`、SearXNG、Scrapling、Python 辅助脚本都只是可选增强路线；没有任何单一搜索提供方是必需项。优先使用当前 Agent 实际绑定且可用的工具，不可用时改用其它搜索工具、`kb_search`、用户本地资料和模型已有知识完成研究，并明确标注覆盖范围。
+- 默认不要安装 Python 包、ASR 模型、浏览器自动化组件或抓取依赖。只有用户明确同意、当前 Agent 开启 `exec_command` 且工具可用时，才运行本 skill 附带的 Python 辅助脚本。
+- 读取 Office/PDF 材料时优先使用 `office_read` / `pdf_read`，不要用 `file_read` 直接读取 `.docx`、`.pptx`、`.xlsx`、`.pdf` 二进制文件。
 
 ## 0. 支付级质量标准（所有 Task 共用，缺任何一项即降级）
 
@@ -184,11 +196,11 @@ repository: https://github.com/hoolulu/deep-research
        - todowrite 标记每章 completed
        - 向用户报告最终章节完成情况（使用 $LANG 语言）
      8. ══ Task 4 — 验证 + 装配 + QA（**主 agent 直接执行**） ══
-     → **Step 0 — 清理残留**：删除 {SKILLDIR}/reports/ 目录下所有 0 字节文件（前次装配失败的空壳）；创建 {SKILLDIR}/reports/$LANG/ 子目录（如果不存在）
+     → **Step 0 — 输出目录准备**：确定 `REVIVA_OUTPUT_DIR=/agents/deep-researcher/outputs/{今天日期}/`，不要清理或写入 `{SKILLDIR}/reports/`
      → **Step 1 — 批量验证**：`python {TOOLSDIR}/dr_tools.py validate-all-chapters --chapters-dir {TMPDIR}/chapters/ --chapters {chapter_count}`，内部 ThreadPoolExecutor 并行验证所有章节。从输出 JSON 的 `failed_chapters` 中找到失败章节，逐个重新生成（重新派发章节 agent → 重新验证该章）。
      → **Step 1b — 章节深度均衡检查**：`python {TOOLSDIR}/dr_tools.py depth-balance --chapters-dir {TMPDIR}/chapters/ --chapters {chapter_count}`。如果某章行数 < 平均值的 50%，标记告警（not blocking，仅提示）。
      → Step 1 或 Step 2 失败时，**先删除本次已写入的产物**（报告文件、中间文件等），再重新执行对应步骤，避免残留文件干扰下次运行
-     → **Step 2 — 装配**：`python {TOOLSDIR}/dr_tools.py assemble-report --outline {TMPDIR}/outline.json --chapters-dir {TMPDIR}/chapters/ --datapool {TMPDIR}/data-pool.json --mode {depth_mode} --target-year {target_year} --output {SKILLDIR}/reports/$LANG/ --lang $LANG`
+     → **Step 2 — 装配**：如果 `exec_command` 可用，运行 `python {TOOLSDIR}/dr_tools.py assemble-report --outline {TMPDIR}/outline.json --chapters-dir {TMPDIR}/chapters/ --datapool {TMPDIR}/data-pool.json --mode {depth_mode} --target-year {target_year} --output /agents/deep-researcher/outputs/{今天日期}/ --lang $LANG`；如果不可用，直接用 `file_write` 在该输出目录生成 Markdown/HTML 报告
     → **$REPORT 提取**：从装配输出中提取 `Report assembled: ...` 行中冒号后的第一个路径，设为 `$REPORT` 变量
      → **Step 2b — 可信评估(数据层)**：`python {TOOLSDIR}/dr_tools.py generate-confidence-section --datapool {TMPDIR}/data-pool.json --manifest {TMPDIR}/task2_manifest.json --report "$REPORT" --lang $LANG`
        从输出中解析 `CONFIDENCE:` 行获取 `conf_coverage`、`conf_total_facts`、`conf_high_pct`、`conf_medium_pct`、`conf_low_pct`、`conf_actual_pct`、`conf_est_pct`、`conf_fct_pct`、`conf_auth_pct`、`conf_data_limited`、`conf_controversies`、`conf_adequate_subq`、`conf_total_subq`、`conf_score` 共 14 个变量。
@@ -208,7 +220,7 @@ repository: https://github.com/hoolulu/deep-research
     → **Step 4 — 引用处理**：`python {TOOLSDIR}/dr_tools.py convert-citations --datapool {TMPDIR}/data-pool.json "$REPORT" --lang $LANG`（从 data-pool 构建参考章节，验证正文 `[N]` 引用均有对应条目）
     → **Step 4b — 货币符号转义**：`python {TOOLSDIR}/dr_tools.py escape-currency "$REPORT"`（将 `$` 转义为 `\$`，避免被知乎/Obsidian/Typora 等渲染器错误解析为 LaTeX math mode）
       → **Step 5 — QA**：`python {TOOLSDIR}/dr_tools.py qa-report "$REPORT" --mode {depth_mode} --target-year {target_year} --lang $LANG`，解析 JSON 输出，从 `checks.word_count.count` 取字数，从 `checks.word_count.limit` 取上限
-     → **Step 6 — 更新本地报告列表页**：`python {TOOLSDIR}/generate_pages.py --local`（刷新 reports-browser/index.html，将 reports/ 下所有报告打包为嵌入 JS 的可浏览页面）——需在 `{SKILLDIR}` 目录下执行，bash 命令须加 `workdir="{SKILLDIR}"` 参数
+     → **Step 6 — Reviva 产物交付**：不要运行 `generate_pages.py --local` 更新 skill 内的 `reports-browser/`；最终 Markdown/HTML 文件留在 `/agents/deep-researcher/outputs/{今天日期}/`，由 Reviva artifact 规则扫描
      → todowrite 标记完成
     → ⏱ **强制计算总耗时**（读取 start_time.txt + 当前时间算差值）
     → 从 outline.json + task2_manifest.json + qa-report 中提取数据，使用 $LANG 语言汇报最终结果。
@@ -275,7 +287,7 @@ repository: https://github.com/hoolulu/deep-research
       | 🎯 <Insight词> | {outline.chapters[0].description} |
        | 📡 <Data词> | {task2_manifest.source_count} <来源词> · {task2_manifest.unique_domains} <独立域名词> · {task2_manifest.fact_count} <事实词> · <搜索词>：{search_desc} · {task2_manifest.fetch_method} |
        | 📄 <Report词> | {REPORT} |
-       | 🌐 <浏览器词/Report List> | {SKILLDIR}/reports-browser/index.html |
+       | 🌐 HTML 报告 | /agents/deep-researcher/outputs/{今天日期}/research-report.html |
        | ✅ <可信评估词> | <覆盖_{coverage_summary}> · 高置信{conf_high_pct}% · 已公布{conf_actual_pct}% · {conf_score}/100 · {data_quality_badge} → {llm_verdict} |
        | 📊 <统计词> | {qa_report.line_count} <行词> · {qa_report.word_count} <字词> · <耗时词>⏱ {totalMin} <分钟词> · <生成时间词>：{gen_time} |
       ```
@@ -283,7 +295,7 @@ repository: https://github.com/hoolulu/deep-research
       其中：
       - `{outline.chapters[0].description}` = 从 outline.json 读取第 1 章（核心观点）的 description 字段，作为观点速览摘要
       - `{gen_time}` = 读取 {TMPDIR}/start_time.txt 中的任务开始时间，格式化为 `YYYY-MM-DD HH:mm:ss`
-       - `{REPORT}` 仅输出最终报告路径（`{SKILLDIR}/reports/{LANG}/xxx.md`），不包含任何 TMPDIR 中间路径
+       - `{REPORT}` 仅输出最终报告路径（`/agents/deep-researcher/outputs/{今天日期}/xxx.md`），不包含任何 TMPDIR 中间路径
       - `{search_desc}` = 按搜索策略拼接规则生成，所有中文词根据 $LANG 翻译
        - `{data_quality_badge}` = 按数据质量徽标规则生成
        - `<覆盖_{coverage_summary}>` = 从 `task2_manifest.coverage_summary` 读取（adequate/partial/insufficient），用语言映射表中"覆盖充足/部分覆盖/覆盖不足"行对应翻译替换
@@ -358,7 +370,7 @@ repository: https://github.com/hoolulu/deep-research
 最终报告保存路径按以下优先级判定：
 
 1. **用户自定义路径** — 如果用户显式指定了输出目录（如 `D:\Reports\`），使用指定路径
-2. **Skill 默认路径** — `{SKILLDIR}/reports/`（skill 根目录下的 reports/）
+2. **Reviva 默认路径** — `/agents/deep-researcher/outputs/{今天日期}/`
 
 装配阶段（Step 3）根据实际使用的路径写入，文件名格式不变：`<主题>-YYYYMMDD-HHmmss.md`。
 

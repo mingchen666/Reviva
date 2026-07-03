@@ -1690,11 +1690,12 @@ export class AgentService {
     return names.map(name => {
       const meta = this._findSubAgentMeta(name, subAgentRows)
       const prompt = moduleConfig.subagent_prompts?.[name] || meta?.prompt || ''
+      const configuredTools = moduleConfig.subagent_tools?.[name]
       return {
         name,
         description: meta?.description || this._descriptionFromPrompt(prompt, name),
         systemPrompt: prompt,
-        tools: Array.isArray(meta?.tools) ? meta.tools : [],
+        tools: Array.isArray(configuredTools) ? configuredTools : (Array.isArray(meta?.tools) ? meta.tools : []),
         model: meta?.model || '',
       }
     })

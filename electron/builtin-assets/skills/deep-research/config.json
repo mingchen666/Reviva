@@ -1,0 +1,14 @@
+{
+  "id": "deep-research",
+  "name": "深度研究",
+  "description": "深度研究员专属核心技能，用于学习教育、教师备课、资料综述、行业研究、竞品分析、政策解读和办公调研等长任务，生成带来源、结构化分析和可交付报告的研究产物。",
+  "icon": "ri-search-eye-line",
+  "color": "#38BDF8",
+  "category": "研究",
+  "source": "platform",
+  "allowedTools": ["file_read", "file_write", "office_read", "pdf_read", "kb_search", "web_search_bing", "mcp:exa", "mcp:jina-mcp-server"],
+  "outputTypes": ["Markdown", "HTML"],
+  "version": "3.0.1-reviva.1",
+  "author": "reviva + hoolulu",
+  "license": "MIT"
+}

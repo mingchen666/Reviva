@@ -46,6 +46,8 @@ const referenceItems = computed(() => {
   if (props.task?.id) return []
   return (props.ctxItems || []).filter(item => item?.name || item?.path || item?.kbId || item?.docId)
 })
+const showReferences = ref(false)
+const referenceCountLabel = computed(() => referenceItems.value.length > 99 ? '99+' : String(referenceItems.value.length))
 
 const isFile = computed(() => props.artifact?.storage_type === 'file')
 const isData = computed(() => props.artifact?.storage_type === 'data')
@@ -125,6 +127,14 @@ watch(
 
 watch(htmlPreviewContent, (content) => {
   htmlFrameLoading.value = !!content
+})
+
+watch(() => props.artifact?.id, () => {
+  showReferences.value = false
+})
+
+watch(referenceItems, (items) => {
+  if (!items.length) showReferences.value = false
 })
 
 async function loadArtifactFile() {
@@ -218,6 +228,20 @@ const isFullscreenRenderer = computed(() => isMindmap.value || isGraph.value || 
             <span class="text-[10px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">{{ artifact?.agent_name }}</span>
           </div>
         </div>
+        <button
+          v-if="referenceItems.length"
+          @click.stop="showReferences = !showReferences"
+          class="h-7 px-2.5 rounded-lg flex items-center gap-1.5 text-[11px] font-medium border transition-colors shrink-0"
+          :class="showReferences
+            ? (isDark ? 'bg-brand-400/12 text-brand-300 border-brand-400/30' : 'bg-brand-50 text-brand-600 border-brand-200')
+            : (isDark ? 'bg-transparent text-wt-aux border-bdr hover:text-wt-sub hover:bg-white/5' : 'bg-transparent text-lt-aux border-bdrF hover:text-lt-sub hover:bg-l4')"
+          title="查看生成参考">
+          <i class="ri-links-line text-[12px]" />
+          <span>参考</span>
+          <span class="px-1.5 py-[1px] rounded text-[9px] tabular-nums"
+            :class="isDark ? 'bg-d0 text-wt-dim' : 'bg-l4 text-lt-aux'">{{ referenceCountLabel }}</span>
+          <i :class="showReferences ? 'ri-arrow-up-s-line' : 'ri-arrow-down-s-line'" class="text-[12px]" />
+        </button>
         <button @click="emit('close')"
           class="h-7 w-7 rounded-lg flex items-center justify-center transition-colors"
           :class="isDark ? 'text-wt-aux hover:text-wt-sub hover:bg-white/5' : 'text-lt-aux hover:text-lt-sub hover:bg-l4'">
@@ -226,9 +250,9 @@ const isFullscreenRenderer = computed(() => isMindmap.value || isGraph.value || 
       </div>
 
       <div
-        v-if="referenceItems.length"
-        class="px-4 py-2.5 shrink-0"
-        :class="isDark ? 'border-b border-d4' : 'border-b border-bdrL'">
+        v-if="showReferences"
+        class="absolute right-3 top-14 z-30 w-[min(420px,calc(100%-24px))] shadow-xl rounded-xl"
+        @click.stop>
         <ReferenceContextList
           :items="referenceItems"
           :is-dark="isDark"
@@ -238,7 +262,8 @@ const isFullscreenRenderer = computed(() => isMindmap.value || isGraph.value || 
 
       <!-- Content -->
       <div class="flex-1 min-h-0 overflow-hidden"
-        :class="isFullscreenRenderer ? '' : 'overflow-y-auto p-4'">
+        :class="isFullscreenRenderer ? '' : 'overflow-y-auto p-4'"
+        @click="showReferences = false">
 
         <!-- Mindmap renderer -->
         <MindmapPreview v-if="isMindmap && parsedDataPayload"

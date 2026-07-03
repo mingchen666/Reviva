@@ -48560,9 +48560,9 @@ var createCompareNumber = /* @__PURE__ */ factory(name$2N, ["typed", "config"], 
     }
   });
 });
-var naturalSort = function naturalSort2(a, b) {
+var naturalSort$1 = function naturalSort(a, b) {
   var re = /(^([+\-]?(?:0|[1-9]\d*)(?:\.\d*)?(?:[eE][+\-]?\d+)?)?$|^0x[0-9a-f]+$|\d+)/gi, sre = /(^[ ]*|[ ]*$)/g, dre = /(^([\w ]+,?[\w ]+)?[\w ]+,?[\w ]+\d+:\d+(:\d+)?[\w ]?|^\d{1,4}[\/\-]\d{1,4}[\/\-]\d{1,4}|^\w+, \w+ \d+, \d{4})/, hre = /^0x[0-9a-f]+$/i, ore = /^0/, i = function(s) {
-    return naturalSort2.insensitive && ("" + s).toLowerCase() || "" + s;
+    return naturalSort.insensitive && ("" + s).toLowerCase() || "" + s;
   }, x = i(a).replace(sre, "") || "", y = i(b).replace(sre, "") || "", xN = x.replace(re, "\0$1\0").replace(/\0$/, "").replace(/^\0/, "").split("\0"), yN = y.replace(re, "\0$1\0").replace(/\0$/, "").replace(/^\0/, "").split("\0"), xD = parseInt(x.match(hre), 16) || xN.length !== 1 && x.match(dre) && Date.parse(x), yD = parseInt(y.match(hre), 16) || xD && y.match(dre) && Date.parse(y) || null, oFxNcL, oFyNcL;
   if (yD) {
     if (xD < yD) {
@@ -48589,7 +48589,7 @@ var naturalSort = function naturalSort2(a, b) {
   }
   return 0;
 };
-const naturalSort$1 = /* @__PURE__ */ getDefaultExportFromCjs(naturalSort);
+const naturalSort2 = /* @__PURE__ */ getDefaultExportFromCjs(naturalSort$1);
 var name$2M = "compareNatural";
 var dependencies$2M = ["typed", "compare"];
 var createCompareNatural = /* @__PURE__ */ factory(name$2M, dependencies$2M, (_ref) => {
@@ -48610,7 +48610,7 @@ var createCompareNatural = /* @__PURE__ */ factory(name$2M, dependencies$2M, (_r
       if (c2.toString() !== "0") {
         return c2 > 0 ? 1 : -1;
       } else {
-        return naturalSort$1(typeX, typeY);
+        return naturalSort2(typeX, typeY);
       }
     }
     var matTypes = ["Array", "DenseMatrix", "SparseMatrix"];
@@ -48619,11 +48619,11 @@ var createCompareNatural = /* @__PURE__ */ factory(name$2M, dependencies$2M, (_r
       if (c2 !== 0) {
         return c2;
       } else {
-        return naturalSort$1(typeX, typeY);
+        return naturalSort2(typeX, typeY);
       }
     }
     if (typeX !== typeY) {
-      return naturalSort$1(typeX, typeY);
+      return naturalSort2(typeX, typeY);
     }
     if (typeX === "Complex") {
       return compareComplexNumbers(x, y);
@@ -48638,7 +48638,7 @@ var createCompareNatural = /* @__PURE__ */ factory(name$2M, dependencies$2M, (_r
       return compareBooleans(x, y);
     }
     if (typeX === "string") {
-      return naturalSort$1(x, y);
+      return naturalSort2(x, y);
     }
     if (typeX === "Object") {
       return compareObjects(_compareNatural, x, y);
@@ -48693,8 +48693,8 @@ var createCompareNatural = /* @__PURE__ */ factory(name$2M, dependencies$2M, (_r
   function compareObjects(compareNatural, x, y) {
     var keysX = Object.keys(x);
     var keysY = Object.keys(y);
-    keysX.sort(naturalSort$1);
-    keysY.sort(naturalSort$1);
+    keysX.sort(naturalSort2);
+    keysY.sort(naturalSort2);
     var c2 = compareArrays(compareNatural, keysX, keysY);
     if (c2 !== 0) {
       return c2;
@@ -68487,13 +68487,13 @@ sr.xorwow = xorwow;
 sr.xorshift7 = xorshift7;
 sr.xor4096 = xor4096;
 sr.tychei = tychei;
-var seedrandom = sr;
-const seedrandom$1 = /* @__PURE__ */ getDefaultExportFromCjs(seedrandom);
-var singletonRandom = /* @__PURE__ */ seedrandom$1(Date.now());
+var seedrandom$1 = sr;
+const seedrandom = /* @__PURE__ */ getDefaultExportFromCjs(seedrandom$1);
+var singletonRandom = /* @__PURE__ */ seedrandom(Date.now());
 function createRng(randomSeed) {
   var random2;
   function setSeed(seed) {
-    random2 = seed === null ? singletonRandom : seedrandom$1(String(seed));
+    random2 = seed === null ? singletonRandom : seedrandom(String(seed));
   }
   setSeed(randomSeed);
   function rng2() {
@@ -85552,9 +85552,9 @@ var load = function(data, options) {
     return zip;
   });
 };
-function JSZip() {
-  if (!(this instanceof JSZip)) {
-    return new JSZip();
+function JSZip$1() {
+  if (!(this instanceof JSZip$1)) {
+    return new JSZip$1();
   }
   if (arguments.length) {
     throw new Error("The constructor with parameters has been removed in JSZip 3.0, please check the upgrade guide.");
@@ -85563,7 +85563,7 @@ function JSZip() {
   this.comment = null;
   this.root = "";
   this.clone = function() {
-    var newObj = new JSZip();
+    var newObj = new JSZip$1();
     for (var i in this) {
       if (typeof this[i] !== "function") {
         newObj[i] = this[i];
@@ -85572,20 +85572,20 @@ function JSZip() {
     return newObj;
   };
 }
-JSZip.prototype = object$1;
-JSZip.prototype.loadAsync = load;
-JSZip.support = support$4;
-JSZip.defaults = defaults$2;
-JSZip.version = "3.10.1";
-JSZip.loadAsync = function(content, options) {
-  return new JSZip().loadAsync(content, options);
+JSZip$1.prototype = object$1;
+JSZip$1.prototype.loadAsync = load;
+JSZip$1.support = support$4;
+JSZip$1.defaults = defaults$2;
+JSZip$1.version = "3.10.1";
+JSZip$1.loadAsync = function(content, options) {
+  return new JSZip$1().loadAsync(content, options);
 };
-JSZip.external = external$3;
-var lib = JSZip;
-const JSZip$1 = /* @__PURE__ */ getDefaultExportFromCjs(lib);
+JSZip$1.external = external$3;
+var lib = JSZip$1;
+const JSZip = /* @__PURE__ */ getDefaultExportFromCjs(lib);
 const index = /* @__PURE__ */ _mergeNamespaces({
   __proto__: null,
-  default: JSZip$1
+  default: JSZip
 }, [lib]);
 function __awaiter(thisArg, _arguments, P2, generator) {
   function adopt(value) {
@@ -87776,7 +87776,7 @@ function createExcelWorksheet(chartObject, zip) {
     const data = chartObject.data;
     return yield new Promise((resolve2, reject) => {
       var _a3, _b2;
-      const zipExcel = new JSZip$1();
+      const zipExcel = new JSZip();
       const intBubbleCols = (data.length - 1) * 2 + 1;
       const IS_MULTI_CAT_AXES = ((_b2 = (_a3 = data[0]) === null || _a3 === void 0 ? void 0 : _a3.labels) === null || _b2 === void 0 ? void 0 : _b2.length) > 1;
       zipExcel.folder("_rels");
@@ -90586,7 +90586,7 @@ class PptxGenJS {
     this.exportPresentation = (props) => __awaiter(this, void 0, void 0, function* () {
       const arrChartPromises = [];
       let arrMediaPromises = [];
-      const zip = new JSZip$1();
+      const zip = new JSZip();
       this.slides.forEach((slide) => {
         arrMediaPromises = arrMediaPromises.concat(encodeSlideMediaRels(slide));
       });
@@ -95089,14 +95089,15 @@ class AgentService {
       subAgentRows = [];
     }
     return names2.map((name2) => {
-      var _a4;
+      var _a4, _b3;
       const meta = this._findSubAgentMeta(name2, subAgentRows);
       const prompt = ((_a4 = moduleConfig.subagent_prompts) == null ? void 0 : _a4[name2]) || (meta == null ? void 0 : meta.prompt) || "";
+      const configuredTools = (_b3 = moduleConfig.subagent_tools) == null ? void 0 : _b3[name2];
       return {
         name: name2,
         description: (meta == null ? void 0 : meta.description) || this._descriptionFromPrompt(prompt, name2),
         systemPrompt: prompt,
-        tools: Array.isArray(meta == null ? void 0 : meta.tools) ? meta.tools : [],
+        tools: Array.isArray(configuredTools) ? configuredTools : Array.isArray(meta == null ? void 0 : meta.tools) ? meta.tools : [],
         model: (meta == null ? void 0 : meta.model) || ""
       };
     });
@@ -114324,7 +114325,7 @@ var enoent$1 = {
 const cp = require$$0$5;
 const parse = parse_1;
 const enoent = enoent$1;
-function spawn(command, args, options) {
+function spawn$1(command, args, options) {
   const parsed = parse(command, args, options);
   const spawned = cp.spawn(parsed.command, parsed.args, parsed.options);
   enoent.hookChildProcess(spawned, parsed);
@@ -114336,13 +114337,13 @@ function spawnSync(command, args, options) {
   result.error = result.error || enoent.verifyENOENTSync(result.status, parsed);
   return result;
 }
-crossSpawn.exports = spawn;
-crossSpawn.exports.spawn = spawn;
+crossSpawn.exports = spawn$1;
+crossSpawn.exports.spawn = spawn$1;
 crossSpawn.exports.sync = spawnSync;
 crossSpawn.exports._parse = parse;
 crossSpawn.exports._enoent = enoent;
 var crossSpawnExports = crossSpawn.exports;
-const spawn$1 = /* @__PURE__ */ getDefaultExportFromCjs(crossSpawnExports);
+const spawn = /* @__PURE__ */ getDefaultExportFromCjs(crossSpawnExports);
 class ReadBuffer {
   append(chunk) {
     this._buffer = this._buffer ? Buffer.concat([this._buffer, chunk]) : chunk;
@@ -114418,7 +114419,7 @@ class StdioClientTransport {
     }
     return new Promise((resolve2, reject) => {
       var _a3, _b2, _c2;
-      this._process = spawn$1(this._serverParams.command, this._serverParams.args ?? [], {
+      this._process = spawn(this._serverParams.command, this._serverParams.args ?? [], {
         // merge default env with server env because mcp server needs some env vars
         env: {
           ...getDefaultEnvironment(),

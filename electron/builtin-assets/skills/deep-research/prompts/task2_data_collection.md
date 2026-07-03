@@ -7,33 +7,29 @@
 - 输出前检查：我这一句是 {LANG} 吗？——不是则立即改写
 - 违规后果：整个流程降级，需重跑
 
-## 优化说明
-- Layer 0-4 搜索全部并行发出，不等前一层完成
-- 免费源补强与 Scrapling 抓取并行执行，不串行等待
-- **搜索源语言过滤**：根据 {LANG} 决定搜索源——{LANG}=zh 时使用全部来源；其他语言跳过中文专用站（cn.bing.com、搜狗、360、B类国内源），对通用搜索引擎加 locale 参数，对特定语言启用区域引擎（详见各步骤说明）
-- **工具探测优先**：agent 在启动时自行扫描可用工具集，根据实际可用的搜索工具自适应选择搜索策略。不依赖任何预设配置。
+## Reviva 搜索提供方策略
 
-## 五层搜索优先级
+- 没有任何单一搜索提供方是必需项。`web_search_bing`、`mcp:exa`、`mcp:jina-mcp-server`、SearXNG、网页读取/抓取工具都只是可选通道。
+- 优先使用当前 Agent 实际绑定且可用的工具；如果 Exa 不可用，用 Bing；如果 Bing 不可用，用 Jina/其它网页读取或知识库；如果全部联网工具不可用，标记 `all_search_unavailable=true`，基于本地资料、知识库和模型常识完成，并说明外部信息未校验。
+- 搜索目标是多源交叉验证，不是追求某个固定引擎。每个核心子问题尽量拿到 2-3 个独立来源；达不到时在 `gaps` 和最终报告中说明。
+- 搜索源语言过滤：根据 {LANG} 决定搜索源。{LANG}=zh 时可使用中文和国际来源；其它语言优先使用对应语言/国际来源，中文专用站只作为补充。
+- 工具探测优先：启动时扫描可用搜索/网页读取工具，根据实际工具自适应选择搜索策略，不依赖 SearXNG、Scrapling 或任何预设端点。
+
+## 搜索优先级
 
 搜索执行顺序从高优先级到低优先级：
 
-**Layer 0 — CLI 内置搜索（最高优先级，新增）**：Step 0 探测当前 CLI 工具的内置搜索引擎（如 OpenCode 的 `websearch` Exa）。如果可用，**以此为主力搜索引擎**，与后续层并行发出。详见 Step 0。
+**Layer 0 — Reviva 已绑定搜索工具**：优先使用 `web_search_bing`、`mcp:exa`、`mcp:jina-mcp-server` 或其它已绑定搜索工具。多个工具可并行，但不要因为某一个不可用而失败。
 
-**Layer 1 — 大纲建议源**：读取 {TMPDIR}/outline.json 的 `source_suggestions` 数组（如 `["noaa.gov", "ipcc.ch"]`），对每个域名，用 SearXNG 搜索 `site:{域名} {子问题关键词}`。这些是大纲阶段根据主题定向推荐的源，最贴合主题。与 Layer 0 并行发出。
+**Layer 1 — 大纲建议源定向搜索**：读取 {TMPDIR}/outline.json 的 `source_suggestions` 数组（如 `["noaa.gov", "ipcc.ch"]`），用当前可用搜索工具搜索 `site:{域名} {子问题关键词}`。
 
-**Layer 2 — SearXNG 补充搜索**：SearXNG 全网搜索，70+ 搜索引擎（含 Google/Bing/Brave/百度）并行。作为 Layer 0 的深度补充，与 Layer 0-1 并行发出。
+**Layer 2 — 补充全网搜索**：如果核心子问题来源不足，使用当前可用搜索工具扩展查询，包括反方关键词、年份关键词和同义表达。
 
-**Layer 3 — sources.json 优质源**：读取 `{PROMPTSDIR}/../sources.json`（与 prompts 同级的 skill 根目录），对每个子问题，遍历其中 `lang` 字段匹配 `{LANG}` 的源，用 webfetch 或 Scrapling 抓取搜索结果页。如某源 health check 失败（前面检测结果）则跳过。
+**Layer 3 — sources.json 优质源**：读取 `{PROMPTSDIR}/../sources.json`，只在有可用网页读取/抓取工具时尝试；失败就跳过并记录，不阻塞研究。
 
-**Layer 4 — 免费源补强**：当前 prompt 中 Step 3 定义的 A/B 类免费源。只在 Layer 0-3 结果不足时触发。
+**Layer 4 — 来源补强**：当前面来源数量、多样性或时效性不足时触发，优先补官方、学术、行业机构、主流媒体、教材/教育机构等高质量来源。
 
-所有层的搜索结果合并去重后进入 Step 4 抓取队列。
-
-**Layer 3 — sources.json 优质源**：读取 `{PROMPTSDIR}/../sources.json`（与 prompts 同级的 skill 根目录），对每个子问题，遍历其中 `lang` 字段匹配 `{LANG}` 的源，用 webfetch 或 Scrapling 抓取搜索结果页。如某源 health check 失败（前面检测结果）则跳过。
-
-**Layer 4 — 免费源补强**：当前 prompt 中 Step 3 定义的 A/B 类免费源。只在 Layer 1-3 结果不足时触发。
-
-所有层的搜索结果合并去重后进入 Step 4 抓取队列。
+所有可用搜索结果合并去重后进入内容读取/证据提取阶段。
 
 ## 输入
 - 大纲文件：{TMPDIR}/outline.json
@@ -41,7 +37,7 @@
 - 工具脚本：{TOOLSDIR}/dr_tools.py（通用 QA 工具，替代临时写 grep/jq）
 - 输出路径：{TMPDIR}/data-pool.json
 - QA 工具：{TOOLSDIR}/dr_tools.py（已有命令：check-datapool, json-validate, word-count）
-- Scrapling MCP 可用性：尝试调用 `scrapling_bulk_get` 检测，可用则使用 Scrapling，不可用则回退 webfetch
+- 可选抓取工具：如果存在 `scrapling_bulk_get`、webfetch 或等价网页读取工具，可以用于阅读全文；都不可用时，使用搜索结果摘要并明确降低置信度。
 
 ## ⚠️ 工具使用铁律
 
@@ -148,42 +144,30 @@ Step 0 — 工具环境探测（运行时自适应）
    巡检当前可用的所有工具，识别搜索相关工具。**这是关键步骤——agent 必须在此步骤中根据实际可用的工具自适应选择搜索策略。**
 
    1. **扫描工具集**：检查你的工具列表中每个工具的 description 字段，找出搜索相关工具：
-      - **搜索引擎**：description 含 `search` / `web search` / `搜索引擎` / `搜索引擎` 等关键词的工具（如 `websearch`、`searxng`、`web_search` 等）
-      - **抓取工具**：description 含 `fetch` / `webfetch` / `scrapling` / `抓取` 等关键词的工具（如 `webfetch`、`scrapling_bulk_get` 等）
+      - **搜索引擎**：description 或工具名包含 `search` / `web search` / `搜索` 等关键词的工具（如 `web_search_bing`、`mcp:exa`、`mcp:jina-mcp-server`、`websearch`、`searxng`、`web_search` 等）
+      - **网页读取工具**：description 或工具名包含 `fetch` / `read` / `web` / `scrapling` / `抓取` / `网页读取` 等关键词的工具
 
    2. **输出**：根据识别结果，在 manifest 的 `engines` 数组中列出可用的搜索引擎名。
 
-   **备用检测**（网络层确认，用于标记 `searxng_available` 字段）：
-   ```
-   python {TOOLSDIR}/dr_tools.py detect-engine
-   ```
-   如无搜索引擎可用 → 标记 `all_search_unavailable=true`，后续跳过 Layer 1-2。
+   不要为了探测某个引擎而安装依赖或访问固定 SearXNG 端点。如无搜索引擎可用 → 标记 `all_search_unavailable=true`，后续跳过联网搜索。
 
-   **Scrapling MCP 可用性**（已有，在 Step 4 前检测）：
-   尝试调用 `scrapling_bulk_get(urls=["https://example.com"], timeout=10, extraction_type="text")` 检测。
+   如果存在 Scrapling/webfetch/网页读取工具，记录到 `fetch_tools`；不存在也不要失败。
 
-Step 2 — 多源并行搜索（Layer 0-3 同时发出）
+Step 2 — 多源搜索（按可用工具自适应）
 
-五层搜索中的 Layer 0-3 在本步骤中一次性全部发出，不串行等待：
+基于 Step 0 发现的工具执行搜索；多个可用工具可以并行，不要等待或强依赖某一个固定引擎：
 
-**Layer 0 — CLI 内置引擎主力搜索**：如果 Step 0 探测到内置搜索引擎，**以此为主力**，搜索所有子问题：
-   ```
-   websearch(query="{子问题描述} {time_anchor.target_year}", numResults=10)
-   ```
-   如果 Step 0 未发现任何内置引擎，跳过本层。
+**Layer 0 — Reviva 搜索工具**：如果存在 `web_search_bing`、`mcp:exa`、`mcp:jina-mcp-server` 或其它搜索工具，搜索所有子问题。优先按可用性选择，不要把 Exa、Bing、Jina 或 SearXNG 视为必需项。
 
-**Layer 1 — 大纲建议源定向搜索**：如果 outline.json 包含 `source_suggestions`，对每个域名用 SearXNG 搜索 `site:{域名} {子问题关键词}`，一次性并行发出。
+**Layer 1 — 大纲建议源定向搜索**：如果 outline.json 包含 `source_suggestions`，用当前可用搜索工具搜索 `site:{域名} {子问题关键词}`。
 
-**Layer 2 — SearXNG 补充搜索**：
-   ☐ **searxng_available=true** → SearXNG 搜索所有子问题
-      ```
-      webfetch(url="https://search.h33.top/search?q={URL编码的子问题描述} {time_anchor.target_year}&format=json", timeout=20)
-      ```
-   🔍 **反方关键词搜索**：从 outline.json 找出所有 `priority=="high"` 且 `counter_keywords` 非空（首元素不为 `""`）的子问题，将其 counter_keywords 作为额外搜索词，与主搜索一次性并行发出。结果存入该子问题的 `controversies` 数组。
+**Layer 2 — 补充全网搜索**：对来源不足的子问题，用当前可用搜索工具追加同义词、年份、地区、反方关键词。SearXNG 只有在实际可用时才作为其中一个搜索工具。
 
-**Layer 3 — sources.json 优质源搜索**：先并行 health check（`webfetch(url=health_url, timeout=5)` 检测所有 `lang` 匹配 `{LANG}` 的源，非 200/超时标记 dead 跳过）。对存活源用 `webfetch(url=url_template.replace("{query}", url编码的关键词))` 一次性并行发出全部搜索。
+🔍 **反方关键词搜索**：从 outline.json 找出所有 `priority=="high"` 且 `counter_keywords` 非空（首元素不为 `""`）的子问题，将其 counter_keywords 作为额外搜索词。结果存入该子问题的 `controversies` 数组。
 
-所有层的搜索结果合并去重后进入抓取队列。
+**Layer 3 — sources.json 优质源搜索**：如果有可用网页读取工具，再读取 `{PROMPTSDIR}/../sources.json` 并尝试访问匹配 `{LANG}` 的源；没有网页读取工具或源访问失败时，跳过并记录，不阻塞。
+
+所有层的搜索结果合并去重后进入内容读取/证据提取阶段。
 
 ### Step 2a — 逐子问题搜索元数据记录（内部追踪，供 manifest 使用）
 
