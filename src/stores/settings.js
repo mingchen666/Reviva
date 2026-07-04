@@ -536,10 +536,21 @@ export const useSettingsStore = defineStore('settings', () => {
   const allowFileDelete = ref(true)
   const deleteScope = ref('outputs-only')
   const allowExecCommand = ref(false)
-  const defaultCommandWhitelist = ['echo', 'where', 'which', 'whoami', 'hostname', 'ver', 'uname', 'pwd', 'dir', 'tree', 'ls', 'type', 'more', 'cat', 'findstr', 'grep', 'fc', 'diff', 'ipconfig', 'ifconfig', 'ping', 'nslookup', 'dig']
+  const legacyDefaultCommandWhitelist = ['echo', 'where', 'which', 'whoami', 'hostname', 'ver', 'uname', 'pwd', 'dir', 'tree', 'ls', 'type', 'more', 'cat', 'findstr', 'grep', 'fc', 'diff', 'ipconfig', 'ifconfig', 'ping', 'nslookup', 'dig']
+  const legacyRuntimeCommandWhitelist = ['echo', 'where', 'which', 'whoami', 'hostname', 'ver', 'uname', 'pwd', 'dir', 'tree', 'python', 'node', 'ls', 'type', 'more', 'cat', 'findstr', 'grep', 'fc', 'diff', 'ipconfig', 'ifconfig', 'ping', 'nslookup', 'dig']
+  const defaultCommandWhitelist = ['echo', 'where', 'which', 'whoami', 'hostname', 'ver', 'uname', 'pwd', 'dir', 'tree', 'python', 'python3', 'py', 'node', 'pip', 'pip3', 'ls', 'type', 'more', 'cat', 'findstr', 'grep', 'fc', 'diff', 'ipconfig', 'ifconfig', 'ping', 'nslookup', 'dig']
   const defaultCommandBlacklist = ['rm -rf', 'rm -r', 'format', 'del /s', 'del /q', 'rmdir /s', 'rmdir /q', 'mkfs', 'dd', 'shutdown', 'reboot', 'reg', 'regedit', 'powershell', 'cmd']
   const commandWhitelist = ref([...defaultCommandWhitelist])
   const commandBlacklist = ref([...defaultCommandBlacklist])
+
+  function normalizeCommandWhitelist(value) {
+    if (!Array.isArray(value)) return [...defaultCommandWhitelist]
+    const raw = JSON.stringify(value)
+    if (raw === JSON.stringify(legacyDefaultCommandWhitelist) || raw === JSON.stringify(legacyRuntimeCommandWhitelist)) {
+      return [...defaultCommandWhitelist]
+    }
+    return value
+  }
 
   // ─── Notifications ───
   const notifyTaskDone = ref(false)
@@ -725,7 +736,11 @@ export const useSettingsStore = defineStore('settings', () => {
       allowFileDelete.value = all.allowFileDelete ?? true
       deleteScope.value = all.deleteScope ?? 'outputs-only'
       allowExecCommand.value = all.allowExecCommand ?? false
-      commandWhitelist.value = all.commandWhitelist ?? [...defaultCommandWhitelist]
+      const nextCommandWhitelist = normalizeCommandWhitelist(all.commandWhitelist)
+      commandWhitelist.value = nextCommandWhitelist
+      if (Array.isArray(all.commandWhitelist) && JSON.stringify(all.commandWhitelist) !== JSON.stringify(nextCommandWhitelist)) {
+        await window.electronAPI.db.settings.set('commandWhitelist', JSON.stringify(nextCommandWhitelist))
+      }
       commandBlacklist.value = all.commandBlacklist ?? [...defaultCommandBlacklist]
 
       // Notifications

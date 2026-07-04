@@ -9,6 +9,7 @@
   "allowedTools": [
     "file_read",
     "file_write",
+    "exec_command",
     "manim:*",
     "ffmpeg:*"
   ],

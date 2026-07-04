@@ -1245,6 +1245,8 @@ function execVersion(cmd, args, parser, timeoutMs = 8000, options = {}) {
 const ALIYUN_PYPI_SIMPLE_URL = 'https://mirrors.aliyun.com/pypi/simple/'
 const PYTHON_OFFICE_PACKAGES = ['python-docx', 'openpyxl', 'python-pptx', 'pandas', 'xlrd', 'pypdf']
 const PYTHON_OFFICE_IMPORT_MODULES = ['docx', 'openpyxl', 'pptx', 'pandas', 'xlrd', 'pypdf']
+const PYTHON_MATH_VIZ_PACKAGES = ['matplotlib', 'numpy', 'scipy', 'sympy']
+const PYTHON_MATH_VIZ_IMPORT_MODULES = ['matplotlib', 'numpy', 'scipy', 'sympy']
 const PYTHON_OFFICE_IMPORT_SCRIPT = [
   'import importlib.util',
   `modules=${JSON.stringify(PYTHON_OFFICE_IMPORT_MODULES)}`,
@@ -1252,6 +1254,18 @@ const PYTHON_OFFICE_IMPORT_SCRIPT = [
   "print('missing:' + ','.join(missing) if missing else 'office-libs-ok')",
   'raise SystemExit(1 if missing else 0)',
 ].join('; ')
+const PYTHON_MATH_VIZ_IMPORT_SCRIPT = [
+  'import importlib',
+  `modules=${JSON.stringify(PYTHON_MATH_VIZ_IMPORT_MODULES)}`,
+  'missing=[]',
+  'for m in modules:',
+  '    try:',
+  '        importlib.import_module(m)',
+  '    except Exception as e:',
+  '        missing.append(f"{m}:{type(e).__name__}")',
+  "print('missing:' + ','.join(missing) if missing else 'math-viz-libs-ok')",
+  'raise SystemExit(1 if missing else 0)',
+].join('\n')
 const PYTHON_CANDIDATES = [
   { cmd: 'python', args: [], label: 'python' },
   { cmd: 'py', args: ['-3'], label: 'py -3' },
@@ -1273,6 +1287,16 @@ function pythonOfficeImportAttempts() {
   }))
 }
 
+function pythonMathVizImportAttempts() {
+  return PYTHON_CANDIDATES.map(candidate => ({
+    cmd: candidate.cmd,
+    args: pythonCandidateArgs(candidate, ['-c', PYTHON_MATH_VIZ_IMPORT_SCRIPT]),
+    shell: false,
+    timeoutMs: 20000,
+    label: `${candidate.label} -c math-viz-libs-check`,
+  }))
+}
+
 const ENV_CHECKS = {
   python: { attempts: [{ cmd: 'python', args: ['--version'] }, { cmd: 'python3', args: ['--version'] }, { cmd: 'py', args: ['--version'] }], parse: (s) => (s.match(/Python\s+([\d.]+)/i)?.[1] || '') },
   node: { attempts: [{ cmd: 'node', args: ['--version'] }], parse: (s) => (s.match(/v?([\d.]+)/)?.[1] || '') },
@@ -1288,6 +1312,7 @@ const ENV_CHECKS = {
   git: { attempts: [{ cmd: 'git', args: ['--version'] }], parse: (s) => (s.match(/git version\s+([\d.]+)/i)?.[1] || '') },
   officecli: { attempts: getOfficeCliCommandCandidates(['--version']), parse: (s) => (s.match(/([\d]+\.[\d.]+)/)?.[1] || s.split('\n')[0].trim()) },
   pythonOfficeLibs: { attempts: pythonOfficeImportAttempts(), parse: (s) => (/office-libs-ok/i.test(s) ? '可用' : '') },
+  pythonMathVizLibs: { attempts: pythonMathVizImportAttempts(), parse: (s) => (/math-viz-libs-ok/i.test(s) ? '可用' : '') },
 }
 
 async function checkOneEnv(key) {
@@ -1393,7 +1418,7 @@ function formatCommandForDisplay(cmd, args) {
   return [cmd, ...args.map(arg => /\s/.test(arg) ? `"${arg.replace(/"/g, '\\"')}"` : arg)].join(' ')
 }
 
-async function installPythonOfficeLibs() {
+async function installPythonPackages({ packages, checkKey, label }) {
   const found = await findPythonPipCandidate()
   if (!found.candidate) {
     const detail = found.lastResult?.result
@@ -1409,7 +1434,7 @@ async function installPythonOfficeLibs() {
     'install',
     '--user',
     '--upgrade',
-    ...PYTHON_OFFICE_PACKAGES,
+    ...packages,
     '-i', ALIYUN_PYPI_SIMPLE_URL,
     '--trusted-host', 'mirrors.aliyun.com',
   ]
@@ -1425,13 +1450,13 @@ async function installPythonOfficeLibs() {
     command = formatCommandForDisplay(found.candidate.cmd, noUserArgs)
   }
 
-  const check = await checkOneEnv('pythonOfficeLibs')
+  const check = await checkOneEnv(checkKey)
   const success = result.code === 0 && check.installed
   return {
     success,
-    error: success ? '' : (result.code === 0 ? '安装命令已完成，但 Office Python 库导入检测仍未通过。' : 'pip 安装 Office Python 库失败。'),
+    error: success ? '' : (result.code === 0 ? `安装命令已完成，但 ${label} 导入检测仍未通过。` : `pip 安装 ${label} 失败。`),
     command,
-    packages: PYTHON_OFFICE_PACKAGES,
+    packages,
     pip: found.pipVersion,
     stdout: (result.stdout || '').slice(-12000),
     stderr: (result.stderr || '').slice(-12000),
@@ -1441,9 +1466,33 @@ async function installPythonOfficeLibs() {
   }
 }
 
+async function installPythonOfficeLibs() {
+  return installPythonPackages({
+    packages: PYTHON_OFFICE_PACKAGES,
+    checkKey: 'pythonOfficeLibs',
+    label: 'Office Python 库',
+  })
+}
+
+async function installPythonMathVizLibs() {
+  return installPythonPackages({
+    packages: PYTHON_MATH_VIZ_PACKAGES,
+    checkKey: 'pythonMathVizLibs',
+    label: '数学可视化 Python 库',
+  })
+}
+
 ipcMain.handle('env:installPythonOfficeLibs', async () => {
   try {
     return await installPythonOfficeLibs()
+  } catch (err) {
+    return { success: false, error: err.message }
+  }
+})
+
+ipcMain.handle('env:installPythonMathVizLibs', async () => {
+  try {
+    return await installPythonMathVizLibs()
   } catch (err) {
     return { success: false, error: err.message }
   }

@@ -603,14 +603,14 @@ function providerInfoFromModelRef(modelRef) {
     const provider = settingsStore.providers.find(p => p.id === parsed.providerId && p.enabled && providerConfigured(p))
     const model = provider?.models?.find(m => m.id === parsed.modelId && modelUsable(m))
     return provider && model
-      ? { providerId: provider.id, apiFormat: providerApiFormat(provider), apiKey: provider.apiKey, baseUrl: provider.baseUrl, model: model.id }
+      ? { providerId: provider.id, apiFormat: providerApiFormat(provider), apiKey: provider.apiKey, baseUrl: provider.baseUrl, model: model.id, modelHasVision: !!model.capabilities?.vision }
       : null
   }
 
   for (const provider of settingsStore.providers) {
     if (!provider.enabled || !providerConfigured(provider)) continue
     const model = provider.models?.find(m => m.id === parsed.modelId && modelUsable(m))
-    if (model) return { providerId: provider.id, apiFormat: providerApiFormat(provider), apiKey: provider.apiKey, baseUrl: provider.baseUrl, model: model.id }
+    if (model) return { providerId: provider.id, apiFormat: providerApiFormat(provider), apiKey: provider.apiKey, baseUrl: provider.baseUrl, model: model.id, modelHasVision: !!model.capabilities?.vision }
   }
   return null
 }
@@ -630,7 +630,7 @@ function resolveGenerationProviderInfo() {
   for (const provider of settingsStore.providers) {
     if (!provider.enabled || !providerConfigured(provider)) continue
     const model = provider.models?.find(m => m.enabled && m.tier !== 'embedding')
-    if (model) return { providerId: provider.id, apiFormat: providerApiFormat(provider), apiKey: provider.apiKey, baseUrl: provider.baseUrl, model: model.id }
+    if (model) return { providerId: provider.id, apiFormat: providerApiFormat(provider), apiKey: provider.apiKey, baseUrl: provider.baseUrl, model: model.id, modelHasVision: !!model.capabilities?.vision }
   }
   return null
 }

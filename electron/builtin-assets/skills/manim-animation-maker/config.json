@@ -6,7 +6,7 @@
   "color": "#0EA5E9",
   "category": "学习",
   "source": "platform",
-  "allowedTools": ["file_read", "file_write", "manim:*", "ffmpeg:*"],
+  "allowedTools": ["file_read", "file_write", "exec_command", "manim:*", "ffmpeg:*"],
   "outputTypes": ["Python", "MP4", "Image", "Markdown"],
   "version": "1.1",
   "author": "reviva",

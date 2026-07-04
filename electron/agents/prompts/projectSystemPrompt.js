@@ -125,7 +125,8 @@ function buildOutputRulesSection(agentDirName, today) {
 调用 write_file 时必须使用参数名 file_path 和 content，例如：
 write_file({ "file_path": "/agents/${agentDirName}/outputs/${today}/文件名.md", "content": "文件内容" })
 不要使用 path 作为 write_file 的路径参数名；不要使用 YYYY-MM-DD、{date}、202x-0x-0x 等日期占位符，必须使用上方给出的当前日期目录 ${today}。
-创建完成后，告诉用户文件的虚拟路径。`
+创建完成后，告诉用户文件的虚拟路径。注意使用 \`xxx\`反引号包裹文件和文件夹路径。
+`
 }
 
 function buildBehaviorSection() {
@@ -143,7 +144,10 @@ function buildBehaviorSection() {
 - 绝不要调用 execute({ path: ... }) 或 execute({ operation: ... })；execute 即使出现在底层提示中，也不是 Reviva 的文件/媒体工具调用方式`
 }
 
-function buildOfficeReadSection() {
+function buildOfficeReadSection(modelHasVision = false) {
+  const visionRule = modelHasVision
+    ? '- 当前模型支持视觉理解；当用户需要分析图片/图表/截图内容时，先用 office_read(path, mode="images", exportImages=true) 导出关键图片，再按需调用 vision_analyze(path 或 paths, question, context) 理解图片。不要为了单纯展示图片而调用 vision_analyze。'
+    : '- 当前模型未标记为支持视觉理解；可以用 office_read(path, mode="images", exportImages=true) 导出并在 Markdown 中展示图片，但不要声称已经看懂图片内容。若用户要求分析图片/图表，请说明需要切换到支持视觉的模型。'
   return `## Office 文档读取
 
 - 所有智能体都默认拥有 office_read 工具，用于读取 .docx、.xlsx、.pptx 文件。
@@ -152,6 +156,7 @@ function buildOfficeReadSection() {
 - 需要正文内容时，调用 office_read(path, mode="text", start, maxLines, maxChars) 分段读取，并优先沿用工具返回的 next 参数继续读取。
 - 需要文档内图片、图表截图或图文并茂回答时，调用 office_read(path, mode="images", exportImages=true)。工具会通过 officecli 导出嵌入图片到 /context/office-images/...，随后可在 Markdown 中使用 ![说明](/context/office-images/.../xxx.png) 展示。
 - 只需要定位图片时，可先调用 office_read(path, mode="images") 获取 DOM path；需要单张图片时再传 imagePath 精确导出。
+${visionRule}
 - 只需要结构、表格/工作表概览或格式问题时，优先使用 mode="outline"、mode="stats" 或 mode="issues"，不要为了概览读取全文。
 - 不要默认一次性读取全文；除非用户明确要求完整导出，否则只读取完成任务所需的片段。
 - 如果 office_read 返回 OFFICECLI_NOT_INSTALLED 或 OFFICECLI_UNAVAILABLE，告诉用户需要在“设置 > 环境检测”安装或修复 officecli。`
@@ -267,6 +272,7 @@ export function buildProjectSystemPrompt({
   skillInfo = [],
   answerStyle = 'default',
   agentMemoryDirName = null,
+  modelHasVision = false,
 } = {}) {
   const today = new Date().toISOString().slice(0, 10)
   const agentDirName = explicitAgentDirName || agentEnglishName || '_shared'
@@ -278,7 +284,7 @@ export function buildProjectSystemPrompt({
     buildRuntimeEnvironmentSection(),
     buildOutputRulesSection(agentDirName, today),
     buildBehaviorSection(),
-    buildOfficeReadSection(),
+    buildOfficeReadSection(modelHasVision),
     buildPdfReadSection(),
     buildCloudKnowledgeSection(cloudContext),
     buildLocalToolsetsSection(agentDirName, today),
