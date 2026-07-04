@@ -8,6 +8,54 @@ const EXEC_COMMAND_STDOUT_LIMIT = 10000
 const EXEC_COMMAND_STDERR_LIMIT = 5000
 const SHELL_SCRIPT_EXTS = new Set(['.sh', '.bash'])
 const SCRIPT_SHELL_COMMANDS = new Set(['bash', 'sh'])
+const DEFAULT_COMMAND_WHITELIST = [
+  'echo',
+  'where',
+  'which',
+  'whoami',
+  'hostname',
+  'ver',
+  'uname',
+  'pwd',
+  'dir',
+  'tree',
+  'python',
+  'python3',
+  'py',
+  'node',
+  'pip',
+  'pip3',
+  'ls',
+  'type',
+  'more',
+  'cat',
+  'findstr',
+  'grep',
+  'fc',
+  'diff',
+  'ipconfig',
+  'ifconfig',
+  'ping',
+  'nslookup',
+  'dig',
+]
+const DEFAULT_COMMAND_BLACKLIST = [
+  'rm -rf',
+  'rm -r',
+  'format',
+  'del /s',
+  'del /q',
+  'rmdir /s',
+  'rmdir /q',
+  'mkfs',
+  'dd',
+  'shutdown',
+  'reboot',
+  'reg',
+  'regedit',
+  'powershell',
+  'cmd',
+]
 
 export const SAFE_COMMAND_TOOL_DESCRIPTION = [
   '在终端执行单条白名单命令。推荐使用结构化参数 {cmd,args,cwd}，路径参数使用 /project、/docs、/context、/agents/... 等虚拟路径。',
@@ -208,7 +256,7 @@ export function prepareSafeCommand(command, {
   const baseCmd = tokens[0].toLowerCase()
   const cmdName = path.basename(baseCmd, path.extname(baseCmd)).toLowerCase()
 
-  const globalBlacklist = commandList(dbService.getSetting?.('commandBlacklist') ?? [])
+  const globalBlacklist = commandList(dbService.getSetting?.('commandBlacklist') ?? DEFAULT_COMMAND_BLACKLIST)
   const agentBlacklist = commandList(execConfig?.blacklist ?? [])
   const effectiveBlacklist = [...globalBlacklist, ...agentBlacklist]
   const commandText = commandRuleText(trimmedCmd)
@@ -218,7 +266,7 @@ export function prepareSafeCommand(command, {
     }
   }
 
-  const globalWhitelist = commandList(dbService.getSetting?.('commandWhitelist') ?? [])
+  const globalWhitelist = commandList(dbService.getSetting?.('commandWhitelist') ?? DEFAULT_COMMAND_WHITELIST)
   const agentWhitelist = commandList(execConfig?.whitelist ?? [])
   const effectiveWhitelist = [...globalWhitelist, ...agentWhitelist]
   if (!commandAllowedByWhitelist(trimmedCmd, baseCmd, cmdName, effectiveWhitelist)) {
@@ -273,7 +321,7 @@ export function prepareSafeStructuredCommand(input = {}, {
   const cmdName = path.basename(baseCmd, path.extname(baseCmd)).toLowerCase()
   const commandText = commandRuleText([cmd, ...args].join(' '))
 
-  const globalBlacklist = commandList(dbService.getSetting?.('commandBlacklist') ?? [])
+  const globalBlacklist = commandList(dbService.getSetting?.('commandBlacklist') ?? DEFAULT_COMMAND_BLACKLIST)
   const agentBlacklist = commandList(execConfig?.blacklist ?? [])
   const effectiveBlacklist = [...globalBlacklist, ...agentBlacklist]
   for (const pattern of effectiveBlacklist) {
@@ -282,7 +330,7 @@ export function prepareSafeStructuredCommand(input = {}, {
     }
   }
 
-  const globalWhitelist = commandList(dbService.getSetting?.('commandWhitelist') ?? [])
+  const globalWhitelist = commandList(dbService.getSetting?.('commandWhitelist') ?? DEFAULT_COMMAND_WHITELIST)
   const agentWhitelist = commandList(execConfig?.whitelist ?? [])
   const effectiveWhitelist = [...globalWhitelist, ...agentWhitelist]
   if (!commandAllowedByWhitelist(commandText, baseCmd, cmdName, effectiveWhitelist)) {

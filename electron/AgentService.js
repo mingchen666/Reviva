@@ -313,7 +313,7 @@ import { ChatAnthropic } from '@langchain/anthropic'
 import { ChatOpenAI } from '@langchain/openai'
 import { MemorySaver, InMemoryStore, Command } from '@langchain/langgraph'
 import { ToolMessage, HumanMessage, AIMessage, SystemMessage } from '@langchain/core/messages'
-import { getLangchainTools, getUserDefinedLangchainTools, setToolProviderConfig, setWorkDirService, setDbService, setWikiService as setWikiServiceForTools, setMcpService as setMcpServiceForTools, resetTaskCounters, setExecCommandConfig, setCloudContext, setToolRunContext, hiddenCommandCompatibilityTools, invokeCommandCompatibilityTool } from './agents/langchainTools.js'
+import { getLangchainTools, getUserDefinedLangchainTools, setToolProviderConfig, setWorkDirService, setDbService, setWikiService as setWikiServiceForTools, setMcpService as setMcpServiceForTools, setVisionAnalyzeHandler, resetTaskCounters, setExecCommandConfig, setCloudContext, setToolRunContext, hiddenCommandCompatibilityTools, invokeCommandCompatibilityTool } from './agents/langchainTools.js'
 import { buildProjectSystemPrompt } from './agents/prompts/projectSystemPrompt.js'
 import { TokenRecorder } from './agents/TokenRecorder.js'
 import { ErrorClassifier } from './agents/ErrorClassifier.js'
@@ -342,11 +342,16 @@ const MODEL_COST = {
 }
 const DEFAULT_COST = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }
 const DEFAULT_AGENT_TOOL_IDS = ['office_read', 'pdf_read']
+const VISION_AGENT_TOOL_IDS = ['vision_analyze']
 const CLOUD_KNOWLEDGE_TOOL_IDS = new Set(['kb_search'])
 const UNLIMITED_RECURSION_LIMIT = 10000
 
-function withDefaultAgentTools(toolIds) {
-  return [...new Set([...(toolIds || []), ...DEFAULT_AGENT_TOOL_IDS])]
+function withDefaultAgentTools(toolIds, { modelHasVision = false } = {}) {
+  return [...new Set([
+    ...(toolIds || []),
+    ...DEFAULT_AGENT_TOOL_IDS,
+    ...(modelHasVision ? VISION_AGENT_TOOL_IDS : []),
+  ])]
 }
 
 function withPermissionAgentTools(toolIds, permissions = {}) {
@@ -362,10 +367,11 @@ function hasCloudKnowledgeScope(cloudContext) {
   )
 }
 
-function withContextualAgentTools(toolIds, cloudContext) {
+function withContextualAgentTools(toolIds, cloudContext, { modelHasVision = false } = {}) {
   const hasScope = hasCloudKnowledgeScope(cloudContext)
-  const ids = withDefaultAgentTools(toolIds)
+  const ids = withDefaultAgentTools(toolIds, { modelHasVision })
     .filter(id => hasScope || !CLOUD_KNOWLEDGE_TOOL_IDS.has(id))
+    .filter(id => modelHasVision || !VISION_AGENT_TOOL_IDS.includes(id))
   if (hasScope) ids.push('kb_search')
   return [...new Set(ids)]
 }
@@ -593,6 +599,17 @@ function _readImageAsDataUrl(item) {
   const mediaType = item.mime || IMAGE_MIME[ext] || 'image/png'
   const data = fs.readFileSync(item.path).toString('base64')
   return `data:${mediaType};base64,${data}`
+}
+
+function _messageContentToText(content) {
+  if (typeof content === 'string') return content
+  if (!Array.isArray(content)) return content == null ? '' : String(content)
+  return content.map(block => {
+    if (typeof block === 'string') return block
+    if (block?.type === 'text') return block.text || ''
+    if (block?.text) return block.text
+    return ''
+  }).filter(Boolean).join('\n')
 }
 
 function _attachImagesToUserMessages(messages, { modelHasVision = false } = {}) {
@@ -1425,6 +1442,7 @@ export class AgentService {
     // Inject DatabaseService for reading security settings (allowFileDelete, deleteScope)
     setDbService(this._db)
     setMcpServiceForTools(this._mcpService)
+    setVisionAnalyzeHandler((args, context) => this._handleVisionAnalyze(args, context))
 
     // Load builtin agent modules (创作中心 agents)
     this._builtinModules = this._loadBuiltinAgentModules()
@@ -1543,6 +1561,149 @@ export class AgentService {
     return new ChatOpenAI(openaiOpts)
   }
 
+  _visionContextFromRequest(request = {}) {
+    return {
+      modelHasVision: !!request.modelHasVision,
+      providerId: request.providerId || '',
+      apiKey: request.apiKey || '',
+      baseUrl: request.baseUrl || '',
+      apiFormat: request.apiFormat || '',
+      model: request.model || '',
+    }
+  }
+
+  async _handleVisionAnalyze(args = {}, runContext = {}) {
+    const vision = runContext?.vision || {}
+    if (!vision.modelHasVision) {
+      return {
+        success: false,
+        code: 'VISION_UNAVAILABLE',
+        message: '当前 Agent 使用的模型未标记为支持视觉理解。可以展示图片，但不能进行视觉分析。',
+      }
+    }
+    if (!vision.providerId || !vision.model) {
+      return {
+        success: false,
+        code: 'VISION_MODEL_NOT_CONFIGURED',
+        message: '缺少当前 Agent 的视觉模型配置。',
+      }
+    }
+
+    const rawPaths = [
+      args.path,
+      ...(Array.isArray(args.paths) ? args.paths : []),
+    ].map(item => String(item || '').trim()).filter(Boolean)
+    const uniquePaths = [...new Set(rawPaths)]
+    if (!uniquePaths.length) {
+      return { success: false, code: 'MISSING_PATH', message: 'vision_analyze 缺少 path 或 paths 参数。' }
+    }
+
+    const maxImages = Math.min(Math.max(Number(args.maxImages) || 4, 1), MAX_VISION_IMAGES)
+    const selectedPaths = uniquePaths.slice(0, maxImages)
+    const skipped = Math.max(uniquePaths.length - selectedPaths.length, 0)
+    const resolver = createVfsPathResolver({ workDirService: this._workDirService })
+    const images = []
+    for (const inputPath of selectedPaths) {
+      let resolved
+      let virtualPath
+      try {
+        const result = resolver.resolve(inputPath, {
+          op: 'read',
+          toolName: 'vision_analyze',
+          agentDirName: runContext?.agentEnglishName || '_shared',
+          boundSkillIds: runContext?.boundSkillIds || [],
+          wikiContext: runContext?.wikiContext || {},
+        })
+        resolved = result.realPath
+        virtualPath = result.virtualPath
+      } catch (e) {
+        return { success: false, code: 'PATH_NOT_ALLOWED', message: `安全限制：${e.message}`, path: inputPath }
+      }
+      if (!fs.existsSync(resolved)) {
+        return { success: false, code: 'FILE_NOT_FOUND', message: '图片文件不存在。', path: virtualPath || inputPath }
+      }
+      const ext = path.extname(resolved).toLowerCase()
+      if (!IMAGE_EXTS.has(ext)) {
+        return { success: false, code: 'UNSUPPORTED_IMAGE_FORMAT', message: `不支持的图片格式：${ext || '(无扩展名)'}`, path: virtualPath || inputPath }
+      }
+      const stat = fs.statSync(resolved)
+      if (!stat.isFile()) {
+        return { success: false, code: 'INVALID_IMAGE_PATH', message: '图片路径必须指向文件。', path: virtualPath || inputPath }
+      }
+      if (stat.size > MAX_VISION_IMAGE_BYTES) {
+        return { success: false, code: 'IMAGE_TOO_LARGE', message: '单张图片不能超过 10MB。', path: virtualPath || inputPath, size: stat.size }
+      }
+      const mimeType = IMAGE_MIME[ext] || 'image/png'
+      images.push({
+        inputPath,
+        path: virtualPath || inputPath,
+        realPath: resolved,
+        mimeType,
+        data: fs.readFileSync(resolved).toString('base64'),
+        size: stat.size,
+      })
+    }
+
+    const question = String(args.question || '').trim() || '请描述图片中的主要内容，并提取与当前任务相关的信息。'
+    const context = String(args.context || '').trim()
+    const mode = ['auto', 'per_image', 'compare'].includes(args.mode) ? args.mode : 'auto'
+    const modeText = {
+      auto: '综合分析这些图片，重点回答问题。',
+      per_image: '请逐张图片说明关键内容，再给出简短总结。',
+      compare: '请比较这些图片之间的差异、联系和共同结论。',
+    }[mode]
+    const prompt = [
+      '你是图片理解工具。请只根据图片可见内容和给定上下文回答，不要编造不可见信息。',
+      `任务：${question}`,
+      context ? `上下文：${context}` : '',
+      `分析模式：${modeText}`,
+      `图片路径：\n${images.map((item, index) => `${index + 1}. ${item.path}`).join('\n')}`,
+    ].filter(Boolean).join('\n\n')
+
+    try {
+      const model = this._createModel(
+        vision.providerId,
+        vision.apiKey,
+        vision.baseUrl,
+        vision.model,
+        {
+          apiFormat: vision.apiFormat,
+          streaming: false,
+          temperature: 0.2,
+          maxTokens: 2048,
+        },
+      )
+      const content = [
+        { type: 'text', text: prompt },
+        ...images.map(item => ({
+          type: 'image',
+          source_type: 'base64',
+          mime_type: item.mimeType,
+          data: item.data,
+        })),
+      ]
+      const response = await model.invoke([new HumanMessage({ content })])
+      return {
+        success: true,
+        paths: images.map(item => item.path),
+        skipped,
+        question,
+        mode,
+        model: vision.model,
+        providerId: vision.providerId,
+        content: _messageContentToText(response?.content).trim(),
+        usage: response?.usage_metadata || response?.response_metadata?.tokenUsage || null,
+      }
+    } catch (e) {
+      return {
+        success: false,
+        code: 'VISION_ANALYZE_FAILED',
+        message: e?.message || '图片理解失败。',
+        paths: images.map(item => item.path),
+      }
+    }
+  }
+
   // ── DeepAgents Config Builders ────────────────────────────────
 
   /**
@@ -1553,7 +1714,7 @@ export class AgentService {
     if (!requestedIds.length) return allTools
 
     const effectiveIds = filterWebSearchTools(
-      withContextualAgentTools(requestedIds, cloudContext),
+      withContextualAgentTools(requestedIds, cloudContext, { modelHasVision: !!options.modelHasVision }),
       options.webSearchEnabled !== false,
     )
     const tools = this._buildLocalRuntimeTools(effectiveIds, { includeDefaults: false })
@@ -1647,8 +1808,8 @@ export class AgentService {
     return [...new Set([...(toolIds || []), ...this._skillAllowedTools(skillIds)].filter(Boolean))]
   }
 
-  _buildLocalRuntimeTools(toolIds, { includeDefaults = true } = {}) {
-    const effectiveIds = includeDefaults ? withDefaultAgentTools(toolIds) : (toolIds || [])
+  _buildLocalRuntimeTools(toolIds, { includeDefaults = true, modelHasVision = false } = {}) {
+    const effectiveIds = includeDefaults ? withDefaultAgentTools(toolIds, { modelHasVision }) : (toolIds || [])
     const builtinTools = effectiveIds.length ? getLangchainTools(effectiveIds) : []
     const userTools = getUserDefinedLangchainTools(effectiveIds, this._listEnabledCustomToolRows())
     return [...builtinTools, ...userTools]
@@ -1661,7 +1822,7 @@ export class AgentService {
     return subAgentConfigs.map(sa => {
       const saRequestedTools = this._withSkillTools(sa.tools || [], sa.skills || [])
       const saTools = saRequestedTools.length
-        ? this._buildSubagentTools(sa.tools, allTools, sa.skills, request.cloudContext, { webSearchEnabled })
+        ? this._buildSubagentTools(sa.tools, allTools, sa.skills, request.cloudContext, { webSearchEnabled, modelHasVision: !!request.modelHasVision })
         : allTools // inherit parent tools if not specified
 
       const subConfig = {
@@ -1822,7 +1983,7 @@ export class AgentService {
       onProgress(18, '准备上下文...')
       setToolProviderConfig(request.toolProviderConfigs || {})
       const agentDirName = this._agentRuntimeDirName(request.agentId || moduleConfig.id, agentEnglishName)
-      setToolRunContext({ agentEnglishName: agentDirName, permissions: moduleConfig.permissions || {}, wikiContext: request.wikiContext || {}, boundSkillIds: moduleConfig.skills || [] })
+      setToolRunContext({ agentEnglishName: agentDirName, permissions: moduleConfig.permissions || {}, wikiContext: request.wikiContext || {}, boundSkillIds: moduleConfig.skills || [], vision: this._visionContextFromRequest(request) })
       setExecCommandConfig({
         whitelist: moduleConfig.permissions?.execCommandWhitelist || null,
         blacklist: moduleConfig.permissions?.execCommandBlacklist || null,
@@ -1852,7 +2013,7 @@ export class AgentService {
       const skillData = this._buildSkillsPaths(moduleConfig.skills || [])
       const memoryDirName = agentDirName
       let systemPrompt = moduleConfig.prompt || ''
-      systemPrompt += '\n\n' + this._buildProjectSystemPrompt(workRoot, preparedCtxPaths, agentDirName, skillData.info, request.answerStyle, memoryDirName, request.cloudContext)
+      systemPrompt += '\n\n' + this._buildProjectSystemPrompt(workRoot, preparedCtxPaths, agentDirName, skillData.info, request.answerStyle, memoryDirName, request.cloudContext, { modelHasVision: !!request.modelHasVision })
 
       const agentDir = path.join(workRoot, 'agents', agentDirName)
       fs.mkdirSync(agentDir, { recursive: true })
@@ -1869,8 +2030,8 @@ export class AgentService {
       const effectiveToolIds = filterWebSearchTools(withContextualAgentTools(withPermissionAgentTools(this._withSkillTools(allToolIds, [
         ...(moduleConfig.skills || []),
         ...subAgentConfigs.flatMap(sa => Array.isArray(sa.skills) ? sa.skills : []),
-      ]), moduleConfig.permissions), request.cloudContext), webSearchEnabled)
-      setToolRunContext({ agentEnglishName: agentDirName, permissions: moduleConfig.permissions || {}, wikiContext: request.wikiContext || {}, boundSkillIds: skillData.boundSkillIds, toolIds: effectiveToolIds })
+      ]), moduleConfig.permissions), request.cloudContext, { modelHasVision: !!request.modelHasVision }), webSearchEnabled)
+      setToolRunContext({ agentEnglishName: agentDirName, permissions: moduleConfig.permissions || {}, wikiContext: request.wikiContext || {}, boundSkillIds: skillData.boundSkillIds, toolIds: effectiveToolIds, vision: this._visionContextFromRequest(request) })
       const customTools = this._buildLocalRuntimeTools(effectiveToolIds, { includeDefaults: false })
       resetTaskCounters()
 
@@ -2223,7 +2384,7 @@ export class AgentService {
     try {
       // Set tool provider config (for web_search Tavily/SearXNG/Bing per-agent config)
       setToolProviderConfig(request.toolProviderConfigs || {})
-      setToolRunContext({ agentEnglishName: agentDirName, permissions: request.permissions || {}, wikiContext: request.wikiContext || {}, boundSkillIds: request.skills || [] })
+      setToolRunContext({ agentEnglishName: agentDirName, permissions: request.permissions || {}, wikiContext: request.wikiContext || {}, boundSkillIds: request.skills || [], vision: this._visionContextFromRequest(request) })
       setExecCommandConfig({
         whitelist: request.permissions?.execCommandWhitelist || null,
         blacklist: request.permissions?.execCommandBlacklist || null,
@@ -2262,7 +2423,7 @@ export class AgentService {
       // Renderer sends agent.prompt as systemPrompt; main process injects project rules + context paths + skills
       const memoryDirName = agentDirName
       let systemPrompt = request.systemPrompt || ''
-      systemPrompt += '\n\n' + this._buildProjectSystemPrompt(workRoot, preparedCtxPaths, agentDirName, skillData.info, request.answerStyle, memoryDirName, request.cloudContext)
+      systemPrompt += '\n\n' + this._buildProjectSystemPrompt(workRoot, preparedCtxPaths, agentDirName, skillData.info, request.answerStyle, memoryDirName, request.cloudContext, { modelHasVision: !!request.modelHasVision })
 
       // Write per-agent runtime files (AGENT.md, skills.json) to agent sandbox directory
       const agentDir = path.join(workRoot, 'agents', agentDirName)
@@ -2283,8 +2444,8 @@ export class AgentService {
       ], [
         ...(request.skills || []),
         ...subAgentSkillIds,
-      ]), request.permissions), request.cloudContext)
-      setToolRunContext({ agentEnglishName: agentDirName, permissions: request.permissions || {}, wikiContext: request.wikiContext || {}, boundSkillIds: skillData.boundSkillIds, toolIds: effectiveToolIds })
+      ]), request.permissions), request.cloudContext, { modelHasVision: !!request.modelHasVision })
+      setToolRunContext({ agentEnglishName: agentDirName, permissions: request.permissions || {}, wikiContext: request.wikiContext || {}, boundSkillIds: skillData.boundSkillIds, toolIds: effectiveToolIds, vision: this._visionContextFromRequest(request) })
       const customTools = this._buildLocalRuntimeTools(effectiveToolIds, { includeDefaults: false })
       resetTaskCounters()
       console.log('[AgentService] Tools loaded:', customTools.map(t => t.name))
@@ -2608,7 +2769,7 @@ export class AgentService {
       const agentDirName = agentConfig.agentDirName || this._agentRuntimeDirName(request.agentId, request.agentEnglishName)
       const resumeToolIds = withPermissionAgentTools(agentConfig.toolIds || request.toolIds || [], request.permissions)
       const resumeSkillIds = agentConfig.boundSkillIds || request.skills || []
-      setToolRunContext({ agentEnglishName: agentDirName, permissions: request.permissions || {}, wikiContext: request.wikiContext || {}, boundSkillIds: resumeSkillIds, toolIds: resumeToolIds })
+      setToolRunContext({ agentEnglishName: agentDirName, permissions: request.permissions || {}, wikiContext: request.wikiContext || {}, boundSkillIds: resumeSkillIds, toolIds: resumeToolIds, vision: this._visionContextFromRequest(request) })
       setExecCommandConfig({
         whitelist: request.permissions?.execCommandWhitelist || null,
         blacklist: request.permissions?.execCommandBlacklist || null,
@@ -2832,9 +2993,9 @@ export class AgentService {
   async handleExecuteTool(request) {
     setCloudContext(request.cloudContext || {})
     const agentDirName = this._agentRuntimeDirName(request.agentId, request.agentEnglishName)
-    const effectiveToolIds = withContextualAgentTools(withPermissionAgentTools(this._withSkillTools(request.toolIds, request.skills), request.permissions), request.cloudContext)
-    setToolRunContext({ agentEnglishName: agentDirName, permissions: request.permissions || {}, wikiContext: request.wikiContext || {}, boundSkillIds: request.skills || [], toolIds: effectiveToolIds })
-    const tools = this._buildLocalRuntimeTools(effectiveToolIds)
+    const effectiveToolIds = withContextualAgentTools(withPermissionAgentTools(this._withSkillTools(request.toolIds, request.skills), request.permissions), request.cloudContext, { modelHasVision: !!request.modelHasVision })
+    setToolRunContext({ agentEnglishName: agentDirName, permissions: request.permissions || {}, wikiContext: request.wikiContext || {}, boundSkillIds: request.skills || [], toolIds: effectiveToolIds, vision: this._visionContextFromRequest(request) })
+    const tools = this._buildLocalRuntimeTools(effectiveToolIds, { modelHasVision: !!request.modelHasVision })
     const tool = tools.find(t => t.name === request.toolName)
     if (!tool) return { content: `Unknown tool: ${request.toolName}`, isError: true }
     try {
@@ -2856,8 +3017,9 @@ export class AgentService {
         request.permissions || context?.permissions,
       ),
         request.cloudContext || context?.cloudContext,
+        { modelHasVision: !!(request.modelHasVision || context?.modelHasVision) },
       )
-      setToolRunContext({ agentEnglishName: agentDirName, permissions: request.permissions || context?.permissions || {}, wikiContext: request.wikiContext || context?.wikiContext || {}, boundSkillIds: request.skills || context?.skills || [], toolIds: effectiveToolIds })
+      setToolRunContext({ agentEnglishName: agentDirName, permissions: request.permissions || context?.permissions || {}, wikiContext: request.wikiContext || context?.wikiContext || {}, boundSkillIds: request.skills || context?.skills || [], toolIds: effectiveToolIds, vision: this._visionContextFromRequest({ ...context, ...request, model: modelName, providerId, apiKey, baseUrl, apiFormat, modelHasVision: request.modelHasVision || context?.modelHasVision }) })
       const subModel = this._createModel(providerId, apiKey, baseUrl, modelName, { streaming: false, apiFormat })
       const subAgent = createDeepAgent({
         model: subModel,
@@ -2928,7 +3090,7 @@ export class AgentService {
       const agentDirName = this._agentRuntimeDirName(request.agentId, request.agentEnglishName)
       const memoryDirName = agentDirName
       let systemPrompt = request.systemPrompt || ''
-      systemPrompt += '\n\n' + this._buildProjectSystemPrompt(workRoot, preparedCtxPaths, agentDirName, [], request.answerStyle, memoryDirName, request.cloudContext)
+      systemPrompt += '\n\n' + this._buildProjectSystemPrompt(workRoot, preparedCtxPaths, agentDirName, [], request.answerStyle, memoryDirName, request.cloudContext, { modelHasVision: !!request.modelHasVision })
 
       const model = this._createModel(
         request.providerId,
@@ -3229,7 +3391,7 @@ export class AgentService {
    * Build project-specific system prompt additions
    * Injects output rules, behavioral guidelines, and user-provided context file paths
    */
-  _buildProjectSystemPrompt(workRoot, ctxPaths, agentDirName, skillInfo = [], answerStyle = 'default', agentMemoryDirName = null, cloudContext = {}) {
+  _buildProjectSystemPrompt(workRoot, ctxPaths, agentDirName, skillInfo = [], answerStyle = 'default', agentMemoryDirName = null, cloudContext = {}, options = {}) {
     return buildProjectSystemPrompt({
       workRoot,
       ctxPaths,
@@ -3238,6 +3400,7 @@ export class AgentService {
       skillInfo,
       answerStyle,
       agentMemoryDirName,
+      modelHasVision: !!options.modelHasVision,
     })
   }
 

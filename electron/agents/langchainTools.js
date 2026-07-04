@@ -38,6 +38,7 @@ let _dbService = null
 let _wikiService = null
 let _mcpService = null
 let _toolRunContext = { agentEnglishName: '_shared', permissions: {} }
+let _visionAnalyzeHandler = null
 const _toolsetRegistry = new ToolsetRegistry()
 
 // Per-task invocation counters (reset per agent run)
@@ -65,6 +66,10 @@ export function setMcpService(service) {
   _mcpService = service
 }
 
+export function setVisionAnalyzeHandler(handler) {
+  _visionAnalyzeHandler = typeof handler === 'function' ? handler : null
+}
+
 export function setToolRunContext(ctx = {}) {
   const toolIds = (ctx.toolIds || ctx.tools || [])
     .filter(item => typeof item === 'string')
@@ -84,6 +89,7 @@ export function setToolRunContext(ctx = {}) {
     boundSkillIds,
     mcpServerIds: [...new Set(mcpServerIds)],
     toolIds: [...new Set(toolIds)],
+    vision: ctx.vision || {},
   }
 }
 
@@ -638,6 +644,40 @@ export const calculator = tool(
     ].join('\n'),
     schema: z.object({
       expression: z.string().describe('mathjs 表达式，如 "sin(45 deg) + sqrt(2)"、"mean([1,2,3,4])"、"12 inch to cm"'),
+    }),
+  },
+)
+
+// ── Vision Analyze ───────────────────────────────────────────────
+
+export const visionAnalyze = tool(
+  async ({ path: imagePath, paths = [], question = '', context = '', mode = 'auto', detail = 'auto', maxImages }) => {
+    if (!_visionAnalyzeHandler) {
+      return JSON.stringify({
+        success: false,
+        code: 'VISION_UNAVAILABLE',
+        message: '当前运行环境未启用图片理解工具。',
+      })
+    }
+    return JSON.stringify(await _visionAnalyzeHandler({ path: imagePath, paths, question, context, mode, detail, maxImages }, _toolRunContext))
+  },
+  {
+    name: 'vision_analyze',
+    description: [
+      '按需理解工作区内图片内容。仅当当前 Agent 模型支持视觉时可用。',
+      '用于分析 office_read 导出的 Office 图片、PDF 截图、视频关键帧或用户提供的图片；普通文字读取不要调用本工具。',
+      '当用户要求分析图表、解释图片、比较多张图、提取图片中的文字/结构/视觉信息时调用。',
+      '支持单图 path 或多图 paths；question 可由你根据用户问题和上下文生成，留空时会使用默认问题。默认最多 4 张，maxImages 硬上限 8 张。',
+      '不要为了“图文并茂展示”而默认调用；只展示图片时使用 Markdown 图片路径即可。',
+    ].join('\n'),
+    schema: z.object({
+      path: z.string().optional().describe('单张图片路径，支持工作区虚拟路径，如 /context/office-images/.../chart.png。'),
+      paths: z.array(z.string()).optional().describe('多张图片路径。与 path 可同时传，工具会合并去重。默认最多分析 4 张，硬上限 8 张。'),
+      question: z.string().optional().describe('希望视觉模型回答的问题；通常由 Agent 根据用户需求生成。为空时默认描述图片并提取与任务相关的信息。'),
+      context: z.string().optional().describe('可选上下文，如图片来自哪个文档、页面、幻灯片或用户当前任务。'),
+      mode: z.enum(['auto', 'per_image', 'compare']).optional().describe('分析模式：auto 综合分析；per_image 逐图说明；compare 多图对比。默认 auto。'),
+      detail: z.enum(['auto', 'low', 'high']).optional().describe('视觉细节偏好，预留给支持该参数的模型。默认 auto。'),
+      maxImages: z.number().int().min(1).max(8).optional().describe('最多分析图片数，默认 4，硬上限 8。'),
     }),
   },
 )
@@ -1557,7 +1597,7 @@ export const mcpPromptGet = tool(
   },
 )
 
-const CUSTOM_TOOLS = [execCommand, webSearchTavily, webSearchSearxng, webSearchBing, kbSearch, wikiTool, calculator, deleteFile, officeRead, pdfRead, pptxExportLocal, mcpResourceRead, mcpPromptGet]
+const CUSTOM_TOOLS = [execCommand, webSearchTavily, webSearchSearxng, webSearchBing, kbSearch, wikiTool, calculator, deleteFile, officeRead, pdfRead, visionAnalyze, pptxExportLocal, mcpResourceRead, mcpPromptGet]
 const TOOL_ID_ALIASES = {
   file_delete: 'delete_file',
 }

@@ -284,6 +284,7 @@ export class AgentHealthService {
       { id: 'office_read', name: 'Office 读取', needsConfig: false, requires: ['officecli'] },
       { id: 'office_write', name: 'Office 创建编辑', needsConfig: false, requires: ['officecli'] },
       { id: 'pdf_read', name: 'PDF 读取', needsConfig: false, requires: ['pypdf'] },
+      { id: 'vision_analyze', name: '图片理解', needsConfig: false },
       { id: 'ffmpeg:*', name: 'FFmpeg 工具集', needsConfig: false, requires: ['ffmpeg', 'ffprobe'] },
       { id: 'pandoc:*', name: 'Pandoc 工具集', needsConfig: false, requires: ['pandoc'] },
       { id: 'manim:*', name: 'Manim 动画工具集', needsConfig: false, requires: ['manim', 'ffmpeg'] },

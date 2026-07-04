@@ -147,6 +147,21 @@ const BUILTIN_TOOLS = [
     providerConfig: {}
   },
   {
+    id: 'vision_analyze', name: '图片理解', icon: 'ri-eye-line', color: '#0EA5E9', cat: 'ai', desc: '按需理解工作区图片、Office 导出图片、PDF 截图或视频关键帧（仅视觉模型自动启用）',
+    permReq: '', archCompat: ['全架构'], type: '',
+    params: [
+      { name: 'path', type: 'string', required: false, desc: '单张图片路径，如 /context/office-images/.../chart.png' },
+      { name: 'paths', type: 'array', required: false, desc: '多张图片路径，默认最多 4 张，硬上限 8 张' },
+      { name: 'question', type: 'string', required: false, desc: '希望回答的问题；为空时自动描述图片并提取相关信息' },
+      { name: 'context', type: 'string', required: false, desc: '图片来源、文档页码、用户任务等上下文' },
+      { name: 'mode', type: 'string', required: false, desc: 'auto / per_image / compare，默认 auto' },
+      { name: 'maxImages', type: 'number', required: false, desc: '最多分析图片数，默认 4，最大 8' },
+    ],
+    sandbox: '系统默认按需工具。只能读取授权目录内图片，单图不超过 10MB。',
+    builtin: true, enabled: true, alwaysEnabled: true,
+    providerConfig: {}
+  },
+  {
     id: 'office_write', name: 'Office 创建编辑', icon: 'ri-file-edit-line', color: '#2563EB', cat: 'document', desc: '受控创建和编辑 Word、Excel、PPT，支持 batch 提速和按需 raw_set。默认输出副本，不覆盖原文件',
     permReq: 'fileWrite', archCompat: ['react', 'plan_exec', 'hybrid'], type: 'router',
     params: [

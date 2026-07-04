@@ -33,6 +33,7 @@ const api = {
   getSysInfo: () => ipcRenderer.invoke('app:getSysInfo'),
   checkEnv: (keys) => ipcRenderer.invoke('env:check', keys),
   installPythonOfficeLibs: () => ipcRenderer.invoke('env:installPythonOfficeLibs'),
+  installPythonMathVizLibs: () => ipcRenderer.invoke('env:installPythonMathVizLibs'),
   exportSettings: () => ipcRenderer.invoke('app:exportSettings'),
   importSettings: (data) => ipcRenderer.invoke('app:importSettings', data),
   backup: {

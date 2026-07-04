@@ -49,6 +49,7 @@ Strongly recommended companion:
 Optional:
 
 - `file_read`: inspect an existing Manim script or related source material.
+- `exec_command`: run controlled Python helper scripts for scientific plots or numerical assets when the agent and global sandbox settings allow it.
 
 Use raw shell commands only if the controlled tools are unavailable and the user still needs a command to run manually. Never use raw shell commands to delete files or operate outside the workspace.
 
@@ -70,6 +71,11 @@ Required only for LaTeX-heavy scenes:
 - `dvisvgm`
 - On Windows, `mpm --version` can confirm MiKTeX is installed and visible in PATH.
 
+Optional for scientific/static math plots:
+
+- Python math visualization libraries: `matplotlib`, `numpy`, `scipy`, and `sympy`.
+- These are useful for statistical charts, heatmaps, contour plots, vector fields, probability distributions, regression plots, sampled simulation results, and symbolic/numerical precomputation.
+
 Important:
 
 - The controlled `manim_tool` runs Manim through Python module entrypoints such as `python -m manim` / `py -m manim`.
@@ -79,6 +85,50 @@ Important:
 - `Text`, shapes, axes, dots, lines, arrows, graphs, and many geometry animations usually do not need LaTeX.
 - `MathTex` and `Tex` need LaTeX. If LaTeX is unavailable, prefer a non-LaTeX version with `Text` labels, simple formulas as text, and visual diagrams.
 - Chinese text may require system fonts. If font availability is uncertain, use short English labels inside Manim and explain the labels in the final Chinese answer.
+- If the Python math visualization libraries are unavailable, use Manim-native plots for simple visuals or ask the user to install the "数学可视化 Python 库" environment item.
+
+## Matplotlib Companion Workflow
+
+Use Manim-native drawing when the animation itself is the explanation: moving points, changing slopes, accumulated areas, matrix transforms, geometry constructions, and formula transitions.
+
+Use matplotlib as a companion when the source visual is a scientific/static plot: dense data, statistical charts, heatmaps, contours, vector fields, distributions, numerical simulations, or publication-style diagrams. Generate the plot first, then import it into Manim for highlighting, labels, camera motion, or narrative sequencing.
+
+Preferred asset formats:
+
+- SVG for vector plots with curves, axes, and labels: import with `SVGMobject("plot.svg")`.
+- PNG for raster-heavy outputs such as heatmaps or complex image-like plots: import with `ImageMobject("plot.png")`.
+
+Minimal pipeline:
+
+```python
+# build_plot.py
+import numpy as np
+import matplotlib.pyplot as plt
+
+x = np.linspace(-4, 4, 400)
+y = np.sin(x) / np.where(x == 0, 1, x)
+fig, ax = plt.subplots(figsize=(6, 3), dpi=160)
+ax.plot(x, y, color="#0EA5E9", linewidth=2.4)
+ax.axhline(0, color="#9CA3AF", linewidth=0.8)
+ax.set_xlabel("x")
+ax.set_ylabel("sin(x)/x")
+fig.tight_layout()
+fig.savefig("sinc.svg", transparent=True)
+```
+
+```python
+from manim import *
+
+class MainScene(Scene):
+    def construct(self):
+        plot = SVGMobject("sinc.svg").scale_to_fit_width(7)
+        label = Text("A sampled scientific plot", font_size=30).to_edge(UP)
+        self.play(Write(label))
+        self.play(FadeIn(plot, shift=UP * 0.2))
+        self.wait(1)
+```
+
+When using this workflow, keep colors, notation, coordinate ranges, and parameter values aligned with any accompanying interactive HTML or written explanation.
 
 ## Standard Workflow
 

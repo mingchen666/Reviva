@@ -42,6 +42,52 @@ description: >-
 
 ---
 
+## 0.5. Python 科学绘图辅助（matplotlib / numpy / scipy / sympy）
+
+Manim 和 matplotlib 是互补工具，不要把它们混成同一种用途：
+
+- **Manim 原生优先**：坐标轴、简单函数动画、移动点、几何构造、矩阵/向量变换、公式推导、逐步证明。需要“过程被看见”时，用 Manim 动起来。
+- **matplotlib 辅助**：统计图、热力图、等高线、向量场、密集采样数据、概率分布、回归/拟合、数值模拟结果、出版级静态图。需要“科学绘图准确稳定”时，用 Python 先生成图。
+- **sympy/numpy/scipy 辅助计算**：符号化简、求导积分、解方程、数值采样、概率/优化/插值等，结果再交给 matplotlib 或 Manim 呈现。
+
+使用前先确认设置页“数学可视化 Python 库”可用；如果不可用，提示用户安装，或退回 Manim 原生图形和交互 HTML。运行 Python 辅助脚本时使用受控 `exec_command` 的结构化参数，例如 `cmd: "python"`、`args: ["script.py"]`，不要使用 shell 串联。
+
+**matplotlib -> Manim 标准管线：**
+
+1. 用 Python 生成 `plot.svg`（矢量、适合曲线/坐标/标签）或 `plot.png`（栅格、适合热力图/复杂图像）。
+2. 在 Manim 中使用 `SVGMobject("plot.svg")` 或 `ImageMobject("plot.png")` 导入。
+3. 统一视频、网页、静态图的记号、颜色、坐标范围和参数取值。
+
+最小示例：
+
+```python
+# build_plot.py
+import numpy as np
+import matplotlib.pyplot as plt
+
+x = np.linspace(-3, 3, 400)
+y = np.exp(-x**2)
+plt.figure(figsize=(6, 3), dpi=160)
+plt.plot(x, y, color="#4A6CFF", linewidth=2.5)
+plt.axhline(0, color="#999999", linewidth=0.8)
+plt.tight_layout()
+plt.savefig("gaussian.svg", transparent=True)
+```
+
+```python
+# scene.py
+from manim import *
+
+class MainScene(Scene):
+    def construct(self):
+        plot = SVGMobject("gaussian.svg").scale_to_fit_width(6.5)
+        title = Text("Gaussian shape", font_size=34).to_edge(UP)
+        self.play(Write(title), FadeIn(plot))
+        self.wait(1)
+```
+
+---
+
 ## 1. 阶段总览（先复制这个清单跟踪进度）
 
 ```

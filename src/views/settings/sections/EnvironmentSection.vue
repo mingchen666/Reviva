@@ -11,6 +11,8 @@ const lastCheckedAt = ref(null)
 const results = ref({})
 const installingPythonOfficeLibs = ref(false)
 const pythonOfficeInstallResult = ref(null)
+const installingPythonMathVizLibs = ref(false)
+const pythonMathVizInstallResult = ref(null)
 
 const ENV_GROUPS = [
   {
@@ -58,6 +60,16 @@ const ENV_GROUPS = [
     items: [
       { key: 'ffmpeg', name: 'FFmpeg', desc: '视频/音频处理工具链', url: 'https://ffmpeg.org/download.html', usedBy: ['视频剪切', '音频转码'] },
       { key: 'manim', name: 'Manim', desc: '公式与数学可视化动画引擎，优先检测 manim 命令行', url: 'https://docs.manim.community/en/stable/installation.html', usedBy: ['公式动画生成'] },
+      {
+        key: 'pythonMathVizLibs',
+        name: '数学可视化 Python 库',
+        desc: '用于函数图像、统计图、科学绘图和符号/数值计算（matplotlib / numpy / scipy / sympy）',
+        url: 'https://mirrors.aliyun.com/pypi/simple/',
+        usedBy: ['数学可视化', 'Manim 辅助素材', '学习图表生成'],
+        installAction: 'pythonMathVizLibs',
+        installHint: '一键安装会使用阿里云 PyPI 镜像，并安装到当前用户 Python 环境。',
+        versionPrefix: false,
+      },
       { key: 'latex', name: 'LaTeX 引擎', desc: '检测 latex / pdflatex / xelatex，Manim 公式渲染依赖', url: 'https://miktex.org/download', usedBy: ['manim 公式'] },
       { key: 'dvisvgm', name: 'dvisvgm', desc: '将 LaTeX 输出转为 SVG，Manim MathTex/Tex 常用依赖', url: 'https://miktex.org/download', usedBy: ['manim 公式'] },
       { key: 'miktex', name: 'MiKTeX (mpm)', desc: '检测 MiKTeX 包管理器 mpm，Windows 推荐安装项', url: 'https://miktex.org/download', usedBy: ['manim 公式', 'LaTeX 包管理'] },
@@ -150,6 +162,33 @@ async function installPythonOfficeLibs() {
   } finally {
     checkingKeys.value.delete('pythonOfficeLibs')
     installingPythonOfficeLibs.value = false
+  }
+}
+
+async function installPythonMathVizLibs() {
+  if (installingPythonMathVizLibs.value) return
+  installingPythonMathVizLibs.value = true
+  pythonMathVizInstallResult.value = null
+  checkingKeys.value.add('pythonMathVizLibs')
+  try {
+    const installer = window.electronAPI?.installPythonMathVizLibs
+    if (!installer) {
+      pythonMathVizInstallResult.value = { success: false, error: '当前应用未暴露数学可视化 Python 库安装接口。' }
+      return
+    }
+    const res = await installer()
+    pythonMathVizInstallResult.value = res
+    if (res?.check) {
+      results.value = { ...results.value, pythonMathVizLibs: res.check }
+    } else {
+      const checkRes = await window.electronAPI?.checkEnv?.(['pythonMathVizLibs'])
+      if (checkRes?.success && checkRes.data?.pythonMathVizLibs) {
+        results.value = { ...results.value, pythonMathVizLibs: checkRes.data.pythonMathVizLibs }
+      }
+    }
+  } finally {
+    checkingKeys.value.delete('pythonMathVizLibs')
+    installingPythonMathVizLibs.value = false
   }
 }
 
@@ -314,6 +353,17 @@ onMounted(() => { checkAll() })
                 {{ (pythonOfficeInstallResult.stderr || pythonOfficeInstallResult.stdout || pythonOfficeInstallResult.detail).slice(-260) }}
               </span>
             </div>
+            <div v-if="item.key === 'pythonMathVizLibs' && pythonMathVizInstallResult"
+              class="mt-1.5 text-[9.5px] leading-snug px-1.5 py-1 rounded whitespace-pre-wrap break-all"
+              :class="pythonMathVizInstallResult.success
+                ? (isDark ? 'bg-emerald-400/8 text-emerald-300/85 border border-emerald-400/15' : 'bg-emerald-50/70 text-emerald-700/85 border border-emerald-100')
+                : (isDark ? 'bg-red-400/8 text-red-300/85 border border-red-400/15' : 'bg-red-50/70 text-red-600/85 border border-red-100')">
+              {{ pythonMathVizInstallResult.success ? '安装完成，导入检测已通过。' : (pythonMathVizInstallResult.error || '安装失败') }}
+              <span v-if="pythonMathVizInstallResult.command" class="block font-mono mt-0.5">{{ pythonMathVizInstallResult.command }}</span>
+              <span v-if="!pythonMathVizInstallResult.success && (pythonMathVizInstallResult.stderr || pythonMathVizInstallResult.stdout || pythonMathVizInstallResult.detail)" class="block font-mono mt-0.5">
+                {{ (pythonMathVizInstallResult.stderr || pythonMathVizInstallResult.stdout || pythonMathVizInstallResult.detail).slice(-260) }}
+              </span>
+            </div>
           </div>
 
           <!-- Actions -->
@@ -332,6 +382,16 @@ onMounted(() => { checkAll() })
               <span v-if="installingPythonOfficeLibs" class="loader-ring" :style="{ '--ring-color': isDark ? '#34D399' : '#059669' }" />
               <i v-else class="ri-download-cloud-line text-[11px]" />
               {{ installingPythonOfficeLibs ? '安装中' : '一键安装' }}
+            </button>
+            <button v-if="item.installAction === 'pythonMathVizLibs' && statusOf(item.key) !== 'ok'"
+              @click="installPythonMathVizLibs"
+              :disabled="installingPythonMathVizLibs"
+              title="使用阿里云 PyPI 镜像一键安装"
+              class="h-7 px-2.5 rounded-md text-[10px] font-medium flex items-center gap-1 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+              :class="isDark ? 'bg-emerald-400/10 text-emerald-400 hover:bg-emerald-400/20 border border-emerald-400/20' : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border border-emerald-100'">
+              <span v-if="installingPythonMathVizLibs" class="loader-ring" :style="{ '--ring-color': isDark ? '#34D399' : '#059669' }" />
+              <i v-else class="ri-download-cloud-line text-[11px]" />
+              {{ installingPythonMathVizLibs ? '安装中' : '一键安装' }}
             </button>
             <button v-if="statusOf(item.key) !== 'ok'" @click="openInstall(item.url)" title="打开安装指南"
               class="h-7 px-2.5 rounded-md text-[10px] font-medium flex items-center gap-1 transition-colors"
