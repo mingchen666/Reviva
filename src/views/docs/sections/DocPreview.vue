@@ -56,6 +56,23 @@ const typeLabel = computed(() => {
   return map[ext.value] || ext.value.toUpperCase()
 })
 
+const pdfStatusLabel = computed(() => {
+  const mode = props.file?.pdfStatus?.pdfTextMode || ''
+  const map = {
+    text: '可读取',
+    text_with_partial_gaps: '部分页面需要 OCR',
+    mixed_needs_ocr: '混合型，需要 OCR 补齐',
+    scanned_or_image: '扫描件，需要 OCR',
+  }
+  return map[mode] || '已预检'
+})
+
+const pdfRecommendationText = computed(() => {
+  const rec = props.file?.pdfStatus?.recommendation
+  if (!rec) return ''
+  return rec.reason || rec.action || ''
+})
+
 function openExternally() {
   if (props.file?.path) api()?.openPath?.(props.file.path)
 }
@@ -143,6 +160,46 @@ function showInFolder() {
             :class="isDark ? 'bg-brand-400/12 text-brand-400 hover:bg-brand-400/20' : 'bg-brand-50 text-brand-500 hover:bg-brand-100'">
             <i class="ri-external-link-line text-[11px] mr-1" />用系统应用打开
           </button>
+        </div>
+      </div>
+
+      <!-- Image -->
+      <div v-else-if="file.pdfStatus" class="p-6">
+        <div class="max-w-3xl mx-auto rounded-xl border p-5"
+          :class="isDark ? 'bg-d3 border-bdr' : 'bg-l3 border-bdrF'">
+          <div class="flex items-start justify-between gap-4">
+            <div>
+              <div class="text-[13px] font-semibold" :class="isDark ? 'text-wt-main' : 'text-lt-main'">{{ pdfStatusLabel }}</div>
+              <div class="text-[11px] mt-1" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">
+                {{ file.pdfStatus.pageCount || 0 }} 页 · 文本覆盖率 {{ Math.round((file.pdfStatus.textCoverageRatio || 0) * 100) }}%
+              </div>
+            </div>
+            <span class="ctx-pill shrink-0" :class="isDark ? 'bg-red-400/8 text-red-400 border border-red-400/20' : 'bg-red-50 text-red-500 border border-red-100'">
+              PDF
+            </span>
+          </div>
+          <div v-if="pdfRecommendationText" class="mt-4 text-[12px] leading-relaxed" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">
+            {{ pdfRecommendationText }}
+          </div>
+          <div class="mt-4 grid grid-cols-3 gap-2">
+            <div class="rounded-lg px-3 py-2" :class="isDark ? 'bg-d4/50' : 'bg-l4/60'">
+              <div class="text-[10px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">候选 OCR 页</div>
+              <div class="text-[13px] font-semibold mt-0.5" :class="isDark ? 'text-wt-main' : 'text-lt-main'">{{ file.pdfStatus.ocrCandidateCount || 0 }}</div>
+            </div>
+            <div class="rounded-lg px-3 py-2" :class="isDark ? 'bg-d4/50' : 'bg-l4/60'">
+              <div class="text-[10px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">已扫描页</div>
+              <div class="text-[13px] font-semibold mt-0.5" :class="isDark ? 'text-wt-main' : 'text-lt-main'">{{ file.pdfStatus.scannedPages || 0 }}</div>
+            </div>
+            <div class="rounded-lg px-3 py-2" :class="isDark ? 'bg-d4/50' : 'bg-l4/60'">
+              <div class="text-[10px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">缓存</div>
+              <div class="text-[13px] font-semibold mt-0.5" :class="isDark ? 'text-wt-main' : 'text-lt-main'">{{ file.pdfStatus.cacheHit ? '命中' : '已更新' }}</div>
+            </div>
+          </div>
+          <div v-if="file.pdfStatus.content" class="mt-5">
+            <div class="text-[11px] mb-2" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">文本预览</div>
+            <pre class="text-[12px] leading-relaxed whitespace-pre-wrap max-h-[360px] overflow-auto rounded-lg p-3"
+              :class="isDark ? 'bg-d4 text-wt-sub' : 'bg-l4 text-lt-sub'">{{ file.pdfStatus.content }}</pre>
+          </div>
         </div>
       </div>
 

@@ -84,10 +84,10 @@ function closePreview() {
     <div v-if="hasFile" class="flex items-center gap-1 px-3 py-1.5 shrink-0"
       :class="isDark ? 'border-b border-d4' : 'border-b border-bdrL'">
       <i class="ri-file-3-line text-[12px] shrink-0" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'" />
-      <span class="text-[11px] truncate min-w-0" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">{{ fileName }}</span>
+      <span class="text-[13px] truncate min-w-0" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">{{ fileName }}</span>
       <div class="ml-auto flex items-center gap-0.5 shrink-0">
         <button v-if="isHtml && hasContent" @click="openHtmlPreview"
-          class="h-6 px-2 rounded-md flex items-center gap-1 text-[11px] font-medium transition-colors"
+          class="h-7 px-2.5 rounded-md flex items-center gap-1 text-[12px] font-medium transition-colors"
           :class="isDark ? 'bg-brand-400/12 text-brand-300 hover:bg-brand-400/20 hover:text-brand-200' : 'bg-brand-50 text-brand-600 hover:bg-brand-100'"
           title="打开预览">
           <i class="ri-window-line text-[12px]" />
@@ -120,7 +120,7 @@ function closePreview() {
       <div v-if="isLoading" class="flex items-center justify-center py-16">
         <div class="text-center">
           <i class="ri-loader-4-line text-[20px] animate-spin" :class="isDark ? 'text-brand-400' : 'text-brand-500'" />
-          <p class="text-[11px] mt-2" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">加载中...</p>
+          <p class="text-[12px] mt-2" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">加载中...</p>
         </div>
       </div>
 
@@ -128,9 +128,9 @@ function closePreview() {
       <div v-else-if="hasError" class="p-4">
         <div class="rounded-lg p-5 text-center" :class="isDark ? 'bg-red-500/8 border border-red-500/20' : 'bg-red-50 border border-red-200'">
           <i class="ri-error-warning-line text-[24px]" :class="isDark ? 'text-red-400' : 'text-red-500'" />
-          <p class="text-[12px] font-medium mt-2" :class="isDark ? 'text-red-400' : 'text-red-500'">文件读取失败</p>
-          <p class="text-[11px] mt-1 break-all" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">{{ previewFile.error }}</p>
-          <button @click="openExternally" class="mt-3 h-7 px-3 rounded-lg text-[11px] font-medium transition-colors"
+          <p class="text-[13px] font-medium mt-2" :class="isDark ? 'text-red-400' : 'text-red-500'">文件读取失败</p>
+          <p class="text-[12px] mt-1 break-all" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">{{ previewFile.error }}</p>
+          <button @click="openExternally" class="mt-3 h-8 px-3 rounded-lg text-[12px] font-medium transition-colors"
             :class="isDark ? 'bg-brand-400/12 text-brand-400 hover:bg-brand-400/20' : 'bg-brand-50 text-brand-500 hover:bg-brand-100'">
             <i class="ri-external-link-line text-[11px] mr-1" />用系统应用打开
           </button>
@@ -170,7 +170,7 @@ function closePreview() {
       <!-- Plain text / code -->
       <div v-else-if="isText" class="p-4">
         <div class="rounded-lg p-4" :class="isDark ? 'bg-d3' : 'bg-l3'">
-          <pre class="text-[12px] font-mono whitespace-pre-wrap break-all leading-relaxed"
+          <pre class="text-[13px] font-mono whitespace-pre-wrap break-all leading-relaxed"
             :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">{{ previewFile.content }}</pre>
         </div>
       </div>
@@ -180,8 +180,8 @@ function closePreview() {
         class="flex items-center justify-center py-16">
         <div class="text-center">
           <i class="ri-file-unknow-line text-[28px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'" />
-          <p class="text-[12px] mt-2" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">此文件类型暂不支持预览</p>
-          <button @click="openExternally" class="mt-3 h-7 px-3 rounded-lg text-[11px] font-medium transition-colors"
+          <p class="text-[13px] mt-2" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">此文件类型暂不支持预览</p>
+          <button @click="openExternally" class="mt-3 h-8 px-3 rounded-lg text-[12px] font-medium transition-colors"
             :class="isDark ? 'bg-brand-400/12 text-brand-400 hover:bg-brand-400/20' : 'bg-brand-50 text-brand-500 hover:bg-brand-100'">
             <i class="ri-external-link-line text-[11px] mr-1" />用系统应用打开
           </button>

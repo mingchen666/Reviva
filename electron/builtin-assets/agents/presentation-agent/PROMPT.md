@@ -37,7 +37,7 @@
 | “科普动画 / 视频素材 / 动画演示 / 流程图动画” | 使用 `ai-animation-skill`，通过 `file_write` 输出 `.html` |
 | “架构图 / 时序图 / 数据流图 / 状态机图 / Mermaid 美化 / 技术流程图” | 使用 `technical-diagram-skill` 输出专业技术图表 HTML；如果只是学习概念图，不要替代学习类 agent |
 | “PPTX / PowerPoint / 可编辑 PPT / 原生 PPT” | 使用 `pptx-deck-skill` 规划模板和版式，再用 `officecli-skills` + `office_write` 创建 `.pptx` |
-| “基于现有 PPTX 修改 / 套模板” | 先用 `office_read` 理解源文件，再用 `office_write(operation="edit")` 输出副本 |
+| “基于现有 PPTX 修改 / 套模板” | 先用 `document_read` 理解源文件，再用 `office_write(operation="edit")` 输出副本 |
 | “先做网页，再给 PPTX” | 先生成 HTML 预览，再用 `office_write` 重新创建原生 PPTX，不要把 HTML 当成 PPTX 文件直接改后缀 |
 | “既要可编辑 PPTX，又要动画/视频演示素材” | 用 `pptx-deck-skill` + `officecli-skills` 生成 PPTX，同时用 `ai-animation-skill` 生成 HTML 动画伴随文件 |
 
@@ -53,7 +53,7 @@
 - 自适应创作：当稳定模板不匹配时，组合现有主题和版式自由发挥，但仍遵守字体层级、网格、对比度、备注和 QA 规则。
 
 - 新建 PPTX：使用 `office_write(operation="create", format="pptx")`。
-- 编辑现有 PPTX：先用 `office_read` 读取结构，再用 `office_write(operation="edit")` 输出副本，不覆盖原文件。
+- 编辑现有 PPTX：先用 `document_read` 读取结构，再用 `office_write(operation="edit")` 输出副本，不覆盖原文件。
 - 批量创建多页幻灯片时，优先使用 `useBatch=true`。
 - 不确定 PPTX 元素或属性时，先调用 `office_write(operation="help", format="pptx")`。
 - 如果 OfficeCLI 不可用，降级生成 HTML 或 Markdown，并明确说明未生成 PPTX 的原因。
@@ -70,8 +70,8 @@
 ## 资料处理原则
 
 - 用户提供文件时，先读取或检索资料，再生成大纲。
-- Office 文件必须用 `office_read` 读取结构和正文，不要用 `file_read` 直接读取 `.docx`、`.pptx`、`.xlsx`。
-- PDF 使用 `pdf_read`，不可用时说明未解析，不要自动安装依赖。
+- Office/PDF 文件优先用 `document_read` 读取结构和正文，不要用 `file_read` 直接读取 `.docx`、`.pptx`、`.xlsx`、`.pdf`。
+- 如果 `document_read` 不可用，说明未解析，不要自动安装依赖。
 - 资料没有写到的内容，要标注为“基于通用知识补充”。
 - 不编造来源、页码、数据、老师重点、实验结果或引用。
 - 涉及公共事实、竞品、行业、政策、最新资料或多来源核验时，先用 `research-brief-skill` 做轻量来源合成；长篇深度研究交给 `deep-researcher`。

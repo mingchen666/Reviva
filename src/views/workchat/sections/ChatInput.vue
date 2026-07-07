@@ -398,7 +398,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick, true))
         <textarea
           ref="textareaRef"
           v-model="inputText"
-          class="w-full bg-transparent outline-none resize-none border-0 box-border text-[13px] leading-relaxed min-h-[48px] sm:min-h-[56px] pb-6"
+          class="w-full bg-transparent outline-none resize-none border-0 box-border text-sm leading-relaxed min-h-[56px] sm:min-h-[64px] pb-7"
           :class="isDark ? 'text-wt-main placeholder-wt-dim' : 'text-lt-main placeholder-lt-aux'"
           rows="3"
           :maxlength="MAX_INPUT_LENGTH"
@@ -413,7 +413,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick, true))
 
         <!-- 右下角字数统计 -->
         <div
-          class="absolute right-4 bottom-2.5 text-[11px] tabular-nums select-none pointer-events-none transition-colors"
+          class="absolute right-4 bottom-2.5 text-[12px] tabular-nums select-none pointer-events-none transition-colors"
           :class="
             charCount > MAX_INPUT_LENGTH ? 'text-red-500 font-medium' : isDark ? 'text-wt-dim/120' : 'text-lt-aux/60'
           ">
@@ -429,7 +429,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick, true))
             ref="attachBtnRef"
             @click="togglePopover('attach')"
             title="附件"
-            class="toolbar-btn toolbar-btn-secondary h-7 px-1.5 sm:px-2 rounded-lg flex items-center gap-1 text-[12px] transition-colors shrink-0"
+            class="toolbar-btn toolbar-btn-secondary h-8 px-2 sm:px-2.5 rounded-lg flex items-center gap-1 text-[0.8125rem] transition-colors shrink-0"
             :class="
               activePopover === 'attach'
                 ? isDark
@@ -448,7 +448,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick, true))
             ref="agentBtnRef"
             @click="togglePopover('agent')"
             :title="selectedAgent ? selectedAgent.name : 'Agent'"
-            class="toolbar-btn toolbar-btn-agent h-7 px-1.5 sm:px-2 rounded-lg flex items-center gap-1 text-[12px] transition-colors min-w-0"
+            class="toolbar-btn toolbar-btn-agent h-8 px-2 sm:px-2.5 rounded-lg flex items-center gap-1 text-[0.8125rem] transition-colors min-w-0"
             :class="
               selectedAgent || activePopover === 'agent'
                 ? isDark
@@ -467,7 +467,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick, true))
             ref="wikiBtnRef"
             @click="togglePopover('wiki')"
             :title="selectedWikiNames.length ? selectedWikiNames.join('、') : 'Wiki'"
-            class="toolbar-btn toolbar-btn-wiki h-7 px-1.5 sm:px-2 rounded-lg flex items-center gap-1 text-[12px] transition-colors min-w-0"
+            class="toolbar-btn toolbar-btn-wiki h-8 px-2 sm:px-2.5 rounded-lg flex items-center gap-1 text-[0.8125rem] transition-colors min-w-0"
             :class="
               selectedWikiCount || activePopover === 'wiki'
                 ? isDark
@@ -486,7 +486,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick, true))
             ref="ctxBtnRef"
             @click="togglePopover('ctx')"
             :title="isCompressing ? '压缩中' : '上下文'"
-            class="toolbar-btn toolbar-btn-secondary h-7 px-1.5 sm:px-2 rounded-lg flex items-center gap-1 text-[12px] transition-colors shrink-0"
+            class="toolbar-btn toolbar-btn-secondary h-8 px-2 sm:px-2.5 rounded-lg flex items-center gap-1 text-[0.8125rem] transition-colors shrink-0"
             :class="
               activePopover === 'ctx' || isCompressing
                 ? isDark
@@ -506,7 +506,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick, true))
             v-if="hasMessages && !isStreaming"
             @click="emit('clear-messages')"
             title="清空聊天记录"
-            class="toolbar-btn toolbar-btn-secondary text-red h-7 px-1.5 sm:px-2 rounded-lg flex items-center gap-1 text-[12px] transition-colors shrink-0"
+            class="toolbar-btn toolbar-btn-secondary text-red h-8 px-2 sm:px-2.5 rounded-lg flex items-center gap-1 text-[0.8125rem] transition-colors shrink-0"
             :class="
               isDark
                 ? 'text-wt-aux hover:text-red-400 hover:bg-red-400/8'
@@ -519,7 +519,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick, true))
           <!-- Token counter -->
           <div
             v-if="totalTokens > 0"
-            class="chat-token-counter flex items-center gap-1.2 text-[11px] tabular-nums shrink-0"
+            class="chat-token-counter flex items-center gap-1.2 text-[12px] tabular-nums shrink-0"
             :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">
             <i class="ri-coin-line text-[12px]" />
             <span :class="isDark ? 'text-brand-400' : 'text-brand-500'">{{ formatTokenCount(totalInputTokens) }}↓</span>
@@ -541,7 +541,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick, true))
         <button
           v-if="isStreaming"
           @click="emit('cancel')"
-          class="chat-send-btn h-8 px-3 rounded-md flex items-center gap-1.5 text-[13px] font-medium transition-colors shrink-0"
+          class="chat-send-btn h-9 px-3.5 rounded-md flex items-center gap-1.5 text-sm font-medium transition-colors shrink-0"
           :class="stopButtonClass">
           <i class="ri-stop-circle-line text-[14px]" />
           <span class="send-label">停止</span>
@@ -549,7 +549,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick, true))
         <button
           v-else
           @click="handleSend"
-          class="chat-send-btn h-8 px-3 rounded-md flex items-center gap-1.5 text-[13px] font-500 transition-colors shrink-0"
+          class="chat-send-btn h-9 px-3.5 rounded-md flex items-center gap-1.5 text-sm font-500 transition-colors shrink-0"
           :class="sendButtonClass">
           <i class="ri-send-plane-line text-[14px]" />
           <span class="send-label">发送</span>

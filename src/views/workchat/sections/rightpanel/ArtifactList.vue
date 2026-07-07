@@ -302,10 +302,10 @@ function menuCanRename() {
 <template>
   <div class="flex-1 min-h-0 flex flex-col px-3 pt-2.5" :class="isDark ? 'border-b border-d4' : 'border-b border-bdrL'">
     <div class="flex items-center justify-between mb-2 shrink-0">
-      <span class="text-[10px] font-bold uppercase tracking-wider" :class="isDark ? 'text-wt-aux' : 'text-lt-aux'">
+      <span class="text-[12px] font-bold uppercase tracking-wider" :class="isDark ? 'text-wt-aux' : 'text-lt-aux'">
         生成结果
       </span>
-      <span class="text-[10px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">{{ resultEntries.length }}</span>
+      <span class="text-[11px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">{{ resultEntries.length }}</span>
     </div>
 
     <div v-if="resultEntries.length" class="flex-1 min-h-0 overflow-y-auto thin-scroll space-y-1 pb-3">
@@ -313,7 +313,7 @@ function menuCanRename() {
         <div
           v-if="entry.kind === 'task'"
           @click="viewTask(entry.task)"
-          class="rounded-lg p-2 transition-colors group relative"
+          class="rounded-lg p-2.5 transition-colors group relative"
           :class="[
             isDark ? 'hover:bg-brand-400/8' : 'hover:bg-brand-50',
             primaryTaskArtifact(entry.task) ? 'cursor-pointer' : '',
@@ -326,17 +326,17 @@ function menuCanRename() {
             </div>
             <div class="flex-1 min-w-0">
               <div class="flex items-center gap-1.5 min-w-0">
-                <div class="text-[11px] font-semibold truncate" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">
+                <div class="text-[13px] font-semibold truncate" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">
                   {{ entry.task.name }}
                 </div>
                 <span
                   v-if="statusBadgeText(entry.task)"
-                  class="text-[9px] px-1.5 py-0.5 rounded shrink-0"
+                  class="text-[10px] px-1.5 py-0.5 rounded shrink-0"
                   :class="statusBadgeClass(entry.task)">
                   {{ statusBadgeText(entry.task) }}
                 </span>
               </div>
-              <div class="text-[10px] mt-0.5 truncate" :class="statusClass(entry.task)">
+              <div class="text-[12px] mt-0.5 truncate" :class="statusClass(entry.task)">
                 {{ statusText(entry.task) }}
               </div>
             </div>
@@ -384,13 +384,13 @@ function menuCanRename() {
               :class="isDark ? 'bg-d0 hover:bg-d2' : 'bg-white hover:bg-l2'">
               <i :class="(artifact.icon || 'ri-file-line') + ' text-[13px] shrink-0'" />
               <span
-                class="min-w-0 flex-1 truncate text-[10px] font-medium"
+                class="min-w-0 flex-1 truncate text-[12px] font-medium"
                 :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">
                 {{ displayArtifactTitle(artifact) }}
               </span>
               <span
                 v-if="artifactFormatLabel(artifact)"
-                class="shrink-0 rounded px-1.5 py-0.5 text-[8px] font-semibold"
+                class="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold"
                 :class="isDark ? 'bg-d3 text-wt-dim' : 'bg-l3 text-lt-aux'">
                 {{ artifactFormatLabel(artifact) }}
               </span>
@@ -401,7 +401,7 @@ function menuCanRename() {
         <div
           v-else
           @click="viewArtifact(entry.artifact)"
-          class="rounded-lg p-2 cursor-pointer transition-colors group relative"
+          class="rounded-lg p-2.5 cursor-pointer transition-colors group relative"
           :class="isDark ? 'hover:bg-brand-400/8' : 'hover:bg-brand-50'">
           <div class="flex items-center gap-2.5">
             <div
@@ -410,12 +410,12 @@ function menuCanRename() {
               <i :class="(entry.artifact.icon || 'ri-file-line') + ' text-[16px]'" />
             </div>
             <div class="flex-1 min-w-0">
-              <div class="text-[11px] font-semibold truncate" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">
+              <div class="text-[13px] font-semibold truncate" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">
                 {{ displayArtifactTitle(entry.artifact) }}
               </div>
               <div
                 v-if="artifactMeta(entry.artifact)"
-                class="text-[10px] truncate"
+                class="text-[12px] truncate"
                 :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">
                 {{ artifactMeta(entry.artifact) }}
               </div>
@@ -436,7 +436,7 @@ function menuCanRename() {
 
     <div v-else class="flex-1 min-h-0 py-4 text-center" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">
       <i class="ri-inbox-line text-[20px] mb-1" />
-      <p class="text-[11px]">生成结果会显示在这里</p>
+      <p class="text-[12px]">生成结果会显示在这里</p>
     </div>
   </div>
 
@@ -450,7 +450,7 @@ function menuCanRename() {
       <button
         v-if="menuCanView()"
         @click="handleMenuView"
-        class="w-full flex items-center gap-2.5 px-3 py-[7px] text-[12px] font-medium transition-colors"
+        class="w-full flex items-center gap-2.5 px-3 py-2 text-[13px] font-medium transition-colors"
         :class="isDark ? 'text-wt-sub hover:bg-white/5' : 'text-lt-sub hover:bg-l4'">
         <i class="ri-eye-line text-[13px]" />
         <span>查看</span>
@@ -458,14 +458,14 @@ function menuCanRename() {
       <button
         v-if="menuCanRename()"
         @click="handleMenuRename"
-        class="w-full flex items-center gap-2.5 px-3 py-[7px] text-[12px] font-medium transition-colors"
+        class="w-full flex items-center gap-2.5 px-3 py-2 text-[13px] font-medium transition-colors"
         :class="isDark ? 'text-wt-sub hover:bg-white/5' : 'text-lt-sub hover:bg-l4'">
         <i class="ri-edit-line text-[13px]" />
         <span>重命名</span>
       </button>
       <button
         @click="handleMenuDelete"
-        class="w-full flex items-center gap-2.5 px-3 py-[7px] text-[12px] font-medium transition-colors"
+        class="w-full flex items-center gap-2.5 px-3 py-2 text-[13px] font-medium transition-colors"
         :class="isDark ? 'text-red-400 hover:bg-red-400/8' : 'text-red-500 hover:bg-red-50'">
         <i class="ri-delete-bin-line text-[13px]" />
         <span>删除</span>

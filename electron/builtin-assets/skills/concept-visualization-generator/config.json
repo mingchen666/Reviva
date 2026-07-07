@@ -1,0 +1,26 @@
+{
+  "id": "concept-visualization-generator",
+  "name": "概念可视化生成器",
+  "description": "Design and generate concept-first learning artifacts: concept cards, visual explanations, diagrams, interactive HTML demos, Manim/math visualizations, matplotlib scientific plots, misconception checks, and short retrieval practice. Use when the user wants to understand, teach, review, visualize, make a knowledge card for, or interactively explore a concept.",
+  "icon": "ri-lightbulb-flash-line",
+  "color": "#F59E0B",
+  "category": "学习",
+  "source": "platform",
+  "allowedTools": [
+    "file_read",
+    "file_write",
+    "exec_command",
+    "manim:*",
+    "ffmpeg:*"
+  ],
+  "outputTypes": [
+    "Markdown",
+    "HTML",
+    "Image",
+    "MP4",
+    "JSON"
+  ],
+  "version": "1.0.0",
+  "author": "reviva",
+  "license": "MIT"
+}

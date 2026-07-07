@@ -34,20 +34,20 @@
   --md-mark-bg:    rgba(250, 204, 21, 0.32);
 
   /* ── Override markstream-vue CSS variables ──────────────────────────── */
-  --ms-text-body: 12px;
-  --ms-text-code: 12px;
+  --ms-text-body: 0.84375rem;
+  --ms-text-code: 0.8125rem;
 
   /* ── Container ────────────────────────────────────────────────────── */
   :deep(.markstream-vue),
   :deep(.markdown-body) {
     color: var(--md-fg);
-    font-size: 12px !important;
-    line-height: 1.68 !important;
+    font-size: 0.84375rem !important;
+    line-height: 1.72 !important;
     word-break: break-word;
     overflow-wrap: anywhere;
   }
 
-  /* Force all text inside markstream to 12px — overrides Tailwind utilities on elements */
+  /* Keep markdown descendants on the readable chat scale instead of renderer defaults. */
   :deep(.markstream-vue *),
   :deep(.markdown-body *) {
     font-size: inherit !important;
@@ -60,7 +60,7 @@
   :deep(.markdown-body li),
   :deep(.markdown-body td),
   :deep(.markdown-body span) {
-    font-size: 12px !important;
+    font-size: 0.84375rem !important;
   }
 
   /* ── Headings ─────────────────────────────────────────────────────── */
@@ -169,7 +169,7 @@
   border-collapse: separate;
   border-spacing: 0;
   margin: 0.85em 0;
-  font-size: 12.5px;
+  font-size: 0.84375rem;
   
   /* 👇 修改点 1：删除 display: block，恢复默认或显式声明为 table */
   display: table; 
@@ -238,7 +238,7 @@
     border-radius: 7px;
     color: var(--md-faint);
     background: var(--md-soft);
-    font-size: 12px !important;
+    font-size: 0.8125rem !important;
     word-break: break-all;
   }
 
@@ -344,13 +344,13 @@
 
   :deep(.code-header-title) {
     font-weight: 600;
-    font-size: 11.5px;
+    font-size: 0.75rem;
     color: var(--md-fg) !important;
     letter-spacing: 0.01em;
   }
 
   :deep(.code-header-caption) {
-    font-size: 10.5px;
+    font-size: 0.6875rem;
     color: var(--md-faint) !important;
   }
 
@@ -407,7 +407,7 @@
     border: 0;
     background: transparent !important;
     overflow-x: auto;
-    font-size: 12.5px;
+    font-size: 0.8125rem;
     line-height: 1.7;
   }
   :deep(.code-block-container pre code),

@@ -41,6 +41,22 @@ function providerModel(id, name, options = {}) {
   }
 }
 
+const API_FORMAT_OPENAI = 'openai'
+const API_FORMAT_OPENAI_RESPONSES = 'openai_responses'
+const API_FORMAT_ANTHROPIC = 'anthropic'
+
+function normalizeProviderApiFormat(apiFormat, providerId = '') {
+  const value = String(apiFormat || '').trim().toLowerCase()
+  if (['openai_responses', 'openai-responses', 'openai_response', 'openai-response', 'responses', 'response'].includes(value)) {
+    return API_FORMAT_OPENAI_RESPONSES
+  }
+  if (value === API_FORMAT_ANTHROPIC) return API_FORMAT_ANTHROPIC
+  if (['openai', 'openai_chat', 'openai-chat', 'chat', 'chat_completions', 'chat-completions'].includes(value)) {
+    return API_FORMAT_OPENAI
+  }
+  return String(providerId || '').toLowerCase() === 'anthropic' ? API_FORMAT_ANTHROPIC : API_FORMAT_OPENAI
+}
+
 function providerPreset({ id, name, desc, iconName, logoBg, logoChar, baseUrl, enabled = false, models, apiKey = '', apiKeyOptional = false, local = false, region = 'CN', apiFormat = 'openai' }) {
   return {
     id,
@@ -52,7 +68,7 @@ function providerPreset({ id, name, desc, iconName, logoBg, logoChar, baseUrl, e
     logoChar,
     builtin: true,
     local,
-    apiFormat,
+    apiFormat: normalizeProviderApiFormat(apiFormat, id),
     apiKeyOptional,
     enabled,
     configured: !!apiKey,
@@ -434,7 +450,12 @@ function rgbStr(hex) {
 // merged by id: existing user models keep their edits, new default models
 // are automatically supplemented.
 function _mergeBuiltinProviders(current) {
-  if (!Array.isArray(current)) return JSON.parse(JSON.stringify(DEFAULT_PROVIDERS))
+  if (!Array.isArray(current)) {
+    return JSON.parse(JSON.stringify(DEFAULT_PROVIDERS)).map(p => ({
+      ...p,
+      apiFormat: normalizeProviderApiFormat(p.apiFormat, p.id),
+    }))
+  }
   const LEGACY_MIGRATION = { qwen: 'bailian' }
   const result = []
   for (const def of DEFAULT_PROVIDERS) {
@@ -449,7 +470,7 @@ function _mergeBuiltinProviders(current) {
       merged.apiKeyId = existing.apiKeyId || ''
       merged.baseUrl = def.official ? def.baseUrl : (existing.baseUrl || def.baseUrl)
       merged.enabled = existing.enabled ?? def.enabled
-      merged.apiFormat = def.apiFormat || existing.apiFormat || merged.apiFormat || 'openai'
+      merged.apiFormat = normalizeProviderApiFormat(existing.apiFormat || def.apiFormat || merged.apiFormat, merged.id)
       merged.apiKeyOptional = def.apiKeyOptional ?? existing.apiKeyOptional ?? merged.apiKeyOptional
       merged.local = def.local ?? existing.local ?? merged.local
       merged.configured = providerConfigured(merged)
@@ -462,6 +483,7 @@ function _mergeBuiltinProviders(current) {
         }
       }
     }
+    merged.apiFormat = normalizeProviderApiFormat(merged.apiFormat, merged.id)
     result.push(merged)
   }
   return result
@@ -684,8 +706,13 @@ export const useSettingsStore = defineStore('settings', () => {
   }
 
   async function saveProviders() {
-    if (window.electronAPI?.db) {
-      try { await window.electronAPI.db.settings.set('providers', JSON.stringify(providers.value)) } catch (e) { console.error('saveProviders error:', e) }
+    if (!window.electronAPI?.db) return false
+    try {
+      await window.electronAPI.db.settings.set('providers', JSON.stringify(providers.value))
+      return true
+    } catch (e) {
+      console.error('saveProviders error:', e)
+      return false
     }
   }
 
@@ -957,7 +984,7 @@ export const useSettingsStore = defineStore('settings', () => {
     enabledProviders, availableModels,
     chatModelOptions, embeddingModelOptions, modelCapabilitiesMap, getModelName,
     // Model management
-    addModelToProvider, removeModelFromProvider, updateModelInProvider, updateModelCapabilities, addFetchedModels, syncFetchedModels, getProviderDefaultBaseUrl, resetProviderBaseUrl, guessTier, providerConfigured,
+    addModelToProvider, removeModelFromProvider, updateModelInProvider, updateModelCapabilities, addFetchedModels, syncFetchedModels, getProviderDefaultBaseUrl, resetProviderBaseUrl, guessTier, providerConfigured, normalizeProviderApiFormat,
     // Computed
     currentAccentHex, currentAccentHover, currentAccentRgb,
     // Methods

@@ -10,8 +10,7 @@
 
 - 用户上传或选择的本地资料。
 - Markdown、TXT、CSV、JSON 等文本文件通过 `file_read` 读取。
-- DOCX、PPTX、XLSX 通过 `office_read` 读取。
-- PDF 通过 `pdf_read` 读取；如果环境不可用，标注未解析，不自动安装依赖。
+- DOCX、PPTX、XLSX、PDF 通过 `document_read` 读取；如果环境不可用，标注未解析，不自动安装依赖。
 - 云端知识库通过 `kb_search` 检索。
 - 联网搜索按当前 agent 实际可用工具执行，例如 `web_search_bing`、`mcp:exa`、`mcp:jina-mcp-server`。这些都是可选增强通道，没有任何单一搜索提供方是必需项。
 

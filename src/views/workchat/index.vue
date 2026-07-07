@@ -243,9 +243,9 @@ function estimateMessageHeight(message) {
   const attachmentCount = Array.isArray(message?.meta?.attachments) ? message.meta.attachments.length : 0
   const stepCount = Array.isArray(message?.meta?.steps) ? message.meta.steps.length : 0
   const toolCount = Array.isArray(message?.meta?.toolCalls) ? message.meta.toolCalls.length : 0
-  const lineEstimate = Math.ceil(contentLength / (message?.role === 'user' ? 48 : 76))
-  const base = message?.role === 'user' ? 72 : 118
-  const estimated = base + lineEstimate * 18 + attachmentCount * 80 + stepCount * 52 + toolCount * 42
+  const lineEstimate = Math.ceil(contentLength / (message?.role === 'user' ? 46 : 70))
+  const base = message?.role === 'user' ? 78 : 126
+  const estimated = base + lineEstimate * 21 + attachmentCount * 86 + stepCount * 56 + toolCount * 46
   return Math.min(760, Math.max(64, estimated))
 }
 
@@ -1027,32 +1027,32 @@ function animateTitle(convId, targetTitle, tab) {
           <!-- Tabs row -->
           <div class="flex">
             <button @click="leftTab = 'conv'"
-              class="flex-1 h-[34px] flex flex-col items-center justify-center gap-0.5 text-[12px] font-medium transition-colors"
+              class="flex-1 h-[36px] flex flex-col items-center justify-center gap-0.5 text-[14px] font-medium transition-colors"
               :class="leftTab === 'conv'
                 ? (isDark ? 'text-wt-main' : 'text-lt-main')
                 : (isDark ? 'text-wt-aux hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub')">
               <span class="flex items-center gap-1.5">
-                <i class="ri-message-ai-3-line text-[12px]" />对话
+                <i class="ri-message-ai-3-line text-[14px]" />对话
               </span>
               <div class="h-[2px] w-[70%] rounded-full transition-all" :class="leftTab === 'conv' ? 'bg-brand-400' : 'bg-transparent'" />
             </button>
             <button @click="leftTab = 'docs'"
-              class="flex-1 h-[34px] flex flex-col items-center justify-center gap-0.5 text-[12px] font-medium transition-colors"
+              class="flex-1 h-[36px] flex flex-col items-center justify-center gap-0.5 text-[14px] font-medium transition-colors"
               :class="leftTab === 'docs'
                 ? (isDark ? 'text-wt-main' : 'text-lt-main')
                 : (isDark ? 'text-wt-aux hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub')">
               <span class="flex items-center gap-1.5">
-                <i class="ri-folder-2-line text-[12px]" />文档
+                <i class="ri-folder-2-line text-[14px]" />文档
               </span>
               <div class="h-[2px] w-[70%] rounded-full transition-all" :class="leftTab === 'docs' ? 'bg-brand-400' : 'bg-transparent'" />
             </button>
             <button @click="leftTab = 'kb'"
-              class="flex-1 h-[34px] flex flex-col items-center justify-center gap-0.5 text-[12px] font-medium transition-colors"
+              class="flex-1 h-[36px] flex flex-col items-center justify-center gap-0.5 text-[14px] font-medium transition-colors"
               :class="leftTab === 'kb'
                 ? (isDark ? 'text-wt-main' : 'text-lt-main')
                 : (isDark ? 'text-wt-aux hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub')">
               <span class="flex items-center gap-1.5">
-                <i class="ri-database-2-line text-[12px]" />知识库
+                <i class="ri-database-2-line text-[14px]" />知识库
               </span>
               <div class="h-[2px] w-[70%] rounded-full transition-all" :class="leftTab === 'kb' ? 'bg-brand-400' : 'bg-transparent'" />
             </button>
@@ -1094,11 +1094,11 @@ function animateTitle(convId, targetTitle, tab) {
                 <div v-for="tab in tabs" :key="tab.id"
                   :data-tab-id="tab.id"
                   @click="activateTab(tab.id)"
-                  class="tab-item h-[32px] w-[148px] sm:w-[164px] px-3 flex items-center gap-1.5 text-[12px] shrink-0 relative cursor-pointer rounded-t-lg transition-colors"
+                  class="tab-item h-[34px] w-[152px] sm:w-[172px] px-3 flex items-center gap-1.5 text-[13px] shrink-0 relative cursor-pointer rounded-t-lg transition-colors"
                   :class="activeTabId === tab.id
                     ? (isDark ? 'bg-d2 text-wt-main' : 'bg-l2 text-lt-main')
                     : (isDark ? 'text-wt-aux hover:text-wt-sub hover:bg-white/4' : 'text-lt-aux hover:text-lt-sub hover:bg-l4')">
-                  <i class="ri-message-ai-3-line text-[12px] shrink-0"
+                  <i class="ri-message-ai-3-line text-[13px] shrink-0"
                     :class="activeTabId === tab.id ? 'text-brand-400' : (isDark ? 'text-wt-aux' : 'text-lt-aux')" />
                   <span class="truncate min-w-0">{{ convStore.titleTypewriterMap[tab.id] || tab.name }}</span>
                   <button @click.stop="closeTab(tab.id)"
@@ -1168,7 +1168,7 @@ function animateTitle(convId, targetTitle, tab) {
 
           <!-- Scroll to bottom button -->
           <button v-if="showScrollBtn" @click="userScrolledUp = false; showScrollBtn = false; scrollToBottom('smooth')"
-            class="absolute bottom-[180px] left-1/2 -translate-x-1/2 h-8 px-3 rounded-full flex items-center gap-1.5 text-[12px] font-medium z-10 transition-all duration-200 shadow-lg"
+            class="absolute bottom-[180px] left-1/2 -translate-x-1/2 h-8 px-3 rounded-full flex items-center gap-1.5 text-[13px] font-medium z-10 transition-all duration-200 shadow-lg"
             :class="isDark
               ? 'bg-d2 border border-d4 text-wt-sub hover:bg-d3 hover:text-wt-main'
               : 'bg-l2 border border-bdrF text-lt-sub hover:bg-l3 hover:text-lt-main'">

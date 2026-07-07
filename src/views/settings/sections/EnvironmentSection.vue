@@ -44,7 +44,7 @@ const ENV_GROUPS = [
       {
         key: 'pythonOfficeLibs',
         name: 'Office/PDF Python 库',
-        desc: '用于 Python 脚本读取和处理 Word、Excel、PPT、PDF（python-docx / openpyxl / python-pptx / pandas / xlrd / pypdf）',
+        desc: '用于 Python 脚本读取和处理 Word、Excel、PPT、PDF（python-docx / openpyxl / python-pptx / pandas / xlrd / PyMuPDF）',
         url: 'https://mirrors.aliyun.com/pypi/simple/',
         usedBy: ['Agent 脚本辅助', 'Office/PDF 解析'],
         installAction: 'pythonOfficeLibs',

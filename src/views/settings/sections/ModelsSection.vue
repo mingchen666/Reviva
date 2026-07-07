@@ -1,16 +1,18 @@
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch, h } from 'vue'
 import { useAppStore } from '@/stores/app'
 import { useSettingsStore } from '@/stores/settings'
 import { useUserStore } from '@/stores/user'
 import { useUserProfileStore } from '@/stores/userProfile'
 import { cloudLlmApi } from '@/apis/cloudLlm'
 import MsModal from '@/components/MsModal/MsModal.vue'
+import { useMessage } from '@/components/MsMessage/useMessage'
 
 const appStore = useAppStore()
 const settingsStore = useSettingsStore()
 const userStore = useUserStore()
 const userProfileStore = useUserProfileStore()
+const msg = useMessage()
 const isDark = computed(() => appStore.isDark)
 const accentHex = computed(() => settingsStore.currentAccentHex)
 
@@ -220,7 +222,14 @@ function toggleApiKeyVisibility(providerId) {
 
 function copyApiKey(providerId) {
   const p = settingsStore.providers.find(p => p.id === providerId)
-  if (p && p.apiKey) navigator.clipboard?.writeText(p.apiKey)
+  if (!p?.apiKey) return
+  if (!navigator.clipboard?.writeText) {
+    msg.error('当前环境不支持剪贴板')
+    return
+  }
+  navigator.clipboard.writeText(p.apiKey)
+    .then(() => msg.success('API Key 已复制'))
+    .catch(() => msg.error('复制失败'))
 }
 
 function onApiKeyInput(providerId) {
@@ -237,12 +246,21 @@ function onBaseUrlInput() {
 }
 
 let _autoSaveTimer = null
+async function saveProvidersOrThrow() {
+  const ok = await settingsStore.saveProviders()
+  if (!ok) throw new Error('模型服务配置保存失败')
+}
+
 function debouncedAutoSave() {
   clearTimeout(_autoSaveTimer)
   _autoSaveTimer = setTimeout(async () => {
-    if (selectedProvider.value) selectedProvider.value.configured = settingsStore.providerConfigured(selectedProvider.value)
-    await settingsStore.saveProviders()
-    hasUnsavedChanges.value = false
+    try {
+      if (selectedProvider.value) selectedProvider.value.configured = settingsStore.providerConfigured(selectedProvider.value)
+      await saveProvidersOrThrow()
+      hasUnsavedChanges.value = false
+    } catch (e) {
+      msg.error(e.message || '自动保存失败', { title: '保存失败', duration: 4000 })
+    }
   }, 1500)
 }
 
@@ -344,7 +362,7 @@ async function fetchOfficialModelList({ silent = false } = {}) {
       enableNew: true,
       addedBy: 'official',
     })
-    await settingsStore.saveProviders()
+    await saveProvidersOrThrow()
     officialModelsLoaded.value = true
   } catch (e) {
     fetchError.value = e.message || '获取官方模型失败'
@@ -433,7 +451,7 @@ async function loadOfficialApiKey({ silent = false } = {}) {
       selectedProvider.value.apiKey = item.key
       selectedProvider.value.apiKeyId = item.id || ''
       selectedProvider.value.configured = true
-      await settingsStore.saveProviders()
+      await saveProvidersOrThrow()
     }
   } catch (e) {
     officialKeyError.value = e.message || '获取官方 Key 状态失败'
@@ -457,12 +475,14 @@ async function resetOfficialApiKey() {
     provider.apiKey = created.key || ''
     provider.apiKeyId = created.id || ''
     provider.configured = settingsStore.providerConfigured(provider)
-    await settingsStore.saveProviders()
+    await saveProvidersOrThrow()
     if (oldKeyId && oldKeyId !== provider.apiKeyId) {
       cloudLlmApi.deleteApiKey(oldKeyId).catch(() => {})
     }
+    msg.success('官方模型 Key 已重置')
   } catch (e) {
     officialKeyError.value = e.message || '重置官方 Key 失败'
+    msg.error(officialKeyError.value)
   } finally {
     officialKeyLoading.value = false
   }
@@ -480,6 +500,7 @@ function confirmFetchAdd() {
   settingsStore.addFetchedModels(selectedProvider.value.id, modelsToAdd)
   hasUnsavedChanges.value = true
   showFetchModal.value = false
+  msg.info(`已添加 ${modelsToAdd.length} 个模型，点击保存生效`)
 }
 
 // Delete
@@ -495,6 +516,7 @@ function confirmDeleteModel() {
   if (!pendingDeleteModel.value) return
   settingsStore.removeModelFromProvider(pendingDeleteModel.value.providerId, pendingDeleteModel.value.modelId)
   hasUnsavedChanges.value = true
+  msg.info('模型已移除，点击保存生效')
   pendingDeleteModel.value = null
 }
 
@@ -528,6 +550,7 @@ function confirmAddModel() {
   })
   hasUnsavedChanges.value = true
   showAddModal.value = false
+  msg.success('模型已添加，点击保存生效')
 }
 
 // Edit model
@@ -567,12 +590,19 @@ function confirmEditModel() {
   })
   hasUnsavedChanges.value = true
   showEditModal.value = false
+  msg.success('模型修改已暂存，点击保存生效')
 }
 
 async function saveAll() {
-  if (selectedProvider.value) selectedProvider.value.configured = settingsStore.providerConfigured(selectedProvider.value)
-  await settingsStore.saveProviders()
-  hasUnsavedChanges.value = false
+  clearTimeout(_autoSaveTimer)
+  try {
+    if (selectedProvider.value) selectedProvider.value.configured = settingsStore.providerConfigured(selectedProvider.value)
+    await saveProvidersOrThrow()
+    hasUnsavedChanges.value = false
+    msg.success('模型服务配置已保存')
+  } catch (e) {
+    msg.error(e.message || '保存失败', { title: '保存失败', duration: 4000 })
+  }
 }
 
 async function resetChanges() {
@@ -581,6 +611,7 @@ async function resetChanges() {
   fetchError.value = null
   hasUnsavedChanges.value = false
   if (selectedProvider.value?.official) loadOfficialProviderData({ silent: true })
+  msg.info('已放弃未保存改动')
 }
 
 const filteredFetchedModels = computed(() => {
@@ -690,20 +721,110 @@ function providerConfigHint() {
   return ''
 }
 
+const API_FORMAT_OPTIONS = [
+  {
+    value: 'openai',
+    label: 'OpenAI Chat',
+    endpoint: '/chat/completions',
+    help: '默认格式，兼容大多数 OpenAI-compatible 服务。',
+  },
+  {
+    value: 'openai_responses',
+    label: 'OpenAI Responses',
+    endpoint: '/responses',
+    help: '适合官方 OpenAI 或明确支持 Responses API 的网关。',
+  },
+  {
+    value: 'anthropic',
+    label: 'Anthropic Messages',
+    endpoint: '/messages',
+    help: '适合 Claude 官方 API 或 Anthropic-compatible 网关。',
+  },
+]
+
+const apiFormatSelectOptions = computed(() => API_FORMAT_OPTIONS.map(option => ({
+  label: option.label,
+  value: option.value,
+  endpoint: option.endpoint,
+  help: option.help,
+})))
+
+function apiFormatOptionByValue(value) {
+  return API_FORMAT_OPTIONS.find(item => item.value === value) || API_FORMAT_OPTIONS[0]
+}
+
+function renderApiFormatLabel(option, selected) {
+  const item = apiFormatOptionByValue(option.value)
+  const titleClass = isDark.value ? 'text-wt-main' : 'text-lt-main'
+  const descClass = isDark.value ? 'text-wt-dim' : 'text-lt-aux'
+  const endpointClass = isDark.value
+    ? 'bg-d0 text-brand-300 border border-brand-400/20'
+    : 'bg-brand-50 text-brand-600 border border-brand-100'
+
+  if (selected) {
+    return h('div', { class: 'flex items-center gap-2 min-w-0' }, [
+      h('span', { class: ['truncate text-[12px] font-medium', titleClass] }, item.label),
+      h('span', { class: ['shrink-0 rounded px-1.5 py-0.5 font-mono text-[10px] leading-none', endpointClass] }, item.endpoint),
+    ])
+  }
+
+  return h('div', { class: 'min-w-0 py-1' }, [
+    h('div', { class: 'flex items-center justify-between gap-3 min-w-0' }, [
+      h('span', { class: ['truncate text-[12px] font-semibold', titleClass] }, item.label),
+      h('span', { class: ['shrink-0 rounded px-1.5 py-0.5 font-mono text-[10px] leading-none', endpointClass] }, item.endpoint),
+    ]),
+    h('div', { class: ['mt-1 pr-5 text-[10.5px] leading-snug', descClass] }, item.help),
+  ])
+}
+
 function providerApiFormat(provider) {
-  if (!provider) return 'openai'
-  if (provider.apiFormat) return provider.apiFormat
-  return provider.id === 'anthropic' ? 'anthropic' : 'openai'
+  return settingsStore.normalizeProviderApiFormat
+    ? settingsStore.normalizeProviderApiFormat(provider?.apiFormat, provider?.id)
+    : (provider?.apiFormat || (provider?.id === 'anthropic' ? 'anthropic' : 'openai'))
+}
+
+function providerFormatOption(provider) {
+  const format = providerApiFormat(provider)
+  return API_FORMAT_OPTIONS.find(item => item.value === format) || API_FORMAT_OPTIONS[0]
 }
 
 function providerFormatLabel(provider) {
-  return providerApiFormat(provider) === 'anthropic' ? 'Anthropic Messages API' : 'OpenAI-compatible'
+  return providerFormatOption(provider).label
+}
+
+function providerFormatEndpoint(provider) {
+  return providerFormatOption(provider).endpoint
+}
+
+function selectApiFormat(format) {
+  if (!selectedProvider.value || isOfficialProvider.value) return
+  selectedProvider.value.apiFormat = settingsStore.normalizeProviderApiFormat
+    ? settingsStore.normalizeProviderApiFormat(format, selectedProvider.value.id)
+    : format
+  hasUnsavedChanges.value = true
+  debouncedAutoSave()
+}
+
+function providerFormatHelpText(provider) {
+  return providerFormatOption(provider).help
+}
+
+function providerFormatWarningText(provider) {
+  const format = providerApiFormat(provider)
+  if (format === 'openai_responses') return '谨慎修改：只有 OpenAI 官方或明确支持 /responses 的网关可用；普通兼容服务通常会连接失败。'
+  if (format === 'anthropic') return '谨慎修改：只有 Claude 官方或 Anthropic Messages 兼容服务可用；OpenAI 兼容接口请保持 OpenAI Chat。'
+  return '建议保持默认。只有当服务商文档要求其他格式时，再切换这里的请求格式。'
 }
 
 function baseUrlHelpText(provider) {
-  return providerApiFormat(provider) === 'anthropic'
-    ? '可填写 Claude 官方 API 或兼容 Anthropic Messages API 的代理网关地址；点击“恢复默认”可回到内置 URL。'
-    : '可填写 Ollama、LM Studio、代理网关或其他 OpenAI-compatible 服务地址；点击“恢复默认”可回到内置 URL。'
+  const format = providerApiFormat(provider)
+  if (format === 'anthropic') {
+    return '可填写 Claude 官方 API 或兼容 Anthropic Messages API 的代理网关地址；点击“恢复默认”可回到内置 URL。'
+  }
+  if (format === 'openai_responses') {
+    return '可填写 OpenAI 官方 API 或兼容 Responses API 的网关地址，通常保留到 /v1；点击“恢复默认”可回到内置 URL。'
+  }
+  return '可填写 Ollama、LM Studio、代理网关或其他 OpenAI-compatible 服务地址；点击“恢复默认”可回到内置 URL。'
 }
 
 
@@ -948,6 +1069,30 @@ const COST_FIELDS = [
                 @click="copyApiKey(selectedProvider.id)">
                 <i class="ri-file-copy-line text-[13px]" />
               </button>
+            </div>
+          </div>
+
+          <!-- Request Format -->
+          <div class="rounded-xl p-2" :class="isDark ? 'bg-d2/60 border border-bdr' : 'bg-white border border-bdrF'">
+            <div class="flex items-center justify-between gap-2 mb-2">
+              <label class="text-[11px] font-medium" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">请求格式</label>
+              <span class="ctx-pill font-mono" :class="isDark ? 'bg-d0 text-wt-dim border border-bdr' : 'bg-l3 text-lt-aux border border-bdrF'">
+                {{ providerFormatEndpoint(selectedProvider) }}
+              </span>
+            </div>
+            <NSelect :value="providerApiFormat(selectedProvider)" @update:value="selectApiFormat"
+              :options="apiFormatSelectOptions" :render-label="renderApiFormatLabel"
+              size="medium" :theme="isDark ? 'dark' : 'light'"
+              placeholder="选择请求格式" />
+            <p class="text-[10px] leading-relaxed mt-1.5" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">
+              {{ providerFormatHelpText(selectedProvider) }}
+            </p>
+            <div class="mt-2 rounded-lg px-2.5 py-2 flex items-start gap-2"
+              :class="isDark ? 'bg-amber-400/6 border border-amber-400/15' : 'bg-amber-50 border border-amber-100'">
+              <i class="ri-alert-line text-[13px] mt-[1px]" :class="isDark ? 'text-amber-400' : 'text-amber-600'" />
+              <span class="text-[10.5px] leading-relaxed" :class="isDark ? 'text-amber-300/90' : 'text-amber-700'">
+                {{ providerFormatWarningText(selectedProvider) }}
+              </span>
             </div>
           </div>
 

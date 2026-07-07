@@ -13,6 +13,8 @@ import { createFfmpegTool } from '../tools/FfmpegToolService.js'
 import { createPandocTool } from '../tools/PandocToolService.js'
 import { createManimTool } from '../tools/ManimToolService.js'
 import { createOfficeWriteTool } from '../tools/officecli/index.js'
+import { createPdfReadTool } from '../tools/pdf/PdfReadTool.js'
+import { createDocumentReadTool } from '../tools/document/DocumentReadTool.js'
 import { extractOfficeImages, queryOfficeImages } from '../tools/officecli/OfficeImageExtractor.js'
 import { PptxExportService } from '../PptxExportService.js'
 import { getOfficeCliCommandCandidates, getOfficeCliSpawnEnv } from '../officeCliResolver.js'
@@ -586,7 +588,7 @@ export const kbSearch = tool(
   },
   {
     name: 'kb_search',
-    description: '在云端知识库中检索相关内容。用户选择云端知识库或云端知识库文档后，必须用此工具获取内容；不要改用 read_file/file_read/office_read/pdf_read 读取云端知识库。通常只传 query，系统会自动使用当前选择的 kb_ids/doc_ids。默认 top_k=5；可根据任务用不同 query 多次检索，只有问题范围较宽、用户要求更全面或命中不足时才适度上调 top_k。',
+    description: '在云端知识库中检索相关内容。用户选择云端知识库或云端知识库文档后，必须用此工具获取内容；不要改用 read_file/file_read/document_read/office_read/pdf_read 读取云端知识库。通常只传 query，系统会自动使用当前选择的 kb_ids/doc_ids。默认 top_k=5；可根据任务用不同 query 多次检索，只有问题范围较宽、用户要求更全面或命中不足时才适度上调 top_k。',
     schema: z.object({
       query: z.string().describe('检索查询语句'),
       kb_ids: z.array(z.string()).optional().describe('限定知识库 ID 列表；不传则使用用户当前选择的范围'),
@@ -665,7 +667,7 @@ export const visionAnalyze = tool(
     name: 'vision_analyze',
     description: [
       '按需理解工作区内图片内容。仅当当前 Agent 模型支持视觉时可用。',
-      '用于分析 office_read 导出的 Office 图片、PDF 截图、视频关键帧或用户提供的图片；普通文字读取不要调用本工具。',
+      '用于分析 document_read/office_read 导出的文档图片、PDF 截图、视频关键帧或用户提供的图片；普通文字读取不要调用本工具。',
       '当用户要求分析图表、解释图片、比较多张图、提取图片中的文字/结构/视觉信息时调用。',
       '支持单图 path 或多图 paths；question 可由你根据用户问题和上下文生成，留空时会使用默认问题。默认最多 4 张，maxImages 硬上限 8 张。',
       '不要为了“图文并茂展示”而默认调用；只展示图片时使用 Markdown 图片路径即可。',
@@ -905,15 +907,18 @@ function _officeError(code, message, extra = {}) {
   return JSON.stringify({ success: false, code, message, ...extra })
 }
 
-export const officeRead = tool(
-  async ({ path: filePath, mode = 'overview', start, end, maxLines, maxChars, exportImages = false, imagePath = '', maxImages }) => {
+async function invokeOfficeRead(input = {}, { countFileOp = true, toolName = 'office_read' } = {}) {
+    const { path: filePath, mode = 'overview', start, end, maxLines, maxChars, exportImages = false, imagePath = '', maxImages } = input || {}
+    const readToolLabel = toolName === 'document_read' ? 'document_read' : 'office_read'
     if (!_workDirService) {
       return _officeError('NO_WORKSPACE', '未初始化工作空间，无法读取 Office 文档。')
     }
 
-    _taskCounters.file_op++
-    if (_taskCounters.file_op > _taskLimits.file_op) {
-      return _officeError('FILE_OP_LIMIT_REACHED', `本任务文件操作次数已达上限 (${_taskLimits.file_op} 次)，请减少文件操作。`)
+    if (countFileOp) {
+      _taskCounters.file_op++
+      if (_taskCounters.file_op > _taskLimits.file_op) {
+        return _officeError('FILE_OP_LIMIT_REACHED', `本任务文件操作次数已达上限 (${_taskLimits.file_op} 次)，请减少文件操作。`)
+      }
     }
 
     if (!filePath) return _officeError('MISSING_PATH', 'office_read 缺少 path 参数。')
@@ -921,7 +926,7 @@ export const officeRead = tool(
     let resolved
     let virtualPath
     try {
-      const vfsPath = _resolveVfsPath(filePath, 'read', 'office_read')
+      const vfsPath = _resolveVfsPath(filePath, 'read', toolName)
       resolved = vfsPath.realPath
       virtualPath = vfsPath.virtualPath
     } catch (e) {
@@ -987,7 +992,7 @@ export const officeRead = tool(
         structured: clipped.truncated ? null : { stats: parsedStats.structured, outline: parsedOutline.structured },
         truncated: clipped.truncated,
         next: { mode: 'text', start: 1, maxLines: safeMaxLines, maxChars: safeMaxChars },
-        note: '默认只返回结构概览。需要正文时请按 next 分段调用 office_read(mode="text")，不要一次性读取全文。',
+        note: `默认只返回结构概览。需要正文时请按 next 分段调用 ${readToolLabel}(mode="text")，不要一次性读取全文。`,
       })
     }
 
@@ -1024,7 +1029,7 @@ export const officeRead = tool(
         errors: exportResult ? exportResult.errors : listed.errors,
         note: exportImages === true
           ? '已通过 officecli get --save 导出文档内图片。exported[].path 可作为工作区图片路径供支持视觉的模型读取。'
-          : '图片路径是 officecli DOM path；需要本地图片文件时再次调用 office_read(mode="images", exportImages=true)，可用 imagePath 指定单张图片。',
+          : `图片路径是 officecli DOM path；需要本地图片文件时再次调用 ${readToolLabel}(mode="images", exportImages=true)，可用 imagePath 指定单张图片。`,
       })
     }
 
@@ -1058,11 +1063,14 @@ export const officeRead = tool(
         ? { mode: 'text', start: nextStart, maxLines: safeMaxLines, maxChars: safeMaxChars }
         : null,
     })
-  },
+}
+
+export const officeRead = tool(
+  async (input = {}) => invokeOfficeRead(input, { countFileOp: true, toolName: 'office_read' }),
   {
     name: 'office_read',
     description: [
-      '读取 Office 文档的受控工具，支持 .docx、.xlsx、.pptx。读取 Office 时优先使用本工具；Python、zip 解包或第三方脚本只作为 office_read 不可用/能力不足/用户明确要求底层诊断时的备用方案。',
+      '读取 Office 文档的底层精确工具，支持 .docx、.xlsx、.pptx。常规 Office/PDF 资料读取优先使用 document_read；只有需要 Office 专属模式、精确诊断或用户明确要求底层工具时才直接调用 office_read。',
       '默认 mode=overview，只返回结构概览和下一步建议，避免长文档撑爆上下文。',
       '需要正文时使用 mode=text，并用 start/maxLines 分段读取。还支持 outline、stats、issues。',
       '需要文档内图片或图文并茂回答时，使用 mode=images；需要把图片保存为可渲染本地 Markdown 图片时传 exportImages=true，返回 exported[].path，可写成 ![说明](/context/office-images/.../xxx.png)。',
@@ -1084,272 +1092,34 @@ export const officeRead = tool(
   },
 )
 
-// ── PDF Read (Python pypdf, read-only) ──────────────────────────
+// ── PDF Read (shared PDF service) ───────────────────────────────
 
-const PDF_EXTS = new Set(['.pdf'])
-const PDF_MODES = new Set(['overview', 'text', 'metadata'])
-const PDF_DEFAULT_MAX_CHARS = 40000
-const PDF_MAX_CHARS = 80000
-const PDF_DEFAULT_MAX_PAGES = 5
-const PDF_MAX_PAGES = 20
-const PDF_PYTHON_SCRIPT = String.raw`
-import json
-import sys
-
-try:
-    from pypdf import PdfReader
-except Exception as exc:
-    print(json.dumps({"success": False, "code": "PYPDF_NOT_INSTALLED", "detail": str(exc)}, ensure_ascii=False))
-    raise SystemExit(2)
-
-def emit(payload, code=0):
-    print(json.dumps(payload, ensure_ascii=False))
-    raise SystemExit(code)
-
-try:
-    req = json.load(sys.stdin)
-    file_path = req.get("path")
-    mode = req.get("mode") or "overview"
-    start_page = max(int(req.get("startPage") or 1), 1)
-    max_pages = min(max(int(req.get("maxPages") or 5), 1), 20)
-    max_chars = min(max(int(req.get("maxChars") or 40000), 1000), 80000)
-
-    reader = PdfReader(file_path)
-    encrypted = bool(getattr(reader, "is_encrypted", False))
-    if encrypted:
-        try:
-            reader.decrypt("")
-        except Exception:
-            pass
-
-    page_count = len(reader.pages)
-    metadata = {}
-    try:
-        for key, value in dict(reader.metadata or {}).items():
-            metadata[str(key).lstrip("/")] = "" if value is None else str(value)
-    except Exception:
-        metadata = {}
-
-    if mode == "metadata":
-        emit({"success": True, "mode": mode, "pageCount": page_count, "encrypted": encrypted, "metadata": metadata})
-
-    def page_text(index):
-        try:
-            return reader.pages[index].extract_text() or ""
-        except Exception as exc:
-            return "[Page %s extraction failed: %s]" % (index + 1, exc)
-
-    if mode == "overview":
-        preview_pages = min(page_count, min(max_pages, 3))
-        sections = []
-        for index in range(preview_pages):
-            text = page_text(index).strip()
-            if text:
-                sections.append("## Page %s\n%s" % (index + 1, text))
-        content = "\n\n".join(sections)
-        truncated = len(content) > max_chars
-        if truncated:
-            content = content[:max_chars]
-        emit({
-            "success": True,
-            "mode": mode,
-            "pageCount": page_count,
-            "encrypted": encrypted,
-            "metadata": metadata,
-            "content": content,
-            "truncated": truncated,
-            "next": {"mode": "text", "startPage": 1, "maxPages": max_pages, "maxChars": max_chars} if page_count else None,
-            "note": "Overview includes metadata and a short first-page preview. Use text mode by page ranges for details.",
-        })
-
-    start_index = min(start_page - 1, page_count)
-    end_index = min(page_count, start_index + max_pages)
-    sections = []
-    for index in range(start_index, end_index):
-        sections.append("## Page %s\n%s" % (index + 1, page_text(index).strip()))
-    content = "\n\n".join(sections)
-    truncated = len(content) > max_chars
-    if truncated:
-        content = content[:max_chars]
-    next_page = end_index + 1 if end_index < page_count else None
-    emit({
-        "success": True,
-        "mode": "text",
-        "pageCount": page_count,
-        "startPage": start_page,
-        "endPage": end_index,
-        "content": content,
-        "truncated": truncated,
-        "next": {"mode": "text", "startPage": next_page, "maxPages": max_pages, "maxChars": max_chars} if next_page else None,
-    })
-except SystemExit:
-    raise
-except Exception as exc:
-    emit({"success": False, "code": "PDF_READ_FAILED", "detail": str(exc)}, 1)
-`
-
-const PDF_PYTHON_CANDIDATES = [
-  { command: 'python', args: [], label: 'python' },
-  { command: 'py', args: ['-3'], label: 'py -3' },
-  { command: 'py', args: [], label: 'py' },
-  { command: 'python3', args: [], label: 'python3' },
-]
-
-function _runPdfPython(candidate, payload, { timeoutMs = 30000, maxBuffer = 2 * 1024 * 1024 } = {}) {
-  return new Promise((resolve) => {
-    const child = spawn(candidate.command, [...candidate.args, '-c', PDF_PYTHON_SCRIPT], {
-      shell: false,
-      windowsHide: true,
-      env: { ...process.env, PYTHONIOENCODING: 'utf-8' },
-    })
-    const stdoutChunks = []
-    const stderrChunks = []
-    let collected = 0
-    let done = false
-
-    const finish = (result) => {
-      if (done) return
-      done = true
-      clearTimeout(timer)
-      resolve(result)
-    }
-    const append = (chunks, data) => {
-      collected += data.length
-      if (collected <= maxBuffer) chunks.push(data)
-    }
-    const timer = setTimeout(() => {
-      try { child.kill() } catch {}
-      finish({ code: 124, stdout: '', stderr: 'pdf_read timeout', via: candidate.label })
-    }, timeoutMs)
-
-    child.stdout.on('data', d => append(stdoutChunks, d))
-    child.stderr.on('data', d => append(stderrChunks, d))
-    child.on('error', err => finish({ code: err.code === 'ENOENT' ? 127 : 1, stdout: '', stderr: err.message, via: candidate.label }))
-    child.on('close', code => finish({
-      code: code ?? 0,
-      stdout: Buffer.concat(stdoutChunks).toString('utf8'),
-      stderr: Buffer.concat(stderrChunks).toString('utf8'),
-      via: candidate.label,
-    }))
-
-    try {
-      child.stdin.write(JSON.stringify(payload))
-      child.stdin.end()
-    } catch (e) {
-      finish({ code: 1, stdout: '', stderr: e.message, via: candidate.label })
-    }
-  })
-}
-
-function _parsePdfPythonResult(result) {
-  const raw = (result.stdout || result.stderr || '').trim()
-  if (!raw) return null
-  try {
-    return JSON.parse(raw.split(/\r?\n/).find(line => line.trim().startsWith('{')) || raw)
-  } catch {
-    return null
-  }
-}
-
-async function _runPdfRead(payload) {
-  let lastMissing = null
-  let lastNotFound = null
-  for (const candidate of PDF_PYTHON_CANDIDATES) {
-    const result = await _runPdfPython(candidate, payload)
-    const parsed = _parsePdfPythonResult(result)
-    if (result.code === 127) {
-      lastNotFound = result
-      continue
-    }
-    if (parsed?.code === 'PYPDF_NOT_INSTALLED') {
-      lastMissing = { ...parsed, via: result.via }
-      continue
-    }
-    if (parsed) return { ...parsed, via: result.via }
-    return { success: false, code: result.code === 124 ? 'PDF_READ_TIMEOUT' : 'PDF_READ_FAILED', detail: (result.stderr || result.stdout || '').slice(0, 1200), via: result.via }
-  }
-  if (lastMissing) return { success: false, code: 'PYPDF_NOT_INSTALLED', message: '当前 Python 环境缺少 pypdf。', detail: lastMissing.detail || '', via: lastMissing.via }
-  return { success: false, code: 'PYTHON_NOT_FOUND', message: '未找到可用的 Python。', detail: lastNotFound?.stderr || '' }
-}
-
-function _pdfError(code, message, extra = {}) {
-  return JSON.stringify({ success: false, code, message, ...extra })
-}
-
-export const pdfRead = tool(
-  async ({ path: filePath, mode = 'overview', startPage, maxPages, maxChars }) => {
-    if (!_workDirService) {
-      return _pdfError('NO_WORKSPACE', '未初始化工作空间，无法读取 PDF 文档。')
-    }
-
+export const pdfRead = createPdfReadTool({
+  getWorkDirService: () => _workDirService,
+  getDbService: () => _dbService,
+  resolveVfsPath: (inputPath, op, toolName) => _resolveVfsPath(inputPath, op, toolName),
+  incrementFileOp: () => {
     _taskCounters.file_op++
     if (_taskCounters.file_op > _taskLimits.file_op) {
-      return _pdfError('FILE_OP_LIMIT_REACHED', `本任务文件操作次数已达上限 (${_taskLimits.file_op} 次)，请减少文件操作。`)
+      return { success: false, code: 'FILE_OP_LIMIT_REACHED', message: `本任务文件操作次数已达上限 (${_taskLimits.file_op} 次)，请减少文件操作。` }
     }
-
-    if (!filePath) return _pdfError('MISSING_PATH', 'pdf_read 缺少 path 参数。')
-
-    let resolved
-    let virtualPath
-    try {
-      const vfsPath = _resolveVfsPath(filePath, 'read', 'pdf_read')
-      resolved = vfsPath.realPath
-      virtualPath = vfsPath.virtualPath
-    } catch (e) {
-      return _pdfError('PATH_NOT_ALLOWED', `安全限制：${e.message}，只能读取授权目录内的文件。`)
-    }
-
-    const ext = path.extname(resolved).toLowerCase()
-    if (!PDF_EXTS.has(ext)) {
-      return _pdfError('UNSUPPORTED_PDF_FORMAT', 'pdf_read 仅支持 .pdf 文件。', { path: filePath })
-    }
-    if (!fs.existsSync(resolved)) {
-      return _pdfError('FILE_NOT_FOUND', '文件不存在。', { path: filePath })
-    }
-
-    const safeMode = PDF_MODES.has(mode) ? mode : 'overview'
-    const safeMaxChars = Math.min(Math.max(Number(maxChars) || PDF_DEFAULT_MAX_CHARS, 1000), PDF_MAX_CHARS)
-    const safeMaxPages = Math.min(Math.max(Number(maxPages) || PDF_DEFAULT_MAX_PAGES, 1), PDF_MAX_PAGES)
-    const safeStartPage = Math.max(Number(startPage) || 1, 1)
-    const result = await _runPdfRead({
-      path: resolved,
-      mode: safeMode,
-      startPage: safeStartPage,
-      maxPages: safeMaxPages,
-      maxChars: safeMaxChars,
-    })
-
-    if (!result.success) {
-      return _pdfError(result.code || 'PDF_READ_FAILED', result.message || 'PDF 读取失败。', {
-        path: virtualPath,
-        detail: (result.detail || '').slice(0, 1200),
-        via: result.via,
-      })
-    }
-
-    return JSON.stringify({
-      success: true,
-      path: virtualPath,
-      ...result,
-    })
+    return null
   },
-  {
-    name: 'pdf_read',
-    description: [
-      '读取 PDF 文档的受控工具，支持 .pdf。不要用 read_file 读取 PDF 文件。',
-      '默认 mode=overview，返回页数、元数据和前几页预览。',
-      '需要正文时使用 mode=text，并用 startPage/maxPages 按页分段读取。还支持 metadata。',
-      '依赖 Python 包 pypdf；缺失时会返回 PYPDF_NOT_INSTALLED。',
-    ].join('\n'),
-    schema: z.object({
-      path: z.string().describe('PDF 文件路径，必须位于授权工作空间内。'),
-      mode: z.enum(['overview', 'text', 'metadata']).optional().describe('读取模式。默认 overview；正文用 text 按页分段读取。'),
-      startPage: z.number().optional().describe('text 模式起始页码，默认 1。'),
-      maxPages: z.number().optional().describe('最多读取页数，默认 5，最大 20。'),
-      maxChars: z.number().optional().describe('返回内容最大字符数，默认 40000，最大 80000。'),
-    }),
+})
+
+export const documentRead = createDocumentReadTool({
+  getWorkDirService: () => _workDirService,
+  getDbService: () => _dbService,
+  resolveVfsPath: (inputPath, op, toolName) => _resolveVfsPath(inputPath, op, toolName),
+  incrementFileOp: () => {
+    _taskCounters.file_op++
+    if (_taskCounters.file_op > _taskLimits.file_op) {
+      return { success: false, code: 'FILE_OP_LIMIT_REACHED', message: `本任务文件操作次数已达上限 (${_taskLimits.file_op} 次)，请减少文件操作。` }
+    }
+    return null
   },
-)
+  readOffice: (input = {}) => invokeOfficeRead(input, { countFileOp: false, toolName: 'document_read' }),
+})
 
 // ── PPTX Export (local, pptxgenjs) ───────────────────────────────
 
@@ -1597,7 +1367,7 @@ export const mcpPromptGet = tool(
   },
 )
 
-const CUSTOM_TOOLS = [execCommand, webSearchTavily, webSearchSearxng, webSearchBing, kbSearch, wikiTool, calculator, deleteFile, officeRead, pdfRead, visionAnalyze, pptxExportLocal, mcpResourceRead, mcpPromptGet]
+const CUSTOM_TOOLS = [execCommand, webSearchTavily, webSearchSearxng, webSearchBing, kbSearch, wikiTool, calculator, deleteFile, documentRead, officeRead, pdfRead, visionAnalyze, pptxExportLocal, mcpResourceRead, mcpPromptGet]
 const TOOL_ID_ALIASES = {
   file_delete: 'delete_file',
 }

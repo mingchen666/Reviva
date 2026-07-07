@@ -1,5 +1,6 @@
 <script setup>
 import { computed } from 'vue'
+import DocumentProcessingBadge from './DocumentProcessingBadge.vue'
 
 const props = defineProps({
   item: { type: Object, required: true },
@@ -168,6 +169,11 @@ function formatSize(bytes) {
       <span class="text-[10px] mt-0.5" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">
         {{ formatSize(item.size) || '--' }}
       </span>
+      <DocumentProcessingBadge
+        class="mt-1 max-w-full"
+        :status="item.processingStatus"
+        :is-dark="isDark"
+        compact />
     </div>
 
     <!-- Card footer: actions -->

@@ -76,9 +76,9 @@ async function handleCreateGroup() {
     <!-- Create group (fixed bottom) -->
     <div class="px-3 py-2 shrink-0" :class="isDark ? 'border-t border-d4' : 'border-t border-bdrL'">
       <button @click="handleCreateGroup()"
-        class="w-full py-1.5 px-2 rounded-md text-[13px] font-medium flex items-center gap-1.5 transition-colors"
+        class="w-full py-1.5 px-2 rounded-md text-[14px] font-medium flex items-center gap-1.5 transition-colors"
         :class="isDark ? 'text-wt-dim hover:text-brand-400 hover:bg-white/4' : 'text-lt-aux hover:text-brand-400 hover:bg-l4'">
-        <i class="ri-add-line text-[14px]" /> 新建分组
+        <i class="ri-add-line text-[16px]" /> 新建分组
       </button>
     </div>
   </div>

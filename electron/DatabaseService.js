@@ -975,6 +975,23 @@ export class DatabaseService {
     }
   }
 
+  _parsePdfDocument(row) {
+    if (!row) return null
+    return {
+      ...row,
+      owners: parseJSON(row.owners_json) || [],
+    }
+  }
+
+  _parsePdfParseRun(row) {
+    if (!row) return null
+    return {
+      ...row,
+      page_ranges: parseJSON(row.page_ranges_json) || [],
+      metrics: parseJSON(row.metrics_json) || {},
+    }
+  }
+
   listWikis() {
     return this._db.prepare('SELECT * FROM wikis ORDER BY updated_at DESC, created_at DESC').all().map(r => this._parseWiki(r))
   }
@@ -1139,6 +1156,84 @@ export class DatabaseService {
   deleteOcrProvider(id) {
     this._db.prepare('DELETE FROM ocr_providers WHERE id = ?').run(id)
     return { success: true }
+  }
+
+  getPdfDocument(id) {
+    return this._parsePdfDocument(this._db.prepare('SELECT * FROM pdf_documents WHERE id = ?').get(id))
+  }
+
+  upsertPdfDocument(data = {}) {
+    const existing = data?.id ? this.getPdfDocument(data.id) : null
+    if (existing) return this.updatePdfDocument(data.id, data)
+    const id = data.id || 'pdf_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8)
+    this._db.prepare(`INSERT INTO pdf_documents (id, workspace_id, file_name, real_path_hash, file_size, mtime_ms, content_hash, page_count, pdf_text_mode, cache_path, status, owners_json, created_at, updated_at, last_accessed_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
+      id,
+      data.workspace_id || '',
+      data.file_name || '',
+      data.real_path_hash || '',
+      data.file_size || 0,
+      data.mtime_ms || 0,
+      data.content_hash || '',
+      data.page_count || 0,
+      data.pdf_text_mode || '',
+      data.cache_path || '',
+      data.status || 'pending',
+      stringifyJSON(data.owners || data.owners_json || []),
+      data.created_at || new Date().toISOString(),
+      data.updated_at || new Date().toISOString(),
+      data.last_accessed_at || '',
+    )
+    return this.getPdfDocument(id)
+  }
+
+  updatePdfDocument(id, data = {}) {
+    const payload = { ...data }
+    if (payload.owners !== undefined && payload.owners_json === undefined) {
+      payload.owners_json = payload.owners
+      delete payload.owners
+    }
+    return this._parsePdfDocument(dynamicUpdate(this._db, 'pdf_documents', id, payload, ['owners_json']))
+  }
+
+  listPdfParseRuns(pdfId) {
+    return this._db.prepare('SELECT * FROM pdf_parse_runs WHERE pdf_id = ? ORDER BY updated_at DESC, created_at DESC').all(pdfId).map(r => this._parsePdfParseRun(r))
+  }
+
+  createPdfParseRun(data = {}) {
+    const id = data.id || 'pdf_run_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8)
+    this._db.prepare(`INSERT INTO pdf_parse_runs (id, pdf_id, mode, provider_id, provider_type, ocr_profile_key, page_ranges_json, status, progress, output_path, error_code, error_message, metrics_json, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
+      id,
+      data.pdf_id,
+      data.mode || '',
+      data.provider_id || '',
+      data.provider_type || '',
+      data.ocr_profile_key || '',
+      stringifyJSON(data.page_ranges || data.page_ranges_json || []),
+      data.status || 'pending',
+      data.progress || 0,
+      data.output_path || '',
+      data.error_code || '',
+      data.error_message || '',
+      stringifyJSON(data.metrics || data.metrics_json || {}),
+      data.created_at || new Date().toISOString(),
+      data.updated_at || new Date().toISOString(),
+    )
+    return this._parsePdfParseRun(this._db.prepare('SELECT * FROM pdf_parse_runs WHERE id = ?').get(id))
+  }
+
+  updatePdfParseRun(id, data = {}) {
+    const payload = { ...data }
+    if (payload.page_ranges !== undefined && payload.page_ranges_json === undefined) {
+      payload.page_ranges_json = payload.page_ranges
+      delete payload.page_ranges
+    }
+    if (payload.metrics !== undefined && payload.metrics_json === undefined) {
+      payload.metrics_json = payload.metrics
+      delete payload.metrics
+    }
+    return this._parsePdfParseRun(dynamicUpdate(this._db, 'pdf_parse_runs', id, payload, ['page_ranges_json', 'metrics_json']))
   }
 
   listWikiOcrJobs(wikiId, sourceId = '') {
@@ -1618,6 +1713,69 @@ export class DatabaseService {
           }
         },
       },
+      {
+        version: 2,
+        name: 'document_read_default_route',
+        up: db => {
+          const normalizeTools = (value, { preserveBottomTools = false } = {}) => {
+            const tools = parseJSON(value)
+            if (!Array.isArray(tools)) return value
+            let changed = false
+            const next = []
+            const push = (toolId) => {
+              if (toolId && !next.includes(toolId)) next.push(toolId)
+            }
+            for (const toolId of tools) {
+              if (toolId === 'office_read' || toolId === 'pdf_read') {
+                if (!preserveBottomTools) {
+                  changed = true
+                  push('document_read')
+                  continue
+                }
+              }
+              push(toolId)
+            }
+            return changed ? JSON.stringify(next) : value
+          }
+
+          const agentRows = db.prepare('SELECT id, tools FROM agents WHERE builtin = 1').all()
+          const updateAgent = db.prepare('UPDATE agents SET tools = ? WHERE id = ?')
+          for (const row of agentRows) {
+            const nextTools = normalizeTools(row.tools, { preserveBottomTools: false })
+            if (nextTools !== row.tools) updateAgent.run(nextTools, row.id)
+          }
+
+          const subAgentRows = db.prepare('SELECT id, tools FROM custom_sub_agents WHERE builtin = 1').all()
+          const updateSubAgent = db.prepare('UPDATE custom_sub_agents SET tools = ? WHERE id = ?')
+          for (const row of subAgentRows) {
+            const nextTools = normalizeTools(row.tools, { preserveBottomTools: false })
+            if (nextTools !== row.tools) updateSubAgent.run(nextTools, row.id)
+          }
+
+          const toolRow = db.prepare("SELECT value FROM settings WHERE key = 'toolEnabledMap'").get()
+          const toolEnabledMap = parseJSON(toolRow?.value)
+          if (toolEnabledMap && typeof toolEnabledMap === 'object' && !Array.isArray(toolEnabledMap)) {
+            let changed = false
+            if (toolEnabledMap.document_read !== true) {
+              toolEnabledMap.document_read = true
+              changed = true
+            }
+            for (const id of ['office_read', 'pdf_read']) {
+              if (toolEnabledMap[id] === true) {
+                toolEnabledMap[id] = false
+                changed = true
+              }
+            }
+            if (toolEnabledMap.__document_read_default_route_migrated !== true) {
+              toolEnabledMap.__document_read_default_route_migrated = true
+              changed = true
+            }
+            if (changed) {
+              db.prepare('UPDATE settings SET value = ? WHERE key = ?').run(JSON.stringify(toolEnabledMap), 'toolEnabledMap')
+            }
+          }
+        },
+      },
     ]
   }
 
@@ -1698,7 +1856,7 @@ export class DatabaseService {
   _ensureCreationCenterSubAgentSeeds() {
     const seeds = [
       { id: 'sa_web-researcher', name: '网络搜索研究员', icon: 'ri-global-line', color: '#38BDF8', desc: '对给定主题进行网络搜索研究，返回带引用编号的发现', prompt: '你是一位专业的网络搜索研究员。对用户指定的主题进行深入的网络搜索研究。先宽后窄检索，优先选择权威、近期、可核验的来源。每条关键发现都给出 [1] 格式引用，并在末尾列出 Sources。始终使用中文描述发现。', tools: ['mcp:exa', 'mcp:jina-mcp-server', 'web_search_bing'] },
-      { id: 'sa_local-analyst', name: '本地资料分析员', icon: 'ri-folder-open-line', color: '#4ADE80', desc: '读取和分析用户提供的本地文件，提取关键信息', prompt: '你是一位专业的本地资料分析员。读取和分析用户提供的文件，提取核心论点、关键数据、重要结论和潜在问题。Office 文档必须优先使用 office_read；需要文档内图片或图文并茂回答时调用 office_read(mode="images", exportImages=true)，并用返回的 /context/office-images/... 路径写 Markdown 图片。Python、zip 解包或底层脚本仅作为 office_read 不可用、能力不足或用户明确要求底层诊断时的备用方案。标注来源文件，对跨文件矛盾信息标注 [矛盾]。输出分析发现，不要撰写最终报告。', tools: ['file_read', 'office_read', 'pdf_read', 'kb_search'] },
+      { id: 'sa_local-analyst', name: '本地资料分析员', icon: 'ri-folder-open-line', color: '#4ADE80', desc: '读取和分析用户提供的本地文件，提取关键信息', prompt: '你是一位专业的本地资料分析员。读取和分析用户提供的文件，提取核心论点、关键数据、重要结论和潜在问题。Office/PDF 文档必须优先使用 document_read；需要文档内图片或图文并茂回答时调用 document_read(intent="extract_images")，并用返回的 assets[].path 写 Markdown 图片或交给 vision_analyze。Python、zip 解包或底层脚本仅作为 document_read/底层读取工具不可用、能力不足或用户明确要求底层诊断时的备用方案。标注来源文件，对跨文件矛盾信息标注 [矛盾]。输出分析发现，不要撰写最终报告。', tools: ['file_read', 'document_read', 'kb_search'] },
       { id: 'sa_report-writer', name: '报告撰写员', icon: 'ri-file-edit-line', color: '#FACC15', desc: '综合所有研究发现，撰写 Markdown 研究报告和 HTML 可视化报告', prompt: '你是一位专业的研究报告撰写员。综合本地分析和网络研究发现，撰写结构清晰、引用完整的中文研究报告。需要创建文件时写入 /agents/deep-researcher/outputs/{date}/。不要编造来源。', tools: ['file_read', 'file_write'] },
       { id: 'sa_content-planner', name: '内容规划师', icon: 'ri-layout-4-line', color: '#6C8AFF', desc: '分析资料，规划 PPT 内容结构和叙事逻辑', prompt: '你是一位专业的演示文稿内容规划师。分析资料和用户需求，确定演示目标、受众、叙事模式和页面结构。输出包含标题、副标题、页面类型、要点和视觉建议的 JSON 大纲。', tools: ['file_read', 'kb_search', 'mcp:exa', 'web_search_bing'] },
       { id: 'sa_slide-builder', name: '幻灯片构建师', icon: 'ri-code-s-slash-line', color: '#4ADE80', desc: '根据大纲生成 HTML 幻灯片', prompt: '你是一位专业的 HTML 演示文稿开发师。根据内容大纲生成单文件 HTML 幻灯片，注意布局、配色、字号、动画和响应式。每页使用 <div class="slide slide-{type}" data-type="{type}"> 根容器。输出写入 /agents/ppt-generator/outputs/{date}/。', tools: ['file_write'] },
@@ -1773,18 +1931,19 @@ export class DatabaseService {
       if (Array.isArray(tools)) {
         const nextTools = [
           ...localAnalystSeed.tools,
-          ...tools.filter(t => t && !localAnalystSeed.tools.includes(t)),
+          ...tools.filter(t => t && !['office_read', 'pdf_read'].includes(t) && !localAnalystSeed.tools.includes(t)),
         ]
         if (JSON.stringify(nextTools) !== JSON.stringify(tools)) {
           this._db.prepare('UPDATE custom_sub_agents SET tools = ? WHERE id = ?').run(JSON.stringify(nextTools), 'sa_local-analyst')
         }
       }
-      if (!String(localAnalystRow.prompt || '').includes('exportImages=true')) {
+      if (!String(localAnalystRow.prompt || '').includes('document_read')) {
         const nextPrompt = [
           String(localAnalystRow.prompt || localAnalystSeed.prompt || '').trim(),
-          '## Office 文档读取',
-          '- 对 Office 文档优先使用 office_read；需要文档内图片或图文并茂回答时调用 office_read(mode="images", exportImages=true)，并用返回的 /context/office-images/... 路径写 Markdown 图片。',
-          '- Python、zip 解包或底层脚本仅作为 office_read 不可用、能力不足或用户明确要求底层诊断时的备用方案。',
+          '## 文档读取',
+          '- 对 Office/PDF 文档优先使用 document_read；普通文本使用 file_read。',
+          '- 需要文档内图片或图文并茂回答时调用 document_read(intent="extract_images")，并用返回的 assets[].path 写 Markdown 图片或交给 vision_analyze。',
+          '- Python、zip 解包或底层脚本仅作为 document_read/底层读取工具不可用、能力不足或用户明确要求底层诊断时的备用方案。',
         ].filter(Boolean).join('\n\n')
         this._db.prepare('UPDATE custom_sub_agents SET prompt = ? WHERE id = ?').run(nextPrompt, 'sa_local-analyst')
       }
@@ -2120,10 +2279,10 @@ export class DatabaseService {
         '根据实验要求、模板、数据和资料生成或完善专业实验报告，支持 Word 文档输出和模板编辑',
         'ri-flask-line', '#14B8A6', 'plan_exec', 1,
         JSON.stringify({ fileRead: true, fileWrite: true, webSearch: true, fileDelete: false, fileRename: false, execCommand: false }),
-        JSON.stringify(['office_read', 'office_write', 'file_read', 'file_write', 'kb_search', 'web_search_bing']),
+        JSON.stringify(['document_read', 'office_write', 'file_read', 'file_write', 'kb_search', 'web_search_bing']),
         JSON.stringify(['lab-report-writer', 'officecli-skills']),
         JSON.stringify([]),
-        '你是一位专业的实验报告写作与 Office 文档整理助手。根据用户提供的实验要求、模板、数据、图片和课程资料，生成或完善可提交的实验报告。\n\n## 工作要求\n- 默认输出 Word 文档；用户明确要求草稿时可输出 Markdown。\n- 有模板时先用 office_read 理解结构，再用 office_write 编辑副本，保留原模板样式，不覆盖源文件。\n- 无模板时生成完整结构：封面、摘要、实验目的、实验原理、仪器材料、实验步骤、数据记录与处理、结果分析、误差分析、结论、思考题、参考文献、附录。\n- 优先依据用户文件和知识库；需要补充实验原理时可使用搜索，但不要把搜索内容伪装成用户实验数据。\n- 不编造姓名学号、教师要求、仪器型号、真实数据、参考文献页码或实验照片；缺失项写“待补充”。\n- 数据表必须有列名和单位，结论必须对应数据或资料。\n- 输出写入 /agents/lab-report-assistant/outputs/{date}/，最终回复列出文件路径和仍需补充的信息。',
+        '你是一位专业的实验报告写作与 Office 文档整理助手。根据用户提供的实验要求、模板、数据、图片和课程资料，生成或完善可提交的实验报告。\n\n## 工作要求\n- 默认输出 Word 文档；用户明确要求草稿时可输出 Markdown。\n- 有模板时先用 document_read 理解结构，再用 office_write 编辑副本，保留原模板样式，不覆盖源文件。\n- 无模板时生成完整结构：封面、摘要、实验目的、实验原理、仪器材料、实验步骤、数据记录与处理、结果分析、误差分析、结论、思考题、参考文献、附录。\n- 优先依据用户文件和知识库；需要补充实验原理时可使用搜索，但不要把搜索内容伪装成用户实验数据。\n- 不编造姓名学号、教师要求、仪器型号、真实数据、参考文献页码或实验照片；缺失项写“待补充”。\n- 数据表必须有列名和单位，结论必须对应数据或资料。\n- 输出写入 /agents/lab-report-assistant/outputs/{date}/，最终回复列出文件路径和仍需补充的信息。',
         10, 5, 0.25, 16384, 'auto', 'medium'
       )
       console.log('[DB] Migrated: seeded lab-report-assistant builtin agent')
@@ -2151,7 +2310,7 @@ export class DatabaseService {
       // Seed deep-researcher sub-agents
       const saSeeds = [
         { id: 'sa_web-researcher', name: '网络搜索研究员', icon: 'ri-global-line', color: '#38BDF8', desc: '对给定主题进行网络搜索研究，返回带引用编号的发现', prompt: '你是一位专业的网络搜索研究员。对用户指定的主题进行深入的网络搜索研究。\n\n## 搜索策略\n- 搜索预算：简单查询 2-3 次搜索，复杂查询最多 5 次\n- 先宽后窄：先广泛搜索，再针对性补充\n- 找到 3+ 相关来源即可停止，不追求完美\n\n## 引用格式\n- 使用 [1], [2], [3] 格式内联引用\n- 末尾列出 ### Sources，格式：[编号] 标题: URL\n\n## 返回格式\n## 关键发现\n详细描述发现...\n\n### Sources\n[1] 标题: URL\n[2] 标题: URL', tools: ['mcp:exa', 'mcp:jina-mcp-server', 'web_search_bing'] },
-        { id: 'sa_local-analyst', name: '本地资料分析员', icon: 'ri-folder-open-line', color: '#4ADE80', desc: '读取和分析用户提供的本地文件，提取关键信息', prompt: '你是一位专业的本地资料分析员。读取和分析用户提供的文件，提取关键信息。\n\n## 分析要点\n- 提取：核心论点、关键数据、重要结论、潜在问题\n- 标注文件来源（哪个文件、哪一节）\n- 对 Office 文档优先使用 office_read；需要文档内图片或图文并茂回答时调用 office_read(mode="images", exportImages=true)，并用返回的 /context/office-images/... 路径写 Markdown 图片\n- Python、zip 解包或底层脚本仅作为 office_read 不可用、能力不足或用户明确要求底层诊断时的备用方案\n- 对矛盾信息标注 [⚠️ 矛盾]\n\n## 返回格式\n## 本地资料摘要\n### 文件1: 文件名\n- 核心论点：...\n- 关键数据：...\n- 重要结论：...\n\n### 跨文件发现\n- 共同主题：...\n- 矛盾点：[⚠️ 矛盾] ...', tools: ['file_read', 'office_read', 'pdf_read', 'kb_search'] },
+        { id: 'sa_local-analyst', name: '本地资料分析员', icon: 'ri-folder-open-line', color: '#4ADE80', desc: '读取和分析用户提供的本地文件，提取关键信息', prompt: '你是一位专业的本地资料分析员。读取和分析用户提供的文件，提取关键信息。\n\n## 分析要点\n- 提取：核心论点、关键数据、重要结论、潜在问题\n- 标注文件来源（哪个文件、哪一节）\n- 对 Office/PDF 文档优先使用 document_read，普通文本使用 file_read\n- 需要文档内图片或图文并茂回答时调用 document_read(intent="extract_images")，并用返回的 assets[].path 写 Markdown 图片或交给 vision_analyze\n- Python、zip 解包或底层脚本仅作为 document_read/底层读取工具不可用、能力不足或用户明确要求底层诊断时的备用方案\n- 对矛盾信息标注 [⚠️ 矛盾]\n\n## 返回格式\n## 本地资料摘要\n### 文件1: 文件名\n- 核心论点：...\n- 关键数据：...\n- 重要结论：...\n\n### 跨文件发现\n- 共同主题：...\n- 矛盾点：[⚠️ 矛盾] ...', tools: ['file_read', 'document_read', 'kb_search'] },
         { id: 'sa_report-writer', name: '报告撰写员', icon: 'ri-file-edit-line', color: '#FACC15', desc: '综合所有研究发现，撰写 Markdown 研究报告和 HTML 可视化报告', prompt: '你是一位专业的研究报告撰写员。综合所有子 agent 的研究发现，撰写完整的研究报告。\n\n## 报告要求\n\n### Markdown 报告\n- 结构：摘要 → 背景 → 分析 → 结论 → 来源\n- 统一引用编号（每个 URL 一个编号，跨所有子 agent 发现统一编排）\n- 使用中文撰写\n- 每个论断都有来源引用\n\n### HTML 可视化报告\n- 完全自包含（内联 CSS/JS，无外部依赖）\n- 响应式布局（max-width: 960px）\n- 中文排版优化\n- 左侧粘性锚点目录（IntersectionObserver）\n- 关键发现彩色卡片\n- 内联 SVG 图表\n- 来源可点击链接\n- prefers-color-scheme 暗色模式\n- 系统字体栈\n\n## 输出路径\n- Markdown: /agents/deep-researcher/outputs/{date}/research-report.md\n- HTML: /agents/deep-researcher/outputs/{date}/research-report.html', tools: ['file_write'] },
       ]
       for (const sa of saSeeds) {
@@ -2490,6 +2649,41 @@ export class DatabaseService {
         FOREIGN KEY (wiki_id) REFERENCES wikis(id) ON DELETE CASCADE,
         FOREIGN KEY (provider_id) REFERENCES ocr_providers(id) ON DELETE SET NULL
       );
+      CREATE TABLE IF NOT EXISTS pdf_documents (
+        id TEXT PRIMARY KEY,
+        workspace_id TEXT DEFAULT '',
+        file_name TEXT DEFAULT '',
+        real_path_hash TEXT DEFAULT '',
+        file_size INTEGER DEFAULT 0,
+        mtime_ms INTEGER DEFAULT 0,
+        content_hash TEXT DEFAULT '',
+        page_count INTEGER DEFAULT 0,
+        pdf_text_mode TEXT DEFAULT '',
+        cache_path TEXT DEFAULT '',
+        status TEXT DEFAULT 'pending',
+        owners_json TEXT DEFAULT '[]',
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now')),
+        last_accessed_at TEXT DEFAULT ''
+      );
+      CREATE TABLE IF NOT EXISTS pdf_parse_runs (
+        id TEXT PRIMARY KEY,
+        pdf_id TEXT NOT NULL,
+        mode TEXT DEFAULT '',
+        provider_id TEXT DEFAULT '',
+        provider_type TEXT DEFAULT '',
+        ocr_profile_key TEXT DEFAULT '',
+        page_ranges_json TEXT DEFAULT '[]',
+        status TEXT DEFAULT 'pending',
+        progress INTEGER DEFAULT 0,
+        output_path TEXT DEFAULT '',
+        error_code TEXT DEFAULT '',
+        error_message TEXT DEFAULT '',
+        metrics_json TEXT DEFAULT '{}',
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now')),
+        FOREIGN KEY (pdf_id) REFERENCES pdf_documents(id) ON DELETE CASCADE
+      );
       CREATE INDEX IF NOT EXISTS idx_wikis_status ON wikis(status);
       CREATE INDEX IF NOT EXISTS idx_wiki_sources_wiki ON wiki_sources(wiki_id);
       CREATE INDEX IF NOT EXISTS idx_wiki_sources_status ON wiki_sources(status);
@@ -2500,6 +2694,10 @@ export class DatabaseService {
       CREATE INDEX IF NOT EXISTS idx_wiki_ocr_jobs_wiki ON wiki_ocr_jobs(wiki_id);
       CREATE INDEX IF NOT EXISTS idx_wiki_ocr_jobs_source ON wiki_ocr_jobs(source_id);
       CREATE INDEX IF NOT EXISTS idx_wiki_ocr_jobs_status ON wiki_ocr_jobs(status);
+      CREATE INDEX IF NOT EXISTS idx_pdf_documents_status ON pdf_documents(status);
+      CREATE INDEX IF NOT EXISTS idx_pdf_documents_path_hash ON pdf_documents(real_path_hash);
+      CREATE INDEX IF NOT EXISTS idx_pdf_parse_runs_pdf ON pdf_parse_runs(pdf_id);
+      CREATE INDEX IF NOT EXISTS idx_pdf_parse_runs_status ON pdf_parse_runs(status);
       CREATE TABLE IF NOT EXISTS outputs (
         id TEXT PRIMARY KEY, name TEXT NOT NULL, type TEXT DEFAULT 'summary',
         category TEXT DEFAULT 'desk', agent_name TEXT DEFAULT '', skill_name TEXT DEFAULT '',

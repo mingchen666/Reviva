@@ -6,7 +6,7 @@
   "color": "#38BDF8",
   "category": "研究",
   "source": "platform",
-  "allowedTools": ["file_read", "file_write", "office_read", "pdf_read", "kb_search", "web_search_bing", "mcp:exa", "mcp:jina-mcp-server"],
+  "allowedTools": ["file_read", "file_write", "document_read", "kb_search", "web_search_bing", "mcp:exa", "mcp:jina-mcp-server"],
   "outputTypes": ["Markdown", "HTML"],
   "version": "3.0.1-reviva.1",
   "author": "reviva + hoolulu",

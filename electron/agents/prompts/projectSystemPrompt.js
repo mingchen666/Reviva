@@ -144,32 +144,22 @@ function buildBehaviorSection() {
 - 绝不要调用 execute({ path: ... }) 或 execute({ operation: ... })；execute 即使出现在底层提示中，也不是 Reviva 的文件/媒体工具调用方式`
 }
 
-function buildOfficeReadSection(modelHasVision = false) {
+function buildDocumentReadSection(modelHasVision = false) {
   const visionRule = modelHasVision
-    ? '- 当前模型支持视觉理解；当用户需要分析图片/图表/截图内容时，先用 office_read(path, mode="images", exportImages=true) 导出关键图片，再按需调用 vision_analyze(path 或 paths, question, context) 理解图片。不要为了单纯展示图片而调用 vision_analyze。'
-    : '- 当前模型未标记为支持视觉理解；可以用 office_read(path, mode="images", exportImages=true) 导出并在 Markdown 中展示图片，但不要声称已经看懂图片内容。若用户要求分析图片/图表，请说明需要切换到支持视觉的模型。'
-  return `## Office 文档读取
+    ? '- 当前模型支持视觉理解；图片、截图、图表图片直接使用 vision_analyze。Office/PDF 内嵌图片先用 document_read(intent="extract_images") 或底层图片导出能力拿到图片路径，再按需调用 vision_analyze。'
+    : '- 当前模型未标记为支持视觉理解；可以导出或展示文档内图片，但不要声称已经看懂图片内容。若用户要求分析图片/图表，请说明需要切换到支持视觉的模型。'
+  return `## 文件读取工具选择
 
-- 所有智能体都默认拥有 office_read 工具，用于读取 .docx、.xlsx、.pptx 文件。
-- Office 文件是压缩二进制文档，默认不要用 read_file/file_read 直接读取；优先走 office_read/officecli。只有 office_read 不可用、返回能力不足，或用户明确要求底层诊断时，才考虑通过 exec_command 使用 Python/zip/python-docx/openpyxl/pptx 等备用方案，并说明这是兜底路径。
-- 标准流程：先调用 office_read(path, mode="overview") 获取 stats/outline 和 next 建议，再根据任务需要继续读取。
-- 需要正文内容时，调用 office_read(path, mode="text", start, maxLines, maxChars) 分段读取，并优先沿用工具返回的 next 参数继续读取。
-- 需要文档内图片、图表截图或图文并茂回答时，调用 office_read(path, mode="images", exportImages=true)。工具会通过 officecli 导出嵌入图片到 /context/office-images/...，随后可在 Markdown 中使用 ![说明](/context/office-images/.../xxx.png) 展示。
-- 只需要定位图片时，可先调用 office_read(path, mode="images") 获取 DOM path；需要单张图片时再传 imagePath 精确导出。
+- 默认使用 document_read 读取 PDF、Word、Excel、PPT 等结构化文档；它会根据文件类型分发到底层 pdf_read / office_read 并返回统一的 processingStatus、next 和 recommendation。
+- 普通文本、代码、Markdown、JSON、CSV 使用默认文本读取工具，不调用 document_read。
+- 图片不交给 document_read；需要理解图片内容时使用 vision_analyze。
 ${visionRule}
-- 只需要结构、表格/工作表概览或格式问题时，优先使用 mode="outline"、mode="stats" 或 mode="issues"，不要为了概览读取全文。
-- 不要默认一次性读取全文；除非用户明确要求完整导出，否则只读取完成任务所需的片段。
-- 如果 office_read 返回 OFFICECLI_NOT_INSTALLED 或 OFFICECLI_UNAVAILABLE，告诉用户需要在“设置 > 环境检测”安装或修复 officecli。`
-}
-
-function buildPdfReadSection() {
-  return `## PDF 文档读取
-
-- 所有智能体都默认拥有 pdf_read 工具，用于读取 .pdf 文件。
-- PDF 是二进制文档，禁止用 read_file/file_read 直接读取；如果已经读到乱码、不可解释的二进制内容或空白内容，立即停止该路线并改用 pdf_read。
-- 标准流程：先调用 pdf_read(path, mode="overview") 获取页数、元数据和前几页预览，再根据任务需要继续读取。
-- 需要正文内容时，调用 pdf_read(path, mode="text", startPage, maxPages, maxChars) 按页分段读取，并优先沿用工具返回的 next 参数继续读取。
-- PDF 文本提取依赖 pypdf；如果 pdf_read 返回 PYPDF_NOT_INSTALLED 或 PYTHON_NOT_FOUND，告诉用户需要在“设置 > 环境检测”安装 Office Python 库或修复 Python。`
+- 标准流程：先调用 document_read(path, mode="overview") 获取概览，再优先沿用返回的 next 继续读取局部正文、页段、sheet/slide 或版面内容。
+- 需要 Office 文档内图片时，调用 document_read(path, intent="extract_images")，使用返回的 assets[].path 展示图片或交给 vision_analyze。
+- PDF 不要默认 OCR；只有 overview 显示需要 OCR，或用户明确要求扫描页、图片文字、版面、表格/公式还原时才调用 document_read(mode="ocr")。
+- 如果 document_read 返回 processingStatus.state="needs_confirmation"，必须先向用户确认；用户确认后再带 confirm=true 调用，不要静默消耗 OCR 或未来媒体解析额度。
+- 大 PDF 或未来长音视频必须按任务选择局部范围，不要默认全文解析。
+- 只有在 document_read 的通用参数无法表达精确需求，且底层工具可用时，才直接调用 pdf_read 或 office_read。`
 }
 
 function buildCloudKnowledgeSection(cloudContext = {}) {
@@ -180,7 +170,7 @@ function buildCloudKnowledgeSection(cloudContext = {}) {
   return `## 云端知识库检索
 
 - 当前用户已选择云端知识库范围：${kbCount} 个知识库，${docCount} 个知识库文档。
-- 云端知识库和云端知识库文档不是本地文件，没有可读取的本地路径；不要使用 read_file/file_read、office_read、pdf_read、ls 去读取这些云端知识库内容。
+- 云端知识库和云端知识库文档不是本地文件，没有可读取的本地路径；不要使用 read_file/file_read、document_read、office_read、pdf_read、ls 去读取这些云端知识库内容。
 - 当用户的问题需要使用当前选择的云端知识库/云端知识库文档时，必须调用 kb_search。调用时通常只传 query 即可，系统会自动限定到用户当前选择的 kb_ids/doc_ids。
 - kb_search 默认 top_k 为 5。一般保持默认 5；只有问题范围较宽、用户明确要求更全面、或第一次命中不足时，才适度上调 top_k（例如 8-10）。
 - 可以根据任务需要多次调用 kb_search，用不同 query 逐步收窄或补充检索；不要为了“一次查全”无理由把 top_k 拉很大。
@@ -195,7 +185,7 @@ function buildLocalToolsetsSection(agentDirName, today) {
 - 如果当前 Agent 启用了 Manim 工具集，会出现 manim_tool。它是路由工具，通过 operation 执行 check、list_scenes、render 等受控子操作。
 - 如果当前 Agent 启用了 Office 创建编辑工具，会出现 office_write。它是路由工具，通过 operation 执行 help、create、edit；创建和编辑必须传结构化 actions，不要用 exec_command 或 shell 直接运行 officecli。复杂文档优先先调用 office_write({operation:"help", format, element, verb}) 确认元素属性，再执行 create/edit。
 - FFmpeg/Pandoc/Manim 工具只接受授权工作区内的本地文件路径，不接受网络 URL，也不开放 raw command。
-- office_write 支持通用 add/clone/set/remove/get/query/raw_set/replace_text，也支持 docx、pptx、xlsx 常用快捷 actions；你可以按需自行决定 useBatch=true 节省大量稳定动作的执行时间，也可以在 typed actions 无法表达时使用 raw_set。raw_set 需要 allowRawXml=true 且对应 action.confirm=true；使用 batch/raw_set 时工具会强制运行后置 issues/validate 检查；编辑现有 Office 文件时默认输出副本，不覆盖原文件；执行前应先用 office_read 理解文档结构。
+- office_write 支持通用 add/clone/set/remove/get/query/raw_set/replace_text，也支持 docx、pptx、xlsx 常用快捷 actions；你可以按需自行决定 useBatch=true 节省大量稳定动作的执行时间，也可以在 typed actions 无法表达时使用 raw_set。raw_set 需要 allowRawXml=true 且对应 action.confirm=true；使用 batch/raw_set 时工具会强制运行后置 issues/validate 检查；编辑现有 Office 文件时默认输出副本，不覆盖原文件；执行前应先用 document_read 理解文档结构。
 - Manim 渲染必须调用 manim_tool({ operation: "render", path, sceneName, quality })，不要用 execute、exec_command 或 Python 命令直接渲染，除非 manim_tool 不可用且用户明确要求手动命令。
 - 工具生成的文件会写入当前 Agent 的 /agents/${agentDirName}/outputs/${today}/ 目录，后续可把返回的 outputPath 作为上下文继续使用。
 - 如果工具返回 TOOL_DEPENDENCY_MISSING，告诉用户需要在“设置 > 环境检测”安装或修复对应依赖。`
@@ -284,8 +274,7 @@ export function buildProjectSystemPrompt({
     buildRuntimeEnvironmentSection(),
     buildOutputRulesSection(agentDirName, today),
     buildBehaviorSection(),
-    buildOfficeReadSection(modelHasVision),
-    buildPdfReadSection(),
+    buildDocumentReadSection(modelHasVision),
     buildCloudKnowledgeSection(cloudContext),
     buildLocalToolsetsSection(agentDirName, today),
     buildAnswerStyleSection(answerStyle),

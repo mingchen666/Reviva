@@ -1,8 +1,16 @@
 import { ChatAnthropic } from '@langchain/anthropic'
-import { ChatOpenAI } from '@langchain/openai'
+import { ChatOpenAICompletions, ChatOpenAIResponses } from '@langchain/openai'
 import { HumanMessage } from '@langchain/core/messages'
 import { FileContextReader } from './FileContextReader.js'
 import { KnowledgeContextSearcher } from './KnowledgeContextSearcher.js'
+
+function normalizeApiFormat(providerId, apiFormat = '') {
+  const value = String(apiFormat || '').trim().toLowerCase()
+  if (['openai_responses', 'openai-responses', 'openai_response', 'openai-response', 'responses', 'response'].includes(value)) return 'openai_responses'
+  if (value === 'anthropic') return 'anthropic'
+  if (['openai', 'openai_chat', 'openai-chat', 'chat', 'chat_completions', 'chat-completions'].includes(value)) return 'openai'
+  return String(providerId || '').toLowerCase() === 'anthropic' ? 'anthropic' : 'openai'
+}
 
 export class JsonArtifactRunner {
   constructor({ db, workDirService, emitProgress, send }) {
@@ -138,7 +146,8 @@ export class JsonArtifactRunner {
     if (options.temperature !== undefined) common.temperature = options.temperature
     if (options.maxTokens) common.maxTokens = options.maxTokens
 
-    if ((options.apiFormat || '').toLowerCase() === 'anthropic' || (providerId || '').toLowerCase() === 'anthropic') {
+    const apiFormat = normalizeApiFormat(providerId, options.apiFormat)
+    if (apiFormat === 'anthropic') {
       const baseURL = (baseUrl || '').replace(/\/v1\/?$/, '').replace(/\/$/, '') || undefined
       const opts = { ...common, timeout: 180000 }
       if (baseURL) opts.baseURL = baseURL
@@ -148,8 +157,8 @@ export class JsonArtifactRunner {
     const opts = { ...common, timeout: 180000, streaming: false }
     if (baseUrl) {
       opts.configuration = { baseURL: baseUrl }
-      opts.useResponsesApi = false
     }
-    return new ChatOpenAI(opts)
+    const ChatModel = apiFormat === 'openai_responses' ? ChatOpenAIResponses : ChatOpenAICompletions
+    return new ChatModel(opts)
   }
 }

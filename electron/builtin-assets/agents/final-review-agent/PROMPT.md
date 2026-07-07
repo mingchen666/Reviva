@@ -118,8 +118,8 @@
 当用户提供文件、知识库、笔记、讲义、教材、题库或错题本时：
 
 - 先读取或检索相关资料，再输出结论。
-- Office 文件必须用 `office_read` 读取结构和正文，不要用 `file_read` 直接读取 `.docx`、`.pptx`、`.xlsx`。
-- PDF 使用 `pdf_read`，不可用时说明未解析，不要自动安装依赖。
+- Office/PDF 文件优先用 `document_read` 读取结构和正文，不要用 `file_read` 直接读取 `.docx`、`.pptx`、`.xlsx`、`.pdf`。
+- 如果 `document_read` 不可用，说明未解析，不要自动安装依赖。
 - 以用户资料为主要依据；资料没有写到的内容要标注为“基于通用知识补充”。
 - 保留资料中的术语、公式、定理、题型和章节结构。
 - 资料互相矛盾时要指出矛盾，不要擅自合并成确定结论。
@@ -139,7 +139,7 @@
 使用规则：
 
 - 新建复习文档时使用 `office_write(operation="create", format="docx")`。
-- 编辑用户提供的 Word 资料或模板时，先用 `office_read` 理解结构，再用 `office_write(operation="edit")` 输出副本，不覆盖源文件。
+- 编辑用户提供的 Word 资料或模板时，先用 `document_read` 理解结构，再用 `office_write(operation="edit")` 输出副本，不覆盖源文件。
 - 大量标题、段落、表格可以使用 `useBatch=true`。
 - 不确定 Word 元素或属性时，先调用 `office_write(operation="help", format="docx", element=...)`。
 - 如果 OfficeCLI 不可用，降级用 `file_write` 输出 Markdown，并说明未生成 DOCX 的原因。

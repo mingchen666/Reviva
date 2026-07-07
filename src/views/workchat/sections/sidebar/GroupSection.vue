@@ -114,25 +114,25 @@ function handleAddConv() {
     <!-- Group header -->
     <div class="group flex items-center gap-1 py-1.5 px-1 cursor-pointer"
       @click="emit('toggle')">
-      <i :class="[expanded ? 'ri-arrow-down-s-line' : 'ri-arrow-right-s-line', 'text-[14px] transition-transform', isDark ? 'text-wt-dim' : 'text-lt-aux']" />
-      <span class="text-[11px] font-semibold" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">{{ group.name }}</span>
-      <span class="text-[10px] px-1 py-0.5 rounded" :class="isDark ? 'bg-d4 text-wt-dim' : 'bg-l4 text-lt-aux'">{{ conversations.length }}</span>
+      <i :class="[expanded ? 'ri-arrow-down-s-line' : 'ri-arrow-right-s-line', 'text-[16px] transition-transform', isDark ? 'text-wt-dim' : 'text-lt-aux']" />
+      <span class="text-[13px] font-semibold" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">{{ group.name }}</span>
+      <span class="text-[12px] px-1 py-0.5 rounded" :class="isDark ? 'bg-d4 text-wt-dim' : 'bg-l4 text-lt-aux'">{{ conversations.length }}</span>
       <button @click.stop="openMore('group', group.id, group.name, $event)"
         class="opacity-0 group-hover:opacity-100 ml-auto h-5 w-5 rounded flex items-center justify-center transition-all duration-150"
         :class="isDark ? 'text-wt-dim hover:text-wt-sub hover:bg-white/5' : 'text-lt-aux hover:text-lt-sub hover:bg-l4'">
-        <i class="ri-more-2-fill text-[13px]" />
+        <i class="ri-more-2-fill text-[16px]" />
       </button>
     </div>
 
     <!-- Conversation items -->
     <template v-if="expanded">
       <div v-for="c in conversations" :key="c.id"
-        class="group py-[6px] pl-6 pr-2 rounded-md cursor-pointer flex items-center gap-2 transition-colors text-[12px]"
+        class="group py-1.5 pl-6 pr-2 rounded-md cursor-pointer flex items-center gap-2 transition-colors text-[13px]"
         @click="emit('select', c)"
         :class="currentConvId === c.id
           ? (isDark ? 'bg-brand-400/8 text-brand-400' : 'bg-brand-50 text-brand-500')
           : (isDark ? 'text-wt-aux hover:bg-white/4 hover:text-wt-sub' : 'text-lt-aux hover:bg-l4 hover:text-lt-sub')">
-        <i class="ri-message-3-line text-[12px]" :class="currentConvId === c.id ? (isDark ? 'text-brand-400' : 'text-brand-500') : ''" />
+        <i class="ri-message-3-line text-[14px]" :class="currentConvId === c.id ? (isDark ? 'text-brand-400' : 'text-brand-500') : ''" />
         <span class="truncate flex-1">{{ convStore.getDisplayTitle(c.id) }}</span>
         <button @click.stop="openMore('conv', c.id, c.title, $event)"
           class="opacity-0 group-hover:opacity-100 shrink-0 transition-all duration-150"
@@ -150,19 +150,19 @@ function handleAddConv() {
       :style="{ left: dropdown.x + 'px', top: dropdown.y + 'px' }"
       :class="isDark ? 'bg-d3 border border-bdr' : 'bg-l2 border border-bdrF'">
       <button v-if="dropdown.type === 'group'" @click="handleAddConv"
-        class="w-full flex items-center gap-2.5 px-3 py-[7px] text-[12px] font-medium transition-colors"
+        class="w-full flex items-center gap-2.5 px-3 py-2 text-[13px] font-medium transition-colors"
         :class="isDark ? 'text-wt-sub hover:bg-white/5' : 'text-lt-sub hover:bg-l4'">
         <i class="ri-chat-new-line text-[13px]" />
         <span>新建对话</span>
       </button>
       <button @click="handleRename"
-        class="w-full flex items-center gap-2.5 px-3 py-[7px] text-[12px] font-medium transition-colors"
+        class="w-full flex items-center gap-2.5 px-3 py-2 text-[13px] font-medium transition-colors"
         :class="isDark ? 'text-wt-sub hover:bg-white/5' : 'text-lt-sub hover:bg-l4'">
         <i class="ri-edit-line text-[13px]" />
         <span>重命名</span>
       </button>
       <button v-if="!(dropdown.type === 'group' && dropdown.id === 'default')" @click="handleDelete"
-        class="w-full flex items-center gap-2.5 px-3 py-[7px] text-[12px] font-medium transition-colors"
+        class="w-full flex items-center gap-2.5 px-3 py-2 text-[13px] font-medium transition-colors"
         :class="isDark ? 'text-red-400 hover:bg-red-400/8' : 'text-red-500 hover:bg-red-50'">
         <i class="ri-delete-bin-line text-[13px]" />
         <span>{{ dropdown.type === 'group' ? '删除分组' : '删除对话' }}</span>

@@ -1,7 +1,7 @@
 ---
 name: classroom-management-differentiation-skill
 description: Design classroom management and differentiated support plans for real teaching constraints. Use this skill whenever the user mentions 学情复杂, 基础薄弱, 两极分化, 分层教学, 培优补差, 注意力不集中, 课堂纪律, 大班教学, 小组分工, 课堂管理, 过渡衔接, 特殊需要, 公开课风险, 线上课堂, or asks how to make a lesson workable for a specific class.
-allowed-tools: file_read, file_write, office_read
+allowed-tools: file_read, file_write, document_read
 ---
 
 # Classroom Management and Differentiation Skill

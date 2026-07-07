@@ -1,0 +1,37 @@
+{
+  "concept": "{{concept}}",
+  "domain": "{{domain}}",
+  "level": "{{level}}",
+  "learning_objective": "{{learning_objective}}",
+  "visual_representation": "{{visual_representation}}",
+  "abstraction_level": "{{abstraction_level}}",
+  "artifacts": [
+    "concept_card",
+    "{{visual_artifact_type}}",
+    "retrieval_checks"
+  ],
+  "prerequisites": [],
+  "related_concepts": [],
+  "misconceptions": [
+    {
+      "claim": "{{common_misconception}}",
+      "correction": "{{misconception_correction}}"
+    }
+  ],
+  "self_checks": [
+    {
+      "type": "recall",
+      "prompt": "{{recall_prompt}}"
+    },
+    {
+      "type": "misconception",
+      "prompt": "{{misconception_prompt}}"
+    },
+    {
+      "type": "transfer",
+      "prompt": "{{transfer_prompt}}"
+    }
+  ],
+  "recommended_next_step": "{{recommended_next_step}}",
+  "confidence": "medium"
+}

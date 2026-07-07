@@ -300,7 +300,7 @@ function onMarkdownLinkClick({ href }) {
               </button>
               <Transition name="thinking-slide">
                 <div v-if="processBlockOpen['thinking-' + bi]"
-                  class="mt-1.5 px-3 py-2.5 rounded-lg text-[12px] leading-relaxed overflow-auto max-h-[320px] thin-scroll"
+                  class="mt-1.5 px-3 py-2.5 rounded-lg text-[0.8125rem] leading-relaxed overflow-auto max-h-[320px] thin-scroll"
                   :class="isDark ? 'bg-d4/60 border border-d4 border-l-2 border-l-agent-400/40 text-wt-dim' : 'bg-l4/80 border border-bdrF border-l-2 border-l-agent-300 text-lt-aux'">
                   <MarkdownView :content="block.content" :is-dark="isDark" :work-root="workRoot" @file-click="onMarkdownFileClick" />
                 </div>
@@ -323,7 +323,7 @@ function onMarkdownLinkClick({ href }) {
             </div>
             <!-- Text -->
             <div v-else-if="block.type === 'text'" class="px-4 py-2.5">
-              <div class="text-[12px] leading-relaxed md-content"
+              <div class="text-[0.84375rem] leading-relaxed md-content"
                 :class="[isDark ? 'text-wt-main' : 'text-lt-main', agent && block.isLast ? 'border-l-2 border-l-agent-400' : '']">
                 <MarkdownView :content="block.content" :is-dark="isDark" :work-root="workRoot" @file-click="onMarkdownFileClick" />
               </div>
@@ -391,7 +391,7 @@ function onMarkdownLinkClick({ href }) {
             </button>
             <Transition name="thinking-slide">
               <div v-if="thinkingOpen"
-                class="mt-1.5 px-3 py-2.5 rounded-lg text-[12px] leading-relaxed overflow-auto max-h-[320px] thin-scroll"
+                class="mt-1.5 px-3 py-2.5 rounded-lg text-[0.8125rem] leading-relaxed overflow-auto max-h-[320px] thin-scroll"
                 :class="isDark ? 'bg-d4/60 border border-d4 border-l-2 border-l-agent-400/40 text-wt-dim' : 'bg-l4/80 border border-bdrF border-l-2 border-l-agent-300 text-lt-aux'">
                 <MarkdownView :content="thinkingContent" :is-dark="isDark" :is-streaming="isStreaming" :work-root="workRoot" @file-click="onMarkdownFileClick" />
               </div>
@@ -408,7 +408,7 @@ function onMarkdownLinkClick({ href }) {
             </div>
           </div>
           <div v-if="displayContent && !isError" class="px-4 py-3">
-            <div class="text-[12px] leading-relaxed md-content"
+            <div class="text-[0.84375rem] leading-relaxed md-content"
               :class="[isDark ? 'text-wt-main' : 'text-lt-main', agent ? 'border-l-2 border-l-agent-400' : '']">
               <MarkdownView :content="mdContent" :is-dark="isDark" :is-streaming="isStreaming" :work-root="workRoot" @file-click="onMarkdownFileClick" @link-click="onMarkdownLinkClick" />
             </div>
@@ -422,7 +422,7 @@ function onMarkdownLinkClick({ href }) {
             </span>
           </div>
           <div v-if="!displayContent && msg.content && !showLoading && !isError"
-            class="px-4 py-3 text-[13px] leading-relaxed"
+            class="px-4 py-3 text-[0.84375rem] leading-relaxed"
             :class="[isDark ? 'text-wt-main' : 'text-lt-main', agent ? 'border-l-2 border-l-agent-400' : '']">
             {{ msg.content }}
           </div>
@@ -435,8 +435,8 @@ function onMarkdownLinkClick({ href }) {
             <span class="text-[13px] font-medium" :class="isDark ? 'text-red-400' : 'text-red-600'">{{ errorInfo.title }}</span>
             <span v-if="msg.errorCode" class="text-[10px] px-1.5 py-0.5 rounded" :class="isDark ? 'bg-red-500/12 text-red-400' : 'bg-red-100 text-red-500'">{{ msg.errorCode }}</span>
           </div>
-          <p class="text-[12px] opacity-80" :class="isDark ? 'text-red-400' : 'text-red-600'">{{ displayErrorMessage }}</p>
-          <p class="text-[11px] mt-1" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'"><i class="ri-lightbulb-line text-[10px]" /> {{ errorInfo.suggestion }}</p>
+          <p class="text-[0.8125rem] opacity-80" :class="isDark ? 'text-red-400' : 'text-red-600'">{{ displayErrorMessage }}</p>
+          <p class="text-[12px] mt-1" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'"><i class="ri-lightbulb-line text-[11px]" /> {{ errorInfo.suggestion }}</p>
           <button @click="emit('retry')" class="mt-2 h-7 px-3 rounded-lg text-[12px] font-medium transition-colors flex items-center gap-1.5" :class="isDark ? 'bg-brand-400/12 text-brand-400 hover:bg-brand-400/20' : 'bg-brand-50 text-brand-500 hover:bg-brand-100'">
             <i class="ri-refresh-line text-[12px]" /> 重试
           </button>

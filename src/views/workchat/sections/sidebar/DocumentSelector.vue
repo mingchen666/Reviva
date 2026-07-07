@@ -131,7 +131,7 @@ watch(() => settingsStore.workDirRoot, (newVal) => {
         <i class="ri-folder-warning-line text-[24px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'" />
       </div>
       <p class="text-[13px] font-medium mb-1" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">未设置工作目录</p>
-      <p class="text-[11px] mb-4" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">请先在设置中配置以继续</p>
+      <p class="text-[12px] mb-4" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">请先在设置中配置以继续</p>
       <router-link to="/settings"
         class="ctx-pill cursor-pointer"
         :class="isDark ? 'text-brand-400 bg-brand-400/10 hover:bg-brand-400/20' : 'text-brand-600 bg-brand-50 hover:bg-brand-100'">
@@ -146,7 +146,7 @@ watch(() => settingsStore.workDirRoot, (newVal) => {
         <i class="ri-folder-open-line text-[24px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'" />
       </div>
       <p class="text-[13px] font-medium" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">目录为空</p>
-      <p class="text-[11px] mt-1" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">当前 docs 文件夹中没有可用文件</p>
+      <p class="text-[12px] mt-1" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">当前 docs 文件夹中没有可用文件</p>
     </div>
 
     <!-- Loading -->
@@ -159,7 +159,7 @@ watch(() => settingsStore.workDirRoot, (newVal) => {
     <template v-else-if="isReady && fileTree.length > 0">
       <!-- Hint -->
       <div class="px-4 py-2 sticky top-0 z-10 backdrop-blur-sm" :class="isDark ? 'bg-wt-bg/80 border-b border-d4' : 'bg-lt-bg/80 border-b border-bdrL'">
-        <div class="flex items-center gap-1.5 text-[11px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">
+        <div class="flex items-center gap-1.5 text-[12px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">
           <i class="ri-checkbox-circle-line text-[12px]" :class="isDark ? 'text-brand-400' : 'text-brand-500'" />
           <span>点击文件或文件夹将其加入对话上下文</span>
         </div>
@@ -202,7 +202,7 @@ watch(() => settingsStore.workDirRoot, (newVal) => {
             :style="{ opacity: isSelected(item.path) ? 1 : 0.75 }" />
 
           <!-- Name -->
-          <span class="text-[12.5px] truncate flex-1 min-w-0 font-medium leading-tight"
+          <span class="text-[13px] truncate flex-1 min-w-0 font-medium leading-tight"
             :class="isSelected(item.path) ? '' : (isDark ? 'group-hover:text-wt-main' : 'group-hover:text-lt-main')">
             {{ item.name }}
           </span>

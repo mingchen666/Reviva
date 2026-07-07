@@ -101,7 +101,7 @@ onMounted(() => {
         <i class="ri-search-line absolute left-2.5 top-1/2 -translate-y-1/2 text-[13px] pointer-events-none" 
            :class="isDark ? 'text-wt-dim' : 'text-lt-aux'" />
         <input v-model="search" type="text" placeholder="搜索知识库..."
-          class="w-full h-8 rounded-md py-0 pl-8 pr-3 text-[12.5px] outline-none transition-all duration-200"
+          class="w-full h-9 rounded-md py-0 pl-8 pr-3 text-[13px] outline-none transition-all duration-200"
           :class="isDark 
             ? 'bg-d0/50 border border-d4 text-wt-sub placeholder-wt-dim focus:border-brand-400/50 focus:bg-d0' 
             : 'bg-l2/50 border border-bdrL text-lt-sub placeholder-lt-aux focus:border-brand-400 focus:bg-white'" />
@@ -115,14 +115,14 @@ onMounted(() => {
     </div>
 
     <!-- Selected hint -->
-    <div v-if="selectedItems.length" class="mx-2.5 mb-2 px-2.5 py-1.5 rounded-lg text-[11px] flex items-center gap-1.5 font-medium"
+    <div v-if="selectedItems.length" class="mx-2.5 mb-2 px-2.5 py-1.5 rounded-lg text-[12px] flex items-center gap-1.5 font-medium"
       :class="isDark ? 'bg-brand-400/10 text-brand-400 border border-brand-400/20' : 'bg-brand-50 text-brand-600 border border-brand-100'">
       <i class="ri-check-double-line text-[12px]" />
       已选 {{ selectedItems.length }} 项作为检索范围
     </div>
 
     <!-- Login hint -->
-    <div v-if="!userStore.isLoggedIn" class="mx-2.5 mb-2 px-3 py-4 rounded-xl text-[11.5px] text-center border"
+    <div v-if="!userStore.isLoggedIn" class="mx-2.5 mb-2 px-3 py-4 rounded-xl text-[12px] text-center border"
       :class="isDark ? 'border-d4 ' : 'border-bdrL'">
       <div class="w-10 h-10 rounded-full mx-auto mb-2 flex items-center justify-center"
            :class="isDark ? 'bg-wt-dim/10' : 'bg-lt-aux/10'">
@@ -130,7 +130,7 @@ onMounted(() => {
       </div>
       <p :class="isDark ? 'text-wt-sub' : 'text-lt-sub'" class="mb-3 font-medium">登录后查看云端知识库</p>
       <button @click="router.push('/login')"
-        class="px-4 py-1.5 rounded-lg text-[11.5px] font-medium transition-all duration-200 shadow-sm"
+        class="px-4 py-1.5 rounded-lg text-[12px] font-medium transition-all duration-200 shadow-sm"
         :class="isDark ? 'bg-brand-400 text-d0 hover:bg-brand-500 active:bg-brand-600' : 'bg-brand-500 text-white hover:bg-brand-600 active:bg-brand-700'">
         <i class="ri-login-box-line text-[11px] mr-1" /> 立即登录
       </button>
@@ -145,7 +145,7 @@ onMounted(() => {
                :class="isDark ? 'bg-wt-dim/10' : 'bg-lt-aux/10'">
             <i class="ri-database-2-line text-[24px] opacity-60" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'" />
           </div>
-          <p class="text-[12px] font-medium" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">
+          <p class="text-[13px] font-medium" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">
             {{ search ? '无匹配的知识库' : '暂无知识库' }}
           </p>
         </div>
@@ -182,12 +182,12 @@ onMounted(() => {
           </div>
 
           <!-- Name -->
-          <span class="text-[12.5px] truncate flex-1 font-medium leading-tight" @click.stop="toggleKb(kb)">
+          <span class="text-[13px] truncate flex-1 font-medium leading-tight" @click.stop="toggleKb(kb)">
             {{ kb.name }}
           </span>
 
           <!-- Doc Count Badge -->
-          <span class="text-[10px] shrink-0 px-1.5 py-0.5 rounded-full font-medium" 
+          <span class="text-[11px] shrink-0 px-1.5 py-0.5 rounded-full font-medium"
             :class="isKbSelected(kb.id) 
               ? (isDark ? 'bg-brand-400/20 text-brand-300' : 'bg-brand-100 text-brand-600') 
               : (isDark ? 'bg-white/5 text-wt-dim' : 'bg-l3 text-lt-aux')">
@@ -199,11 +199,11 @@ onMounted(() => {
         <div v-if="expandedKbs.has(kb.id)" class="ml-6 mt-1 mb-1.5 space-y-0.5 border-l border-dashed pl-2"
              :class="isDark ? 'border-d4' : 'border-bdrL'">
           
-          <div v-if="spacesStore.docsByKb[kb.id]?.loading" class="px-2 py-1.5 text-[11px] flex items-center gap-1.5" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">
+          <div v-if="spacesStore.docsByKb[kb.id]?.loading" class="px-2 py-1.5 text-[12px] flex items-center gap-1.5" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">
             <i class="ri-loader-4-line animate-spin text-[12px]" /> 加载文档中...
           </div>
           
-          <div v-else-if="(spacesStore.getDocs(kb.id) || []).length === 0" class="px-2 py-2 text-[11px] text-center" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">
+          <div v-else-if="(spacesStore.getDocs(kb.id) || []).length === 0" class="px-2 py-2 text-[12px] text-center" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">
             <i class="ri-file-unknow-line mr-1"></i>该知识库暂无文档
           </div>
 
@@ -224,7 +224,7 @@ onMounted(() => {
 
             <i class="ri-file-text-line text-[12px] shrink-0 opacity-70" />
             
-            <span class="text-[11.5px] truncate flex-1 leading-tight">
+            <span class="text-[12px] truncate flex-1 leading-tight">
               {{ doc.name }}
             </span>
           </div>

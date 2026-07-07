@@ -17,7 +17,7 @@
   "thinking_mode": "auto",
   "thinking_intensity": "medium",
 
-  "tools": ["file_list", "file_read", "file_write", "office_read", "pdf_read", "office_write", "kb_search", "web_search_bing"],
+  "tools": ["file_list", "file_read", "file_write", "document_read", "office_write", "kb_search", "web_search_bing"],
   "skills": ["research-brief-skill", "html-ppt-skill", "ai-animation-skill", "pptx-deck-skill", "technical-diagram-skill", "officecli-skills"],
   "sub_agents": [],
   "permissions": {

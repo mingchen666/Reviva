@@ -1,7 +1,7 @@
 ---
 name: network-exam-practice
 description: Use this skill whenever the user wants computer network exam preparation, final review, 408-style networking practice, chapter quizzes, subnetting calculations, routing table problems, TCP sequence/ACK questions, protocol analysis, answer grading, or mistake diagnosis.
-allowed-tools: file_read, file_write, office_read, pdf_read, kb_search, web_search_bing
+allowed-tools: file_read, file_write, document_read, kb_search, web_search_bing
 ---
 
 # Network Exam Practice Skill

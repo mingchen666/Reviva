@@ -33,7 +33,7 @@ Office work is a Skill + Tool pairing:
 
 Expected tool pairing:
 
-- `office_read`: read `.docx`, `.pptx`, `.xlsx`; safe enough to be a default system tool.
+- `office_read`: bottom-level precise reader for `.docx`, `.pptx`, `.xlsx`; general document reading should go through `document_read` when available.
 - `office_write`: create and edit `.docx`, `.pptx`, `.xlsx`; write capability and should be explicitly enabled.
 
 If `office_write` is unavailable, plan the work and explain what would be changed, but do not claim the file was created or edited.
