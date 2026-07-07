@@ -1,7 +1,7 @@
 ---
 name: deep-research
 description: "Deep research report generation for Reviva's built-in deep-researcher agent. Use for learning and education research, teacher preparation research, document-based synthesis, literature/source reviews, office research, industry analysis, competitor scans, policy interpretation, and any request for a cited long-form research report."
-allowed-tools: file_read, file_write, office_read, pdf_read, kb_search, web_search_bing
+allowed-tools: file_read, file_write, document_read, kb_search, web_search_bing
 version: 3.0.0
 updated: 2026-06-08
 risk: medium
@@ -34,7 +34,7 @@ repository: https://github.com/hoolulu/deep-research
 - 联网必须服从用户消息中的 `[联网搜索]` 开关。未启用联网时，不要调用搜索、网页读取、浏览器或抓取工具，并在报告中说明外部时效信息未校验。
 - `web_search_bing`、`mcp:exa`、`mcp:jina-mcp-server`、SearXNG、Scrapling、Python 辅助脚本都只是可选增强路线；没有任何单一搜索提供方是必需项。优先使用当前 Agent 实际绑定且可用的工具，不可用时改用其它搜索工具、`kb_search`、用户本地资料和模型已有知识完成研究，并明确标注覆盖范围。
 - 默认不要安装 Python 包、ASR 模型、浏览器自动化组件或抓取依赖。只有用户明确同意、当前 Agent 开启 `exec_command` 且工具可用时，才运行本 skill 附带的 Python 辅助脚本。
-- 读取 Office/PDF 材料时优先使用 `office_read` / `pdf_read`，不要用 `file_read` 直接读取 `.docx`、`.pptx`、`.xlsx`、`.pdf` 二进制文件。
+- 读取 Office/PDF 材料时优先使用 `document_read`，不要用 `file_read` 直接读取 `.docx`、`.pptx`、`.xlsx`、`.pdf` 二进制文件。
 
 ## 0. 支付级质量标准（所有 Task 共用，缺任何一项即降级）
 

@@ -1,7 +1,7 @@
 ---
 name: worksheet-skill
 description: Create teacher-ready worksheets, guided learning sheets, preview sheets, class exercises, homework, layered assignments, remediation sheets, answer keys, and teacher notes. Use this skill whenever the user asks for 学案, 导学案, 任务单, 练习单, 课堂练习, 作业设计, 分层作业, 课后练习, 错题再练, 答案解析, 教师版, 学生版, or wants printable practice materials aligned to a lesson, grade, or uploaded document.
-allowed-tools: file_read, file_write, office_read
+allowed-tools: file_read, file_write, document_read
 ---
 
 # Worksheet Skill

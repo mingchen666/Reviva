@@ -22,6 +22,14 @@ function parseModelRef(ref) {
   }
 }
 
+function normalizeApiFormat(providerId, apiFormat = '') {
+  const value = String(apiFormat || '').trim().toLowerCase()
+  if (['openai_responses', 'openai-responses', 'openai_response', 'openai-response', 'responses', 'response'].includes(value)) return 'openai_responses'
+  if (value === 'anthropic') return 'anthropic'
+  if (['openai', 'openai_chat', 'openai-chat', 'chat', 'chat_completions', 'chat-completions'].includes(value)) return 'openai'
+  return String(providerId || '').toLowerCase() === 'anthropic' ? 'anthropic' : 'openai'
+}
+
 function normalizeSubAgentKey(value) {
   return String(value || '')
     .trim()
@@ -281,9 +289,10 @@ export class AgentHealthService {
       { id: 'web_search_searxng', name: 'SearXNG 搜索', needsConfig: true, needsKey: 'optional', providerConfig: { defaultUrl: 'https://searx.be' } },
       { id: 'web_search_bing', name: 'Bing 搜索', needsConfig: false },
       { id: 'file_read', name: '文件读取', needsConfig: false },
+      { id: 'document_read', name: '文档读取', needsConfig: false },
       { id: 'office_read', name: 'Office 读取', needsConfig: false, requires: ['officecli'] },
       { id: 'office_write', name: 'Office 创建编辑', needsConfig: false, requires: ['officecli'] },
-      { id: 'pdf_read', name: 'PDF 读取', needsConfig: false, requires: ['pypdf'] },
+      { id: 'pdf_read', name: 'PDF 读取', needsConfig: false, requires: ['pymupdf'] },
       { id: 'vision_analyze', name: '图片理解', needsConfig: false },
       { id: 'ffmpeg:*', name: 'FFmpeg 工具集', needsConfig: false, requires: ['ffmpeg', 'ffprobe'] },
       { id: 'pandoc:*', name: 'Pandoc 工具集', needsConfig: false, requires: ['pandoc'] },
@@ -320,15 +329,19 @@ export class AgentHealthService {
 
   async _testModelConnection(provider, modelId) {
     const apiKey = provider.apiKey
-    const isAnthropic = (provider.apiFormat || '').toLowerCase() === 'anthropic' || provider.id === 'anthropic'
+    const apiFormat = normalizeApiFormat(provider.id, provider.apiFormat)
+    const isAnthropic = apiFormat === 'anthropic'
+    const isResponses = apiFormat === 'openai_responses'
     const baseUrl = (provider.baseUrl || (isAnthropic ? 'https://api.anthropic.com/v1' : 'https://api.openai.com/v1')).replace(/\/$/, '')
     let timer = null
 
     try {
       const controller = new AbortController()
       timer = setTimeout(() => controller.abort(), 10000)
-      const url = baseUrl + (isAnthropic ? '/messages' : '/chat/completions')
-      const body = JSON.stringify({ model: modelId, max_tokens: 5, messages: [{ role: 'user', content: 'hi' }] })
+      const url = baseUrl + (isAnthropic ? '/messages' : isResponses ? '/responses' : '/chat/completions')
+      const body = isResponses
+        ? JSON.stringify({ model: modelId, max_output_tokens: 5, input: 'hi' })
+        : JSON.stringify({ model: modelId, max_tokens: 5, messages: [{ role: 'user', content: 'hi' }] })
       const headers = isAnthropic
         ? { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' }
         : { 'Authorization': `Bearer ${apiKey}`, 'content-type': 'application/json' }
@@ -364,7 +377,7 @@ export class AgentHealthService {
       }
     }
     toolIds.push(...this._skillAllowedTools(skillIds))
-    return [...new Set([...toolIds.filter(Boolean), 'office_read', 'pdf_read'])]
+    return [...new Set([...toolIds.filter(Boolean), 'document_read'])]
   }
 
   _normalizeSkillId(skillId) {
@@ -457,8 +470,8 @@ export class AgentHealthService {
     let attempts
     if (cmd === 'officecli') {
       attempts = getOfficeCliCommandCandidates(args)
-    } else if (cmd === 'pypdf') {
-      const code = 'import pypdf; print(getattr(pypdf, "__version__", "pypdf"))'
+    } else if (cmd === 'pymupdf') {
+      const code = 'import fitz; print(getattr(fitz, "version", ["PyMuPDF"])[0])'
       attempts = [
         { cmd: 'python', args: ['-c', code], shell: false },
         { cmd: 'py', args: ['-3', '-c', code], shell: false },

@@ -1,7 +1,7 @@
 ---
 name: computer-network-learning
 description: Use this skill whenever the user is learning computer networking, computer networks, TCP/IP, OSI, subnetting, routing, switching, DNS, HTTP, TCP, UDP, DHCP, TLS, NAT, congestion control, network security basics, or asks for a chapter summary, learning path, concept explanation, study notes, revision plan, or course help for a networking class.
-allowed-tools: file_read, file_write, office_read, pdf_read, kb_search, web_search_bing, mcp:exa
+allowed-tools: file_read, file_write, document_read, kb_search, web_search_bing, mcp:exa
 ---
 
 # Computer Network Learning Skill

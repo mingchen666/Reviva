@@ -3,8 +3,16 @@
 // provides manual compression for the renderer's compress-context request
 
 import { ChatAnthropic } from '@langchain/anthropic'
-import { ChatOpenAI } from '@langchain/openai'
+import { ChatOpenAICompletions, ChatOpenAIResponses } from '@langchain/openai'
 import { HumanMessage, SystemMessage } from '@langchain/core/messages'
+
+function normalizeApiFormat(providerId, apiFormat = '') {
+  const value = String(apiFormat || '').trim().toLowerCase()
+  if (['openai_responses', 'openai-responses', 'openai_response', 'openai-response', 'responses', 'response'].includes(value)) return 'openai_responses'
+  if (value === 'anthropic') return 'anthropic'
+  if (['openai', 'openai_chat', 'openai-chat', 'chat', 'chat_completions', 'chat-completions'].includes(value)) return 'openai'
+  return String(providerId || '').toLowerCase() === 'anthropic' ? 'anthropic' : 'openai'
+}
 
 const SUMMARIZE_PROMPT = `请将以下对话历史压缩为一段简洁的摘要，保留：
 1. 讨论的主要话题和结论
@@ -32,11 +40,15 @@ export class ContextCompressor {
 
     // Create model instance
     let chatModel
-    if ((apiFormat || '').toLowerCase() === 'anthropic' || (providerId || '').toLowerCase() === 'anthropic') {
+    const normalizedApiFormat = normalizeApiFormat(providerId, apiFormat)
+    if (normalizedApiFormat === 'anthropic') {
       const anthropicBaseURL = (baseUrl || '').replace(/\/v1\/?$/, '').replace(/\/$/, '') || undefined
       chatModel = new ChatAnthropic({ apiKey, model, baseURL: anthropicBaseURL, temperature: 0.3, maxTokens: 1024 })
     } else {
-      chatModel = new ChatOpenAI({ apiKey, model, baseURL: baseUrl || undefined, temperature: 0.3, maxTokens: 1024 })
+      const openaiOpts = { apiKey, model, temperature: 0.3, maxTokens: 1024 }
+      if (baseUrl) openaiOpts.configuration = { baseURL: baseUrl }
+      const ChatModel = normalizedApiFormat === 'openai_responses' ? ChatOpenAIResponses : ChatOpenAICompletions
+      chatModel = new ChatModel(openaiOpts)
     }
 
     try {

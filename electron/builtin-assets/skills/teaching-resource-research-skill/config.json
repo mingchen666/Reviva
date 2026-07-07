@@ -6,7 +6,7 @@
   "color": "#14B8A6",
   "category": "教学",
   "source": "platform",
-  "allowedTools": ["file_read", "file_write", "office_read", "kb_search", "web_search_bing"],
+  "allowedTools": ["file_read", "file_write", "document_read", "kb_search", "web_search_bing"],
   "outputTypes": ["Markdown", "DOCX"],
   "version": "1.0",
   "author": "reviva",

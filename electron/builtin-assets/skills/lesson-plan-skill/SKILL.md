@@ -1,7 +1,7 @@
 ---
 name: lesson-plan-skill
 description: Create teacher-ready lesson plans and instructional designs for real classroom preparation. Use this skill whenever a teacher asks for 教案, 备课, 教学设计, 教学目标, 重难点, 课堂流程, 单元教学设计, 公开课, 说课稿, 板书设计, 作业设计, 教学反思, or wants to turn教材、课件、讲义、课程标准、考试要求、知识点 into a structured teachable lesson for different grade bands.
-allowed-tools: file_read, file_write, office_read
+allowed-tools: file_read, file_write, document_read
 ---
 
 # Lesson Plan Skill
@@ -36,7 +36,7 @@ Gather only missing information:
 - desired outputs: chat outline, Markdown, DOCX教案, PPTX课件, 学案, 练习, 评价表, 完整备课包;
 - provided materials:教材截图、课件、讲义、题库、教研要求、学校模板.
 
-If documents are provided, read them before designing. Office files must be read via `office_read`. Treat user materials as the primary source. Do not invent textbook pages, standards, policy wording, school requirements, or exam claims.
+If documents are provided, read them before designing. Office/PDF files must be read via `document_read`. Treat user materials as the primary source. Do not invent textbook pages, standards, policy wording, school requirements, or exam claims.
 
 ## Design Workflow
 

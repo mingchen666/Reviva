@@ -4,6 +4,7 @@ import path from 'node:path'
 import { getOfficeCliCommandCandidates, getOfficeCliSpawnEnv } from '../officeCliResolver.js'
 import { getSystemEnv } from '../systemEnv.js'
 import { extractOfficeImages } from '../tools/officecli/OfficeImageExtractor.js'
+import { detectPdfTextMode } from '../tools/pdf/PdfNeedOcrDetector.js'
 
 const OFFICE_EXTS = new Set(['.docx', '.xlsx', '.pptx'])
 const PDF_EXTS = new Set(['.pdf'])
@@ -19,9 +20,9 @@ import json
 import sys
 
 try:
-    from pypdf import PdfReader
+    import fitz
 except Exception as exc:
-    print(json.dumps({"success": False, "code": "PYPDF_NOT_INSTALLED", "detail": str(exc)}, ensure_ascii=False))
+    print(json.dumps({"success": False, "code": "PYMUPDF_NOT_INSTALLED", "detail": str(exc)}, ensure_ascii=False))
     raise SystemExit(2)
 
 def emit(payload, code=0):
@@ -34,20 +35,20 @@ try:
     start_page = max(int(req.get("startPage") or 1), 1)
     max_pages = min(max(int(req.get("maxPages") or 10), 1), 50)
 
-    reader = PdfReader(file_path, strict=False)
-    encrypted = bool(getattr(reader, "is_encrypted", False))
+    doc = fitz.open(file_path)
+    encrypted = bool(getattr(doc, "needs_pass", False))
     if encrypted:
         try:
-            decrypt_result = reader.decrypt("")
+            decrypt_result = doc.authenticate("")
         except Exception as exc:
             emit({"success": False, "code": "PDF_ENCRYPTED", "detail": str(exc)}, 1)
         if not decrypt_result:
             emit({"success": False, "code": "PDF_ENCRYPTED", "detail": "PDF is encrypted and cannot be opened with an empty password."}, 1)
 
-    page_count = len(reader.pages)
+    page_count = doc.page_count
     metadata = {}
     try:
-        for key, value in dict(reader.metadata or {}).items():
+        for key, value in dict(doc.metadata or {}).items():
             metadata[str(key).lstrip("/")] = "" if value is None else str(value)
     except Exception:
         metadata = {}
@@ -57,7 +58,7 @@ try:
     pages = []
     for index in range(start_index, end_index):
         try:
-            text = reader.pages[index].extract_text() or ""
+            text = doc.load_page(index).get_text("text") or ""
             pages.append({"page": index + 1, "text": text, "ok": True})
         except Exception as exc:
             pages.append({"page": index + 1, "text": "", "ok": False, "error": str(exc)})
@@ -71,6 +72,7 @@ try:
         "metadata": metadata,
         "pages": pages,
         "nextPage": end_index + 1 if end_index < page_count else None,
+        "parser": "pymupdf",
     })
 except SystemExit:
     raise
@@ -184,7 +186,7 @@ function pdfNeedsOcrResult(message, stats = {}, detail = '') {
     message,
     detail: compactDetail(detail),
     stats: {
-      parser: 'pypdf',
+      parser: 'pymupdf',
       needsOcr: true,
       ...stats,
     },
@@ -238,7 +240,7 @@ async function runPdfPython(payload) {
     const result = await spawnBuffered(candidate.command, [...candidate.args, '-c', PDF_PYTHON_SCRIPT], {
       input: JSON.stringify(payload),
       shell: false,
-      env: { ...process.env, PYTHONIOENCODING: 'utf-8' },
+      env: { ...(await getSystemEnv()), PYTHONIOENCODING: 'utf-8' },
       timeoutMs: 60000,
       label: candidate.label,
     })
@@ -247,14 +249,14 @@ async function runPdfPython(payload) {
       lastNotFound = result
       continue
     }
-    if (parsed?.code === 'PYPDF_NOT_INSTALLED') {
+    if (parsed?.code === 'PYMUPDF_NOT_INSTALLED' || parsed?.code === 'PYPDF_NOT_INSTALLED') {
       lastMissing = parsed
       continue
     }
     if (parsed) return parsed
     return { success: false, code: result.code === 124 ? 'PDF_READ_TIMEOUT' : 'PDF_READ_FAILED', detail: (result.stderr || result.stdout || '').slice(0, 1200) }
   }
-  if (lastMissing) return { success: false, code: 'PYPDF_NOT_INSTALLED', detail: lastMissing.detail || '' }
+  if (lastMissing) return { success: false, code: 'PYMUPDF_NOT_INSTALLED', detail: lastMissing.detail || '' }
   return { success: false, code: 'PYTHON_NOT_FOUND', detail: lastNotFound?.stderr || '' }
 }
 
@@ -371,8 +373,8 @@ export class DocumentReadService {
           first.detail,
         )
       }
-      const message = code === 'PYPDF_NOT_INSTALLED'
-        ? '读取 PDF 需要 Python 包 pypdf。请先在设置 > 环境检测中修复 Python Office 库。'
+      const message = (code === 'PYMUPDF_NOT_INSTALLED' || code === 'PYPDF_NOT_INSTALLED')
+        ? '读取 PDF 需要 Python 包 PyMuPDF。请先在文档解析设置中自动安装，或到设置 > 环境检测中修复 Python 环境。'
         : (code === 'PYTHON_NOT_FOUND'
             ? '未找到可用 Python，无法读取 PDF。'
             : (code === 'PDF_ENCRYPTED' ? '该 PDF 已加密，无法进行本地文本提取。' : 'PDF 文本提取失败。'))
@@ -392,6 +394,7 @@ export class DocumentReadService {
     const ocrCandidatePages = []
     const pageErrors = []
     const readErrors = []
+    const detectedPages = []
 
     while (cursor && cursor <= pageCount) {
       const current = cursor === 1 ? first : await runPdfPython({ path: filePath, startPage: cursor, maxPages: PDF_CHUNK_PAGES })
@@ -404,6 +407,7 @@ export class DocumentReadService {
         break
       }
       for (const page of current.pages || []) {
+        detectedPages.push(page)
         if (page.ok === false || page.error) {
           failedPages += 1
           pageErrors.push({ page: page.page, error: compactDetail(page.error, 240) })
@@ -430,22 +434,21 @@ export class DocumentReadService {
       cursor = current.nextPage
     }
 
-    const unreadPages = readErrors[0]?.startPage
-      ? Math.max(pageCount - Number(readErrors[0].startPage) + 1, 0)
-      : 0
-    const uniqueOcrCandidatePages = Array.from(new Set(ocrCandidatePages)).sort((a, b) => a - b)
-    const ocrCandidateCount = uniqueOcrCandidatePages.length + unreadPages
-    const textCoverageRatio = pageCount > 0 ? extractedPages / pageCount : 0
-    const ocrCandidateRatio = pageCount > 0 ? ocrCandidateCount / pageCount : 0
-    const mixedOcrThreshold = pageCount > 0
-      ? Math.max(2, Math.ceil(pageCount * PDF_MIXED_OCR_PAGE_RATIO))
-      : 0
-    const hasDocumentText = usefulTextChars >= PDF_MIN_DOCUMENT_TEXT_CHARS && extractedPages > 0
-    const isScannedLike = pageCount > 0 && !hasDocumentText
-    const isMixedNeedsOcr = pageCount > 0 && hasDocumentText && ocrCandidateCount >= mixedOcrThreshold
-    const pdfTextMode = isScannedLike
-      ? 'scanned_or_image'
-      : (isMixedNeedsOcr ? 'mixed_needs_ocr' : (ocrCandidateCount > 0 ? 'text_with_partial_gaps' : 'text'))
+    const sharedStats = detectPdfTextMode({ pages: detectedPages, pageCount, readErrors })
+    textChars = sharedStats.chars
+    usefulTextChars = sharedStats.usefulChars
+    extractedPages = sharedStats.extractedPages
+    emptyPages = sharedStats.emptyPages
+    thinTextPages = sharedStats.thinTextPages
+    failedPages = sharedStats.failedPages
+    const unreadPages = sharedStats.unreadPages
+    const uniqueOcrCandidatePages = sharedStats.ocrCandidatePages || []
+    const ocrCandidateCount = sharedStats.ocrCandidateCount
+    const textCoverageRatio = sharedStats.textCoverageRatio
+    const ocrCandidateRatio = sharedStats.ocrCandidateRatio
+    const pdfTextMode = sharedStats.pdfTextMode
+    const isScannedLike = pdfTextMode === 'scanned_or_image'
+    const isMixedNeedsOcr = pdfTextMode === 'mixed_needs_ocr'
 
     if (isScannedLike || isMixedNeedsOcr) {
       return pdfNeedsOcrResult(
@@ -490,7 +493,7 @@ export class DocumentReadService {
       format: 'pdf',
       content: body,
       stats: {
-        parser: 'pypdf',
+        parser: first.parser || 'pymupdf',
         pageCount: first.pageCount || 0,
         chunks: chunks.length,
         chars: body.length,

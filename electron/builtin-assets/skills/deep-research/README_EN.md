@@ -10,8 +10,7 @@ Use this skill for longer research tasks such as learning and education research
 
 - User-provided local files and attachments.
 - Markdown, TXT, CSV, JSON, and similar text files via `file_read`.
-- DOCX, PPTX, and XLSX via `office_read`.
-- PDF via `pdf_read`; if unavailable, mark the PDF as not parsed and do not install dependencies.
+- DOCX, PPTX, XLSX, and PDF via `document_read`; if unavailable, mark the document as not parsed and do not install dependencies.
 - Cloud knowledge base content via `kb_search`.
 - Optional web search through whatever tools are actually available, such as `web_search_bing`, `mcp:exa`, or `mcp:jina-mcp-server`. No single provider is required.
 

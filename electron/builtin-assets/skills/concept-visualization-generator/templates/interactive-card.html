@@ -1,0 +1,485 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{{concept_title}} - 概念可视化卡片</title>
+  <style>
+    :root {
+      --bg: #eef3f7;
+      --panel: #ffffff;
+      --panel-2: #e7edf3;
+      --ink: #1f2933;
+      --muted: #62707f;
+      --line: #d7dee7;
+      --accent: #245c9f;
+      --accent-2: #c0573a;
+      --good: #2f855a;
+      --warn: #b7791f;
+      --bad: #c53030;
+      --shadow: 0 16px 38px rgba(31, 41, 51, 0.1);
+      --radius: 8px;
+      font-family: Inter, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--ink);
+      letter-spacing: 0;
+    }
+
+    .page {
+      width: min(1180px, calc(100vw - 32px));
+      margin: 0 auto;
+      padding: 24px 0 32px;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 10px 0 18px;
+    }
+
+    .eyebrow {
+      color: var(--accent);
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      margin: 4px 0 0;
+      font-size: clamp(28px, 4vw, 48px);
+      line-height: 1.05;
+      letter-spacing: 0;
+    }
+
+    .goal {
+      max-width: 520px;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.55;
+      text-align: right;
+    }
+
+    .meta-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      min-height: 24px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 0 10px;
+      background: rgba(255, 255, 255, 0.72);
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 750;
+    }
+
+    .workspace {
+      display: grid;
+      grid-template-columns: minmax(280px, 0.92fr) minmax(420px, 1.35fr);
+      gap: 16px;
+      align-items: stretch;
+    }
+
+    .card,
+    .visual,
+    .practice {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+    }
+
+    .card {
+      padding: 18px;
+      display: grid;
+      gap: 14px;
+    }
+
+    .section-label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+
+    .section-label::before {
+      content: "";
+      width: 16px;
+      height: 2px;
+      background: var(--accent-2);
+      border-radius: 99px;
+    }
+
+    .definition {
+      font-size: 18px;
+      line-height: 1.55;
+      font-weight: 650;
+    }
+
+    .idea {
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.65;
+    }
+
+    .formula {
+      border-radius: 6px;
+      background: #f3f6fa;
+      border: 1px solid var(--line);
+      padding: 12px;
+      font-family: "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+      font-size: 14px;
+      overflow-x: auto;
+    }
+
+    .misconception {
+      display: grid;
+      gap: 8px;
+      padding: 12px;
+      border: 1px solid rgba(197, 48, 48, 0.22);
+      background: rgba(197, 48, 48, 0.06);
+      border-radius: 6px;
+      font-size: 13px;
+      line-height: 1.55;
+    }
+
+    .visual {
+      min-height: 540px;
+      padding: 16px;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      gap: 12px;
+      overflow: hidden;
+    }
+
+    .visual-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .step-title {
+      font-size: 16px;
+      font-weight: 750;
+    }
+
+    .step-note {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .stage {
+      position: relative;
+      min-height: 360px;
+      border-radius: 6px;
+      background:
+        linear-gradient(var(--panel-2) 1px, transparent 1px),
+        linear-gradient(90deg, var(--panel-2) 1px, transparent 1px),
+        #f8fbff;
+      background-size: 32px 32px;
+      border: 1px solid var(--line);
+      overflow: hidden;
+    }
+
+    svg {
+      width: 100%;
+      height: 100%;
+      min-height: 360px;
+      display: block;
+    }
+
+    .axis { stroke: #4b5563; stroke-width: 1.4; }
+    .curve { fill: none; stroke: var(--accent); stroke-width: 3; }
+    .guide { stroke: var(--accent-2); stroke-width: 2; stroke-dasharray: 6 5; }
+    .dot { fill: var(--accent-2); }
+    .label {
+      fill: var(--ink);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .controls {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      padding-top: 2px;
+    }
+
+    button {
+      appearance: none;
+      border: 1px solid var(--line);
+      background: var(--panel);
+      color: var(--ink);
+      border-radius: 6px;
+      min-height: 34px;
+      padding: 0 12px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    button.primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: white;
+    }
+
+    .slider-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex: 1;
+      min-width: 220px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      accent-color: var(--accent);
+    }
+
+    .practice {
+      margin-top: 16px;
+      padding: 16px;
+    }
+
+    .checks {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .check {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #f8fbff;
+      padding: 12px;
+      min-height: 118px;
+      display: grid;
+      gap: 8px;
+    }
+
+    .check strong {
+      color: var(--accent);
+      font-size: 12px;
+    }
+
+    .check p {
+      margin: 0;
+      font-size: 13px;
+      line-height: 1.55;
+      color: var(--ink);
+    }
+
+    .trace {
+      margin-top: 16px;
+      background: #1f2933;
+      color: #e5edf5;
+      border-radius: 6px;
+      padding: 12px;
+      overflow-x: auto;
+      font-size: 12px;
+    }
+
+    @media (max-width: 860px) {
+      .topbar {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+      .goal { text-align: left; }
+      .workspace { grid-template-columns: 1fr; }
+      .checks { grid-template-columns: 1fr; }
+      .visual { min-height: auto; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="topbar">
+      <div>
+        <div class="eyebrow">Concept Visualization Card</div>
+        <h1>{{concept_title}}</h1>
+        <div class="meta-row" aria-label="learning metadata">
+          <span class="chip">{{domain}}</span>
+          <span class="chip">{{visual_representation}}</span>
+          <span class="chip">{{abstraction_level}}</span>
+        </div>
+      </div>
+      <div class="goal">{{learning_objective}}</div>
+    </header>
+
+    <section class="workspace">
+      <article class="card">
+        <div>
+          <div class="section-label">一句话</div>
+          <div class="definition">{{one_sentence_definition}}</div>
+        </div>
+        <div>
+          <div class="section-label">直觉</div>
+          <div class="idea">{{core_intuition}}</div>
+        </div>
+        <div>
+          <div class="section-label">定义 / 公式</div>
+          <div class="formula">{{definition_or_formula}}</div>
+        </div>
+        <div>
+          <div class="section-label">误区修正</div>
+          <div class="misconception">
+            <div><strong>常见误区：</strong>{{common_misconception}}</div>
+            <div><strong>正确理解：</strong>{{correction}}</div>
+          </div>
+        </div>
+      </article>
+
+      <section class="visual">
+        <div class="visual-head">
+          <div>
+            <div class="step-title" id="stepTitle">Step 1 · 建立视觉锚点</div>
+            <div class="step-note" id="stepNote">{{visual_step_1}}</div>
+          </div>
+          <button class="primary" id="nextBtn">下一步</button>
+        </div>
+
+        <div class="stage" aria-label="interactive visualization">
+          <!-- Replace this default graph with the selected discipline pattern when needed:
+               force/vector, particle, pathway, state machine, timeline, argument map,
+               parse/highlight view, or another subject-native visual stage. -->
+          <svg viewBox="0 0 720 420" role="img">
+            <line class="axis" x1="70" y1="340" x2="660" y2="340" />
+            <line class="axis" x1="110" y1="370" x2="110" y2="45" />
+            <path class="curve" id="curve" d="" />
+            <line class="guide" id="guide" x1="110" y1="340" x2="610" y2="120" />
+            <circle class="dot" id="dot" cx="360" cy="190" r="6" />
+            <text class="label" x="124" y="64">{{axis_label_y}}</text>
+            <text class="label" x="628" y="326">{{axis_label_x}}</text>
+            <text class="label" id="dynamicLabel" x="374" y="176">{{dynamic_label}}</text>
+          </svg>
+        </div>
+
+        <div class="controls">
+          <button id="resetBtn">重置</button>
+          <div class="slider-wrap">
+            <span>{{parameter_label}}</span>
+            <input id="param" type="range" min="0" max="100" value="45" />
+            <span id="paramValue">45</span>
+          </div>
+        </div>
+      </section>
+    </section>
+
+    <section class="practice">
+      <div class="section-label">自测</div>
+      <div class="checks">
+        <div class="check">
+          <strong>Recall</strong>
+          <p>{{recall_check}}</p>
+        </div>
+        <div class="check">
+          <strong>Misconception</strong>
+          <p>{{misconception_check}}</p>
+        </div>
+        <div class="check">
+          <strong>Transfer</strong>
+          <p>{{transfer_check}}</p>
+        </div>
+      </div>
+      <pre class="trace"><code>{
+  "concept": "{{concept_title}}",
+  "domain": "{{domain}}",
+  "level": "{{level}}",
+  "visual_representation": "{{visual_representation}}",
+  "abstraction_level": "{{abstraction_level}}",
+  "artifacts": ["concept_card", "interactive_html", "retrieval_checks"],
+  "recommended_next_step": "{{next_step}}"
+}</code></pre>
+    </section>
+  </main>
+
+  <script>
+    const steps = [
+      { title: "Step 1 · 建立视觉锚点", note: "{{visual_step_1}}" },
+      { title: "Step 2 · 观察变化", note: "{{visual_step_2}}" },
+      { title: "Step 3 · 说出规律", note: "{{visual_step_3}}" }
+    ];
+
+    let step = 0;
+    const title = document.getElementById("stepTitle");
+    const note = document.getElementById("stepNote");
+    const nextBtn = document.getElementById("nextBtn");
+    const resetBtn = document.getElementById("resetBtn");
+    const slider = document.getElementById("param");
+    const paramValue = document.getElementById("paramValue");
+    const curve = document.getElementById("curve");
+    const guide = document.getElementById("guide");
+    const dot = document.getElementById("dot");
+    const dynamicLabel = document.getElementById("dynamicLabel");
+
+    function draw(value) {
+      const amp = 42 + Number(value) * 0.9;
+      const points = [];
+      for (let i = 0; i <= 110; i++) {
+        const x = 110 + i * 4.6;
+        const t = i / 110;
+        const y = 250 - Math.sin(t * Math.PI * 2) * amp - t * 60;
+        points.push(`${i === 0 ? "M" : "L"} ${x.toFixed(1)} ${y.toFixed(1)}`);
+      }
+      curve.setAttribute("d", points.join(" "));
+
+      const dx = 250 + Number(value) * 2.2;
+      const dy = 260 - Number(value) * 1.4;
+      dot.setAttribute("cx", dx);
+      dot.setAttribute("cy", dy);
+      guide.setAttribute("x2", dx);
+      guide.setAttribute("y2", dy);
+      dynamicLabel.setAttribute("x", dx + 14);
+      dynamicLabel.setAttribute("y", dy - 12);
+      paramValue.textContent = value;
+    }
+
+    function renderStep() {
+      title.textContent = steps[step].title;
+      note.textContent = steps[step].note;
+      nextBtn.textContent = step === steps.length - 1 ? "回到第一步" : "下一步";
+    }
+
+    nextBtn.addEventListener("click", () => {
+      step = (step + 1) % steps.length;
+      renderStep();
+    });
+
+    resetBtn.addEventListener("click", () => {
+      step = 0;
+      slider.value = 45;
+      renderStep();
+      draw(slider.value);
+    });
+
+    slider.addEventListener("input", () => draw(slider.value));
+
+    renderStep();
+    draw(slider.value);
+  </script>
+</body>
+</html>

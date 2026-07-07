@@ -30,7 +30,7 @@
 
 ### 第 2 步：读取资料
 
-- Office 模板或已有报告：优先用 `office_read(path, mode="overview")` 读取结构，再按需要读取正文。
+- Office 模板或已有报告：优先用 `document_read(path, mode="overview")` 读取结构，再按需要读取正文。
 - 普通文本、代码、CSV、Markdown：使用 `file_read`。
 - 用户选择了知识库：使用 `kb_search` 获取相关内容。
 - 只有当用户要求补充背景资料，或实验原理明显缺乏依据时，才使用 `web_search_bing`；不要把网页内容伪装成用户实验数据。

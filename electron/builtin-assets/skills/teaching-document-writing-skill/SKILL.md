@@ -1,7 +1,7 @@
 ---
 name: teaching-document-writing-skill
 description: Write and polish formal teaching documents for teachers, school offices,教研 and training contexts. Use this skill whenever the user asks for 说课稿, 教学反思, 教研总结, 听课记录, 评课稿, 教学案例, 培训方案, 家校沟通, 通知, 工作计划, 工作总结, 述职材料, 教研论文初稿, or wants a DOCX/PPTX-ready education document based on uploaded materials.
-allowed-tools: file_read, file_write, office_read
+allowed-tools: file_read, file_write, document_read
 ---
 
 # Teaching Document Writing Skill
@@ -36,7 +36,7 @@ Gather only missing information:
 - tone: formal, warm, concise, public lesson, report style, parent-facing;
 - whether the output should be Markdown, DOCX, or PPTX outline.
 
-If files are provided, read them first. Office files must be read with `office_read`. If the user asks for current policy, curriculum standard, public facts, or school-specific wording, the parent agent should use web search or ask the user for the official source.
+If files are provided, read them first. Office/PDF files must be read with `document_read`. If the user asks for current policy, curriculum standard, public facts, or school-specific wording, the parent agent should use web search or ask the user for the official source.
 
 ## Writing Workflow
 

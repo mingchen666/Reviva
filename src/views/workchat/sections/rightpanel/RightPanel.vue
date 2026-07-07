@@ -79,12 +79,12 @@ async function deleteArtifact(a) {
     :style="{ width: width + 'px', borderLeft: `1px solid ${isDark ? '#2e2e3a' : '#dddcd9'}` }">
     <!-- Header: Tabs + Close -->
     <div
-      class="h-9 flex items-center justify-between px-3 shrink-0"
+      class="h-10 flex items-center justify-between px-3 shrink-0"
       :class="isDark ? 'border-b border-d4' : 'border-b border-bdrL'">
       <div class="flex items-center gap-1">
         <button
           @click="activeTab = 'workspace'"
-          class="px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all duration-150"
+          class="px-3 py-1.5 rounded-md text-[13px] font-semibold transition-all duration-150"
           :class="
             activeTab === 'workspace'
               ? isDark
@@ -94,12 +94,12 @@ async function deleteArtifact(a) {
                 ? 'text-wt-aux hover:text-wt-sub hover:bg-white/4'
                 : 'text-lt-aux hover:text-lt-sub hover:bg-l4'
           ">
-          <svg-icon icon-class="wand-magic-sparkles" size="12" class="mr-0.5"/>
+          <svg-icon icon-class="wand-magic-sparkles" size="13" class="mr-0.5"/>
           工作台
         </button>
         <button
           @click="activeTab = 'preview'"
-          class="px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all duration-150"
+          class="px-3 py-1.5 rounded-md text-[13px] font-semibold transition-all duration-150"
           :class="
             activeTab === 'preview'
               ? isDark
@@ -109,7 +109,7 @@ async function deleteArtifact(a) {
                 ? 'text-wt-aux hover:text-wt-sub hover:bg-white/4'
                 : 'text-lt-aux hover:text-lt-sub hover:bg-l4'
           ">
-          <i class="ri-eye-line text-[12px] mr-0.5" />
+          <i class="ri-eye-line text-[13px] mr-0.5" />
           预览
         </button>
       </div>

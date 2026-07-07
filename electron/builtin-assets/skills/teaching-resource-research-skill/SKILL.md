@@ -1,7 +1,7 @@
 ---
 name: teaching-resource-research-skill
 description: Find, verify, and curate teaching resources for lesson preparation. Use this skill whenever a teacher asks to 联网查资料, 查课标, 找教材背景, 找公开课资源, 找案例, 找素材, 找时事, 找图片/视频/网页资料, 引用依据, 课程标准, 教材版本, 考试要求, 学科前沿, or wants sources for lesson plans, slides, worksheets, training materials, or teaching documents.
-allowed-tools: file_read, file_write, office_read, kb_search, web_search_bing
+allowed-tools: file_read, file_write, document_read, kb_search, web_search_bing
 ---
 
 # Teaching Resource Research Skill
@@ -23,7 +23,7 @@ Use this skill for:
 - building a source table for a lesson plan, PPT, worksheet, training document, or research summary;
 - checking whether a generated teaching claim needs citation or current verification.
 
-If the user only provides local materials and does not need external sources, prioritize `office_read`, `file_read`, and `knowledge-organize` instead. If a source becomes part of slides or handouts, coordinate with `lesson-plan-skill`, `worksheet-skill`, or `pptx-deck-skill`.
+If the user only provides local materials and does not need external sources, prioritize `document_read`, `file_read`, and `knowledge-organize` instead. If a source becomes part of slides or handouts, coordinate with `lesson-plan-skill`, `worksheet-skill`, or `pptx-deck-skill`.
 
 ## Research Workflow
 

@@ -17,6 +17,16 @@ const api = {
   copyFile: (src, dest) => ipcRenderer.invoke('fs:copyFile', src, dest),
   exists: (filePath) => ipcRenderer.invoke('fs:exists', filePath),
   stat: (filePath) => ipcRenderer.invoke('fs:stat', filePath),
+  pdf: {
+    preflight: (filePath, options) => ipcRenderer.invoke('pdf:preflight', filePath, options),
+    getSettings: () => ipcRenderer.invoke('pdf:getSettings'),
+    setSettings: (settings) => ipcRenderer.invoke('pdf:setSettings', settings),
+    checkEnvironment: () => ipcRenderer.invoke('pdf:checkEnvironment'),
+    installLocalParser: () => ipcRenderer.invoke('env:installPythonPdfLibs'),
+    getStatus: (filePath, options) => ipcRenderer.invoke('pdf:getStatus', filePath, options),
+    startOcr: (filePath, options) => ipcRenderer.invoke('pdf:startOcr', filePath, options),
+    listImages: (filePath, options) => ipcRenderer.invoke('pdf:listImages', filePath, options),
+  },
 
   // Shell
   openPath: (filePath) => ipcRenderer.invoke('shell:openPath', filePath),
@@ -32,6 +42,7 @@ const api = {
   getDataSize: () => ipcRenderer.invoke('app:getDataSize'),
   getSysInfo: () => ipcRenderer.invoke('app:getSysInfo'),
   checkEnv: (keys) => ipcRenderer.invoke('env:check', keys),
+  installPythonPdfLibs: () => ipcRenderer.invoke('env:installPythonPdfLibs'),
   installPythonOfficeLibs: () => ipcRenderer.invoke('env:installPythonOfficeLibs'),
   installPythonMathVizLibs: () => ipcRenderer.invoke('env:installPythonMathVizLibs'),
   exportSettings: () => ipcRenderer.invoke('app:exportSettings'),

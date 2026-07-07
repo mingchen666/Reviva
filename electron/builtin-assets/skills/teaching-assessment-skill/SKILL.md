@@ -1,7 +1,7 @@
 ---
 name: teaching-assessment-skill
 description: Design classroom assessment, formative checks, rubrics, exit tickets, homework grading standards, diagnostic feedback, classroom observation forms, student self/peer assessment, and teaching reflection. Use this skill whenever the user asks for 评价量规, 课堂评价, 作业批改标准, 学习诊断, 形成性评价, 总结性评价, 出门条, 课堂观察表, 评分表, 教学反思, or how to assess whether students learned.
-allowed-tools: file_read, file_write, office_read
+allowed-tools: file_read, file_write, document_read
 ---
 
 # Teaching Assessment Skill

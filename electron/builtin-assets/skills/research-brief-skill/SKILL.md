@@ -1,7 +1,7 @@
 ---
 name: research-brief-skill
 description: "Lightweight source-backed research and synthesis for normal Reviva agents. Use when the user asks to summarize materials, compare sources, verify claims, collect evidence, create a short research brief, prepare slide/document inputs, or produce a Markdown/HTML brief without running the full deep-researcher pipeline."
-allowed-tools: file_read, file_write, office_read, pdf_read, kb_search, web_search_bing, mcp:exa
+allowed-tools: file_read, file_write, document_read, kb_search, web_search_bing, mcp:exa
 ---
 
 # Research Brief Skill
@@ -38,8 +38,8 @@ Handle files by type:
 | Type | Tool | Rule |
 | --- | --- | --- |
 | `.md`, `.txt`, `.csv`, `.json`, source snippets | `file_read` | Read directly, in chunks when large. |
-| `.docx`, `.pptx`, `.xlsx` | `office_read` | Use overview first, then text/targeted reads. Never use `file_read` on Office binaries. |
-| `.pdf` | `pdf_read` | Use overview first, then page chunks. If unavailable, mark the PDF as not parsed; do not install dependencies. |
+| `.docx`, `.pptx`, `.xlsx` | `document_read` | Use overview first, then text/targeted reads. Never use `file_read` on Office binaries. |
+| `.pdf` | `document_read` | Use overview first, then page chunks. If unavailable, mark the PDF as not parsed; do not install dependencies. |
 | Cloud KB docs | `kb_search` | Search the KB; do not pretend cloud KB docs have local paths. |
 | Web pages/search results | `web_search_bing` / `mcp:exa` | Optional. Use only available tools and respect the parent agent's web-search setting. |
 

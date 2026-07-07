@@ -19,6 +19,9 @@ import { GenerationTaskService } from './GenerationTaskService'
 import { McpService } from './McpService'
 import { WikiService } from './WikiService.js'
 import { BackupService } from './BackupService.js'
+import { PdfReadService } from './tools/pdf/PdfReadService.js'
+import { PDF_READ_SETTINGS_KEY, normalizePdfReadSettings } from './tools/pdf/PdfReadSettings.js'
+import { PdfTextExtractor } from './tools/pdf/PdfTextExtractor.js'
 import { getOfficeCliCommandCandidates, getOfficeCliSpawnEnv } from './officeCliResolver.js'
 import { getSystemEnv } from './systemEnv.js'
 import path from 'node:path'
@@ -277,6 +280,17 @@ function validateFsPath(inputPath) {
   return workDirService.resolveAndValidate(normalizedPath, 'any')
 }
 
+function toWorkspaceVirtualPath(absPath) {
+  const rootPath = workDirService?.getRootPath?.()
+  if (!rootPath) return String(absPath || '').replace(/\\/g, '/')
+  const rel = path.relative(rootPath, absPath).replace(/\\/g, '/')
+  return rel && !rel.startsWith('..') ? '/' + rel : String(absPath || '').replace(/\\/g, '/')
+}
+
+function pdfService() {
+  return new PdfReadService({ workDirService, dbService })
+}
+
 function validateShellPath(inputPath) {
   const normalizedPath = normalizeIncomingPath(inputPath)
   // Shell actions may open the workspace root itself; file I/O remains limited to scoped subdirs.
@@ -294,6 +308,7 @@ async function ensureWorkspaceDirs() {
     path.join(rootPath, 'docs'),
     path.join(rootPath, 'notes'),
     path.join(rootPath, 'wikis'),
+    path.join(rootPath, 'context'),
     path.join(rootPath, 'agents'),
     path.join(rootPath, 'skills'),
     path.join(rootPath, '.reviva'),
@@ -1030,6 +1045,103 @@ ipcMain.handle('mcp:syncServerTools', async (_, serverId) => {
   }
 })
 
+ipcMain.handle('pdf:preflight', async (event, filePath, options = {}) => {
+  try {
+    const inputPath = validateFsPath(filePath)
+    if (path.extname(inputPath).toLowerCase() !== '.pdf') return { success: false, error: 'Only PDF files can be preflighted' }
+    const result = await pdfService().read({
+      inputPath,
+      virtualPath: toWorkspaceVirtualPath(inputPath),
+      mode: 'overview',
+      maxPages: options.maxPages || 5,
+      maxChars: options.maxChars || 40000,
+      sourceInfo: options.sourceInfo || { origin: 'docs' },
+    })
+    return result
+  } catch (err) {
+    return { success: false, error: err.message, code: 'PDF_PREFLIGHT_FAILED' }
+  }
+})
+
+ipcMain.handle('pdf:getSettings', async () => {
+  try {
+    return { success: true, data: normalizePdfReadSettings(dbService?.getSetting?.(PDF_READ_SETTINGS_KEY) || {}) }
+  } catch (err) {
+    return { success: false, error: err.message, code: 'PDF_SETTINGS_GET_FAILED' }
+  }
+})
+
+ipcMain.handle('pdf:setSettings', async (event, settings = {}) => {
+  try {
+    const normalized = normalizePdfReadSettings(settings)
+    dbService?.setSetting?.(PDF_READ_SETTINGS_KEY, normalized)
+    return { success: true, data: normalized }
+  } catch (err) {
+    return { success: false, error: err.message, code: 'PDF_SETTINGS_SET_FAILED' }
+  }
+})
+
+ipcMain.handle('pdf:checkEnvironment', async () => {
+  try {
+    const textExtractor = new PdfTextExtractor()
+    return await textExtractor.checkEnvironment()
+  } catch (err) {
+    return { success: false, error: err.message, code: 'PDF_ENV_CHECK_FAILED' }
+  }
+})
+
+ipcMain.handle('pdf:getStatus', async (event, filePath, options = {}) => {
+  try {
+    const inputPath = validateFsPath(filePath)
+    const result = await pdfService().read({
+      inputPath,
+      virtualPath: toWorkspaceVirtualPath(inputPath),
+      mode: 'metadata',
+      probe: options?.probe !== false,
+    })
+    return result
+  } catch (err) {
+    return { success: false, error: err.message, code: 'PDF_STATUS_FAILED' }
+  }
+})
+
+ipcMain.handle('pdf:startOcr', async (event, filePath, options = {}) => {
+  try {
+    const inputPath = validateFsPath(filePath)
+    const result = await pdfService().read({
+      inputPath,
+      virtualPath: toWorkspaceVirtualPath(inputPath),
+      mode: 'ocr',
+      pages: Array.isArray(options.pages) ? options.pages : [],
+      startPage: options.startPage || 1,
+      maxPages: options.maxPages || 5,
+      provider: options.provider || 'auto',
+      confirmFull: !!options.confirmFull,
+      fullDocument: !!options.fullDocument,
+      sourceInfo: options.sourceInfo || { origin: 'docs' },
+    })
+    return result
+  } catch (err) {
+    return { success: false, error: err.message, code: 'PDF_OCR_START_FAILED' }
+  }
+})
+
+ipcMain.handle('pdf:listImages', async (event, filePath, options = {}) => {
+  try {
+    const inputPath = validateFsPath(filePath)
+    const result = await pdfService().read({
+      inputPath,
+      virtualPath: toWorkspaceVirtualPath(inputPath),
+      mode: 'images',
+      startPage: options.startPage || 1,
+      maxPages: options.maxPages || 5,
+    })
+    return result
+  } catch (err) {
+    return { success: false, error: err.message, code: 'PDF_IMAGES_FAILED' }
+  }
+})
+
 ipcMain.handle('mcp:syncServerCapabilities', async (_, serverId) => {
   try {
     return await mcpService.syncServerTools(serverId)
@@ -1243,10 +1355,19 @@ function execVersion(cmd, args, parser, timeoutMs = 8000, options = {}) {
 }
 
 const ALIYUN_PYPI_SIMPLE_URL = 'https://mirrors.aliyun.com/pypi/simple/'
-const PYTHON_OFFICE_PACKAGES = ['python-docx', 'openpyxl', 'python-pptx', 'pandas', 'xlrd', 'pypdf']
-const PYTHON_OFFICE_IMPORT_MODULES = ['docx', 'openpyxl', 'pptx', 'pandas', 'xlrd', 'pypdf']
+const PYTHON_PDF_PACKAGES = ['pymupdf']
+const PYTHON_PDF_IMPORT_MODULES = ['fitz']
+const PYTHON_OFFICE_PACKAGES = ['python-docx', 'openpyxl', 'python-pptx', 'pandas', 'xlrd', 'pymupdf']
+const PYTHON_OFFICE_IMPORT_MODULES = ['docx', 'openpyxl', 'pptx', 'pandas', 'xlrd', 'fitz']
 const PYTHON_MATH_VIZ_PACKAGES = ['matplotlib', 'numpy', 'scipy', 'sympy']
 const PYTHON_MATH_VIZ_IMPORT_MODULES = ['matplotlib', 'numpy', 'scipy', 'sympy']
+const PYTHON_PDF_IMPORT_SCRIPT = [
+  'import importlib.util',
+  `modules=${JSON.stringify(PYTHON_PDF_IMPORT_MODULES)}`,
+  'missing=[m for m in modules if importlib.util.find_spec(m) is None]',
+  "print('missing:' + ','.join(missing) if missing else 'pdf-libs-ok')",
+  'raise SystemExit(1 if missing else 0)',
+].join('; ')
 const PYTHON_OFFICE_IMPORT_SCRIPT = [
   'import importlib.util',
   `modules=${JSON.stringify(PYTHON_OFFICE_IMPORT_MODULES)}`,
@@ -1287,6 +1408,16 @@ function pythonOfficeImportAttempts() {
   }))
 }
 
+function pythonPdfImportAttempts() {
+  return PYTHON_CANDIDATES.map(candidate => ({
+    cmd: candidate.cmd,
+    args: pythonCandidateArgs(candidate, ['-c', PYTHON_PDF_IMPORT_SCRIPT]),
+    shell: false,
+    timeoutMs: 12000,
+    label: `${candidate.label} -c pdf-libs-check`,
+  }))
+}
+
 function pythonMathVizImportAttempts() {
   return PYTHON_CANDIDATES.map(candidate => ({
     cmd: candidate.cmd,
@@ -1311,6 +1442,7 @@ const ENV_CHECKS = {
   miktex: { attempts: [{ cmd: 'mpm', args: ['--version'] }], parse: (s) => (s.match(/MiKTeX\s+Package\s+Manager\s+([\d.]+)/i)?.[1] || s.match(/mpm\s+([\d.]+)/i)?.[1] || s.match(/([\d]+\.[\d.]+)/)?.[1] || '') },
   git: { attempts: [{ cmd: 'git', args: ['--version'] }], parse: (s) => (s.match(/git version\s+([\d.]+)/i)?.[1] || '') },
   officecli: { attempts: getOfficeCliCommandCandidates(['--version']), parse: (s) => (s.match(/([\d]+\.[\d.]+)/)?.[1] || s.split('\n')[0].trim()) },
+  pythonPdfLibs: { attempts: pythonPdfImportAttempts(), parse: (s) => (/pdf-libs-ok/i.test(s) ? '可用' : '') },
   pythonOfficeLibs: { attempts: pythonOfficeImportAttempts(), parse: (s) => (/office-libs-ok/i.test(s) ? '可用' : '') },
   pythonMathVizLibs: { attempts: pythonMathVizImportAttempts(), parse: (s) => (/math-viz-libs-ok/i.test(s) ? '可用' : '') },
 }
@@ -1340,14 +1472,14 @@ ipcMain.handle('env:check', async (_e, keys) => {
   return { success: true, data: results }
 })
 
-function runBufferedCommand(cmd, args, { timeoutMs = 600000, maxBuffer = 4 * 1024 * 1024, shell = false } = {}) {
+function runBufferedCommand(cmd, args, { timeoutMs = 600000, maxBuffer = 4 * 1024 * 1024, shell = false, env = process.env } = {}) {
   return new Promise((resolve) => {
     try {
       const { spawn } = require('node:child_process')
       const child = spawn(cmd, args, {
         shell,
         windowsHide: true,
-        env: { ...process.env },
+        env: { ...env },
       })
       const stdoutChunks = []
       const stderrChunks = []
@@ -1400,13 +1532,15 @@ function runBufferedCommand(cmd, args, { timeoutMs = 600000, maxBuffer = 4 * 102
 
 async function findPythonPipCandidate() {
   let lastResult = null
+  const baseEnv = await getSystemEnv()
   for (const candidate of PYTHON_CANDIDATES) {
     const args = pythonCandidateArgs(candidate, ['-m', 'pip', '--version'])
-    const result = await runBufferedCommand(candidate.cmd, args, { timeoutMs: 12000 })
+    const result = await runBufferedCommand(candidate.cmd, args, { timeoutMs: 12000, env: baseEnv })
     if (result.code === 0) {
       return {
         candidate,
         pipVersion: (result.stdout || result.stderr || '').trim().split('\n')[0] || 'pip',
+        env: baseEnv,
       }
     }
     lastResult = { candidate, result }
@@ -1439,14 +1573,14 @@ async function installPythonPackages({ packages, checkKey, label }) {
     '--trusted-host', 'mirrors.aliyun.com',
   ]
   const installArgs = pythonCandidateArgs(found.candidate, installCoreArgs)
-  let result = await runBufferedCommand(found.candidate.cmd, installArgs, { timeoutMs: 10 * 60 * 1000 })
+  let result = await runBufferedCommand(found.candidate.cmd, installArgs, { timeoutMs: 10 * 60 * 1000, env: found.env })
   let command = formatCommandForDisplay(found.candidate.cmd, installArgs)
 
   const combined = `${result.stdout || ''}\n${result.stderr || ''}`
   if (result.code !== 0 && /Can not perform a ['"]?--user['"]? install|--user install/i.test(combined)) {
     const noUserCoreArgs = installCoreArgs.filter(arg => arg !== '--user')
     const noUserArgs = pythonCandidateArgs(found.candidate, noUserCoreArgs)
-    result = await runBufferedCommand(found.candidate.cmd, noUserArgs, { timeoutMs: 10 * 60 * 1000 })
+    result = await runBufferedCommand(found.candidate.cmd, noUserArgs, { timeoutMs: 10 * 60 * 1000, env: found.env })
     command = formatCommandForDisplay(found.candidate.cmd, noUserArgs)
   }
 
@@ -1466,6 +1600,14 @@ async function installPythonPackages({ packages, checkKey, label }) {
   }
 }
 
+async function installPythonPdfLibs() {
+  return installPythonPackages({
+    packages: PYTHON_PDF_PACKAGES,
+    checkKey: 'pythonPdfLibs',
+    label: 'PDF 本地解析库',
+  })
+}
+
 async function installPythonOfficeLibs() {
   return installPythonPackages({
     packages: PYTHON_OFFICE_PACKAGES,
@@ -1481,6 +1623,14 @@ async function installPythonMathVizLibs() {
     label: '数学可视化 Python 库',
   })
 }
+
+ipcMain.handle('env:installPythonPdfLibs', async () => {
+  try {
+    return await installPythonPdfLibs()
+  } catch (err) {
+    return { success: false, error: err.message }
+  }
+})
 
 ipcMain.handle('env:installPythonOfficeLibs', async () => {
   try {
@@ -1747,12 +1897,33 @@ const DEFAULT_MODEL_INFO = { capabilities: { tool_calling: false, vision: false,
 
 // ========== Models Fetch IPC Handler ==========
 
+function normalizeApiFormat(providerId, apiFormat = '') {
+  const value = String(apiFormat || '').trim().toLowerCase()
+  if (['openai_responses', 'openai-responses', 'openai_response', 'openai-response', 'responses', 'response'].includes(value)) return 'openai_responses'
+  if (value === 'anthropic') return 'anthropic'
+  if (['openai', 'openai_chat', 'openai-chat', 'chat', 'chat_completions', 'chat-completions'].includes(value)) return 'openai'
+  return String(providerId || '').toLowerCase() === 'anthropic' ? 'anthropic' : 'openai'
+}
+
 function isAnthropicFormat(providerId, apiFormat) {
-  return (apiFormat || '').toLowerCase() === 'anthropic' || (providerId || '').toLowerCase() === 'anthropic'
+  return normalizeApiFormat(providerId, apiFormat) === 'anthropic'
 }
 
 function readOpenAITranslationText(data) {
   return data?.choices?.[0]?.message?.content || data?.choices?.[0]?.text || ''
+}
+
+function readOpenAIResponsesText(data) {
+  if (typeof data?.output_text === 'string') return data.output_text
+  if (!Array.isArray(data?.output)) return ''
+  return data.output
+    .flatMap(item => Array.isArray(item?.content) ? item.content : [])
+    .map(part => {
+      if (typeof part === 'string') return part
+      if (part?.type === 'output_text' || part?.type === 'text') return part.text || ''
+      return part?.text || ''
+    })
+    .join('')
 }
 
 function readAnthropicTranslationText(data) {
@@ -1821,11 +1992,12 @@ ipcMain.handle('translate:run', async (_, req = {}) => {
   try {
     const base = String(baseUrl).replace(/\/$/, '')
     const temp = Number.isFinite(Number(temperature)) ? Math.min(1, Math.max(0, Number(temperature))) : 0.1
+    const normalizedFormat = normalizeApiFormat(providerId, apiFormat)
     const headers = { 'Content-Type': 'application/json' }
     let url
     let body
 
-    if (isAnthropicFormat(providerId, apiFormat)) {
+    if (normalizedFormat === 'anthropic') {
       headers['x-api-key'] = apiKey
       headers['anthropic-version'] = '2023-06-01'
       url = base + '/messages'
@@ -1835,6 +2007,16 @@ ipcMain.handle('translate:run', async (_, req = {}) => {
         temperature: temp,
         system,
         messages: [{ role: 'user', content: userMessage }],
+      })
+    } else if (normalizedFormat === 'openai_responses') {
+      headers['Authorization'] = `Bearer ${apiKey}`
+      url = base + '/responses'
+      body = JSON.stringify({
+        model: modelId,
+        input: userMessage,
+        ...(system ? { instructions: system } : {}),
+        max_output_tokens: 4096,
+        temperature: temp,
       })
     } else {
       headers['Authorization'] = `Bearer ${apiKey}`
@@ -1858,9 +2040,11 @@ ipcMain.handle('translate:run', async (_, req = {}) => {
     }
 
     const data = await response.json()
-    const text = isAnthropicFormat(providerId, apiFormat)
+    const text = normalizedFormat === 'anthropic'
       ? readAnthropicTranslationText(data)
-      : readOpenAITranslationText(data)
+      : normalizedFormat === 'openai_responses'
+        ? readOpenAIResponsesText(data)
+        : readOpenAITranslationText(data)
     return { success: true, text }
   } catch (err) {
     const message = err?.name === 'AbortError' ? '请求超时，请检查网络或模型服务' : err.message
@@ -1879,14 +2063,19 @@ ipcMain.handle('models:testConnection', async (_, providerId, apiKey, baseUrl, m
   const startTime = Date.now()
   try {
     const base = baseUrl.replace(/\/$/, '')
+    const normalizedFormat = normalizeApiFormat(providerId, apiFormat)
     const headers = { 'Content-Type': 'application/json' }
     let body, url
 
-    if (isAnthropicFormat(providerId, apiFormat)) {
+    if (normalizedFormat === 'anthropic') {
       headers['x-api-key'] = apiKey
       headers['anthropic-version'] = '2023-06-01'
       url = base + '/messages'
       body = JSON.stringify({ model: modelId, max_tokens: 5, messages: [{ role: 'user', content: 'hi' }] })
+    } else if (normalizedFormat === 'openai_responses') {
+      headers['Authorization'] = `Bearer ${apiKey}`
+      url = base + '/responses'
+      body = JSON.stringify({ model: modelId, max_output_tokens: 5, input: 'hi' })
     } else {
       headers['Authorization'] = `Bearer ${apiKey}`
       url = base + '/chat/completions'

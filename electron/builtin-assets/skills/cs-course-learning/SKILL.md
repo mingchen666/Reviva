@@ -1,7 +1,7 @@
 ---
 name: cs-course-learning
 description: Use this skill whenever the user is learning computer science core courses, 408, data structures, computer organization, operating systems, computer networks, algorithms, course finals, chapter review, CS exam practice, concept explanation, lab understanding, or wants a study plan for CS professional courses.
-allowed-tools: file_read, file_write, office_read, pdf_read, kb_search, web_search_bing, mcp:exa
+allowed-tools: file_read, file_write, document_read, kb_search, web_search_bing, mcp:exa
 ---
 
 # Computer Science Course Learning Skill

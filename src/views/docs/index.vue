@@ -14,6 +14,7 @@ import DocListRow from './sections/DocListRow.vue'
 import DocPreview from './sections/DocPreview.vue'
 import UploadModal from './sections/UploadModal.vue'
 import MoveModal from './sections/MoveModal.vue'
+import PdfProcessingSettingsModal from './sections/PdfProcessingSettingsModal.vue'
 
 const router = useRouter()
 const appStore = useAppStore()
@@ -44,8 +45,189 @@ const contextMenu = ref(null)
 const showUploadModal = ref(false)
 const showMoveModal = ref(false)
 const moveTarget = ref(null)
+const showProcessingSettingsModal = ref(false)
+const showPdfUploadPrompt = ref(false)
+const pendingPdfUploads = ref([])
+const pdfUploadEngine = ref('auto')
 
 const api = () => window.electronAPI
+
+const defaultProcessingSettings = {
+  version: 1,
+  pdfEngine: 'auto',
+  uploadAction: 'ask',
+  defaultOcrProvider: 'auto',
+  missingPythonFallback: 'ocr_provider',
+  largePdfMode: 'adaptive',
+  allowFullDocumentOcr: true,
+  allowPaddleFullDocumentForPageRanges: true,
+  mediaAction: 'manual',
+}
+const processingSettings = ref({ ...defaultProcessingSettings })
+const ocrProviders = ref([])
+const pdfEnvironment = ref(null)
+const installingPdfLocalParser = ref(false)
+const pdfLocalParserInstallResult = ref(null)
+
+function normalizeProcessingSettings(value = {}) {
+  return {
+    ...defaultProcessingSettings,
+    ...(value && typeof value === 'object' ? value : {}),
+    allowFullDocumentOcr: value?.allowFullDocumentOcr !== false,
+    allowPaddleFullDocumentForPageRanges: value?.allowPaddleFullDocumentForPageRanges !== false,
+  }
+}
+
+async function loadProcessingSettings() {
+  try {
+    const result = await api()?.pdf?.getSettings?.()
+    processingSettings.value = normalizeProcessingSettings(result?.data || {})
+  } catch (e) {
+    console.warn('[Docs] load PDF settings failed:', e)
+  }
+}
+
+async function loadOcrProviders() {
+  try {
+    const result = await api()?.listOcrProviders?.()
+    ocrProviders.value = result?.success ? (result.data || []) : []
+  } catch (e) {
+    console.warn('[Docs] load OCR providers failed:', e)
+    ocrProviders.value = []
+  }
+}
+
+async function loadPdfEnvironment() {
+  try {
+    pdfEnvironment.value = await api()?.pdf?.checkEnvironment?.()
+  } catch (e) {
+    console.warn('[Docs] load PDF environment failed:', e)
+    pdfEnvironment.value = { success: false, code: 'PDF_ENV_CHECK_FAILED', message: e.message }
+  }
+}
+
+async function saveProcessingSettings(close) {
+  const next = normalizeProcessingSettings(processingSettings.value)
+  const result = await api()?.pdf?.setSettings?.(next)
+  if (result?.success) {
+    processingSettings.value = normalizeProcessingSettings(result.data)
+    close?.()
+  }
+}
+
+async function installPdfLocalParser() {
+  if (installingPdfLocalParser.value) return
+  installingPdfLocalParser.value = true
+  pdfLocalParserInstallResult.value = null
+  try {
+    const result = await api()?.pdf?.installLocalParser?.()
+    pdfLocalParserInstallResult.value = result || { success: false, error: '安装接口无返回。' }
+    await loadPdfEnvironment()
+  } catch (e) {
+    pdfLocalParserInstallResult.value = { success: false, error: e.message || '安装失败。' }
+  } finally {
+    installingPdfLocalParser.value = false
+  }
+}
+
+const enabledOcrProviders = computed(() => ocrProviders.value.filter(provider =>
+  provider?.enabled
+  && ['mineru', 'paddleocr'].includes(String(provider.type || '').toLowerCase())
+  && provider.base_url
+  && provider.api_key_ref
+))
+
+const effectiveOcrProvider = computed(() => {
+  const selected = processingSettings.value.defaultOcrProvider
+  if (selected && selected !== 'auto') {
+    return enabledOcrProviders.value.find(provider => provider.id === selected) || null
+  }
+  return enabledOcrProviders.value.find(provider => String(provider.type || '').toLowerCase() === 'mineru')
+    || enabledOcrProviders.value.find(provider => String(provider.type || '').toLowerCase() === 'paddleocr')
+    || null
+})
+
+const ocrProviderStatusText = computed(() => {
+  const provider = effectiveOcrProvider.value
+  if (!enabledOcrProviders.value.length) return '未配置可用的文档智能解析服务'
+  if (!provider) return '当前选择的服务商不可用'
+  return `当前使用：${provider.name || provider.type}`
+})
+
+const pdfEnvironmentStatusText = computed(() => {
+  if (!pdfEnvironment.value) return '本地文本层环境未检测'
+  if (pdfEnvironment.value.success) {
+    const version = pdfEnvironment.value.pymupdfVersion ? `PyMuPDF ${pdfEnvironment.value.pymupdfVersion}` : (pdfEnvironment.value.parser || 'PyMuPDF')
+    return `本地快速解析可用：${version} · ${pdfEnvironment.value.via || 'python'}`
+  }
+  if (pdfEnvironment.value.code === 'PYTHON_NOT_FOUND') return '未找到 Python，可改用 OCR 服务商解析 PDF'
+  if (pdfEnvironment.value.code === 'PYMUPDF_NOT_INSTALLED' || pdfEnvironment.value.code === 'PYPDF_NOT_INSTALLED') {
+    const version = pdfEnvironment.value.pythonVersion ? `Python ${pdfEnvironment.value.pythonVersion}` : 'Python'
+    return `已找到 ${version}，但缺少 PyMuPDF；可自动安装或改用 OCR 服务商解析 PDF`
+  }
+  return pdfEnvironment.value.message || '本地快速解析不可用，可改用 OCR 服务商'
+})
+
+const uploadNeedsOcrProvider = computed(() => pdfUploadEngine.value !== 'local_fast')
+const uploadBlocksWithoutOcrProvider = computed(() => pdfUploadEngine.value === 'document_intelligent' && !effectiveOcrProvider.value)
+
+const MEDIA_PARSE_EXTS = new Set(['mp4', 'webm', 'avi', 'mov', 'mkv', 'mp3', 'wav', 'ogg', 'flac', 'aac'])
+
+function extOfFile(item = {}) {
+  return String(item.ext || item.name?.split('.').pop() || '').toLowerCase()
+}
+
+function pdfProcessingStatusFromResult(result) {
+  if (!result) return { kind: 'pdf', state: 'unknown', tone: 'pending', label: '未检测', detail: '尚未读取 PDF 缓存状态' }
+  if (!result.success) {
+    if (result.code === 'PDF_TEXT_DEPENDENCY_MISSING' || result.code === 'PYMUPDF_NOT_INSTALLED') {
+      return { kind: 'pdf', state: 'local_missing', tone: 'warning', label: '缺少本地库', detail: result.message || '缺少 PyMuPDF' }
+    }
+    return { kind: 'pdf', state: 'error', tone: 'error', label: '状态异常', detail: result.message || result.error || 'PDF 状态读取失败' }
+  }
+  if (result.ocrManifestCount > 0 || result.processingStatus === 'ocr_ready') {
+    return { kind: 'pdf', state: 'ocr_ready', tone: 'ready', label: '智能解析完成', detail: `已生成 ${result.ocrManifestCount || 1} 份 OCR/版面缓存` }
+  }
+  const mode = result.pdfTextMode || ''
+  if (mode === 'text') return { kind: 'pdf', state: 'text_ready', tone: 'ready', label: '文本可读', detail: `${result.pageCount || 0} 页，文本层可用` }
+  if (mode === 'text_with_partial_gaps') return { kind: 'pdf', state: 'partial', tone: 'warning', label: '部分需 OCR', detail: '已有文本层缓存，部分页面建议 OCR 补齐' }
+  if (mode === 'mixed_needs_ocr') return { kind: 'pdf', state: 'mixed', tone: 'warning', label: '混合型 PDF', detail: '部分页面缺少可提取文本' }
+  if (mode === 'scanned_or_image') return { kind: 'pdf', state: 'needs_ocr', tone: 'warning', label: '需要 OCR', detail: '扫描件或图片型 PDF' }
+  return { kind: 'pdf', state: 'pending', tone: 'pending', label: '未解析', detail: '尚未生成 PDF 解析缓存' }
+}
+
+function mediaProcessingStatusFor(item) {
+  const ext = extOfFile(item)
+  if (!MEDIA_PARSE_EXTS.has(ext)) return null
+  return { kind: ext.startsWith('mp') || ['wav', 'ogg', 'flac', 'aac'].includes(ext) ? 'media' : 'video', state: 'future', tone: 'future', label: '解析待支持', detail: '媒体解析策略已预留，后续支持音视频转写、抽帧和摘要' }
+}
+
+function baseProcessingStatusFor(item) {
+  if (item?.isDirectory) return null
+  const ext = extOfFile(item)
+  if (ext === 'pdf') return { kind: 'pdf', state: 'pending', tone: 'pending', label: '未解析', detail: '尚未生成 PDF 解析缓存' }
+  return mediaProcessingStatusFor(item)
+}
+
+function applyProcessingStatus(filePath, status) {
+  const idx = items.value.findIndex(item => item.path === filePath)
+  if (idx >= 0) items.value[idx] = { ...items.value[idx], processingStatus: status }
+  if (selectedFile.value?.path === filePath) selectedFile.value = { ...selectedFile.value, processingStatus: status }
+}
+
+async function loadDocumentProcessingStatuses(entries = items.value) {
+  const pdfEntries = entries.filter(item => !item.isDirectory && extOfFile(item) === 'pdf')
+  await Promise.allSettled(pdfEntries.map(async (entry) => {
+    const result = await api()?.pdf?.getStatus?.(entry.path, { probe: false })
+    applyProcessingStatus(entry.path, pdfProcessingStatusFromResult(result))
+  }))
+}
+
+function openOcrSettings() {
+  showProcessingSettingsModal.value = false
+  showPdfUploadPrompt.value = false
+  router.push('/settings/ocr')
+}
 
 // ─── Folder Tree ───
 const folderTree = ref({ folders: [], files: [] })
@@ -160,7 +342,9 @@ async function loadDirectory(relPath) {
           if (!a.isDirectory && b.isDirectory) return 1
           return a.name.localeCompare(b.name)
         })
+        .map(item => ({ ...item, processingStatus: baseProcessingStatusFor(item) }))
       items.value = sorted
+      loadDocumentProcessingStatuses(sorted)
       // Fetch child count for each subdirectory (shallow)
       sorted.forEach(async (entry, idx) => {
         if (!entry.isDirectory) return
@@ -278,6 +462,25 @@ async function loadFilePreview(file) {
   const isImage = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp', 'ico'].includes(ext)
   const isAudio = ['mp3', 'wav', 'ogg', 'flac', 'aac'].includes(ext)
   const isVideo = ['mp4', 'webm', 'avi', 'mov', 'mkv'].includes(ext)
+  if (ext === 'pdf') {
+    try {
+      const result = await api()?.pdf?.preflight?.(file.path, { sourceInfo: { origin: 'docs_preview' } })
+      const processingStatus = pdfProcessingStatusFromResult(result)
+      applyProcessingStatus(file.path, processingStatus)
+      selectedFile.value = {
+        ...file,
+        content: null,
+        error: result?.success === false ? (result.message || result.error || 'PDF 预检失败') : null,
+        loading: false,
+        ext,
+        processingStatus,
+        pdfStatus: result?.success ? result : null,
+      }
+    } catch (e) {
+      selectedFile.value = { ...file, content: null, error: e.message, loading: false, ext }
+    }
+    return
+  }
   if (isImage || isAudio || isVideo) {
     selectedFile.value = {
       ...file,
@@ -446,12 +649,100 @@ function previewItem(item) {
 async function handleUploadSubmit({ type, files }) {
   if (type !== 'local' || !files?.length) return
   const targetDir = getAbsolutePath(currentPath.value)
+  const copiedPdfPaths = []
   for (const f of files) {
     const dest = targetDir + '/' + f.name
     await api()?.copyFile?.(f.path, dest)
+    if ((f.name || '').split('.').pop()?.toLowerCase() === 'pdf') copiedPdfPaths.push(dest)
   }
   loadDirectory(currentPath.value)
   loadFolderTree()
+  if (copiedPdfPaths.length) {
+    handlePdfUploadProcessing(copiedPdfPaths)
+  }
+}
+
+function handlePdfUploadProcessing(paths) {
+  const action = processingSettings.value.uploadAction || 'ask'
+  if (action === 'preflight') {
+    runPdfPreflightForUploads(paths)
+    return
+  }
+  if (action === 'full') {
+    runPdfParseForUploads(paths, processingSettings.value.pdfEngine)
+    return
+  }
+  if (action === 'none') return
+  pendingPdfUploads.value = paths
+  pdfUploadEngine.value = processingSettings.value.pdfEngine || 'auto'
+  showPdfUploadPrompt.value = true
+}
+
+function runPdfPreflightForUploads(paths = pendingPdfUploads.value) {
+  Promise.allSettled(paths.map(filePath => api()?.pdf?.preflight?.(filePath, {
+    sourceInfo: { origin: 'docs_upload' },
+  }))).then((results) => {
+    results.forEach((item, index) => {
+      if (item.status === 'fulfilled') applyProcessingStatus(paths[index], pdfProcessingStatusFromResult(item.value))
+    })
+    const failed = results.filter(item => item.status === 'rejected' || item.value?.success === false)
+    if (failed.length) console.warn('[Docs] PDF preflight failed:', failed)
+  })
+}
+
+function isLocalParserMissingResult(result) {
+  return result?.code === 'PDF_TEXT_DEPENDENCY_MISSING'
+    || result?.code === 'PYMUPDF_NOT_INSTALLED'
+    || result?.code === 'PYPDF_NOT_INSTALLED'
+    || String(result?.message || result?.error || '').includes('PyMuPDF')
+}
+
+function runPdfParseForUploads(paths = pendingPdfUploads.value, engine = pdfUploadEngine.value) {
+  const selectedEngine = engine || 'auto'
+  Promise.allSettled(paths.map(async (filePath) => {
+    if (selectedEngine === 'document_intelligent') {
+      return api()?.pdf?.startOcr?.(filePath, {
+        provider: processingSettings.value.defaultOcrProvider || 'auto',
+        confirmFull: true,
+        fullDocument: true,
+        sourceInfo: { origin: 'docs_upload_full_parse' },
+      })
+    }
+    const preflight = await api()?.pdf?.preflight?.(filePath, {
+      sourceInfo: { origin: 'docs_upload' },
+    })
+    if (selectedEngine === 'local_fast') return preflight
+    if (preflight?.success && preflight.pdfTextMode === 'text') return preflight
+    if (!preflight?.success && isLocalParserMissingResult(preflight)) {
+      if (processingSettings.value.missingPythonFallback !== 'ocr_provider') return preflight
+      if (!effectiveOcrProvider.value) return preflight
+    }
+    if (!effectiveOcrProvider.value) return preflight
+    if (preflight?.success && Array.isArray(preflight.ocrCandidatePages) && preflight.ocrCandidatePages.length) {
+      return api()?.pdf?.startOcr?.(filePath, {
+        provider: processingSettings.value.defaultOcrProvider || 'auto',
+        pages: preflight.ocrCandidatePages,
+        confirmFull: true,
+        fullDocument: false,
+        sourceInfo: { origin: 'docs_upload_auto_candidate_pages' },
+      })
+    }
+    return api()?.pdf?.startOcr?.(filePath, {
+      provider: processingSettings.value.defaultOcrProvider || 'auto',
+      confirmFull: true,
+      fullDocument: preflight?.success === false,
+      sourceInfo: { origin: 'docs_upload_full_parse' },
+    })
+  })).then((results) => {
+    loadDocumentProcessingStatuses(items.value)
+    const failed = results.filter(item => item.status === 'rejected' || item.value?.success === false)
+    if (failed.length) console.warn('[Docs] PDF full parse failed:', failed)
+  })
+}
+
+function closePdfUploadPrompt() {
+  pendingPdfUploads.value = []
+  showPdfUploadPrompt.value = false
 }
 
 // ─── Move handling ───
@@ -512,6 +803,9 @@ function handleTreeFileContextMenu(e, file) {
 
 // ─── Init ───
 onMounted(() => {
+  loadProcessingSettings()
+  loadOcrProviders()
+  loadPdfEnvironment()
   if (isReady.value) {
     loadDirectory('')
     loadFolderTree()
@@ -531,6 +825,17 @@ watch(
     }
   },
 )
+
+watch(showProcessingSettingsModal, (visible) => {
+  if (visible) {
+    loadOcrProviders()
+    loadPdfEnvironment()
+  }
+})
+
+watch(showPdfUploadPrompt, (visible) => {
+  if (visible) loadOcrProviders()
+})
 </script>
 
 <template>
@@ -565,6 +870,15 @@ watch(
             "
             title="上传文件">
             <i class="ri-upload-2-line text-[13px]" />
+          </button>
+          <button
+            @click="showProcessingSettingsModal = true"
+            class="h-6 w-6 rounded-md flex items-center justify-center transition-colors"
+            :class="
+              isDark ? 'text-wt-aux hover:text-wt-sub hover:bg-white/5' : 'text-lt-aux hover:text-lt-sub hover:bg-l4'
+            "
+            title="解析设置">
+            <i class="ri-settings-3-line text-[13px]" />
           </button>
           <button
             @click="
@@ -785,6 +1099,17 @@ watch(
                 ">
                 <i class="ri-folder-add-line text-[10px]" />
                 新建文件夹
+              </button>
+              <button
+                @click="showProcessingSettingsModal = true"
+                class="ctx-pill cursor-pointer"
+                :class="
+                  isDark
+                    ? 'text-wt-aux bg-d3 border border-bdr hover:text-wt-sub'
+                    : 'text-lt-aux bg-l3 border border-bdrF hover:text-lt-sub'
+                ">
+                <i class="ri-settings-3-line text-[10px]" />
+                解析设置
               </button>
               <button
                 @click="uploadFiles"
@@ -1109,6 +1434,104 @@ watch(
           "
           class="px-4 py-2 rounded-lg text-[11px] font-medium bg-red-500 text-white hover:bg-red-600">
           移入回收站
+        </button>
+      </template>
+    </MsModal>
+
+    <PdfProcessingSettingsModal
+      v-model:show="showProcessingSettingsModal"
+      :is-dark="isDark"
+      :settings="processingSettings"
+      :enabled-ocr-providers="enabledOcrProviders"
+      :effective-ocr-provider="effectiveOcrProvider"
+      :ocr-provider-status-text="ocrProviderStatusText"
+      :pdf-environment="pdfEnvironment"
+      :pdf-environment-status-text="pdfEnvironmentStatusText"
+      :installing-pdf-local-parser="installingPdfLocalParser"
+      :pdf-local-parser-install-result="pdfLocalParserInstallResult"
+      @save="saveProcessingSettings"
+      @install-local-parser="installPdfLocalParser"
+      @open-ocr-settings="openOcrSettings" />
+
+    <!-- ═══ PDF Upload Processing Prompt ═══ -->
+    <MsModal v-model:show="showPdfUploadPrompt" :width="420" :show-footer="true">
+      <template #header>
+        <div class="flex items-center gap-2.5">
+          <div
+            class="w-8 h-8 rounded-lg flex items-center justify-center"
+            :class="isDark ? 'bg-red-400/8' : 'bg-red-50'">
+            <i class="ri-file-pdf-2-line text-[16px]" :class="isDark ? 'text-red-400' : 'text-red-500'" />
+          </div>
+          <span class="text-[13px] font-bold" :class="isDark ? 'text-wt-main' : 'text-lt-main'">处理 PDF</span>
+        </div>
+      </template>
+
+      <div class="space-y-3">
+        <p class="text-[12px]" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">
+          已上传 {{ pendingPdfUploads.length }} 个 PDF。可以按默认策略处理，也可以只为本次上传临时选择解析路线。
+        </p>
+        <div
+          class="rounded-lg border px-3 py-2 text-[10.5px] leading-relaxed"
+          :class="pdfEnvironment?.success
+            ? isDark ? 'border-bdr bg-d3 text-wt-dim' : 'border-bdrF bg-l3 text-lt-aux'
+            : isDark ? 'border-amber-400/20 bg-amber-400/8 text-amber-300' : 'border-amber-200 bg-amber-50 text-amber-700'">
+          {{ pdfEnvironmentStatusText }}
+        </div>
+        <div>
+          <div class="text-[11px] font-semibold mb-1.5" :class="isDark ? 'text-wt-main' : 'text-lt-main'">本次解析路线</div>
+          <select
+            v-model="pdfUploadEngine"
+            class="w-full h-9 rounded-lg px-3 text-[12px] outline-none border"
+            :class="isDark ? 'bg-d3 border-bdr text-wt-sub' : 'bg-l3 border-bdrF text-lt-sub'">
+            <option value="auto">自动：本地快速 + 必要时文档智能解析</option>
+            <option value="local_fast">本地快速解析：读取 PDF 文本层</option>
+            <option value="document_intelligent">文档智能解析：生成 Markdown/JSON</option>
+          </select>
+          <div
+            v-if="uploadNeedsOcrProvider"
+            class="mt-1.5 flex items-center justify-between gap-2 text-[10.5px]">
+            <span :class="effectiveOcrProvider ? (isDark ? 'text-wt-dim' : 'text-lt-aux') : 'text-amber-400'">
+              {{ ocrProviderStatusText }}
+            </span>
+            <button
+              v-if="!effectiveOcrProvider"
+              @click="openOcrSettings"
+              class="shrink-0"
+              :class="isDark ? 'text-brand-400 hover:text-brand-300' : 'text-brand-500 hover:text-brand-600'">
+              去配置
+            </button>
+          </div>
+        </div>
+        <button
+          @click="showProcessingSettingsModal = true"
+          class="ctx-pill cursor-pointer"
+          :class="isDark ? 'text-brand-400 bg-brand-400/8 border border-brand-400/20' : 'text-brand-500 bg-brand-50 border border-brand-100'">
+          <i class="ri-settings-3-line text-[10px]" />
+          先配置解析策略
+        </button>
+      </div>
+
+      <template #footer="{ close }">
+        <button
+          @click="closePdfUploadPrompt(); close()"
+          class="px-4 py-2 rounded-lg text-[11px] font-medium transition-colors"
+          :class="isDark ? 'text-wt-aux hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub'">
+          稍后
+        </button>
+        <button
+          @click="runPdfPreflightForUploads(); closePdfUploadPrompt(); close()"
+          class="px-4 py-2 rounded-lg text-[11px] font-medium transition-colors"
+          :class="isDark ? 'bg-d4 text-wt-sub hover:bg-white/10' : 'bg-l4 text-lt-sub hover:bg-l3'">
+          快速预检
+        </button>
+        <button
+          @click="runPdfParseForUploads(); closePdfUploadPrompt(); close()"
+          :disabled="uploadBlocksWithoutOcrProvider"
+          class="px-4 py-2 rounded-lg text-[11px] font-medium transition-colors"
+          :class="uploadBlocksWithoutOcrProvider
+            ? isDark ? 'bg-d4 text-wt-dim cursor-not-allowed' : 'bg-l4 text-lt-aux cursor-not-allowed'
+            : isDark ? 'bg-brand-400 text-d0 hover:bg-brand-500' : 'bg-brand-500 text-white hover:bg-brand-600'">
+          开始解析
         </button>
       </template>
     </MsModal>

@@ -46,7 +46,7 @@
 | 教师目标 | 推荐技能顺序 |
 |---|---|
 | 只说“帮我备课” | 问最少必要信息 -> `lesson-plan-skill` |
-| 上传教材/课件备课 | `office_read` / `file_read` -> `knowledge-organize` -> `lesson-plan-skill` |
+| 上传教材/课件备课 | `document_read` / `file_read` -> `knowledge-organize` -> `lesson-plan-skill` |
 | 生成完整备课包 | `lesson-plan-skill` -> `worksheet-skill` -> `classroom-activity-skill` -> `teaching-assessment-skill` -> PPT/DOCX/XLSX 输出 |
 | 做课堂课件 | `lesson-plan-skill` -> `pptx-deck-skill` + `officecli-skills`，或 `html-ppt-skill` |
 | 做学案/练习/作业 | `worksheet-skill`，需要题库/小测时配合 `practice-quiz` |
@@ -94,7 +94,7 @@
 ## 资料与联网原则
 
 - 以用户提供资料为主要依据。
-- Office 文件必须用 `office_read` 读取，不要用 `file_read` 直接读取 `.docx`、`.pptx`、`.xlsx`；PDF 使用 `pdf_read`，不可用时说明未解析，不要自动安装依赖。
+- Office/PDF 文件优先用 `document_read` 读取，不要用 `file_read` 直接读取 `.docx`、`.pptx`、`.xlsx`、`.pdf`；不可用时说明未解析，不要自动安装依赖。
 - 资料没有写到的内容，标注为“基于通用教学经验补充”。
 - 不编造教材页码、课标原文、考试要求、学校政策、真实学情或引用来源。
 - 用户需要课程标准、政策、教材版本信息、最新考试要求、真实案例、公开资料、学科前沿、图片/视频/网页资源或时事素材时，使用 `teaching-resource-research-skill` 和 `web_search_bing` 查询，并在交付中说明依据质量。

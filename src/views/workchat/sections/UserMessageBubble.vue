@@ -155,7 +155,7 @@ watch(editContent, () => {
           <textarea
             ref="editTextareaRef"
             v-model="editContent"
-            class="w-full min-h-[76px] max-h-[260px] bg-transparent outline-none resize-none border-0 text-[13px] leading-relaxed p-0"
+            class="w-full min-h-[82px] max-h-[260px] bg-transparent outline-none resize-none border-0 text-sm leading-relaxed p-0"
             :class="isDark ? 'text-wt-main placeholder-wt-dim' : 'text-lt-main placeholder-lt-aux'"
             rows="3"
             placeholder="编辑这条消息..."
@@ -186,7 +186,7 @@ watch(editContent, () => {
           </div>
         </div>
       </div>
-      <div v-else ref="bubbleRef" class="px-3 py-2 rounded-md rounded-tr-md text-[13px] leading-relaxed text-white"
+      <div v-else ref="bubbleRef" class="px-3.5 py-2.5 rounded-md rounded-tr-md text-[0.84375rem] leading-relaxed text-white"
         style="background: linear-gradient(135deg, #6c8aff, #4a6cff)">
         {{ msg.content }}
       </div>

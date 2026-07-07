@@ -1,7 +1,7 @@
 ---
 name: lab-report-writer
 description: Use for writing, editing, polishing, or structuring lab reports and course experiment reports across disciplines. Handles cases with a provided template, raw data, images, notes, or only a brief requirement, and can produce DOCX or Markdown deliverables.
-allowed-tools: office_read, office_write, file_read, file_write, kb_search, web_search_bing
+allowed-tools: document_read, office_write, file_read, file_write, kb_search, web_search_bing
 ---
 
 # 实验报告写作
@@ -25,7 +25,7 @@ allowed-tools: office_read, office_write, file_read, file_write, kb_search, web_
 ## 总流程
 
 1. 识别实验类型、交付格式、是否有模板、是否有原始数据。
-2. 有模板时，先用 `office_read` 读取模板结构，再用 `office_write(operation="edit")` 生成编辑副本，尽量保留模板样式、页眉页脚、编号和固定字段。
+2. 有模板时，先用 `document_read` 读取模板结构，再用 `office_write(operation="edit")` 生成编辑副本，尽量保留模板样式、页眉页脚、编号和固定字段。
 3. 无模板时，默认生成结构完整的 DOCX；如果用户明确要 Markdown，再输出 `.md`。
 4. 有资料时优先依据资料、用户文件和知识库；没有资料时可按该专业常见实验报告规范生成通用框架，并明确待确认项。
 5. 有数据时必须进行基础整理：单位、有效数字、表格列名、计算公式、结果与结论是否对应。

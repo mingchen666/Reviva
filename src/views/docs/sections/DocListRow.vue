@@ -1,5 +1,6 @@
 <script setup>
 import { computed } from 'vue'
+import DocumentProcessingBadge from './DocumentProcessingBadge.vue'
 
 const props = defineProps({
   item: { type: Object, required: true },
@@ -109,6 +110,11 @@ function formatDate(isoStr) {
         </span>
         <span v-if="!isDir" class="text-[10px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">{{ formatSize(item.size) }}</span>
         <span class="text-[10px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">{{ formatDate(item.modifiedTime) }}</span>
+        <DocumentProcessingBadge
+          v-if="!isDir"
+          :status="item.processingStatus"
+          :is-dark="isDark"
+          compact />
       </div>
     </div>
 

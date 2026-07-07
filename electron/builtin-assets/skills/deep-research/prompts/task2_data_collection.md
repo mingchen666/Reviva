@@ -63,14 +63,14 @@
 | 文件类型 | 处理方式 |
 |:--------|:---------|
 | `.md` / `.txt` / `.csv` | `file_read` / `read` 工具直接读取 |
-| `.pdf` | 使用 `pdf_read` 分段读取；不可用时标记为未解析，不要安装 PyPDF2 |
-| `.docx` / `.pptx` / `.xlsx` | 使用 `office_read` 读取结构和正文；不可用时标记为未解析，不要安装 python-docx |
+| `.pdf` | 使用 `document_read` 读取概览并按 next 分段读取；不可用时标记为未解析，不要安装 PyPDF2 |
+| `.docx` / `.pptx` / `.xlsx` | 使用 `document_read` 读取结构和正文；不可用时标记为未解析，不要安装 python-docx |
 | 其他格式 | 标记为不支持，加入 gaps |
 
 **Office/PDF 处理规则**：
 - 不要用 `file_read` 直接读取 Office/PDF 二进制文件。
 - 不要自动安装 Python 包或转换依赖。
-- 如果 `office_read` / `pdf_read` 不可用，在 gaps 中写明“当前环境无法解析该文件类型”，继续处理其它可读资料。
+- 如果 `document_read` 不可用，在 gaps 中写明“当前环境无法解析该文件类型”，继续处理其它可读资料。
 
 📝 读取完成后向用户报告：`📄 已读取 N 个本地文件`
 

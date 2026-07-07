@@ -10,6 +10,27 @@ import { BASE_URL } from '@/apis/http'
 import { parseModelRef } from '@/utils/modelRef'
 import { notifyAgentTaskDone, notifyAgentTaskFailed } from '@/services/taskNotifications'
 
+function normalizeApiFormat(providerId, apiFormat = '') {
+  const value = String(apiFormat || '').trim().toLowerCase()
+  if (['openai_responses', 'openai-responses', 'openai_response', 'openai-response', 'responses', 'response'].includes(value)) return 'openai_responses'
+  if (value === 'anthropic') return 'anthropic'
+  if (['openai', 'openai_chat', 'openai-chat', 'chat', 'chat_completions', 'chat-completions'].includes(value)) return 'openai'
+  return String(providerId || '').toLowerCase() === 'anthropic' ? 'anthropic' : 'openai'
+}
+
+function readOpenAIResponsesText(data) {
+  if (typeof data?.output_text === 'string') return data.output_text
+  if (!Array.isArray(data?.output)) return ''
+  return data.output
+    .flatMap(item => Array.isArray(item?.content) ? item.content : [])
+    .map(part => {
+      if (typeof part === 'string') return part
+      if (part?.type === 'output_text' || part?.type === 'text') return part.text || ''
+      return part?.text || ''
+    })
+    .join('')
+}
+
 function _buildCloudContext(ctxItems) {
   try {
     const userStore = useUserStore()
@@ -950,8 +971,11 @@ export class AgentRuntime {
 
     try {
       let title = ''
-      if (this._providerApiFormat(provider) === 'anthropic') {
+      const apiFormat = this._providerApiFormat(provider)
+      if (apiFormat === 'anthropic') {
         title = await this._callAnthropic(provider, model, prompt)
+      } else if (apiFormat === 'openai_responses') {
+        title = await this._callOpenAIResponses(provider, model, prompt)
       } else {
         title = await this._callOpenAICompatible(provider, model, prompt)
       }
@@ -979,6 +1003,24 @@ export class AgentRuntime {
     })
     const json = await res.json()
     return json.choices?.[0]?.message?.content || ''
+  }
+
+  async _callOpenAIResponses(provider, model, prompt) {
+    let baseUrl = (provider.baseUrl || '').replace(/\/+$/, '')
+    if (!baseUrl.endsWith('/responses')) baseUrl += '/responses'
+    const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${provider.apiKey}` }
+    const res = await fetch(baseUrl, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        model,
+        input: prompt,
+        temperature: 0.3,
+        max_output_tokens: 30,
+      }),
+    })
+    const json = await res.json()
+    return readOpenAIResponsesText(json)
   }
 
   async _callAnthropic(provider, model, prompt) {
@@ -1075,6 +1117,6 @@ export class AgentRuntime {
   }
 
   _providerApiFormat(provider) {
-    return provider?.apiFormat || (provider?.id === 'anthropic' ? 'anthropic' : 'openai')
+    return normalizeApiFormat(provider?.id, provider?.apiFormat)
   }
 }

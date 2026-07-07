@@ -1,7 +1,7 @@
 ---
 name: network-packet-lab
 description: Use this skill whenever the user asks about Wireshark, tcpdump, packet capture, pcap analysis, HTTP/DNS/TCP/DHCP/TLS capture interpretation, network lab reports, protocol fields observed in packets, or troubleshooting packet flows for learning and coursework.
-allowed-tools: file_read, file_write, office_read, pdf_read, kb_search
+allowed-tools: file_read, file_write, document_read, kb_search
 ---
 
 # Network Packet Lab Skill

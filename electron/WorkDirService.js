@@ -34,6 +34,7 @@ export class WorkDirService {
     await fs.promises.mkdir(path.join(absRoot, 'docs'), { recursive: true })
     await fs.promises.mkdir(path.join(absRoot, 'notes'), { recursive: true })
     await fs.promises.mkdir(path.join(absRoot, 'wikis'), { recursive: true })
+    await fs.promises.mkdir(path.join(absRoot, 'context'), { recursive: true })
     await fs.promises.mkdir(path.join(absRoot, 'agents'), { recursive: true })
     await fs.promises.mkdir(path.join(absRoot, 'skills'), { recursive: true })
 

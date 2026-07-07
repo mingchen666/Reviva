@@ -83,6 +83,7 @@ const TOOL_CATEGORIES = [
   { key: 'mcp', label: 'MCP', icon: 'ri-plug-line', color: '#10B981', desc: '远程 MCP 服务器接入的工具（HTTP / SSE）' },
   { key: 'custom', label: '自定义', icon: 'ri-tools-line', color: '#FACC15', desc: '用户自建的 API 工具；本地脚本暂未开放' },
 ]
+const DOCUMENT_READ_TOOL_MIGRATION_KEY = '__document_read_default_route_migrated'
 
 const BUILTIN_TOOLS = [
   {
@@ -130,7 +131,23 @@ const BUILTIN_TOOLS = [
     providerConfig: {}
   },
   {
-    id: 'office_read', name: 'Office 读取', icon: 'ri-file-text-line', color: '#3B82F6', cat: 'filesystem', desc: '读取 Word、Excel、PPT 的结构概览、分段正文和嵌入图片（系统默认工具）',
+    id: 'document_read', name: '文档读取', icon: 'ri-file-search-line', color: '#2563EB', cat: 'filesystem', desc: '读取 PDF、Word、Excel、PPT 的统一路由工具（系统默认工具）',
+    permReq: '', archCompat: ['全架构'], type: '',
+    params: [
+      { name: 'path', type: 'string', required: true, desc: 'PDF / Office 文件路径' },
+      { name: 'mode', type: 'string', required: false, desc: 'auto / overview / text / metadata / page / layout / images / ocr，默认 overview' },
+      { name: 'intent', type: 'string', required: false, desc: 'read / inspect / extract_images / layout / ocr 等任务意图' },
+      { name: 'startPage', type: 'number', required: false, desc: 'PDF 起始页码' },
+      { name: 'maxPages', type: 'number', required: false, desc: 'PDF 最多读取页数' },
+      { name: 'maxChars', type: 'number', required: false, desc: '返回内容最大字符数' },
+      { name: 'confirm', type: 'boolean', required: false, desc: '用户已确认 OCR 或未来媒体解析等耗时/额度操作' },
+    ],
+    sandbox: '系统默认只读路由工具。PDF 分发到 pdf_read，Office 分发到 office_read；图片返回 vision_analyze 建议，普通文本返回默认文本读取建议；不静默 OCR。',
+    builtin: true, enabled: true, alwaysEnabled: true,
+    providerConfig: {}
+  },
+  {
+    id: 'office_read', name: 'Office 读取', icon: 'ri-file-text-line', color: '#3B82F6', cat: 'filesystem', desc: '读取 Word、Excel、PPT 的结构概览、分段正文和嵌入图片（底层精确工具）',
     permReq: '', archCompat: ['全架构'], type: '',
     params: [
       { name: 'path', type: 'string', required: true, desc: 'Office 文件路径（.docx / .xlsx / .pptx）' },
@@ -142,8 +159,8 @@ const BUILTIN_TOOLS = [
       { name: 'imagePath', type: 'string', required: false, desc: 'images 模式下指定 DOM path、图片名或 relId 片段' },
       { name: 'maxImages', type: 'number', required: false, desc: 'images 模式最多列出/导出图片数' },
     ],
-    sandbox: '系统默认只读工具。仅允许读取授权目录内 .docx/.xlsx/.pptx，依赖 officecli；默认概览，正文需分段读取；图片导出写入 /context/office-images/...。Python/zip 解包仅作为 office_read 不可用或能力不足时的备用方案。',
-    builtin: true, enabled: true, alwaysEnabled: true,
+    sandbox: '底层只读工具。仅允许读取授权目录内 .docx/.xlsx/.pptx，依赖 officecli；默认概览，正文需分段读取；图片导出写入 /context/office-images/...。常规文档读取优先使用 document_read。',
+    builtin: true, enabled: false,
     providerConfig: {}
   },
   {
@@ -177,7 +194,7 @@ const BUILTIN_TOOLS = [
     providerConfig: {}
   },
   {
-    id: 'pdf_read', name: 'PDF 读取', icon: 'ri-file-pdf-2-line', color: '#EF4444', cat: 'filesystem', desc: '读取 PDF 的页数、元数据和分段正文（系统默认工具）',
+    id: 'pdf_read', name: 'PDF 读取', icon: 'ri-file-pdf-2-line', color: '#EF4444', cat: 'filesystem', desc: '读取 PDF 的页数、元数据、分段正文和 OCR 结果（底层精确工具）',
     permReq: '', archCompat: ['全架构'], type: '',
     params: [
       { name: 'path', type: 'string', required: true, desc: 'PDF 文件路径（.pdf）' },
@@ -186,8 +203,8 @@ const BUILTIN_TOOLS = [
       { name: 'maxPages', type: 'number', required: false, desc: '最多读取页数' },
       { name: 'maxChars', type: 'number', required: false, desc: '返回内容最大字符数' },
     ],
-    sandbox: '系统默认只读工具。仅允许读取授权目录内 .pdf，依赖 Python 包 pypdf；默认概览，正文需按页分段读取。',
-    builtin: true, enabled: true, alwaysEnabled: true,
+    sandbox: '底层只读工具。仅允许读取授权目录内 .pdf，依赖 Python 包 PyMuPDF；默认概览，正文需按页分段读取。常规 PDF 读取优先使用 document_read。',
+    builtin: true, enabled: false,
     providerConfig: {}
   },
   {
@@ -303,8 +320,8 @@ const SUB_AGENTS = [
     color: '#6C8AFF',
     desc: '资料阅读与关键信息提取',
     description: '读取本地资料和知识库内容，提取与任务直接相关的事实、概念、数据和出处。',
-    prompt: '你是资料阅读子智能体。你的任务是读取用户指定的文件、Office/PDF 文档或知识库材料，只提取与主任务相关的信息。\n\n工作要求：\n- 先确认需要读取的文件或主题范围\n- 优先使用 office_read 读取 Office 文档，使用 pdf_read 读取 PDF 文档，普通文本使用 file_read，必要时使用 kb_search\n- 需要读取 Office 文档内图片或图文并茂回答时，调用 office_read(mode="images", exportImages=true)，并使用返回的 /context/office-images/... 路径写 Markdown 图片\n- Python、zip 解包或底层脚本仅作为 office_read 不可用、能力不足或用户明确要求底层诊断时的备用方案\n- 输出结构化摘要，包含关键事实、原始出处、重要术语和不确定点\n- 不要自行扩写结论，不要写最终报告',
-    tools: ['file_read', 'office_read', 'pdf_read', 'kb_search'],
+    prompt: '你是资料阅读子智能体。你的任务是读取用户指定的文件、Office/PDF 文档或知识库材料，只提取与主任务相关的信息。\n\n工作要求：\n- 先确认需要读取的文件或主题范围\n- 优先使用 document_read 读取 Office/PDF 文档，普通文本使用 file_read，必要时使用 kb_search\n- 需要读取文档内图片或图文并茂回答时，调用 document_read(intent="extract_images")，并使用返回的 assets[].path 写 Markdown 图片或交给 vision_analyze\n- Python、zip 解包或底层脚本仅作为 document_read/底层读取工具不可用、能力不足或用户明确要求底层诊断时的备用方案\n- 输出结构化摘要，包含关键事实、原始出处、重要术语和不确定点\n- 不要自行扩写结论，不要写最终报告',
+    tools: ['file_read', 'document_read', 'kb_search'],
     abilities: ['文件读取', '知识库检索', '信息提取'],
     usedBy: ['错题分析助手', '复习规划师', '摘要助手', '测验生成器', '知识整理师'],
   },
@@ -373,8 +390,8 @@ const SUB_AGENTS = [
     color: '#4ADE80',
     desc: '本地文件分析与跨资料对比',
     description: '读取本地文件和知识库材料，提取观点、证据、数据、矛盾和待确认信息。',
-    prompt: '你是本地资料分析子智能体。你的任务是分析用户提供的本地资料。\n\n工作要求：\n- 逐个文件提取核心观点、关键数据、证据和结论\n- 标注来源文件、章节或路径\n- 跨文件比较共同主题、互补信息和矛盾点\n- 对 Office 文档优先使用 office_read，对 PDF 文档优先使用 pdf_read\n- 需要读取 Office 文档内图片或图文并茂回答时，调用 office_read(mode="images", exportImages=true)，并使用返回的 /context/office-images/... 路径写 Markdown 图片\n- Python、zip 解包或底层脚本仅作为 office_read 不可用、能力不足或用户明确要求底层诊断时的备用方案\n- 输出分析发现，不要写最终报告',
-    tools: ['file_read', 'office_read', 'pdf_read', 'kb_search'],
+    prompt: '你是本地资料分析子智能体。你的任务是分析用户提供的本地资料。\n\n工作要求：\n- 逐个文件提取核心观点、关键数据、证据和结论\n- 标注来源文件、章节或路径\n- 跨文件比较共同主题、互补信息和矛盾点\n- 对 Office/PDF 文档优先使用 document_read，普通文本使用 file_read\n- 需要读取文档内图片或图文并茂回答时，调用 document_read(intent="extract_images")，并使用返回的 assets[].path 写 Markdown 图片或交给 vision_analyze\n- Python、zip 解包或底层脚本仅作为 document_read/底层读取工具不可用、能力不足或用户明确要求底层诊断时的备用方案\n- 输出分析发现，不要写最终报告',
+    tools: ['file_read', 'document_read', 'kb_search'],
     abilities: ['文件分析', '跨资料对比'],
     usedBy: ['深度研究员', '知识整理师'],
   },
@@ -536,6 +553,13 @@ export const useAgentsStore = defineStore('agents', () => {
           }
         }
       }
+    }
+
+    if (toolEnabledMap.value[DOCUMENT_READ_TOOL_MIGRATION_KEY] !== true) {
+      toolEnabledMap.value.document_read = true
+      toolEnabledMap.value.office_read = false
+      toolEnabledMap.value.pdf_read = false
+      toolEnabledMap.value[DOCUMENT_READ_TOOL_MIGRATION_KEY] = true
     }
 
     for (const tool of builtinTools.value) {

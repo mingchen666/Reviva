@@ -226,6 +226,38 @@ function stripMarkdownImagesFromPaddleResult(item) {
   }
 }
 
+function firstPageFromRanges(value) {
+  const text = String(value || '').trim()
+  const match = text.match(/\d+/)
+  return match ? Math.max(Number(match[0]) || 1, 1) : 1
+}
+
+function paddleMarkdownPayload(item) {
+  const markdown = asObject(item?.markdown)
+  const pruned = asObject(item?.prunedResult)
+  const images = firstValue(
+    markdown.images,
+    item?.markdownImages,
+    item?.markdown_images,
+    item?.outputImages,
+    item?.output_images,
+  )
+  return {
+    text: firstValue(
+      markdown.text,
+      item?.markdownText,
+      item?.markdown_text,
+      item?.text,
+      item?.content,
+      pruned.markdown,
+      pruned.text,
+    ),
+    images: asObject(images),
+    blocks: firstArray(item?.blocks, item?.layout, item?.prunedResult?.blocks, item?.prunedResult?.layout),
+    page: firstValue(item?.page, item?.pageNo, item?.page_no, item?.pageNumber, item?.page_number, item?.prunedResult?.page),
+  }
+}
+
 function mineruState(payload) {
   const data = asObject(payload?.data)
   const results = firstArray(data.extract_result, data.extract_results, payload?.extract_result, payload?.extract_results)
@@ -367,12 +399,12 @@ export class OcrProviderRunner {
     const result = asObject(responsePayload.result)
     const layoutResults = firstArray(result.layoutParsingResults)
     const pages = layoutResults.map((item, index) => {
-      const markdown = asObject(item?.markdown)
+      const markdown = paddleMarkdownPayload(item)
       return {
-        page: index + 1,
+        page: Number(markdown.page || index + 1),
         text: String(markdown.text || '').trim(),
-        blocks: [],
-        images: asObject(markdown.images),
+        blocks: markdown.blocks,
+        images: markdown.images,
         confidence: 0,
       }
     })
@@ -497,7 +529,7 @@ export class OcrProviderRunner {
     })
     raw.zip = zipResult.meta
     const pages = [{
-      page: 1,
+      page: firstPageFromRanges(config.page_ranges || config.pageRanges),
       text: zipResult.markdown.trim(),
       blocks: [],
       images: zipResult.images,
