@@ -172,7 +172,7 @@ defineExpose({ createNote })
     <div class="h-12 flex items-center justify-between px-4 shrink-0"
       :class="isDark ? 'border-b border-d4' : 'border-b border-bdrL'">
       <div class="flex items-baseline gap-2">
-        <span class="text-[13px] font-semibold" :class="isDark ? 'text-wt-main' : 'text-lt-main'">笔记</span>
+        <span class="text-[15px] font-semibold" :class="isDark ? 'text-wt-main' : 'text-lt-main'">笔记</span>
         <span class="text-[11px] font-medium tabular-nums" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">{{ notesStore.totalNotes }} 篇</span>
       </div>
       <button @click="emit('open-ai-config')"
@@ -181,7 +181,7 @@ defineExpose({ createNote })
         :class="aiConfigured
           ? (isDark ? 'text-agent-400 bg-agent-400/10 hover:bg-agent-400/18' : 'text-agent-500 bg-violet-50 hover:bg-violet-100')
           : (isDark ? 'text-wt-dim hover:text-wt-sub hover:bg-d3' : 'text-lt-aux hover:text-lt-sub hover:bg-l4')">
-        <i :class="aiConfigured ? 'ri-magic-line' : 'ri-settings-3-line'" class="text-[13px]" />
+        <i :class="aiConfigured ? 'ri-sparkling-line' : 'ri-settings-3-line'" class="text-[13px]" />
         <span v-if="aiConfigured" class="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-emerald-400" />
       </button>
     </div>
@@ -294,7 +294,7 @@ defineExpose({ createNote })
     <Teleport to="body">
       <Transition name="ctx-fade">
         <div v-if="ctx" class="ctx-backdrop fixed inset-0 z-[60]" @click="closeCtx" @contextmenu.prevent="closeCtx">
-          <div class="ctx-menu fixed py-1 min-w-[200px] border"
+          <div class="ctx-menu fixed py-1 min-w-[180px] border"
             :class="isDark ? 'ctx-dark' : 'ctx-light'"
             :style="{ left: ctx.x + 'px', top: ctx.y + 'px' }">
             <!-- Root context -->

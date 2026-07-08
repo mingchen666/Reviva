@@ -104,14 +104,14 @@ function getOriginalPathShort(item) {
             :class="viewMode === 'grid'
               ? (isDark ? 'bg-brand-400/12 text-brand-400' : 'bg-brand-50 text-brand-500')
               : (isDark ? 'text-wt-dim hover:text-wt-aux' : 'text-lt-aux hover:text-lt-sub')">
-            <i class="ri-grid-line text-[13px]" />
+            <i class="ri-grid-line text-[16px]" />
           </button>
           <button @click="emit('update:viewMode', 'list')"
             class="h-7 w-7 flex items-center justify-center transition-colors"
             :class="viewMode === 'list'
               ? (isDark ? 'bg-brand-400/12 text-brand-400' : 'bg-brand-50 text-brand-500')
               : (isDark ? 'text-wt-dim hover:text-wt-aux' : 'text-lt-aux hover:text-lt-sub')">
-            <i class="ri-list-unordered text-[13px]" />
+            <i class="ri-list-unordered text-[14px]" />
           </button>
         </div>
 
@@ -120,20 +120,20 @@ function getOriginalPathShort(item) {
           <button @click="emit('restoreBatch', selectedIds)"
             class="ctx-pill cursor-pointer"
             :class="isDark ? 'text-brand-400 bg-brand-400/8 border border-brand-400/20 hover:bg-brand-400/15' : 'text-brand-500 bg-brand-50 border border-brand-100 hover:bg-brand-100'">
-            <i class="ri-arrow-go-back-line text-[10px]" />恢复选中 {{ selectedIds.length }}
+            <i class="ri-arrow-go-back-line text-[13px]" />恢复选中 {{ selectedIds.length }}
           </button>
           <button @click="emit('deleteBatch', selectedIds)"
-            class="ctx-pill cursor-pointer"
+            class="ctx-pill cursor-pointer text-[12px]"
             :class="isDark ? 'text-red-400 bg-red-400/8 border border-red-400/20 hover:bg-red-400/15' : 'text-red-500 bg-red-50 border border-red-100 hover:bg-red-100'">
-            <i class="ri-delete-bin-line text-[10px]" />永久删除 {{ selectedIds.length }}
+            <i class="ri-delete-bin-line text-[13px]" />永久删除 {{ selectedIds.length }}
           </button>
         </template>
 
         <!-- Select all -->
         <button v-if="filteredItems.length > 0" @click="toggleSelectAll"
-          class="h-7 px-2 rounded-lg text-[11px] flex items-center gap-1 transition-colors shrink-0"
+          class="h-7 px-2 text-[13px] rounded-lg text-[11px] flex items-center gap-1 transition-colors shrink-0"
           :class="isDark ? 'text-wt-aux hover:text-wt-sub hover:bg-white/5' : 'text-lt-aux hover:text-lt-sub hover:bg-l4'">
-          <i :class="isAllSelected ? 'ri-checkbox-line' : 'ri-checkbox-blank-line'" class="text-[13px]" />
+          <i :class="isAllSelected ? 'ri-checkbox-line' : 'ri-checkbox-blank-line'" class="text-[15px]" />
           {{ isAllSelected ? '取消全选' : '全选' }}
         </button>
       </div>
@@ -191,14 +191,14 @@ function getOriginalPathShort(item) {
           <!-- Card footer: quick actions -->
           <div class="shrink-0 flex items-center justify-center gap-1 px-2 pb-2 opacity-0 group-hover:opacity-100 transition-opacity">
             <button @click.stop="emit('restore', item.id)"
-              class="h-6 px-2 rounded-md text-[10px] font-medium flex items-center gap-1 transition-colors"
+              class="h-6 px-2 rounded-md text-[14px] font-medium flex items-center gap-1 transition-colors"
               :class="isDark ? 'bg-brand-400/12 text-brand-400 hover:bg-brand-400/20' : 'bg-brand-50 text-brand-500 hover:bg-brand-100'">
-              <i class="ri-arrow-go-back-line text-[10px]" />恢复
+              <i class="ri-arrow-go-back-line text-[11px]" />恢复
             </button>
             <button @click.stop="emit('delete', item.id)"
-              class="h-6 px-2 rounded-md text-[10px] font-medium flex items-center gap-1 transition-colors"
+              class="h-6 px-2 rounded-md text-[14px] font-medium flex items-center gap-1 transition-colors"
               :class="isDark ? 'bg-red-400/8 text-red-400 hover:bg-red-400/15' : 'bg-red-50 text-red-500 hover:bg-red-100'">
-              <i class="ri-delete-bin-line text-[10px]" />删除
+              <i class="ri-delete-bin-line text-[11px]" />删除
             </button>
           </div>
         </div>
@@ -248,12 +248,12 @@ function getOriginalPathShort(item) {
           <!-- Hover actions -->
           <div class="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
             <button @click.stop="emit('restore', item.id)"
-              class="h-7 px-2.5 rounded-lg text-[10px] font-medium flex items-center gap-1 transition-colors"
+              class="h-7 px-2.5 rounded-lg text-[13px] font-medium flex items-center gap-1 transition-colors"
               :class="isDark ? 'bg-brand-400/12 text-brand-400 hover:bg-brand-400/20' : 'bg-brand-50 text-brand-500 hover:bg-brand-100'">
               <i class="ri-arrow-go-back-line text-[11px]" />恢复
             </button>
             <button @click.stop="emit('delete', item.id)"
-              class="h-7 px-2.5 rounded-lg text-[10px] font-medium flex items-center gap-1 transition-colors"
+              class="h-7 px-2.5 rounded-lg text-[13px] font-medium flex items-center gap-1 transition-colors"
               :class="isDark ? 'text-wt-dim hover:text-red-400 hover:bg-red-400/10' : 'text-lt-aux hover:text-red-500 hover:bg-red-50'">
               <i class="ri-delete-bin-line text-[11px]" />永久删除
             </button>
@@ -265,6 +265,6 @@ function getOriginalPathShort(item) {
 </template>
 
 <style scoped>
-.ctx-pill { font-size: 11px; border-radius: 6px; padding: 3px 8px; display: inline-flex; align-items: center; gap: 4px; transition: all .15s }
+.ctx-pill { font-size: 12.5px; border-radius: 6px; padding: 3px 8px; display: inline-flex; align-items: center; gap: 4px; transition: all .15s }
 .doc-card:hover { transform: translateY(-2px) }
 </style>

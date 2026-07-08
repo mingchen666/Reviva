@@ -26,8 +26,9 @@ const sectionMeta = {
         <span class="text-[13px] font-semibold" :class="isDark ? 'text-wt-main' : 'text-lt-main'">{{ sectionMeta[subNav].name + ' · 总览' }}</span>
       </div>
       <div class="flex items-center gap-2">
-        <button v-if="subNav === 'agents'" class="ctx-pill cursor-pointer" :class="isDark ? 'text-agent-400 bg-agent-400/8 border border-agent-400/20 hover:bg-agent-400/15' : 'text-agent-500 bg-agent-50 border border-agent-100 hover:bg-agent-100'" @click="emit('create')">
-          <i class="ri-add-line text-[10px]" /> 新建智能体
+        <button v-if="subNav === 'agents'" class="ctx-pill flex items-center text-[14px] cursor-pointer" :class="isDark ? 'text-agent-400 bg-agent-400/8 border border-agent-400/20 hover:bg-agent-400/15' : 'text-agent-500 bg-agent-50 border border-agent-100 hover:bg-agent-100'" @click="emit('create')">
+          <i class="ri-add-line text-[15px]" /> 
+          <span>新建智能体</span>
         </button>
       </div>
     </div>
@@ -119,14 +120,14 @@ const sectionMeta = {
 
         <!-- SubAgents quick info -->
         <div v-if="subNav === 'subagents'" class="rounded-xl p-4" :class="isDark ? 'bg-d3 border border-bdr' : 'bg-l3 border border-bdrF'">
-          <div class="section-title mb-3" :class="isDark ? 'text-wt-aux' : 'text-lt-aux'">使用方式</div>
+          <div class="section-title mb-2" :class="isDark ? 'text-wt-aux' : 'text-lt-aux'">使用方式</div>
           <p class="text-[12px] leading-relaxed" :class="isDark ? 'text-wt-aux' : 'text-lt-aux'">
             SubAgents 在 Agent 配置中勾选后，由 Agent 在执行任务时自动委派对应子代理来完成专精任务。每个 SubAgent 都有内置的能力组合（如 Reader 调用知识库检索 + 文件读取）。
           </p>
         </div>
 
         <!-- Bottom hint -->
-        <div class="mt-6 text-center text-[11px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">
+        <div class="mt-4 text-center text-[12px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">
           <i class="ri-arrow-left-line text-[12px] mr-1" />从左侧选择{{ sectionMeta[subNav].name }}查看详情
         </div>
       </div>

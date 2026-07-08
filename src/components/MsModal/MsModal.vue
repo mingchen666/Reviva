@@ -92,7 +92,7 @@ const responsiveWidth = computed(() => {
               :class="isDark ? 'text-wt-dim hover:bg-white/6 hover:text-wt-main' : 'text-lt-aux hover:bg-l3 hover:text-lt-main'"
               @click="close"
               aria-label="关闭">
-              <i class="ri-close-line text-[16px]" />
+              <i class="ri-close-line text-[20px]" />
             </button>
           </div>
 

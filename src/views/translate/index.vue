@@ -89,13 +89,13 @@ onBeforeUnmount(() => {
       <!-- Source language selector -->
       <div class="lang-dropdown-container relative">
         <button @click.stop="toggleSourceDropdown()"
-          class="flex items-center justify-between h-8 border border-solid w-[112px] px-2.5 rounded-1.5 text-[11px] font-semibold transition-all"
+          class="flex items-center justify-between h-8 border border-solid w-[112px] px-2.5 rounded-1.5 text-[13px] font-semibold transition-all"
           :class="isDark ? 'text-brand-400 border border-brand-400/20 hover:border-brand-400/30' : 'text-brand-600 border-brand-200 hover:border-brand-300'">
           <span class="flex items-center gap-1.5 min-w-0">
             <span class="lang-code">{{ langShort(store.sourceLang) }}</span>
             <span class="truncate">{{ langLabel(store.sourceLang) }}</span>
           </span>
-          <i class="ri-arrow-down-s-line text-[12px] shrink-0 transition-transform"
+          <i class="ri-arrow-down-s-line text-[14px] shrink-0 transition-transform"
             :class="sourceDropdownOpen ? 'rotate-180' : 'opacity-60'" />
         </button>
         <Transition name="dropdown">
@@ -104,7 +104,7 @@ onBeforeUnmount(() => {
             :class="isDark ? 'bg-d2 border border-bdr shadow-black/50' : 'bg-white border border-bdrF shadow-black/10'">
             <button v-for="lang in store.languages" :key="lang.code"
               @click.stop="selectSourceLang(lang.code)"
-              class="px-2.5 py-1.5 text-[11px] text-left transition-colors flex items-center gap-2 w-full"
+              class="px-2.5 py-1.5 text-[12.5px] text-left transition-colors flex items-center gap-2 w-full"
               :class="lang.code === store.sourceLang
                 ? (isDark ? 'text-brand-400' : 'text-brand-600')
                 : (isDark ? 'text-wt-sub hover:bg-white/4' : 'text-lt-sub hover:bg-l4')">
@@ -126,13 +126,13 @@ onBeforeUnmount(() => {
       <!-- Target language selector -->
       <div class="lang-dropdown-container relative">
         <button @click.stop="toggleTargetDropdown()"
-          class="flex items-center justify-between h-8 border border-solid w-[112px] px-2.5 rounded-1.5 text-[11px] font-semibold transition-all"
+          class="flex items-center justify-between h-8 border border-solid w-[112px] px-2.5 rounded-1.5 text-[13px] font-semibold transition-all"
           :class="isDark ? 'text-agent-400 border border-agent-400/80 hover:border-agent-400/100' : 'text-agent-600 border-brand-400/40 hover:border-agent-400'">
           <span class="flex items-center gap-1.5 min-w-0">
             <span class="lang-code">{{ langShort(store.targetLang) }}</span>
             <span class="truncate">{{ langLabel(store.targetLang) }}</span>
           </span>
-          <i class="ri-arrow-down-s-line text-[12px] shrink-0 transition-transform"
+          <i class="ri-arrow-down-s-line text-[14px] shrink-0 transition-transform"
             :class="targetDropdownOpen ? 'rotate-180' : 'opacity-60'" />
         </button>
         <Transition name="dropdown">
@@ -141,7 +141,7 @@ onBeforeUnmount(() => {
             :class="isDark ? 'bg-d2 border border-bdr shadow-black/50' : 'bg-white border border-bdrF shadow-black/10'">
             <button v-for="lang in store.languages" :key="lang.code"
               @click.stop="selectTargetLang(lang.code)"
-              class="px-2.5 py-1.5 text-[11px] text-left transition-colors flex items-center gap-2 w-full"
+              class="px-2.5 py-1.5 text-[12.5px] text-left transition-colors flex items-center gap-2 w-full"
               :class="lang.code === store.targetLang
                 ? (isDark ? 'text-agent-400' : 'text-agent-600')
                 : (isDark ? 'text-wt-sub hover:bg-white/4' : 'text-lt-sub hover:bg-l4')">
@@ -162,7 +162,8 @@ onBeforeUnmount(() => {
           : 'hover:opacity-90'">
         <i v-if="store.isTranslating" class="ri-loader-4-line animate-spin text-[16px]" />
         <i v-else class="ri-translate-2 text-[16px]" />
-        {{ store.isTranslating ? '翻译中...' : '翻译' }}
+        <span> {{ store.isTranslating ? '翻译中...' : '翻译' }}</span>
+       
       </button>
 
       <span class="text-[9px] ml-1.5" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">
@@ -277,7 +278,7 @@ onBeforeUnmount(() => {
   width: 22px;
   flex: 0 0 22px;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: 0;
   text-align: left;

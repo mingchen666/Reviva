@@ -208,12 +208,12 @@ function agentTotalFiles(agent) {
 
         <!-- File count + expand/collapse -->
         <div class="px-3 flex items-center justify-between mb-1">
-          <span class="text-[11px] font-medium" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">{{ totalFileCount }} 个输出</span>
+          <span class="text-[12px] font-medium" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">{{ totalFileCount }} 个输出</span>
           <div class="flex items-center gap-2">
             <button v-if="viewMode === 'agent'" class="text-[11px] font-medium cursor-pointer flex items-center gap-1"
               :class="isDark ? 'text-wt-dim hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub'"
               @click="expandedAgents.size ? collapseAll() : expandAllAgents()">
-              <i :class="expandedAgents.size ? 'ri-arrow-right-s-line' : 'ri-arrow-down-s-line'" class="text-[11px]" />
+              <i :class="expandedAgents.size ? 'ri-arrow-right-s-line' : 'ri-arrow-down-s-line'" class="text-[14px]" />
               {{ expandedAgents.size ? '折叠' : '展开' }}
             </button>
             <button class="text-[11px] font-medium cursor-pointer"
@@ -241,8 +241,8 @@ function agentTotalFiles(agent) {
                 @click="toggleAgent(agent.name)">
                 <i :class="isAgentExpanded(agent.name) ? 'ri-folder-open-line' : 'ri-folder-line'"
                   class="text-[14px] text-amber-400 shrink-0" />
-                <span class="text-[12px] font-semibold flex-1 text-left truncate" :class="isDark ? 'text-wt-main' : 'text-lt-main'">{{ agent.displayName }}</span>
-                <span class="text-[10px] font-bold px-1.5 py-0.5 rounded" :class="isDark ? 'bg-d3 text-wt-dim' : 'bg-l3 text-lt-aux'">{{ agentTotalFiles(agent) }}</span>
+                <span class="text-[13px] font-semibold flex-1 text-left truncate" :class="isDark ? 'text-wt-main' : 'text-lt-main'">{{ agent.displayName }}</span>
+                <span class="text-[11px] font-bold px-1.5 py-0.5 rounded" :class="isDark ? 'bg-d3 text-wt-dim' : 'bg-l3 text-lt-aux'">{{ agentTotalFiles(agent) }}</span>
               </button>
 
               <!-- Agent's date groups -->
@@ -286,8 +286,8 @@ function agentTotalFiles(agent) {
                 <i :class="isDateExpanded(`__all__:${group.date}`) ? 'ri-folder-open-line' : 'ri-folder-line'"
                   class="text-[14px] text-blue-400 shrink-0" />
                 <i class="ri-calendar-line text-[13px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'" />
-                <span class="text-[12px] font-semibold flex-1 text-left" :class="isDark ? 'text-wt-main' : 'text-lt-main'">{{ formatDate(group.date) }}</span>
-                <span class="text-[11px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">{{ formatWeekday(group.date) }}</span>
+                <span class="text-[13px] font-semibold flex-1 text-left" :class="isDark ? 'text-wt-main' : 'text-lt-main'">{{ formatDate(group.date) }}</span>
+                <span class="text-[11.5px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">{{ formatWeekday(group.date) }}</span>
                 <span class="text-[10px] font-bold px-1.5 py-0.5 rounded ml-1" :class="isDark ? 'bg-d3 text-wt-dim' : 'bg-l3 text-lt-aux'">{{ group.fileCount }}</span>
               </button>
 
