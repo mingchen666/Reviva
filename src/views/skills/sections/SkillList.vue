@@ -22,7 +22,7 @@ function isEmoji(val) { return val && !val.startsWith('ri-') }
     </div>
     <div class="flex-1 min-w-0">
       <div class="flex items-center gap-1.5">
-        <span class="text-[12px] font-medium truncate" :class="selected ? (isDark ? 'text-brand-400' : 'text-brand-500') : (isDark ? 'text-wt-sub' : 'text-lt-sub')">{{ skill.name }}</span>
+        <span class="text-[14px] font-medium truncate" :class="selected ? (isDark ? 'text-brand-400' : 'text-brand-500') : (isDark ? 'text-wt-sub' : 'text-lt-sub')">{{ skill.name }}</span>
         <span v-if="skill.source === 'platform'" class="ctx-pill text-[9px]" :class="isDark ? 'bg-brand-400/8 text-brand-400 border border-brand-400/20' : 'bg-brand-50 text-brand-500 border border-brand-100'">平台</span>
         <span v-else-if="!skill.builtin" class="ctx-pill text-[9px]" :class="isDark ? 'bg-brand-400/8 text-brand-400 border border-brand-400/20' : 'bg-brand-50 text-brand-500 border border-brand-100'">自定义</span>
       </div>

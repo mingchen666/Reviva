@@ -81,7 +81,7 @@ const accentHex = computed(() => settingsStore.currentAccentHex)
       <button @click="close()" class="h-8 px-5 rounded-lg text-[11px] font-semibold transition-all"
         :class="isDark ? 'bg-brand-400 text-d0 hover:bg-brand-500' : 'bg-brand-500 text-white hover:bg-brand-600'"
         :style="{ boxShadow: isDark ? `0 4px 14px ${accentHex}30` : `0 4px 14px ${accentHex}20` }">
-        完成
+        保存
       </button>
     </template>
   </MsModal>

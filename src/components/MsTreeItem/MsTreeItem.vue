@@ -77,7 +77,7 @@ import { computed } from 'vue'
     <!-- Label -->
     <span class="truncate flex-1 ml-1"
       :class="[
-        isFolder ? 'text-[12.5px] font-medium' : 'text-[12px]',
+        isFolder ? 'text-[14.5px] font-medium' : 'text-[13px]',
         active ? (isDark ? 'text-wt-main' : 'text-lt-main') : (isDark ? 'text-wt-sub' : 'text-lt-sub')
       ]">
       {{ label }}

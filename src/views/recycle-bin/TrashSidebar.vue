@@ -64,18 +64,18 @@ const filteredCategoryGroups = computed(() => {
     <div class="flex items-center rounded-lg border overflow-hidden"
       :class="isDark ? 'border-bdr' : 'border-bdrF'">
       <button @click="emit('update:groupMode', 'date')"
-        class="flex-1 h-7 flex items-center justify-center gap-1 text-[11px] font-medium transition-colors"
+        class="flex-1 h-7 flex items-center justify-center gap-1 text-[12px] font-medium transition-colors"
         :class="groupMode === 'date'
           ? (isDark ? 'bg-brand-400/12 text-brand-400' : 'bg-brand-50 text-brand-500')
           : (isDark ? 'text-wt-dim hover:text-wt-aux' : 'text-lt-aux hover:text-lt-sub')">
-        <i class="ri-calendar-line text-[12px]" />按日期
+        <i class="ri-calendar-line text-[13px]" />按日期
       </button>
       <button @click="emit('update:groupMode', 'category')"
-        class="flex-1 h-7 flex items-center justify-center gap-1 text-[11px] font-medium transition-colors"
+        class="flex-1 h-7 flex items-center justify-center gap-1 text-[12px] font-medium transition-colors"
         :class="groupMode === 'category'
           ? (isDark ? 'bg-brand-400/12 text-brand-400' : 'bg-brand-50 text-brand-500')
           : (isDark ? 'text-wt-dim hover:text-wt-aux' : 'text-lt-aux hover:text-lt-sub')">
-        <i class="ri-folder-line text-[12px]" />按分类
+        <i class="ri-folder-line text-[13px]" />按分类
       </button>
     </div>
   </div>
@@ -86,22 +86,22 @@ const filteredCategoryGroups = computed(() => {
     <!-- Date mode -->
     <template v-if="groupMode === 'date'">
       <template v-for="group in filteredDateGroups" :key="group.key">
-        <div class="text-[9px] font-bold uppercase tracking-[0.1em] px-3 pt-2.5 pb-1"
+        <div class="text-[11.5px] font-bold uppercase tracking-[0.1em] px-3 pt-2.5 pb-1"
           :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">
           {{ group.label }} · {{ group.files.length }}
         </div>
         <button v-for="item in group.files" :key="item.id"
           class="w-full flex items-center gap-2 px-2.5 py-[6px] rounded-md transition-colors"
           :class="isDark ? 'text-wt-sub hover:bg-white/4' : 'text-lt-sub hover:bg-l4'">
-          <i :class="getCategoryIcon(item.category)" class="text-[12px] shrink-0"
+          <i :class="getCategoryIcon(item.category)" class="text-[14px] shrink-0"
             :style="`color: ${getCategoryColor(item.category)}`" />
-          <span class="text-[11px] truncate">{{ item.original_name }}</span>
+          <span class="text-[12.5px] truncate">{{ item.original_name }}</span>
         </button>
       </template>
 
       <div v-if="filteredDateGroups.length === 0" class="flex flex-col items-center justify-center py-8 gap-2">
         <i class="ri-delete-bin-line text-[20px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'" />
-        <span class="text-[11px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">回收站为空</span>
+        <span class="text-[12px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">回收站为空</span>
       </div>
     </template>
 
@@ -114,14 +114,14 @@ const filteredCategoryGroups = computed(() => {
             :class="isDark ? 'bg-d0' : 'bg-l2'">
             <i :class="getCategoryIcon(group.key) + ' text-[13px]'" :style="`color: ${getCategoryColor(group.key)}`" />
           </div>
-          <span class="text-[12px] font-medium">{{ getCategoryLabel(group.key) }}</span>
-          <span class="ml-auto text-[9px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">{{ group.files.length }}</span>
+          <span class="text-[13px] font-medium">{{ getCategoryLabel(group.key) }}</span>
+          <span class="ml-auto text-[10px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">{{ group.files.length }}</span>
         </button>
       </template>
 
       <div v-if="filteredCategoryGroups.length === 0" class="flex flex-col items-center justify-center py-8 gap-2">
         <i class="ri-delete-bin-line text-[20px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'" />
-        <span class="text-[11px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">回收站为空</span>
+        <span class="text-[12px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">回收站为空</span>
       </div>
     </template>
   </div>

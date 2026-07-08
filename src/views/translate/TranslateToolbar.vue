@@ -33,8 +33,8 @@ const modelOptionsWithLogo = computed(() => {
         <i class="ri-translate-ai-2 text-[16px]" :style="{ color: accentHex }" />
       </div>
       <div class="flex flex-col">
-        <span class="text-[13px] font-bold leading-tight" :class="isDark ? 'text-wt-main' : 'text-lt-main'">AI 翻译</span>
-        <span class="text-[9px] leading-tight" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">智能多语言互译</span>
+        <span class="text-[14px] font-bold leading-tight" :class="isDark ? 'text-wt-main' : 'text-lt-main'">AI 翻译</span>
+        <span class="text-[10px] leading-tight" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">智能多语言互译</span>
       </div>
     </div>
     <div class="flex-1" />
@@ -55,7 +55,7 @@ const modelOptionsWithLogo = computed(() => {
     <button @click="store.showSettingsModal = true"
       class="w-8 h-8 rounded-lg flex items-center justify-center transition-all"
       :class="isDark ? 'bg-d3 text-wt-aux hover:text-wt-sub border border-bdr hover:border-brand-400/20' : 'bg-l3 text-lt-aux hover:text-lt-sub border border-bdrF hover:border-brand-400/30'">
-      <i class="ri-settings-3-line text-[14px]" />
+      <i class="ri-settings-3-line text-[15px]" />
     </button>
   </div>
 </template>

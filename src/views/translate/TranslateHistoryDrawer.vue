@@ -65,10 +65,10 @@ function confirmClearAll() {
           :class="isDark ? 'border-b border-bdr' : 'border-b border-bdrL'">
           <div class="w-7 h-7 rounded-lg flex items-center justify-center"
            >
-            <i class="ri-history-line text-[13px]" :class="isDark ? 'text-brand-400' : 'text-brand-600'" />
+            <i class="ri-history-line text-[16px]" :class="isDark ? 'text-brand-400' : 'text-brand-600'" />
           </div>
-          <span class="text-[12px] font-bold" :class="isDark ? 'text-wt-main' : 'text-lt-main'">翻译历史</span>
-          <span class="ctx-pill" :class="isDark ? 'text-wt-dim bg-d3 border border-bdr' : 'text-lt-aux bg-l3 border border-bdrF'" style="font-size:9px;padding:1px 6px">
+          <span class="text-[14px] font-bold" :class="isDark ? 'text-wt-main' : 'text-lt-main'">翻译历史</span>
+          <span class="ctx-pill" :class="isDark ? 'text-wt-dim bg-d3 border border-bdr' : 'text-lt-aux bg-l3 border border-bdrF'" style="font-size:10px;padding:1px 6px">
             {{ store.history.length }}
           </span>
           <div class="flex-1" />
@@ -96,8 +96,8 @@ function confirmClearAll() {
               :class="isDark ? 'text-wt-dim hover:text-red-400 hover:bg-red-400/8' : 'text-lt-aux hover:text-red-500 hover:bg-red-50'">
               <i class="ri-close-line text-[10px]" />
             </button>
-            <div class="flex items-center gap-1.5 mb-1.5">
-              <span class="ctx-pill" :class="isDark ? 'text-brand-400 bg-brand-400/8 border border-brand-400/15' : 'text-brand-600 bg-brand-50 border border-brand-100'" style="font-size:9px;padding:1px 6px">
+            <div class="flex items-center gap-1.5 mb-1">
+              <span class="ctx-pill" :class="isDark ? 'text-brand-400 bg-brand-400/8 border border-brand-400/15' : 'text-brand-600 bg-brand-50 border border-brand-100'" style="font-size:10px;padding:1px 6px">
                 {{ langLabel(item.sourceLang) }} → {{ langLabel(item.targetLang) }}
               </span>
               <span class="text-[9px] ml-auto" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">{{ timeAgo(item.timestamp) }}</span>
@@ -110,7 +110,7 @@ function confirmClearAll() {
             <div class="w-12 h-12 rounded-2xl flex items-center justify-center" :class="isDark ? 'bg-d3' : 'bg-l3'">
               <i class="ri-history-line text-[20px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'" />
             </div>
-            <span class="text-[11px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">暂无翻译历史</span>
+            <span class="text-[12px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">暂无翻译历史</span>
           </div>
         </div>
       </div>

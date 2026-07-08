@@ -40,7 +40,7 @@ function statusMeta(status) {
           <span class="text-[13px] font-semibold" :class="isDark ? 'text-wt-main' : 'text-lt-main'">Wiki知识库</span>
           <span v-if="isReady && wikis.length" class="ctx-pill !text-[9.5px] !px-1.5 !py-0" :class="isDark ? 'bg-d3 text-wt-dim border border-bdr' : 'bg-l3 text-lt-aux border border-bdrF'">{{ wikis.length }}</span>
         </div>
-        <p class="mt-0.5 text-[10px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">Agent 维护的本地知识空间</p>
+        <p class="mt-0.5 text-[11px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">Agent 维护的本地知识空间</p>
       </div>
       <button
         class="wbtn h-8 px-3 rounded-lg shrink-0 inline-flex items-center justify-center gap-1 text-[12px] border"

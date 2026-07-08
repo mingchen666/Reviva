@@ -310,9 +310,9 @@ async function deleteSub(sub) {
                 : 'text-lt-sub hover:bg-l4'
           ">
           <i :class="[item.icon, 'text-[14px]']" />
-          <span class="text-[12px] font-medium flex-1 text-left">{{ item.label }}</span>
+          <span class="text-[13px] font-medium flex-1 text-left">{{ item.label }}</span>
           <span
-            class="text-[10px] font-semibold px-1.5 py-[1px] rounded"
+            class="text-[11px] font-semibold px-1.5 py-[1px] rounded"
             :class="
               subNav === item.key ? navBadgeActiveClass(item.key) : isDark ? 'bg-d4 text-wt-dim' : 'bg-l4 text-lt-aux'
             ">
@@ -418,7 +418,7 @@ async function deleteSub(sub) {
               ? 'bg-agent-400/10 text-agent-400 hover:bg-agent-400/18 border border-agent-400/20'
               : 'bg-agent-50 text-agent-500 hover:bg-agent-100 border border-agent-100'
           ">
-          <i class="ri-add-line text-[12px]" />
+          <i class="ri-add-line text-[14px]" />
           新建智能体
         </button>
       </div>
