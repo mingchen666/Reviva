@@ -35,18 +35,23 @@ export class VisionAnalyzeService {
 
   async analyze(args = {}, runContext = {}) {
     const vision = runContext?.vision || {}
-    if (!vision.modelHasVision) {
+    const currentVisionModel = vision.modelHasVision && vision.providerId && vision.model ? vision : null
+    const defaultVisionModel = vision.defaultModel?.modelHasVision && vision.defaultModel.providerId && vision.defaultModel.model
+      ? vision.defaultModel
+      : null
+    const activeVisionModel = currentVisionModel || defaultVisionModel
+    if (!activeVisionModel) {
       return {
         success: false,
         code: 'VISION_UNAVAILABLE',
-        message: '当前 Agent 使用的模型未标记为支持视觉理解。可以展示图片，但不能进行视觉分析。',
+        message: '当前未配置可用的视觉理解模型。可以展示图片，但不能进行视觉分析。',
       }
     }
-    if (!vision.providerId || !vision.model) {
+    if (!activeVisionModel.providerId || !activeVisionModel.model) {
       return {
         success: false,
         code: 'VISION_MODEL_NOT_CONFIGURED',
-        message: '缺少当前 Agent 的视觉模型配置。',
+        message: '缺少视觉理解模型配置。',
       }
     }
 
@@ -126,12 +131,12 @@ export class VisionAnalyzeService {
 
     try {
       const model = this._createModel(
-        vision.providerId,
-        vision.apiKey,
-        vision.baseUrl,
-        vision.model,
+        activeVisionModel.providerId,
+        activeVisionModel.apiKey,
+        activeVisionModel.baseUrl,
+        activeVisionModel.model,
         {
-          apiFormat: vision.apiFormat,
+          apiFormat: activeVisionModel.apiFormat,
           streaming: false,
           temperature: 0.2,
           maxTokens: 2048,
@@ -153,8 +158,9 @@ export class VisionAnalyzeService {
         skipped,
         question,
         mode,
-        model: vision.model,
-        providerId: vision.providerId,
+        model: activeVisionModel.model,
+        providerId: activeVisionModel.providerId,
+        modelSource: activeVisionModel === vision ? 'agent' : 'default_vision',
         content: messageContentToText(response?.content).trim(),
         usage: response?.usage_metadata || response?.response_metadata?.tokenUsage || null,
       }

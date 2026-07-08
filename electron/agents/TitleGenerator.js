@@ -1,6 +1,5 @@
 // electron/agents/TitleGenerator.js — Auto-generate conversation title using LLM
-// NOTE: Title generation is now done directly via fetch in AgentRuntime._autoGenerateTitle (renderer side).
-// This file is kept for potential future use from main process.
+// Called from AgentService via IPC so model requests stay in the main process.
 
 import { ChatAnthropic } from '@langchain/anthropic'
 import { ChatOpenAICompletions, ChatOpenAIResponses } from '@langchain/openai'
@@ -12,6 +11,17 @@ function normalizeApiFormat(providerId, apiFormat = '') {
   if (value === 'anthropic') return 'anthropic'
   if (['openai', 'openai_chat', 'openai-chat', 'chat', 'chat_completions', 'chat-completions'].includes(value)) return 'openai'
   return String(providerId || '').toLowerCase() === 'anthropic' ? 'anthropic' : 'openai'
+}
+
+function extractMessageText(message) {
+  const content = message?.content
+  if (typeof content === 'string') return content
+  if (!Array.isArray(content)) return ''
+  return content.map(part => {
+    if (typeof part === 'string') return part
+    if (!part || part.type === 'thinking' || part.type === 'reasoning') return ''
+    return part.text || ''
+  }).join('')
 }
 
 export class TitleGenerator {
@@ -35,7 +45,7 @@ export class TitleGenerator {
 
     try {
       const result = await chatModel.invoke([new HumanMessage(prompt)])
-      return (result.content || '').trim().replace(/["""。！？,.!?]/g, '').slice(0, 15) || ''
+      return extractMessageText(result).trim().replace(/["""。！？,.!?]/g, '').slice(0, 15) || ''
     } catch (e) {
       console.error('[TitleGenerator] error:', e.message)
       return ''

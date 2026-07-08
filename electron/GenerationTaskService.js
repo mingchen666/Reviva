@@ -43,7 +43,7 @@ export class GenerationTaskService {
     const {
       toolId, mode = 'local', topic = '', groupId = 'default', conversationId = '',
       params = {}, ctxItems = [],
-      providerId, apiFormat, apiKey, baseUrl, model, modelHasVision = false, toolProviderConfigs = {}, cloudContext = {},
+      providerId, apiFormat, apiKey, baseUrl, model, modelHasVision = false, visionModel = null, toolProviderConfigs = {}, cloudContext = {},
     } = request || {}
 
     const module = this._moduleRegistry.get(toolId)
@@ -104,6 +104,7 @@ export class GenerationTaskService {
       baseUrl,
       model,
       modelHasVision,
+      visionModel,
       toolProviderConfigs,
       cloudContext,
       abortController,

@@ -404,6 +404,7 @@ const DEFAULT_DEFAULT_MODELS = {
   agent: encodeModelRef('deepseek', 'deepseek-v4-flash'),
   title: encodeModelRef('deepseek', 'deepseek-v4-flash'),
   translation: encodeModelRef('deepseek', 'deepseek-v4-flash'),
+  vision: encodeModelRef('openai', 'gpt-4o'),
   embedding: encodeModelRef('zhipu', 'embedding-3'),
 }
 
@@ -489,19 +490,19 @@ function _mergeBuiltinProviders(current) {
   return result
 }
 
-function _findModelRef(providers, ref) {
+function _findModelRef(providers, ref, predicate = null) {
   const { providerId, modelId, scoped } = parseModelRef(ref)
   if (!modelId) return null
 
   if (scoped) {
     const provider = providers.find(p => p.id === providerId)
     const model = provider?.models?.find(m => m.id === modelId)
-    return provider && model ? { provider, model, ref: encodeModelRef(provider.id, model.id) } : null
+    return provider && model && (!predicate || predicate(model, provider)) ? { provider, model, ref: encodeModelRef(provider.id, model.id) } : null
   }
 
   for (const provider of providers) {
     const model = provider.models?.find(m => m.id === modelId)
-    if (model) return { provider, model, ref: encodeModelRef(provider.id, model.id) }
+    if (model && (!predicate || predicate(model, provider))) return { provider, model, ref: encodeModelRef(provider.id, model.id) }
   }
   return null
 }
@@ -511,8 +512,9 @@ function _findModelRef(providers, ref) {
 function _sanitizeDefaultModels(dm, providers) {
   const out = { ...dm }
   for (const key of Object.keys(DEFAULT_DEFAULT_MODELS)) {
-    const match = _findModelRef(providers, out[key])
-    const fallback = _findModelRef(providers, DEFAULT_DEFAULT_MODELS[key])
+    const predicate = key === 'vision' ? (model) => !!model.capabilities?.vision : null
+    const match = _findModelRef(providers, out[key], predicate)
+    const fallback = _findModelRef(providers, DEFAULT_DEFAULT_MODELS[key], predicate)
     out[key] = match?.ref || fallback?.ref || DEFAULT_DEFAULT_MODELS[key]
   }
   return out
@@ -608,6 +610,15 @@ export const useSettingsStore = defineStore('settings', () => {
       type: 'group', label: p.name, key: p.id,
       children: p.models.filter(m => m.tier !== 'embedding' && m.enabled).map(m => ({ label: m.name, value: encodeModelRef(p.id, m.id) })),
     }))
+  )
+
+  const visionModelOptions = computed(() =>
+    enabledProviders.value.map(p => ({
+      type: 'group', label: p.name, key: p.id,
+      children: p.models
+        .filter(m => m.tier !== 'embedding' && m.enabled && !!m.capabilities?.vision)
+        .map(m => ({ label: m.name, value: encodeModelRef(p.id, m.id) })),
+    })).filter(group => group.children.length)
   )
 
   const embeddingModelOptions = computed(() =>
@@ -982,7 +993,7 @@ export const useSettingsStore = defineStore('settings', () => {
     // LLM Config
     providers, defaultModels,
     enabledProviders, availableModels,
-    chatModelOptions, embeddingModelOptions, modelCapabilitiesMap, getModelName,
+    chatModelOptions, visionModelOptions, embeddingModelOptions, modelCapabilitiesMap, getModelName,
     // Model management
     addModelToProvider, removeModelFromProvider, updateModelInProvider, updateModelCapabilities, addFetchedModels, syncFetchedModels, getProviderDefaultBaseUrl, resetProviderBaseUrl, guessTier, providerConfigured, normalizeProviderApiFormat,
     // Computed

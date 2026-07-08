@@ -2,6 +2,23 @@ import { ToolMessage } from '@langchain/core/messages'
 import { UNLIMITED_RECURSION_LIMIT } from './constants.js'
 import { normalizeTodos } from '../messages/messageAdapters.js'
 
+function extractMessageText(message) {
+  if (!message) return ''
+  if (typeof message.text === 'string' && message.text) return message.text
+  if (typeof message.content === 'string') return message.content
+
+  const blocks = Array.isArray(message.contentBlocks)
+    ? message.contentBlocks
+    : (Array.isArray(message.content) ? message.content : [])
+
+  return blocks.map(block => {
+    if (typeof block === 'string') return block
+    if (!block || block.type === 'thinking' || block.type === 'reasoning') return ''
+    if (block.type === 'text') return block.text || ''
+    return block.text || ''
+  }).join('')
+}
+
 /**
  * Iterate DeepAgent stream using agent.stream() — reliable single-loop approach
  * Processes all events (messages, updates) in one for-await loop, no hanging projections
@@ -138,19 +155,20 @@ export async function iterateDeepStream(agent, input, config, sendFn, channelPre
     if (mode === 'messages') {
       const [message] = data
       if (!message) continue
+      const messageText = extractMessageText(message)
 
       // Subagent text
-      if (isSubagent && message.text) {
+      if (isSubagent && messageText) {
         const subInfo = activeSubagents.get(toolNamespaceId)
-        sendFn({ type: 'subagent_chunk', subRunId: toolNamespaceId, name: subInfo?.name || 'subagent', text: message.text })
+        sendFn({ type: 'subagent_chunk', subRunId: toolNamespaceId, name: subInfo?.name || 'subagent', text: messageText })
       }
 
       // Coordinator text (only from the main graph's final response).
       // DeepAgents also streams built-in tool internals under tools:<id>; do not surface those as assistant text.
-      if (!toolNamespace && message.text && !message.tool_call_chunks?.length) {
+      if (!toolNamespace && messageText && !message.tool_call_chunks?.length) {
         chunkCount++
-        fullContent += message.text
-        sendFn({ type: 'content', text: message.text })
+        fullContent += messageText
+        sendFn({ type: 'content', text: messageText })
       }
 
       // Thinking/reasoning blocks (Anthropic extended thinking + LangChain normalized reasoning)
