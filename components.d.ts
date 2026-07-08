@@ -36,6 +36,7 @@ declare module 'vue' {
     NInput: typeof import('naive-ui')['NInput']
     NModal: typeof import('naive-ui')['NModal']
     NSelect: typeof import('naive-ui')['NSelect']
+    NSwitch: typeof import('naive-ui')['NSwitch']
     OptionSelector: typeof import('./src/components/OptionSelector.vue')['default']
     QuizPreview: typeof import('./src/components/preview/QuizPreview.vue')['default']
     ResizeHandle: typeof import('./src/components/layout/ResizeHandle.vue')['default']

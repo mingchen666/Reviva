@@ -635,6 +635,11 @@ function resolveGenerationProviderInfo() {
   return null
 }
 
+function resolveVisionProviderInfo() {
+  const info = providerInfoFromModelRef(settingsStore.defaultModels?.vision)
+  return info?.modelHasVision ? info : null
+}
+
 function providerConfigured(provider) {
   return settingsStore.providerConfigured
     ? settingsStore.providerConfigured(provider)
@@ -731,6 +736,7 @@ async function handleGenTaskSubmit(payload) {
     ctxItems: ctxSnapshot,
     toolProviderConfigs: cloneToolProviderConfigs(),
     cloudContext: buildCloudContext(ctxSnapshot),
+    visionModel: resolveVisionProviderInfo(),
     ...(providerInfo || {}),
   }
 

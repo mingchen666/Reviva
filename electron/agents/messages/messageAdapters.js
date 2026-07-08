@@ -346,6 +346,7 @@ function extractChunkText(chunk) {
   if (Array.isArray(chunk.content)) {
     return chunk.content.map(part => {
       if (typeof part === 'string') return part
+      if (!part || part.type === 'thinking' || part.type === 'reasoning') return ''
       if (part?.type === 'text') return part.text || ''
       return part?.text || ''
     }).join('')

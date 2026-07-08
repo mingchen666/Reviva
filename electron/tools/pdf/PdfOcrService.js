@@ -35,6 +35,18 @@ function rangesToProviderString(ranges = []) {
     .join(',')
 }
 
+function hasOcrContent(result = {}) {
+  const pages = Array.isArray(result.pages) ? result.pages : []
+  if (pages.some(page => (
+    String(page?.text || '').trim()
+    || (Array.isArray(page?.blocks) && page.blocks.length)
+    || (page?.images && Object.keys(page.images).length)
+  ))) {
+    return true
+  }
+  return !!String(result.text || result.rawText || '').trim()
+}
+
 export class PdfOcrService {
   constructor({ dbService = null, cache = null, settings = {} } = {}) {
     this._db = dbService
@@ -134,6 +146,11 @@ export class PdfOcrService {
           title: sourceInfo?.title || doc.fileName,
         },
       })
+      if (!hasOcrContent(result)) {
+        const error = new Error('OCR provider returned no readable pages or text.')
+        error.code = 'PDF_OCR_EMPTY_RESULT'
+        throw error
+      }
       const manifest = await this._cache.writeOcrResult(doc, ocrProfileKey, result, {
         provider,
         ranges: effectiveRanges,
@@ -143,8 +160,9 @@ export class PdfOcrService {
       if (run?.id) this._cache.updateParseRun(run.id, { status: 'completed', progress: 100, output_path: `context/pdf/${doc.id}/ocr/${ocrProfileKey}/manifest.json`, metrics_json: result.metrics || {} })
       return { success: true, cacheHit: false, ocrProfileKey, manifest, result, provider }
     } catch (err) {
-      if (run?.id) this._cache.updateParseRun(run.id, { status: 'failed', progress: 100, error_code: 'PDF_OCR_FAILED', error_message: err.message || 'OCR failed' })
-      return { success: false, code: 'PDF_OCR_FAILED', message: 'PDF OCR 失败。', detail: err.message || '' }
+      const code = err.code || 'PDF_OCR_FAILED'
+      if (run?.id) this._cache.updateParseRun(run.id, { status: 'failed', progress: 100, error_code: code, error_message: err.message || 'OCR failed' })
+      return { success: false, code, message: code === 'PDF_OCR_EMPTY_RESULT' ? 'PDF OCR 未返回可读取内容。' : 'PDF OCR 失败。', detail: err.message || '' }
     }
   }
 }

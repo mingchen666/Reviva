@@ -29,10 +29,17 @@ const modelCards = computed(() => [
   { key: 'chat', label: '对话默认', icon: 'ri-chat-smile-2-line', desc: '学习台对话与日常问答使用的默认模型' },
   // { key: 'skill', label: 'Skill 生成', icon: 'ri-flashlight-line', desc: '执行 Skill 生成任务（摘要、大纲、闪卡等）时使用的模型' },
   // { key: 'agent', label: 'Agent 规划', icon: 'ri-sparkling-2-line', desc: 'Agent 执行任务规划、推理决策时使用的模型' },
+  { key: 'vision', label: '视觉理解模型', icon: 'ri-eye-line', desc: '图片、截图、图表理解与按需视觉 OCR 使用的模型' },
   { key: 'title', label: '对话标题生成', icon: 'ri-heading', desc: '自动生成对话标题时使用的模型' },
   { key: 'translation', label: '翻译模型', icon: 'ri-translate-2', desc: '跨语言翻译与双语对照时使用的模型' },
   // { key: 'embedding', label: '向量嵌入', icon: 'ri-database-2-line', desc: '知识库检索与语义搜索使用的嵌入模型' },
 ])
+
+function modelOptionsFor(card) {
+  if (card.key === 'embedding') return settingsStore.embeddingModelOptions
+  if (card.key === 'vision') return settingsStore.visionModelOptions
+  return settingsStore.chatModelOptions
+}
 
 function onModelChange(key, value) {
   settingsStore.defaultModels[key] = value
@@ -50,7 +57,7 @@ function onModelChange(key, value) {
       <div>
         <div class="text-[13px] font-semibold" :class="isDark ? 'text-brand-400' : 'text-brand-600'">默认模型配置</div>
         <div class="text-[12px] mt-1 leading-relaxed" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">
-          为不同场景指定默认模型，确保各功能模块使用最适合的 LLM。工作台对话、标题生成、翻译等各有独立默认值。
+          为不同场景指定默认模型，确保各功能模块使用最适合的 LLM。视觉理解模型用于 Agent 的 vision_analyze 工具兜底；直接发送图片仍需要当前对话模型支持视觉。
         </div>
       </div>
     </div>
@@ -73,7 +80,7 @@ function onModelChange(key, value) {
         <NSelect
           :value="settingsStore.defaultModels[card.key]"
           @update:value="v => onModelChange(card.key, v)"
-          :options="card.key === 'embedding' ? settingsStore.embeddingModelOptions : settingsStore.chatModelOptions"
+          :options="modelOptionsFor(card)"
           size="small"
           :theme="isDark ? 'dark' : 'light'"
         />
@@ -100,6 +107,7 @@ function onModelChange(key, value) {
         <!-- <div class="flex items-center gap-2"><i class="ri-flashlight-line text-brand-400 text-[12px]" /><span>Skill 生成需要创造力，旗舰模型效果更佳</span></div> -->
         <!-- <div class="flex items-center gap-2"><i class="ri-sparkling-2-line text-agent-400 text-[12px]" /><span>Agent 规划需要强推理能力，推荐 DeepSeek Reasoner 或 Opus</span></div> -->
         <!-- <div class="flex items-center gap-2"><i class="ri-database-2-line text-amber-400 text-[12px]" /><span>嵌入模型建议选 text-embedding-3-large，兼容性最好</span></div> -->
+        <div class="flex items-center gap-2"><i class="ri-eye-line text-sky-400 text-[12px]" /><span>视觉理解模型需要具备视觉能力，用于图片理解、图表分析和少量图片文字提取</span></div>
         <div class="flex items-center gap-2"><i class="ri-heading text-rose-400 text-[12px]" /><span>标题生成推荐低成本快速模型（ DeepSeek Chat），无需强推理</span></div>
         <div class="flex items-center gap-2"><i class="ri-translate-2 text-sky-400 text-[12px]" /><span>翻译模型推荐低成本多语言模型（DeepSeek Chat），速度快效果好</span></div>
       </div>

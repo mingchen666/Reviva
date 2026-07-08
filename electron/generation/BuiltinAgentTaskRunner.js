@@ -9,7 +9,7 @@ export class BuiltinAgentTaskRunner {
     return !!this._agentService?.runBuiltinTask
   }
 
-  async run({ task, toolId, moduleConfig, topic, params, ctxItems, providerId, apiFormat, apiKey, baseUrl, model, modelHasVision, toolProviderConfigs, cloudContext, abortController }) {
+  async run({ task, toolId, moduleConfig, topic, params, ctxItems, providerId, apiFormat, apiKey, baseUrl, model, modelHasVision, visionModel, toolProviderConfigs, cloudContext, abortController }) {
     this._emitProgress(task.id, 12, '准备内置智能体...')
     const result = await this._agentService.runBuiltinTask({
       taskId: task.id,
@@ -25,6 +25,7 @@ export class BuiltinAgentTaskRunner {
       baseUrl,
       model,
       modelHasVision: !!modelHasVision,
+      visionModel,
       toolProviderConfigs,
       cloudContext,
       groupId: task.group_id || 'default',

@@ -7,10 +7,9 @@ import crypto from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { createDeepAgent, registerHarnessProfile } from 'deepagents'
+import { createDeepAgent, GENERAL_PURPOSE_SUBAGENT } from 'deepagents'
 import { AgentScopedBackend } from './agents/runtime/AgentScopedBackend.js'
 import {
-  DEEPAGENTS_EXECUTION_TOOL_EXCLUSION,
   HIDDEN_COMMAND_COMPATIBILITY_TOOL_NAMES,
 } from './agents/runtime/constants.js'
 import {
@@ -93,12 +92,8 @@ function parseSkillFrontmatterSummary(content) {
   return meta
 }
 
-for (const provider of ['anthropic', 'openai', 'google']) {
-  registerHarnessProfile(provider, { excludedTools: DEEPAGENTS_EXECUTION_TOOL_EXCLUSION })
-}
-
 import { ChatAnthropic } from '@langchain/anthropic'
-import { ChatOpenAI } from '@langchain/openai'
+import { ChatOpenAICompletions, ChatOpenAIResponses } from '@langchain/openai'
 import { MemorySaver, InMemoryStore, Command } from '@langchain/langgraph'
 import { HumanMessage } from '@langchain/core/messages'
 import { getLangchainTools, getUserDefinedLangchainTools, setToolProviderConfig, setWorkDirService, setDbService, setWikiService as setWikiServiceForTools, setMcpService as setMcpServiceForTools, setVisionAnalyzeHandler, resetTaskCounters, setExecCommandConfig, setCloudContext, setToolRunContext } from './agents/langchainTools.js'
@@ -186,7 +181,15 @@ export class AgentService {
   // ── Model Factory ────────────────────────────────────────────
 
   _isAnthropicFormat(providerId, apiFormat = '') {
-    return (apiFormat || '').toLowerCase() === 'anthropic' || (providerId || '').toLowerCase() === 'anthropic'
+    return this._normalizeApiFormat(providerId, apiFormat) === 'anthropic'
+  }
+
+  _normalizeApiFormat(providerId, apiFormat = '') {
+    const value = String(apiFormat || '').trim().toLowerCase()
+    if (['openai_responses', 'openai-responses', 'openai_response', 'openai-response', 'responses', 'response'].includes(value)) return 'openai_responses'
+    if (value === 'anthropic') return 'anthropic'
+    if (['openai', 'openai_chat', 'openai-chat', 'chat', 'chat_completions', 'chat-completions'].includes(value)) return 'openai'
+    return String(providerId || '').toLowerCase() === 'anthropic' ? 'anthropic' : 'openai'
   }
 
   _normalizeThinkingMode(mode) {
@@ -236,7 +239,9 @@ export class AgentService {
 
     if (this._isAnthropicFormat(providerId, options.apiFormat)) {
       const anthropicBaseURL = (baseUrl || '').replace(/\/v1\/?$/, '').replace(/\/$/, '') || undefined
-      const anthropicOpts = { ...common, timeout: 180000, streaming: options.streaming !== false }
+      const anthropicOpts = { ...common, timeout: 180000 }
+      if (options.streaming === true) anthropicOpts.streaming = true
+      if (options.disableStreaming === true) anthropicOpts.disableStreaming = true
       if (anthropicBaseURL) anthropicOpts.baseURL = anthropicBaseURL
       if (this._normalizeThinkingMode(options.thinkingMode) === 'enabled') {
         const budgetMap = { low: 2000, medium: 10000, high: 32000 }
@@ -248,29 +253,54 @@ export class AgentService {
       return new ChatAnthropic(anthropicOpts)
     }
 
-    // OpenAI-compatible providers: use configuration.baseURL for proper client setup
-    // Non-official endpoints don't support Responses API — must disable it to avoid 400 errors
-    const openaiOpts = { ...common, timeout: 180000, streaming: options.streaming !== false }
+    // OpenAI-compatible providers: choose the API surface explicitly from provider.apiFormat.
+    const openaiOpts = { ...common, timeout: 180000 }
+    if (options.streaming === true) openaiOpts.streaming = true
+    if (options.disableStreaming === true) openaiOpts.disableStreaming = true
     if (baseUrl) {
       openaiOpts.configuration = { baseURL: baseUrl }
-      // Third-party OpenAI-compatible gateways don't implement the Responses API
-      openaiOpts.useResponsesApi = false
     }
     const deepSeekThinkingParams = this._deepSeekThinkingParams(providerId, modelName, options)
     if (deepSeekThinkingParams) openaiOpts.modelKwargs = { ...(openaiOpts.modelKwargs || {}), ...deepSeekThinkingParams }
     const reasoningEffort = options.reasoningEffort || this._openAIReasoningEffort(providerId, modelName, options)
     if (reasoningEffort) openaiOpts.reasoningEffort = reasoningEffort
-    return new ChatOpenAI(openaiOpts)
+    const ChatModel = this._normalizeApiFormat(providerId, options.apiFormat) === 'openai_responses'
+      ? ChatOpenAIResponses
+      : ChatOpenAICompletions
+    return new ChatModel(openaiOpts)
   }
 
   _visionContextFromRequest(request = {}) {
+    const fallback = request.visionModel || request.defaultVisionModel || null
+    const defaultModel = fallback?.modelHasVision && fallback.providerId && fallback.model
+      ? {
+          modelHasVision: true,
+          providerId: fallback.providerId || '',
+          apiKey: fallback.apiKey || '',
+          baseUrl: fallback.baseUrl || '',
+          apiFormat: fallback.apiFormat || '',
+          model: fallback.model || '',
+        }
+      : null
+    const modelHasVision = !!request.modelHasVision
+    const currentAvailable = modelHasVision && !!request.providerId && !!request.model
     return {
-      modelHasVision: !!request.modelHasVision,
+      modelHasVision,
       providerId: request.providerId || '',
       apiKey: request.apiKey || '',
       baseUrl: request.baseUrl || '',
       apiFormat: request.apiFormat || '',
       model: request.model || '',
+      defaultModel,
+      visionAvailable: currentAvailable || !!defaultModel,
+    }
+  }
+
+  _visionToolOptionsFromRequest(request = {}) {
+    const vision = this._visionContextFromRequest(request)
+    return {
+      modelHasVision: vision.modelHasVision,
+      visionAvailable: vision.visionAvailable,
     }
   }
 
@@ -284,7 +314,10 @@ export class AgentService {
     if (!requestedIds.length) return allTools
 
     const effectiveIds = filterWebSearchTools(
-      withContextualAgentTools(requestedIds, cloudContext, { modelHasVision: !!options.modelHasVision }),
+      withContextualAgentTools(requestedIds, cloudContext, {
+        modelHasVision: !!options.modelHasVision,
+        visionAvailable: !!(options.visionAvailable ?? options.modelHasVision),
+      }),
       options.webSearchEnabled !== false,
     )
     const tools = this._buildLocalRuntimeTools(effectiveIds, { includeDefaults: false })
@@ -378,8 +411,8 @@ export class AgentService {
     return [...new Set([...(toolIds || []), ...this._skillAllowedTools(skillIds)].filter(Boolean))]
   }
 
-  _buildLocalRuntimeTools(toolIds, { includeDefaults = true, modelHasVision = false } = {}) {
-    const effectiveIds = includeDefaults ? withDefaultAgentTools(toolIds, { modelHasVision }) : (toolIds || [])
+  _buildLocalRuntimeTools(toolIds, { includeDefaults = true, modelHasVision = false, visionAvailable = modelHasVision } = {}) {
+    const effectiveIds = includeDefaults ? withDefaultAgentTools(toolIds, { modelHasVision, visionAvailable }) : (toolIds || [])
     const builtinTools = effectiveIds.length ? getLangchainTools(effectiveIds) : []
     const userTools = getUserDefinedLangchainTools(effectiveIds, this._listEnabledCustomToolRows())
     return [...builtinTools, ...userTools]
@@ -392,7 +425,7 @@ export class AgentService {
     return subAgentConfigs.map(sa => {
       const saRequestedTools = this._withSkillTools(sa.tools || [], sa.skills || [])
       const saTools = saRequestedTools.length
-        ? this._buildSubagentTools(sa.tools, allTools, sa.skills, request.cloudContext, { webSearchEnabled, modelHasVision: !!request.modelHasVision })
+        ? this._buildSubagentTools(sa.tools, allTools, sa.skills, request.cloudContext, { webSearchEnabled, ...this._visionToolOptionsFromRequest(request) })
         : allTools // inherit parent tools if not specified
 
       const subConfig = {
@@ -425,7 +458,6 @@ export class AgentService {
             maxTokens: request.maxTokens || 4096,
             thinkingMode: request.thinkingMode,
             thinkingIntensity: request.thinkingIntensity,
-            streaming: false,
             apiFormat: request.apiFormat,
           },
         )
@@ -433,6 +465,19 @@ export class AgentService {
 
       return subConfig
     })
+  }
+
+  _withGeneralPurposeSubagent(subagents, { model, tools, skills } = {}) {
+    const list = Array.isArray(subagents) ? [...subagents] : []
+    if (list.some(sa => sa?.name === GENERAL_PURPOSE_SUBAGENT.name)) return list
+    list.unshift({
+      ...GENERAL_PURPOSE_SUBAGENT,
+      model,
+      tools,
+      skills,
+      middleware: [createFilesystemToolArgumentAliasMiddleware(), createDeepAgentsBuiltinToolExclusionMiddleware()],
+    })
+    return list
   }
 
   _getBuiltinModule(englishName) {
@@ -553,6 +598,7 @@ export class AgentService {
       onProgress(18, '准备上下文...')
       setToolProviderConfig(request.toolProviderConfigs || {})
       const agentDirName = this._agentRuntimeDirName(request.agentId || moduleConfig.id, agentEnglishName)
+      const visionOptions = this._visionToolOptionsFromRequest(request)
       setToolRunContext({ agentEnglishName: agentDirName, permissions: moduleConfig.permissions || {}, wikiContext: request.wikiContext || {}, boundSkillIds: moduleConfig.skills || [], vision: this._visionContextFromRequest(request) })
       setExecCommandConfig({
         whitelist: moduleConfig.permissions?.execCommandWhitelist || null,
@@ -583,7 +629,7 @@ export class AgentService {
       const skillData = this._buildSkillsPaths(moduleConfig.skills || [])
       const memoryDirName = agentDirName
       let systemPrompt = moduleConfig.prompt || ''
-      systemPrompt += '\n\n' + this._buildProjectSystemPrompt(workRoot, preparedCtxPaths, agentDirName, skillData.info, request.answerStyle, memoryDirName, request.cloudContext, { modelHasVision: !!request.modelHasVision })
+      systemPrompt += '\n\n' + this._buildProjectSystemPrompt(workRoot, preparedCtxPaths, agentDirName, skillData.info, request.answerStyle, memoryDirName, request.cloudContext, visionOptions)
 
       const agentDir = path.join(workRoot, 'agents', agentDirName)
       fs.mkdirSync(agentDir, { recursive: true })
@@ -600,7 +646,7 @@ export class AgentService {
       const effectiveToolIds = filterWebSearchTools(withContextualAgentTools(withPermissionAgentTools(this._withSkillTools(allToolIds, [
         ...(moduleConfig.skills || []),
         ...subAgentConfigs.flatMap(sa => Array.isArray(sa.skills) ? sa.skills : []),
-      ]), moduleConfig.permissions), request.cloudContext, { modelHasVision: !!request.modelHasVision }), webSearchEnabled)
+      ]), moduleConfig.permissions), request.cloudContext, visionOptions), webSearchEnabled)
       setToolRunContext({ agentEnglishName: agentDirName, permissions: moduleConfig.permissions || {}, wikiContext: request.wikiContext || {}, boundSkillIds: skillData.boundSkillIds, toolIds: effectiveToolIds, vision: this._visionContextFromRequest(request) })
       const customTools = this._buildLocalRuntimeTools(effectiveToolIds, { includeDefaults: false })
       resetTaskCounters()
@@ -625,8 +671,13 @@ export class AgentService {
         temperature: moduleConfig.temperature ?? 0.4,
         maxTokens: moduleConfig.max_tokens || 8192,
       })
+      const runtimeSubagents = this._withGeneralPurposeSubagent(subagents, {
+        model,
+        tools: allCustomTools,
+        skills: skillData.paths,
+      })
 
-      onProgress(42, subagents?.length ? `已加载 ${subagents.length} 个子智能体` : '准备执行...')
+      onProgress(42, runtimeSubagents?.length ? `已加载 ${runtimeSubagents.length} 个子智能体` : '准备执行...')
       const interruptOn = this._buildInterruptOn(moduleConfig.permissions)
       this._injectSemanticMemories(workRoot)
       const memory = this._buildMemoryPaths({ agentId: request.agentId || moduleConfig.id, agentEnglishName })
@@ -643,7 +694,7 @@ export class AgentService {
         model,
         tools: allCustomTools,
         systemPrompt,
-        subagents,
+        subagents: runtimeSubagents,
         interruptOn,
         skills: skillData.paths,
         memory,
@@ -954,6 +1005,7 @@ export class AgentService {
     try {
       // Set tool provider config (for web_search Tavily/SearXNG/Bing per-agent config)
       setToolProviderConfig(request.toolProviderConfigs || {})
+      const visionOptions = this._visionToolOptionsFromRequest(request)
       setToolRunContext({ agentEnglishName: agentDirName, permissions: request.permissions || {}, wikiContext: request.wikiContext || {}, boundSkillIds: request.skills || [], vision: this._visionContextFromRequest(request) })
       setExecCommandConfig({
         whitelist: request.permissions?.execCommandWhitelist || null,
@@ -976,7 +1028,6 @@ export class AgentService {
           topP: request.topP,
           thinkingMode: request.thinkingMode,
           thinkingIntensity: request.thinkingIntensity,
-          streaming: false,
           apiFormat: request.apiFormat,
         },
       )
@@ -993,7 +1044,7 @@ export class AgentService {
       // Renderer sends agent.prompt as systemPrompt; main process injects project rules + context paths + skills
       const memoryDirName = agentDirName
       let systemPrompt = request.systemPrompt || ''
-      systemPrompt += '\n\n' + this._buildProjectSystemPrompt(workRoot, preparedCtxPaths, agentDirName, skillData.info, request.answerStyle, memoryDirName, request.cloudContext, { modelHasVision: !!request.modelHasVision })
+      systemPrompt += '\n\n' + this._buildProjectSystemPrompt(workRoot, preparedCtxPaths, agentDirName, skillData.info, request.answerStyle, memoryDirName, request.cloudContext, visionOptions)
 
       // Write per-agent runtime files (AGENT.md, skills.json) to agent sandbox directory
       const agentDir = path.join(workRoot, 'agents', agentDirName)
@@ -1014,7 +1065,7 @@ export class AgentService {
       ], [
         ...(request.skills || []),
         ...subAgentSkillIds,
-      ]), request.permissions), request.cloudContext, { modelHasVision: !!request.modelHasVision })
+      ]), request.permissions), request.cloudContext, visionOptions)
       setToolRunContext({ agentEnglishName: agentDirName, permissions: request.permissions || {}, wikiContext: request.wikiContext || {}, boundSkillIds: skillData.boundSkillIds, toolIds: effectiveToolIds, vision: this._visionContextFromRequest(request) })
       const customTools = this._buildLocalRuntimeTools(effectiveToolIds, { includeDefaults: false })
       resetTaskCounters()
@@ -1037,7 +1088,12 @@ export class AgentService {
 
       // Build DeepAgents subagents config
       const subagents = this._buildSubagents(request.subAgents, allCustomTools, request)
-      console.log('[AgentService] Subagents:', subagents?.map(s => s.name) || 'none')
+      const runtimeSubagents = this._withGeneralPurposeSubagent(subagents, {
+        model,
+        tools: allCustomTools,
+        skills: skillData.paths,
+      })
+      console.log('[AgentService] Subagents:', runtimeSubagents?.map(s => s.name) || 'none')
 
       // Build interruptOn from permissions
       const interruptOn = this._buildInterruptOn(request.permissions)
@@ -1066,7 +1122,7 @@ export class AgentService {
         model,
         tools: allCustomTools,
         systemPrompt,
-        subagents,
+        subagents: runtimeSubagents,
         interruptOn,
         skills: skillData.paths,
         memory,
@@ -1134,7 +1190,7 @@ export class AgentService {
             this._interruptedRuns.set(runId, {
               runId,
               request,
-              agentConfig: { model, tools: allCustomTools, toolIds: effectiveToolIds, systemPrompt, subagents, interruptOn, skills: skillData.paths, boundSkillIds: skillData.boundSkillIds, memory, memoryDirName, agentDirName },
+              agentConfig: { model, tools: allCustomTools, toolIds: effectiveToolIds, systemPrompt, subagents: runtimeSubagents, interruptOn, skills: skillData.paths, boundSkillIds: skillData.boundSkillIds, memory, memoryDirName, agentDirName },
               msgId,
               initialSteps: result.steps,
               initialIteration: result.iteration,
@@ -1172,7 +1228,7 @@ export class AgentService {
           this._interruptedRuns.set(runId, {
             runId,
             request,
-            agentConfig: { model, tools: allCustomTools, systemPrompt, subagents, interruptOn, skills: skillData.paths, boundSkillIds: skillData.boundSkillIds, memory, memoryDirName, agentDirName },
+            agentConfig: { model, tools: allCustomTools, systemPrompt, subagents: runtimeSubagents, interruptOn, skills: skillData.paths, boundSkillIds: skillData.boundSkillIds, memory, memoryDirName, agentDirName },
             msgId,
             initialSteps: result.steps,
             initialIteration: result.iteration,
@@ -1563,9 +1619,10 @@ export class AgentService {
   async handleExecuteTool(request) {
     setCloudContext(request.cloudContext || {})
     const agentDirName = this._agentRuntimeDirName(request.agentId, request.agentEnglishName)
-    const effectiveToolIds = withContextualAgentTools(withPermissionAgentTools(this._withSkillTools(request.toolIds, request.skills), request.permissions), request.cloudContext, { modelHasVision: !!request.modelHasVision })
+    const visionOptions = this._visionToolOptionsFromRequest(request)
+    const effectiveToolIds = withContextualAgentTools(withPermissionAgentTools(this._withSkillTools(request.toolIds, request.skills), request.permissions), request.cloudContext, visionOptions)
     setToolRunContext({ agentEnglishName: agentDirName, permissions: request.permissions || {}, wikiContext: request.wikiContext || {}, boundSkillIds: request.skills || [], toolIds: effectiveToolIds, vision: this._visionContextFromRequest(request) })
-    const tools = this._buildLocalRuntimeTools(effectiveToolIds, { modelHasVision: !!request.modelHasVision })
+    const tools = this._buildLocalRuntimeTools(effectiveToolIds, visionOptions)
     const tool = tools.find(t => t.name === request.toolName)
     if (!tool) return { content: `Unknown tool: ${request.toolName}`, isError: true }
     try {
@@ -1582,19 +1639,33 @@ export class AgentService {
     try {
       setCloudContext(request.cloudContext || context?.cloudContext || {})
       const agentDirName = this._agentRuntimeDirName(request.agentId || context?.agentId, request.agentEnglishName || context?.agentEnglishName)
+      const mergedVisionRequest = { ...context, ...request, model: modelName, providerId, apiKey, baseUrl, apiFormat, modelHasVision: request.modelHasVision || context?.modelHasVision, visionModel: request.visionModel || context?.visionModel }
+      const visionOptions = this._visionToolOptionsFromRequest(mergedVisionRequest)
+      const skillData = this._buildSkillsPaths(request.skills || context?.skills || [])
       const effectiveToolIds = withContextualAgentTools(withPermissionAgentTools(
         this._withSkillTools(toolIds, request.skills || context?.skills),
         request.permissions || context?.permissions,
       ),
         request.cloudContext || context?.cloudContext,
-        { modelHasVision: !!(request.modelHasVision || context?.modelHasVision) },
+        visionOptions,
       )
-      setToolRunContext({ agentEnglishName: agentDirName, permissions: request.permissions || context?.permissions || {}, wikiContext: request.wikiContext || context?.wikiContext || {}, boundSkillIds: request.skills || context?.skills || [], toolIds: effectiveToolIds, vision: this._visionContextFromRequest({ ...context, ...request, model: modelName, providerId, apiKey, baseUrl, apiFormat, modelHasVision: request.modelHasVision || context?.modelHasVision }) })
+      setToolRunContext({ agentEnglishName: agentDirName, permissions: request.permissions || context?.permissions || {}, wikiContext: request.wikiContext || context?.wikiContext || {}, boundSkillIds: skillData.boundSkillIds, toolIds: effectiveToolIds, vision: this._visionContextFromRequest(mergedVisionRequest) })
       const subModel = this._createModel(providerId, apiKey, baseUrl, modelName, { streaming: false, apiFormat })
+      const workRoot = this._workDirService?.getRootPath?.() || ''
+      const normalizedRoot = (workRoot || '.').replace(/\\/g, '/')
+      const memoryDirName = request.memoryDirName || context?.memoryDirName || agentDirName
+      const backend = new AgentScopedBackend({ rootDir: normalizedRoot, virtualMode: true }, {
+        workDirService: this._workDirService,
+        boundSkillIds: skillData.boundSkillIds,
+        allowedAgentMemoryDir: memoryDirName,
+        agentDirName,
+        wikiContext: request.wikiContext || context?.wikiContext || {},
+      })
       const subAgent = createDeepAgent({
         model: subModel,
-        systemPrompt: context.systemPrompt || '',
-        tools: this._buildLocalRuntimeTools(effectiveToolIds),
+        systemPrompt: context?.systemPrompt || '',
+        tools: this._buildLocalRuntimeTools(effectiveToolIds, visionOptions),
+        backend,
         checkpointer: this._checkpointer,
         middleware: [createFilesystemToolArgumentAliasMiddleware(), createDeepAgentsBuiltinToolExclusionMiddleware()],
       })
@@ -1653,6 +1724,7 @@ export class AgentService {
       const workRoot = this._workDirService?.getRootPath?.() || ''
       const preparedCtxPaths = this._prepareContextItems(request.ctxPaths || [], workRoot)
       const preparedMessages = this._prepareMessageAttachments(request.messages || [], workRoot, preparedCtxPaths)
+      const visionOptions = { modelHasVision: !!request.modelHasVision, visionAvailable: !!request.modelHasVision }
       const enrichedMessages = _attachImagesToUserMessages(
         enrichMessagesWithCtx(preparedMessages, preparedCtxPaths, workRoot),
         { modelHasVision: !!request.modelHasVision },
@@ -1660,7 +1732,7 @@ export class AgentService {
       const agentDirName = this._agentRuntimeDirName(request.agentId, request.agentEnglishName)
       const memoryDirName = agentDirName
       let systemPrompt = request.systemPrompt || ''
-      systemPrompt += '\n\n' + this._buildProjectSystemPrompt(workRoot, preparedCtxPaths, agentDirName, [], request.answerStyle, memoryDirName, request.cloudContext, { modelHasVision: !!request.modelHasVision })
+      systemPrompt += '\n\n' + this._buildProjectSystemPrompt(workRoot, preparedCtxPaths, agentDirName, [], request.answerStyle, memoryDirName, request.cloudContext, visionOptions)
 
       const model = this._createModel(
         request.providerId,
@@ -1971,6 +2043,7 @@ export class AgentService {
       answerStyle,
       agentMemoryDirName,
       modelHasVision: !!options.modelHasVision,
+      visionAvailable: !!(options.visionAvailable ?? options.modelHasVision),
     })
   }
 

@@ -144,10 +144,12 @@ function buildBehaviorSection() {
 - 绝不要调用 execute({ path: ... }) 或 execute({ operation: ... })；execute 即使出现在底层提示中，也不是 Reviva 的文件/媒体工具调用方式`
 }
 
-function buildDocumentReadSection(modelHasVision = false) {
-  const visionRule = modelHasVision
-    ? '- 当前模型支持视觉理解；图片、截图、图表图片直接使用 vision_analyze。Office/PDF 内嵌图片先用 document_read(intent="extract_images") 或底层图片导出能力拿到图片路径，再按需调用 vision_analyze。'
-    : '- 当前模型未标记为支持视觉理解；可以导出或展示文档内图片，但不要声称已经看懂图片内容。若用户要求分析图片/图表，请说明需要切换到支持视觉的模型。'
+function buildDocumentReadSection({ modelHasVision = false, visionAvailable = modelHasVision } = {}) {
+  const visionRule = visionAvailable
+    ? (modelHasVision
+        ? '- 当前主模型支持视觉理解；图片、截图、图表图片可直接使用 vision_analyze。Office/PDF 内嵌图片先用 document_read(intent="extract_images") 或底层图片导出能力拿到图片路径，再按需调用 vision_analyze。'
+        : '- 当前已配置默认视觉理解模型；需要分析图片、截图、图表图片或少量图片文字时调用 vision_analyze。Office/PDF 内嵌图片先用 document_read(intent="extract_images") 或底层图片导出能力拿到图片路径，再按需调用 vision_analyze。')
+    : '- 当前未配置可用视觉理解模型；可以导出或展示文档内图片，但不要声称已经看懂图片内容。若用户要求分析图片/图表，请说明需要在默认模型中配置视觉理解模型，或切换到支持视觉的主模型。'
   return `## 文件读取工具选择
 
 - 默认使用 document_read 读取 PDF、Word、Excel、PPT 等结构化文档；它会根据文件类型分发到底层 pdf_read / office_read 并返回统一的 processingStatus、next 和 recommendation。
@@ -263,6 +265,7 @@ export function buildProjectSystemPrompt({
   answerStyle = 'default',
   agentMemoryDirName = null,
   modelHasVision = false,
+  visionAvailable = modelHasVision,
 } = {}) {
   const today = new Date().toISOString().slice(0, 10)
   const agentDirName = explicitAgentDirName || agentEnglishName || '_shared'
@@ -274,7 +277,7 @@ export function buildProjectSystemPrompt({
     buildRuntimeEnvironmentSection(),
     buildOutputRulesSection(agentDirName, today),
     buildBehaviorSection(),
-    buildDocumentReadSection(modelHasVision),
+    buildDocumentReadSection({ modelHasVision, visionAvailable }),
     buildCloudKnowledgeSection(cloudContext),
     buildLocalToolsetsSection(agentDirName, today),
     buildAnswerStyleSection(answerStyle),

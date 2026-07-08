@@ -4,11 +4,11 @@ const DEFAULT_AGENT_TOOL_IDS = ['document_read']
 const VISION_AGENT_TOOL_IDS = ['vision_analyze']
 const CLOUD_KNOWLEDGE_TOOL_IDS = new Set(['kb_search'])
 
-export function withDefaultAgentTools(toolIds, { modelHasVision = false } = {}) {
+export function withDefaultAgentTools(toolIds, { modelHasVision = false, visionAvailable = modelHasVision } = {}) {
   return [...new Set([
     ...(toolIds || []),
     ...DEFAULT_AGENT_TOOL_IDS,
-    ...(modelHasVision ? VISION_AGENT_TOOL_IDS : []),
+    ...(visionAvailable ? VISION_AGENT_TOOL_IDS : []),
   ])]
 }
 
@@ -25,11 +25,11 @@ export function hasCloudKnowledgeScope(cloudContext) {
   )
 }
 
-export function withContextualAgentTools(toolIds, cloudContext, { modelHasVision = false } = {}) {
+export function withContextualAgentTools(toolIds, cloudContext, { modelHasVision = false, visionAvailable = modelHasVision } = {}) {
   const hasScope = hasCloudKnowledgeScope(cloudContext)
-  const ids = withDefaultAgentTools(toolIds, { modelHasVision })
+  const ids = withDefaultAgentTools(toolIds, { modelHasVision, visionAvailable })
     .filter(id => hasScope || !CLOUD_KNOWLEDGE_TOOL_IDS.has(id))
-    .filter(id => modelHasVision || !VISION_AGENT_TOOL_IDS.includes(id))
+    .filter(id => visionAvailable || !VISION_AGENT_TOOL_IDS.includes(id))
   if (hasScope) ids.push('kb_search')
   return [...new Set(ids)]
 }

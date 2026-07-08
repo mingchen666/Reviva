@@ -354,11 +354,13 @@ export class PdfCache {
         const absPath = path.join(assetsDir, fileName)
         await fs.promises.writeFile(absPath, image.buffer)
         const relPath = toPosix(path.relative(root, absPath))
+        const virtualPath = `/${toPosix(path.join(doc.cachePath, 'ocr', ocrProfileKey, relPath))}`
         assets.push({
           id,
           page: pageNo,
           type: 'ocr_asset',
-          path: relPath,
+          path: virtualPath,
+          relativePath: relPath,
           original_path: originalRef,
           original_url: image.originalUrl || '',
           source: image.source,

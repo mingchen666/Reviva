@@ -18,19 +18,6 @@ function normalizeApiFormat(providerId, apiFormat = '') {
   return String(providerId || '').toLowerCase() === 'anthropic' ? 'anthropic' : 'openai'
 }
 
-function readOpenAIResponsesText(data) {
-  if (typeof data?.output_text === 'string') return data.output_text
-  if (!Array.isArray(data?.output)) return ''
-  return data.output
-    .flatMap(item => Array.isArray(item?.content) ? item.content : [])
-    .map(part => {
-      if (typeof part === 'string') return part
-      if (part?.type === 'output_text' || part?.type === 'text') return part.text || ''
-      return part?.text || ''
-    })
-    .join('')
-}
-
 function _buildCloudContext(ctxItems) {
   try {
     const userStore = useUserStore()
@@ -643,6 +630,7 @@ export class AgentRuntime {
     }
 
     const { providerId, provider, modelObj } = providerMatch
+    const visionModel = this._resolveVisionModel()
     if (!this._providerConfigured(provider)) {
       this.convStore.finalizeStreamingMsg({
         convId,
@@ -712,6 +700,7 @@ export class AgentRuntime {
         baseUrl: provider.baseUrl,
         model,
         modelHasVision: !!modelObj?.capabilities?.vision,
+        visionModel,
         systemPrompt,
         messages: plainMessages,
         maxIterations: _resolveNonNegativeLimit(agent?.maxIter, agent?.max_iterations, this.settingsStore?.maxIter, 10),
@@ -820,6 +809,7 @@ export class AgentRuntime {
     }
 
     const { providerId, provider, modelObj } = providerMatch
+    const visionModel = this._resolveVisionModel()
     if (!this._providerConfigured(provider)) {
       this.convStore.finalizeStreamingMsg({
         convId,
@@ -880,6 +870,7 @@ export class AgentRuntime {
         baseUrl: provider.baseUrl,
         model,
         modelHasVision: !!modelObj?.capabilities?.vision,
+        visionModel,
         systemPrompt,
         messages: plainMessages,
         maxIterations: _resolveNonNegativeLimit(agent?.maxIter, agent?.max_iterations, this.settingsStore?.maxIter, 10),
@@ -967,19 +958,18 @@ export class AgentRuntime {
 
     const { providerId, provider } = providerMatch
     const model = parseModelRef(modelRef).modelId || modelRef
-    const prompt = `根据以下对话，生成2到15个字的中文标题（不要标点、不要引号、不要解释，只输出标题）:\n用户: ${(userMsg.content || '').slice(0, 200)}\n助手: ${(assistantContent || '').slice(0, 300)}`
 
     try {
-      let title = ''
-      const apiFormat = this._providerApiFormat(provider)
-      if (apiFormat === 'anthropic') {
-        title = await this._callAnthropic(provider, model, prompt)
-      } else if (apiFormat === 'openai_responses') {
-        title = await this._callOpenAIResponses(provider, model, prompt)
-      } else {
-        title = await this._callOpenAICompatible(provider, model, prompt)
-      }
-      title = title.trim().replace(/["""。！？,.!?]/g, '').slice(0, 15)
+      const result = await window.electronAPI?.agent?.generateTitle?.({
+        userMessage: userMsg.content || '',
+        assistantContent: assistantContent || '',
+        providerId,
+        apiFormat: this._providerApiFormat(provider),
+        apiKey: provider.apiKey,
+        baseUrl: provider.baseUrl,
+        model,
+      })
+      const title = String(result?.title || '').trim().replace(/["""。！？,.!?]/g, '').slice(0, 15)
       if (title && title !== '新对话') {
         await this.convStore.updateConv(convId, { title })
         this.convStore.titleAnimation = { convId, newTitle: title }
@@ -987,59 +977,6 @@ export class AgentRuntime {
     } catch (e) {
       console.warn('[AgentRuntime] title generation failed:', e.message)
     }
-  }
-
-  async _callOpenAICompatible(provider, model, prompt) {
-    let baseUrl = (provider.baseUrl || '').replace(/\/+$/, '')
-    if (!baseUrl.endsWith('/chat/completions')) baseUrl += '/chat/completions'
-    const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${provider.apiKey}` }
-    const res = await fetch(baseUrl, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({
-        model, messages: [{ role: 'user', content: prompt }],
-        temperature: 0.3, max_tokens: 30,
-      }),
-    })
-    const json = await res.json()
-    return json.choices?.[0]?.message?.content || ''
-  }
-
-  async _callOpenAIResponses(provider, model, prompt) {
-    let baseUrl = (provider.baseUrl || '').replace(/\/+$/, '')
-    if (!baseUrl.endsWith('/responses')) baseUrl += '/responses'
-    const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${provider.apiKey}` }
-    const res = await fetch(baseUrl, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({
-        model,
-        input: prompt,
-        temperature: 0.3,
-        max_output_tokens: 30,
-      }),
-    })
-    const json = await res.json()
-    return readOpenAIResponsesText(json)
-  }
-
-  async _callAnthropic(provider, model, prompt) {
-    let baseUrl = (provider.baseUrl || '').replace(/\/+$/, '')
-    if (!baseUrl.endsWith('/messages')) baseUrl += '/messages'
-    const res = await fetch(baseUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': provider.apiKey,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model, max_tokens: 30,
-        messages: [{ role: 'user', content: prompt }],
-      }),
-    })
-    const json = await res.json()
-    return json.content?.[0]?.text || ''
   }
 
   _trackRun(runId, convId, msgId) {
@@ -1118,5 +1055,31 @@ export class AgentRuntime {
 
   _providerApiFormat(provider) {
     return normalizeApiFormat(provider?.id, provider?.apiFormat)
+  }
+
+  _resolveVisionModel() {
+    const { providerId, modelId, scoped } = parseModelRef(this.settingsStore.defaultModels?.vision || '')
+    if (!modelId) return null
+    const providers = scoped
+      ? [this.settingsStore.providers.find(p => p.id === providerId)].filter(Boolean)
+      : this.settingsStore.providers
+    let match = null
+    for (const provider of providers) {
+      if (!provider?.enabled || !this._providerConfigured(provider)) continue
+      const modelObj = provider.models?.find(m => m.id === modelId && m.enabled && !!m.capabilities?.vision)
+      if (modelObj) {
+        match = { providerId: provider.id, provider, modelObj }
+        break
+      }
+    }
+    if (!match) return null
+    return {
+      providerId: match.providerId,
+      apiFormat: this._providerApiFormat(match.provider),
+      apiKey: match.provider.apiKey,
+      baseUrl: match.provider.baseUrl,
+      model: match.modelObj.id,
+      modelHasVision: true,
+    }
   }
 }
