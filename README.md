@@ -11,12 +11,7 @@
   ·
   <a href="./README_EN.md">English</a>
 </p>
-<!-- 下载总量 -->
-![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/mingchen666/Reviva/total?logo=github&label=Downloads)
 
-<!-- 最新版本下载量 -->
-
-![GitHub Downloads (latest release)](https://img.shields.io/github/downloads/mingchen666/Reviva/latest/total?logo=github&label=Latest%20Downloads)
 
 <p>
   <a href="https://github.com/mingchen666/Reviva/releases">
@@ -33,8 +28,8 @@
 
 <p>
   <img src="https://img.shields.io/badge/status-beta-FFB020" alt="Status Beta" />
-  <img src="https://img.shields.io/badge/version-0.1.0--beta-4A6CFF" alt="Version 0.1.0-beta" />
-  <img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-2E2E3A" alt="Platform" />
+  <img src="https://img.shields.io/badge/version-0.1.1--beta-4A6CFF" alt="Version 0.1.1-beta" />
+  <img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS(即将)%20-2E2E3A" alt="Platform" />
   <img src="https://img.shields.io/badge/Electron-30-47848F?logo=electron&logoColor=white" alt="Electron 30" />
   <img src="https://img.shields.io/badge/Vue-3-42B883?logo=vuedotjs&logoColor=white" alt="Vue 3" />
   <img src="https://img.shields.io/badge/SQLite-local--first-003B57?logo=sqlite&logoColor=white" alt="SQLite Local First" />
