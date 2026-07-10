@@ -92,6 +92,14 @@ watch(isStreaming, (streaming) => {
 })
 const loadingOlder = ref(false)
 const showScrollBtn = ref(false)
+const isConversationSwitching = ref(false)
+const switchingConvId = ref(null)
+const CONVERSATION_SWITCH_MIN_MS = 140
+const CONVERSATION_SWITCH_MAX_MS = 900
+let conversationSwitchToken = 0
+let conversationSwitchStartedAt = 0
+let conversationSwitchFinishTimer = null
+let conversationSwitchMaxTimer = null
 
 // Virtualized message list. Store still paginates messages; TanStack keeps mounted DOM bounded.
 const chatScrollRef = ref(null)
@@ -304,6 +312,57 @@ function restoreVirtualAnchor(anchor, el = chatScrollRef.value) {
   return true
 }
 
+function clearConversationSwitchTimers() {
+  if (conversationSwitchFinishTimer) {
+    clearTimeout(conversationSwitchFinishTimer)
+    conversationSwitchFinishTimer = null
+  }
+  if (conversationSwitchMaxTimer) {
+    clearTimeout(conversationSwitchMaxTimer)
+    conversationSwitchMaxTimer = null
+  }
+}
+
+function hasConversationMessagesLoaded(convId) {
+  if (!convId) return true
+  return Object.prototype.hasOwnProperty.call(convStore.messages || {}, convId)
+}
+
+function finishConversationSwitch(token = conversationSwitchToken) {
+  if (token !== conversationSwitchToken) return
+  clearConversationSwitchTimers()
+  isConversationSwitching.value = false
+  switchingConvId.value = null
+}
+
+function finishConversationSwitchAfterMinimum(token = conversationSwitchToken) {
+  if (token !== conversationSwitchToken) return
+  const elapsed = Date.now() - conversationSwitchStartedAt
+  const wait = Math.max(0, CONVERSATION_SWITCH_MIN_MS - elapsed)
+  if (conversationSwitchFinishTimer) clearTimeout(conversationSwitchFinishTimer)
+  conversationSwitchFinishTimer = setTimeout(() => finishConversationSwitch(token), wait)
+}
+
+function startConversationSwitch(convId) {
+  if (!convId || currentConvId.value === convId) return
+  clearConversationSwitchTimers()
+  conversationSwitchToken += 1
+  const token = conversationSwitchToken
+  conversationSwitchStartedAt = Date.now()
+  switchingConvId.value = convId
+  isConversationSwitching.value = true
+  conversationSwitchMaxTimer = setTimeout(() => finishConversationSwitch(token), CONVERSATION_SWITCH_MAX_MS)
+}
+
+function switchToConversation(convId) {
+  startConversationSwitch(convId)
+  convStore.setCurrentConv(convId)
+}
+
+function isTabConversationSwitching(tabId) {
+  return isConversationSwitching.value && switchingConvId.value === tabId
+}
+
 let pendingMeasureFrame = 0
 function measureVisibleMessagesSoon() {
   if (pendingMeasureFrame) return
@@ -357,21 +416,21 @@ function addTab(conv) {
     existing.name = conv.title
     existing.lastAccessed = nextTabAccessAt()
     activeTabId.value = conv.id
-    convStore.setCurrentConv(conv.id)
+    switchToConversation(conv.id)
     scrollTabIntoView(conv.id)
     return
   }
   evictLeastRecentlyAccessedTab()
   tabs.value.unshift({ id: conv.id, name: conv.title, lastAccessed: nextTabAccessAt() })
   activeTabId.value = conv.id
-  convStore.setCurrentConv(conv.id)
+  switchToConversation(conv.id)
   scrollTabIntoView(conv.id)
 }
 function activateTab(tabId) {
   const tab = tabs.value.find(t => t.id === tabId)
   if (tab) tab.lastAccessed = nextTabAccessAt()
   activeTabId.value = tabId
-  convStore.setCurrentConv(tabId)
+  switchToConversation(tabId)
   scrollTabIntoView(tabId)
 }
 function closeTab(tabId) {
@@ -380,7 +439,7 @@ function closeTab(tabId) {
     if (tabs.value.length) {
       const nextTab = mostRecentlyAccessedTab()
       activeTabId.value = nextTab.id
-      convStore.setCurrentConv(nextTab.id)
+      switchToConversation(nextTab.id)
       scrollTabIntoView(nextTab.id)
     } else {
       activeTabId.value = null
@@ -405,7 +464,7 @@ async function deleteConv(convId) {
   if (activeTabId.value === convId && tabs.value.length) {
     const nextTab = mostRecentlyAccessedTab()
     activeTabId.value = nextTab.id
-    convStore.setCurrentConv(nextTab.id)
+    switchToConversation(nextTab.id)
     scrollTabIntoView(nextTab.id)
   } else if (activeTabId.value === convId) {
     activeTabId.value = null
@@ -959,6 +1018,7 @@ watch(availableWikis, (items) => {
 
 onBeforeUnmount(() => {
   if (_liveTimer) { clearInterval(_liveTimer); _liveTimer = null }
+  clearConversationSwitchTimers()
 })
 
 // Smart auto-scroll during streaming
@@ -986,6 +1046,17 @@ watch(currentConvId, () => {
     scrollToBottom('auto')
   })
 })
+
+watch(() => [
+  currentConvId.value,
+  hasConversationMessagesLoaded(currentConvId.value),
+], () => {
+  if (!isConversationSwitching.value) return
+  if (switchingConvId.value && currentConvId.value !== switchingConvId.value) return
+  if (hasConversationMessagesLoaded(currentConvId.value)) {
+    nextTick(() => finishConversationSwitchAfterMinimum())
+  }
+}, { flush: 'post' })
 
 watch(() => currentMessages.value.map(m => m.id).join('|'), () => {
   nextTick(measureVisibleMessagesSoon)
@@ -1104,9 +1175,15 @@ function animateTitle(convId, targetTitle, tab) {
                   :class="activeTabId === tab.id
                     ? (isDark ? 'bg-d2 text-wt-main' : 'bg-l2 text-lt-main')
                     : (isDark ? 'text-wt-aux hover:text-wt-sub hover:bg-white/4' : 'text-lt-aux hover:text-lt-sub hover:bg-l4')">
-                  <i class="ri-message-ai-3-line text-[13px] shrink-0"
+                  <span v-if="isTabConversationSwitching(tab.id)"
+                    class="tab-switch-spinner shrink-0"
+                    :class="isDark ? 'border-white/20 border-t-brand-400' : 'border-black/10 border-t-brand-500'" />
+                  <i v-else class="ri-message-ai-3-line text-[13px] shrink-0"
                     :class="activeTabId === tab.id ? 'text-brand-400' : (isDark ? 'text-wt-aux' : 'text-lt-aux')" />
-                  <span class="truncate min-w-0">{{ convStore.titleTypewriterMap[tab.id] || tab.name }}</span>
+                  <span class="truncate min-w-0 transition-opacity duration-150"
+                    :class="isTabConversationSwitching(tab.id) ? 'opacity-70' : 'opacity-100'">
+                    {{ convStore.titleTypewriterMap[tab.id] || tab.name }}
+                  </span>
                   <button @click.stop="closeTab(tab.id)"
                     class="tab-close ml-auto h-5 w-5 rounded flex items-center justify-center shrink-0"
                     :class="isDark ? 'hover:text-red-400' : 'hover:text-red-500'">
@@ -1124,52 +1201,71 @@ function animateTitle(convId, targetTitle, tab) {
           <PanelToggle side="right" :is-open="rightOpen" :is-dark="isDark"
             @toggle="rightOpen = !rightOpen" />
 
-          <div id="chat-scroll" ref="chatScrollRef" class="flex-1 overflow-y-auto px-3 sm:px-6 py-4 sm:py-6 thin-scroll"
-            @scroll="onChatScroll">
-            <!-- Scroll loader for older messages -->
-            <ScrollLoader v-if="currentConvId"
-              :has-more="hasOlderMessages"
-              :loading="loadingOlder"
-              :is-dark="isDark"
-              @load-more="loadOlderMessages" />
-            <div v-if="currentMessages.length"
-              class="relative w-full"
-              :style="{ height: totalVirtualHeight + 'px' }">
-              <div v-for="item in visibleVirtualMessages"
-                :key="item.key"
-                :data-index="item.index"
-                :ref="measureVirtualMessageRow"
-                class="absolute left-0 right-0 will-change-transform"
-                :style="{ transform: `translateY(${item.start}px)` }">
-                <ChatMessage
-                  :msg="item.message" :is-dark="isDark"
-                  :chat-busy="isStreaming"
-                  :is-streaming="isMessageStreaming(item.message.id)"
-                  :streaming-content="isMessageStreaming(item.message.id) ? currentStreamingState.content : ''"
-                  :streaming-thinking="isMessageStreaming(item.message.id) ? currentStreamingState.thinking : ''"
-                  :streaming-tool-calls="isMessageStreaming(item.message.id) ? currentStreamingState.toolCalls : EMPTY_STREAM_OBJECT"
-                  :streaming-sub-agents="isMessageStreaming(item.message.id) ? currentStreamingState.subAgents : EMPTY_STREAM_OBJECT"
-                  :streaming-todos="isMessageStreaming(item.message.id) ? currentStreamingState.todos : EMPTY_STREAM_ARRAY"
-                  :streaming-steps="isMessageStreaming(item.message.id) ? currentStreamingState.steps : EMPTY_STREAM_ARRAY"
-                  :streaming-iteration="isMessageStreaming(item.message.id) ? currentStreamingState.iteration : 0"
-                  :pending-auth-requests="pendingAuthRequestsForMessage(item.message.id)"
-                  @preview-file="handlePreviewFile"
-                  @retry="handleRetry(item.message.id)"
-                  @copy="handleCopy"
-                  @delete="handleDeleteMessage(item.message.id)"
-                  @save-edit="handleSaveEdit"
-                  @compress-context="compressContext"
-                  @auth-approve="handleAuthApprove"
-                  @auth-deny="handleAuthDeny" />
+          <div class="relative flex-1 min-h-0">
+            <div id="chat-scroll" ref="chatScrollRef" class="h-full overflow-y-auto px-3 sm:px-6 py-4 sm:py-6 thin-scroll"
+              @scroll="onChatScroll">
+              <!-- Scroll loader for older messages -->
+              <ScrollLoader v-if="currentConvId"
+                :has-more="hasOlderMessages"
+                :loading="loadingOlder"
+                :is-dark="isDark"
+                @load-more="loadOlderMessages" />
+              <div v-if="currentMessages.length"
+                class="relative w-full"
+                :style="{ height: totalVirtualHeight + 'px' }">
+                <div v-for="item in visibleVirtualMessages"
+                  :key="item.key"
+                  :data-index="item.index"
+                  :ref="measureVirtualMessageRow"
+                  class="absolute left-0 right-0 will-change-transform"
+                  :style="{ transform: `translateY(${item.start}px)` }">
+                  <ChatMessage
+                    :msg="item.message" :is-dark="isDark"
+                    :chat-busy="isStreaming"
+                    :is-streaming="isMessageStreaming(item.message.id)"
+                    :streaming-content="isMessageStreaming(item.message.id) ? currentStreamingState.content : ''"
+                    :streaming-thinking="isMessageStreaming(item.message.id) ? currentStreamingState.thinking : ''"
+                    :streaming-tool-calls="isMessageStreaming(item.message.id) ? currentStreamingState.toolCalls : EMPTY_STREAM_OBJECT"
+                    :streaming-sub-agents="isMessageStreaming(item.message.id) ? currentStreamingState.subAgents : EMPTY_STREAM_OBJECT"
+                    :streaming-todos="isMessageStreaming(item.message.id) ? currentStreamingState.todos : EMPTY_STREAM_ARRAY"
+                    :streaming-steps="isMessageStreaming(item.message.id) ? currentStreamingState.steps : EMPTY_STREAM_ARRAY"
+                    :streaming-iteration="isMessageStreaming(item.message.id) ? currentStreamingState.iteration : 0"
+                    :pending-auth-requests="pendingAuthRequestsForMessage(item.message.id)"
+                    @preview-file="handlePreviewFile"
+                    @retry="handleRetry(item.message.id)"
+                    @copy="handleCopy"
+                    @delete="handleDeleteMessage(item.message.id)"
+                    @save-edit="handleSaveEdit"
+                    @compress-context="compressContext"
+                    @auth-approve="handleAuthApprove"
+                    @auth-deny="handleAuthDeny" />
+                </div>
               </div>
+              <!-- Empty states -->
+              <EmptyStateHero v-if="!currentMessages.length"
+                :has-conversation="currentConvId"
+                :is-dark="isDark"
+                :agents="allAgents"
+                @create-conv="createChat"
+                @select-agent="selectAgent" />
             </div>
-            <!-- Empty states -->
-            <EmptyStateHero v-if="!currentMessages.length"
-              :has-conversation="currentConvId"
-              :is-dark="isDark"
-              :agents="allAgents"
-              @create-conv="createChat"
-              @select-agent="selectAgent" />
+
+            <Transition name="conversation-switch">
+              <div v-if="isConversationSwitching"
+                class="conversation-switch-overlay absolute inset-0 z-20 pointer-events-none flex items-center justify-center"
+                :class="isDark ? 'bg-d2/90' : 'bg-l2/90'"
+                role="status"
+                aria-live="polite">
+                <div class="conversation-switch-indicator flex items-center gap-2 rounded-full border px-3.5 py-2 text-[13px] font-medium shadow-sm"
+                  :class="isDark
+                    ? 'bg-d1/85 border-white/10 text-wt-sub'
+                    : 'bg-l1/90 border-black/10 text-lt-sub'">
+                  <span class="conversation-switch-spinner"
+                    :class="isDark ? 'border-white/20 border-t-brand-400' : 'border-black/10 border-t-brand-500'" />
+                  <span>对话加载中...</span>
+                </div>
+              </div>
+            </Transition>
           </div>
 
           <!-- Scroll to bottom button -->
@@ -1272,4 +1368,72 @@ function animateTitle(convId, targetTitle, tab) {
 <style scoped>
 .tab-item .tab-close { opacity: 0; transition: opacity .12s }
 .tab-item:hover .tab-close { opacity: 1 }
+
+.tab-switch-spinner {
+  width: 13px;
+  height: 13px;
+  border-width: 2px;
+  border-style: solid;
+  border-radius: 9999px;
+  animation: conversation-switch-spin 760ms linear infinite;
+}
+
+.conversation-switch-enter-active,
+.conversation-switch-leave-active {
+  transition:
+    opacity 180ms cubic-bezier(0.25, 1, 0.5, 1),
+    transform 180ms cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+.conversation-switch-enter-from,
+.conversation-switch-leave-to {
+  opacity: 0;
+  transform: translateY(4px);
+}
+
+.conversation-switch-overlay {
+  backdrop-filter: blur(8px);
+}
+
+.conversation-switch-indicator {
+  animation: conversation-switch-rise 220ms cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+.conversation-switch-spinner {
+  width: 14px;
+  height: 14px;
+  border-width: 2px;
+  border-style: solid;
+  border-radius: 9999px;
+  animation: conversation-switch-spin 760ms linear infinite;
+}
+
+@keyframes conversation-switch-spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes conversation-switch-rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .conversation-switch-enter-active,
+  .conversation-switch-leave-active {
+    transition-duration: 1ms;
+  }
+
+  .conversation-switch-indicator,
+  .conversation-switch-spinner,
+  .tab-switch-spinner {
+    animation: none;
+  }
+}
 </style>

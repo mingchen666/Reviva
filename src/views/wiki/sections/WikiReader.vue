@@ -139,40 +139,40 @@ function handleMarkdownClick(event) {
   <div class="wiki-reader-root h-full flex flex-col min-w-0" :class="isDark ? 'bg-d0' : 'bg-l0'">
     <div class="h-12 px-5 flex items-center gap-3 border-b shrink-0" :class="isDark ? 'border-d4 bg-d1' : 'border-bdrL bg-l1'">
       <div class="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" :class="isDark ? 'bg-brand-400/10 text-brand-400' : 'bg-brand-50 text-brand-500'">
-        <i class="ri-book-3-line text-[16px]" />
+        <i class="ri-book-3-line text-[18px]" />
       </div>
       <div class="flex-1 min-w-0">
-        <h1 class="text-[13px] font-semibold truncate leading-tight" :class="isDark ? 'text-wt-main' : 'text-lt-main'">
+        <h1 class="text-[14px] font-semibold truncate leading-tight" :class="isDark ? 'text-wt-main' : 'text-lt-main'">
           {{ wiki?.name || 'LLM Wiki' }}
         </h1>
-        <p v-if="wiki" class="text-[10px] truncate font-mono leading-tight mt-0.5" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">
+        <p v-if="wiki" class="text-[11.5px] truncate font-mono leading-tight mt-0.5" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">
           {{ wiki.id }} · 更新于 {{ formatDate(wiki.updated_at) }}
         </p>
       </div>
 
       <div v-if="wiki" class="reader-actions flex items-center gap-1.5 shrink-0">
         <button
-          class="reader-btn reader-btn--ghost h-7 px-2.5 rounded-lg text-[11.5px] font-medium border"
+          class="reader-btn reader-btn--ghost h-7 px-2.5 rounded-lg text-[13px] font-medium border"
           :class="isDark ? 'bg-transparent text-wt-sub border-bdr hover:bg-d2 hover:text-wt-main hover:border-d3' : 'bg-transparent text-lt-sub border-bdrF hover:bg-l3 hover:text-lt-main'"
           title="知识库状态"
           @click="emit('open-status')">
-          <i class="ri-dashboard-3-line text-[14px]" />
+          <i class="ri-dashboard-3-line text-[14.5px]" />
           <span class="reader-btn__label">状态</span>
         </button>
         <button
-          class="reader-btn reader-btn--ghost h-7 px-2.5 rounded-lg text-[11.5px] font-medium border"
+          class="reader-btn reader-btn--ghost h-7 px-2.5 rounded-lg text-[13px] font-medium border"
           :class="isDark ? 'bg-transparent text-agent-400 border-agent-400/30 hover:bg-agent-400/12 hover:border-agent-400/50' : 'bg-transparent text-agent-500 border-agent-400/25 hover:bg-agent-50 hover:border-agent-400/40'"
           title="配置 WikiAgent"
           @click="emit('configure-agent')">
-          <i class="ri-robot-2-line text-[14px]" />
+          <i class="ri-robot-2-line text-[14.5px]" />
           <span class="reader-btn__label">Agent 配置</span>
         </button>
         <button
-          class="reader-btn reader-btn--primary h-7 px-2.5 rounded-lg text-[11.5px] font-semibold border"
+          class="reader-btn reader-btn--primary h-7 px-2.5 rounded-lg text-[13px] font-semibold border"
           :class="isDark ? 'bg-brand-400/12 text-brand-400 border-brand-400/35 hover:bg-brand-400/20 hover:border-brand-400/55' : 'bg-brand-50 text-brand-600 border-brand-400/30 hover:bg-brand-100 hover:border-brand-400/45'"
           title="添加来源"
           @click="emit('add-source')">
-          <i class="ri-file-add-line text-[14px]" />
+          <i class="ri-file-add-line text-[14.5px]" />
           <span class="reader-btn__label">添加来源</span>
         </button>
       </div>
@@ -185,17 +185,17 @@ function handleMarkdownClick(event) {
       {{ sourceError }}
     </div>
 
-    <div v-if="page" class="flex-1 overflow-y-auto px-7 py-6">
+    <div v-if="page" class="flex-1 overflow-y-auto px-4 py-3">
       <div class="max-w-4xl mx-auto fade-up">
-        <div class="mb-5 flex items-center justify-between gap-3">
-          <div class="flex items-center gap-1.5 min-w-0 text-[11px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">
-            <i class="ri-file-text-line text-[12px] shrink-0" />
+        <div class="mb-2 flex items-center justify-between gap-3">
+          <div class="flex items-center gap-1.5 min-w-0 text-[13px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">
+            <i class="ri-file-text-line text-[13px] shrink-0" />
             <span class="truncate font-mono">{{ page.path }}</span>
           </div>
           <span class="ctx-pill shrink-0" :class="isDark ? 'bg-d2 text-wt-dim border border-bdr' : 'bg-l2 text-lt-aux border border-bdrF'">Markdown</span>
         </div>
         <div
-          class="markdown-content rounded-xl p-6 border overflow-x-auto"
+          class="markdown-content rounded-xl p-4 border overflow-x-auto"
           :class="isDark ? 'markdown-content--dark bg-d1 border-d4 text-wt-sub' : 'markdown-content--light bg-white border-bdrL text-lt-sub'"
           @click="handleMarkdownClick"
           v-html="renderedContent" />

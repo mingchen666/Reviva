@@ -17,6 +17,7 @@ const props = defineProps({
 const emit = defineEmits(['update:show', 'check', 'download', 'install'])
 
 const fallbackUrl = computed(() => props.updateInfo?.fallbackUrl || BETA_RELEASE.downloadUrl || '')
+const fallbackLabel = computed(() => BETA_RELEASE.fallbackLabel || '夸克网盘下载')
 const safeProgress = computed(() => Math.max(0, Math.min(100, Number(props.downloadProgress) || 0)))
 
 function setShow(value) {
@@ -107,10 +108,10 @@ function openFallback() {
           <i class="ri-upload-2-line text-[18px]" :class="isDark ? 'text-brand-400' : 'text-brand-500'" />
         </div>
         <div>
-          <div class="text-[14px] font-bold" :class="isDark ? 'text-wt-main' : 'text-lt-main'">
+          <div class="text-[15px] font-bold" :class="isDark ? 'text-wt-main' : 'text-lt-main'">
             {{ error && !updateInfo ? '更新检查失败' : '发现新版本' }}
           </div>
-          <div class="text-[10.5px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">
+          <div class="text-[11px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">
             {{ updateInfo?.version ? `v${updateInfo.version} 可用` : '可使用备用下载' }}
           </div>
         </div>
@@ -118,20 +119,41 @@ function openFallback() {
     </template>
 
     <div class="space-y-3">
-      <p v-if="updateInfo" class="text-[12px]" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">
+      <p v-if="updateInfo" class="text-[13px]" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">
         新版本
         <span class="font-semibold" :class="isDark ? 'text-brand-400' : 'text-brand-500'">
           v{{ updateInfo.version }}
         </span>
         已发布，建议更新以获得最新功能和修复。
       </p>
-      <p v-else class="text-[12px]" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">
-        自动更新需要连接 GitHub Releases。如果当前网络无法访问，可以稍后重试，或使用备用网盘下载。
+      <p v-else class="text-[13px]" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">
+        自动更新连接失败。如果当前网络无法访问默认更新通道，可以稍后重试，或使用备用下载。
+      </p>
+      <p v-if="updateInfo?.sourceName" class="text-[11px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">
+        来源：{{ updateInfo.sourceName }}
       </p>
 
       <div
+        v-if="hasFallback"
+        class="rounded-lg px-3 py-2 text-[12px] leading-relaxed flex items-start gap-2"
+        :class="isDark ? 'bg-brand-400/8 border border-brand-400/20 text-wt-aux' : 'bg-brand-50 border border-brand-100 text-lt-aux'">
+        <i class="ri-cloud-line text-[13px] mt-0.5" :class="isDark ? 'text-brand-400' : 'text-brand-500'" />
+        <div class="min-w-0">
+          <div class="font-medium" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">
+            推荐使用 {{ fallbackLabel }}
+          </div>
+          <button
+            class="mt-1 text-left underline underline-offset-2 break-all"
+            :class="isDark ? 'text-brand-300 hover:text-brand-200' : 'text-brand-600 hover:text-brand-700'"
+            @click="openFallback">
+            {{ fallbackUrl }}
+          </button>
+        </div>
+      </div>
+
+      <div
         v-if="releaseNoteItems.length"
-        class="rounded-lg px-3 py-2.5 text-[11px] max-h-[180px] overflow-y-auto thin-scroll space-y-1.5"
+        class="rounded-lg px-3 py-2.5 text-[12px] max-h-[180px] overflow-y-auto thin-scroll space-y-1.5"
         :class="isDark ? 'bg-d0 border border-d4 text-wt-aux' : 'bg-l2 border border-bdrF text-lt-aux'">
         <div
           v-for="(item, index) in releaseNoteItems"
@@ -145,13 +167,13 @@ function openFallback() {
 
       <div
         v-if="error"
-        class="rounded-lg px-3 py-2 text-[11px] leading-relaxed"
+        class="rounded-lg px-3 py-2 text-[12px] leading-relaxed"
         :class="isDark ? 'bg-amber-400/8 border border-amber-400/20 text-amber-300' : 'bg-amber-50 border border-amber-100 text-amber-700'">
-        GitHub 更新连接失败或下载异常，可稍后重试，或使用备用下载链接。
+        更新连接失败或下载异常，可稍后重试，或使用备用下载链接。
       </div>
 
       <div v-if="downloading" class="space-y-2">
-        <div class="flex items-center justify-between text-[11px]" :class="isDark ? 'text-wt-aux' : 'text-lt-aux'">
+        <div class="flex items-center justify-between text-[12px]" :class="isDark ? 'text-wt-aux' : 'text-lt-aux'">
           <span>正在下载更新...</span>
           <span>{{ safeProgress }}%</span>
         </div>
@@ -160,7 +182,7 @@ function openFallback() {
             class="h-full rounded-full bg-brand-400 transition-all duration-300"
             :style="{ width: safeProgress + '%' }" />
         </div>
-        <p class="text-[10.5px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">
+        <p class="text-[11px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">
           退出应用不会自动安装未完成的更新；下次可重新检查或继续下载。
         </p>
       </div>
@@ -170,14 +192,14 @@ function openFallback() {
       <template v-if="!downloading && !downloaded">
         <button
           @click="setShow(false)"
-          class="h-8 px-4 rounded-lg text-[11px] font-medium transition-colors"
+          class="h-8 px-4 rounded-lg text-[12px] font-medium transition-colors"
           :class="isDark ? 'text-wt-aux hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub'">
           稍后再说
         </button>
         <button
           v-if="error"
           @click="emit('check')"
-          class="h-8 px-4 rounded-lg text-[11px] font-medium transition-colors flex items-center gap-1.5"
+          class="h-8 px-4 rounded-lg text-[12px] font-medium transition-colors flex items-center gap-1.5"
           :class="isDark ? 'bg-d3 text-wt-sub hover:bg-d4' : 'bg-l3 text-lt-sub hover:bg-l4'">
           <i class="ri-refresh-line text-[11px]" />
           重试
@@ -185,27 +207,27 @@ function openFallback() {
         <button
           v-if="hasFallback"
           @click="openFallback"
-          class="h-8 px-4 rounded-lg text-[11px] font-medium transition-colors flex items-center gap-1.5"
-          :class="isDark ? 'bg-d3 text-wt-sub hover:bg-d4' : 'bg-l3 text-lt-sub hover:bg-l4'">
+          class="h-8 px-4 rounded-lg text-[12px] font-medium transition-colors flex items-center gap-1.5"
+          :class="isDark ? 'bg-brand-400 text-d0 hover:bg-brand-500' : 'bg-brand-500 text-white hover:bg-brand-600'">
           <i class="ri-cloud-line text-[11px]" />
-          备用下载
+          {{ fallbackLabel }}（推荐）
         </button>
         <button
-          v-if="updateInfo"
+          v-if="updateInfo && updateInfo.canAutoDownload !== false"
           @click="emit('download')"
-          class="h-8 px-4 rounded-lg text-[11px] font-medium transition-colors flex items-center gap-1.5"
+          class="h-8 px-4 rounded-lg text-[12px] font-medium transition-colors flex items-center gap-1.5"
           :disabled="checking"
           :class="
             isDark ? 'bg-brand-400 text-d0 hover:bg-brand-500 disabled:opacity-60' : 'bg-brand-500 text-white hover:bg-brand-600 disabled:opacity-60'
           ">
           <i class="ri-download-line text-[11px]" />
-          {{ checking ? '检查中' : '立即下载' }}
+          {{ checking ? '检查中' : '默认通道下载' }}
         </button>
       </template>
       <template v-if="downloaded">
         <button
           @click="emit('install')"
-          class="h-8 px-4 rounded-lg text-[11px] font-medium transition-colors flex items-center gap-1.5"
+          class="h-8 px-4 rounded-lg text-[12px] font-medium transition-colors flex items-center gap-1.5"
           :class="
             isDark
               ? 'bg-emerald-400 text-d0 hover:bg-emerald-500'

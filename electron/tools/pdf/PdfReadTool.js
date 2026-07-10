@@ -54,11 +54,15 @@ export function createPdfReadTool({
       }
 
       const mode = PDF_MODES.has(args.mode) ? args.mode : 'overview'
+      const explicitPageSelection = args.startPage !== undefined
+        || args.maxPages !== undefined
+        || (Array.isArray(args.pages) && args.pages.length > 0)
       const result = await service.read({
         ...args,
         mode,
         inputPath: resolved,
         virtualPath,
+        explicitPageSelection,
         startPage: clampInt(args.startPage, 1, 1, Number.MAX_SAFE_INTEGER),
         maxPages: clampInt(args.maxPages, PDF_DEFAULT_MAX_PAGES, 1, PDF_MAX_PAGES),
         maxChars: clampInt(args.maxChars, PDF_DEFAULT_MAX_CHARS, 1000, PDF_MAX_CHARS),
@@ -84,6 +88,7 @@ export function createPdfReadTool({
         page: z.number().optional().describe('page 模式读取的单页页码。'),
         provider: z.string().optional().describe('ocr 模式 provider，默认 auto；可传具体 provider id。'),
         ocrProfileKey: z.string().optional().describe('layout/page 模式读取指定 OCR 缓存 profile。'),
+        maxImages: z.number().optional().describe('images 模式最多抽取/返回图片数，默认 50，最大 200。'),
         confirmFull: z.boolean().optional().describe('明确确认可执行 OCR；本地快速策略下需要用户确认后才应传 true。'),
         fullDocument: z.boolean().optional().describe('ocr 模式明确解析整份 PDF，适合文档模块后台任务；对话中优先按需页段处理。'),
       }),

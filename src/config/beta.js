@@ -1,9 +1,27 @@
+import { getAppVersion } from '@/utils/tools'
+
+const appVersion = getAppVersion()
 export const BETA_RELEASE = {
   enabled: true,
   batch: 'reviva-beta-001',
   expiresAt: '2026-07-25T23:59:59+08:00',
   downloadUrl: 'https://pan.quark.cn/s/9cbc820db4ef',
+  fallbackLabel: '夸克网盘下载',
+  latestVersion: appVersion,
+  releaseNotes: '当前内测发布通道用于在自动更新不可达时提供备用下载。',
   productName: 'Reviva',
+  // Later sources can include { type: 'manifest', url: 'https://.../latest.json' }.
+  updateSources: [
+    {
+      id: 'reviva-beta-quark',
+      type: 'manual',
+      name: '夸克网盘备用发布',
+      version: appVersion,
+      downloadUrl: 'https://pan.quark.cn/s/9cbc820db4ef',
+      releaseNotes: '当前内测发布通道用于在自动更新不可达时提供备用下载。',
+      canAutoDownload: false,
+    },
+  ],
 }
 
 export function isBetaExpired(now = new Date()) {

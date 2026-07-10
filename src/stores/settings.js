@@ -264,29 +264,6 @@ const DEFAULT_PROVIDERS = [
     ],
   },
   {
-    id: 'sense', name: '商汤 SenseNova', desc: '日日新大模型体系', region: '国内',
-    iconName: 'sensenova', logoBg: '#06FDB7', logoChar: '商', builtin: true,
-    enabled: false, configured: false,
-    apiKey: '', baseUrl: 'https://token.sensenova.cn/v1',
-    models: [
-      {
-        id: 'SenseNova-5', name: 'SenseNova-5', ctx: '32k', maxOutput: '4k', tier: 'flagship', enabled: true,
-        capabilities: { tool_calling: true, vision: false, search: false, vector: false, reranking: false },
-        costInput: 16, costOutput: 16, costCacheRead: 2, costCacheWrite: 8, addedBy: 'default'
-      },
-      {
-        id: 'SenseNova-5-Lite', name: 'SenseNova-5-Lite', ctx: '8k', maxOutput: '4k', tier: 'fast', enabled: false,
-        capabilities: { tool_calling: true, vision: false, search: false, vector: false, reranking: false },
-        costInput: 4, costOutput: 4, costCacheRead: 0.5, costCacheWrite: 2, addedBy: 'default'
-      },
-      {
-        id: 'SenseChat-5', name: 'SenseChat-5', ctx: '32k', maxOutput: '4k', tier: 'balanced', enabled: false,
-        capabilities: { tool_calling: true, vision: false, search: false, vector: false, reranking: false },
-        costInput: 8, costOutput: 8, costCacheRead: 1, costCacheWrite: 4, addedBy: 'default'
-      },
-    ],
-  },
-  {
     id: 'agnes', name: 'Agnes', desc: 'Agnes全模态免费模型', region: '',
     iconName: 'agnes', logoBg: '#4D6BFE', logoChar: 'A', builtin: true,
     enabled: true, configured: false,
@@ -365,7 +342,7 @@ const DEFAULT_PROVIDERS = [
   providerPreset({
     id: 'sense-token-plan',
     name: '商汤Token Plan',
-    desc: 'Independent SenseNova entry for coding and planning',
+    desc: '商汤Token Plan系列模型',
     iconName: 'sensenova',
     logoBg: '#06FDB7',
     logoChar: 'S',

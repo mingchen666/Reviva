@@ -47,6 +47,14 @@ function hasOcrContent(result = {}) {
   return !!String(result.text || result.rawText || '').trim()
 }
 
+function isUsableProvider(provider, supported) {
+  return !!provider
+    && !!provider.enabled
+    && !!String(provider.base_url || '').trim()
+    && !!String(provider.api_key_ref || '').trim()
+    && supported.has(String(provider.type || '').toLowerCase())
+}
+
 export class PdfOcrService {
   constructor({ dbService = null, cache = null, settings = {} } = {}) {
     this._db = dbService
@@ -55,21 +63,27 @@ export class PdfOcrService {
     this._runner = new OcrProviderRunner()
   }
 
-  selectProvider(providerId = '') {
+  selectProvider(providerId = '', { fallbackToAuto = false } = {}) {
     const supported = new Set(['mineru', 'paddleocr'])
+    const providers = this._db?.listOcrProviders?.() || []
+    const autoProvider = () => providers.find(item => isUsableProvider(item, supported) && String(item.type || '').toLowerCase() === 'mineru')
+      || providers.find(item => isUsableProvider(item, supported) && String(item.type || '').toLowerCase() === 'paddleocr')
+      || null
     if (providerId && providerId !== 'auto') {
       const provider = this._db?.getOcrProvider?.(providerId)
+      if (!isUsableProvider(provider, supported) && fallbackToAuto) {
+        const fallback = autoProvider()
+        if (fallback) return { provider: fallback, fallbackFromProviderId: providerId }
+      }
       if (!provider) return { error: 'PDF_OCR_PROVIDER_NOT_CONFIGURED', message: '指定的 OCR provider 不存在。' }
       if (!provider.enabled) return { error: 'PDF_OCR_PROVIDER_DISABLED', message: '指定的 OCR provider 未启用。' }
-      if (!provider.base_url || !provider.api_key_ref) return { error: 'PDF_OCR_PROVIDER_NOT_CONFIGURED', message: '指定的 OCR provider 尚未配置完整 URL/API Key。' }
+      if (!String(provider.base_url || '').trim() || !String(provider.api_key_ref || '').trim()) return { error: 'PDF_OCR_PROVIDER_NOT_CONFIGURED', message: '指定的 OCR provider 尚未配置完整 URL/API Key。' }
       if (!supported.has(String(provider.type || '').toLowerCase())) {
         return { error: 'PDF_OCR_PROVIDER_NOT_CONFIGURED', message: '当前 PDF OCR 仅支持 MinerU 和 PaddleOCR。' }
       }
       return { provider }
     }
-    const providers = this._db?.listOcrProviders?.() || []
-    const provider = providers.find(item => item.enabled && item.base_url && item.api_key_ref && String(item.type || '').toLowerCase() === 'mineru')
-      || providers.find(item => item.enabled && item.base_url && item.api_key_ref && String(item.type || '').toLowerCase() === 'paddleocr')
+    const provider = autoProvider()
     if (!provider) return { error: 'PDF_OCR_PROVIDER_NOT_CONFIGURED', message: '请先在设置中配置并启用 MinerU 或 PaddleOCR。' }
     return { provider }
   }
@@ -87,8 +101,8 @@ export class PdfOcrService {
     }).slice(0, 16)}`
   }
 
-  async run({ doc, inputPath, providerId = 'auto', pages = [], ranges = [], sourceInfo = {} } = {}) {
-    const selected = this.selectProvider(providerId)
+  async run({ doc, inputPath, providerId = 'auto', allowProviderFallback = false, pages = [], ranges = [], sourceInfo = {} } = {}) {
+    const selected = this.selectProvider(providerId, { fallbackToAuto: allowProviderFallback })
     if (selected.error) {
       return { success: false, code: selected.error, message: selected.message }
     }

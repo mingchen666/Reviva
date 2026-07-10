@@ -9,6 +9,8 @@
   "scripts": {
     "dev": "vite",
     "build": "cross-env NODE_OPTIONS=--max-old-space-size=8192 vite build && electron-builder",
+    "build:all": "cross-env NODE_OPTIONS=--max-old-space-size=8192 vite build && electron-builder --win --mac",
+    "build:mac": "cross-env NODE_OPTIONS=--max-old-space-size=8192 vite build && electron-builder --mac",
     "rebuild": "electron-rebuild -f -w better-sqlite3",
     "preview": "vite preview",
     "migrate-db": "node scripts/migrate-db.js",

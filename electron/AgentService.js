@@ -93,7 +93,8 @@ function parseSkillFrontmatterSummary(content) {
 }
 
 import { ChatAnthropic } from '@langchain/anthropic'
-import { ChatOpenAICompletions, ChatOpenAIResponses } from '@langchain/openai'
+import { ChatOpenAICompletions } from '@langchain/openai'
+import { ChatOpenAIResponsesCompat, normalizeAnthropicApiUrl } from './agents/runtime/modelAdapters.js'
 import { MemorySaver, InMemoryStore, Command } from '@langchain/langgraph'
 import { HumanMessage } from '@langchain/core/messages'
 import { getLangchainTools, getUserDefinedLangchainTools, setToolProviderConfig, setWorkDirService, setDbService, setWikiService as setWikiServiceForTools, setMcpService as setMcpServiceForTools, setVisionAnalyzeHandler, resetTaskCounters, setExecCommandConfig, setCloudContext, setToolRunContext } from './agents/langchainTools.js'
@@ -130,6 +131,7 @@ export class AgentService {
     setToolRunContext({})
     this._activeRuns = new Map()
     this._activeStreams = new Map()
+    this._activeNoteAiRuns = new Map()
     this._interruptedRuns = new Map() // threadId → { runId, request, agentConfig }
   }
 
@@ -158,6 +160,9 @@ export class AgentService {
     ipcMain.handle('chat:start', (_, req) => this.handleChatStart(req))
     ipcMain.handle('chat:cancel', (_, reqId) => this.handleChatCancel(reqId))
     ipcMain.handle('chat:authRespond', (_, requestId, approved) => this.handleAuthRespond(requestId, approved))
+
+    ipcMain.handle('noteAi:run', (_, req) => this.handleNoteAiRun(req))
+    ipcMain.handle('noteAi:cancel', (_, requestId) => this.handleNoteAiCancel(requestId))
   }
 
   _notifyAgentTask(kind, request, runId, errorMessage = '') {
@@ -238,11 +243,11 @@ export class AgentService {
     if (options.topP !== undefined) common.topP = options.topP
 
     if (this._isAnthropicFormat(providerId, options.apiFormat)) {
-      const anthropicBaseURL = (baseUrl || '').replace(/\/v1\/?$/, '').replace(/\/$/, '') || undefined
+      const anthropicApiUrl = normalizeAnthropicApiUrl(baseUrl)
       const anthropicOpts = { ...common, timeout: 180000 }
       if (options.streaming === true) anthropicOpts.streaming = true
       if (options.disableStreaming === true) anthropicOpts.disableStreaming = true
-      if (anthropicBaseURL) anthropicOpts.baseURL = anthropicBaseURL
+      if (anthropicApiUrl) anthropicOpts.anthropicApiUrl = anthropicApiUrl
       if (this._normalizeThinkingMode(options.thinkingMode) === 'enabled') {
         const budgetMap = { low: 2000, medium: 10000, high: 32000 }
         anthropicOpts.thinking = {
@@ -265,7 +270,7 @@ export class AgentService {
     const reasoningEffort = options.reasoningEffort || this._openAIReasoningEffort(providerId, modelName, options)
     if (reasoningEffort) openaiOpts.reasoningEffort = reasoningEffort
     const ChatModel = this._normalizeApiFormat(providerId, options.apiFormat) === 'openai_responses'
-      ? ChatOpenAIResponses
+      ? ChatOpenAIResponsesCompat
       : ChatOpenAICompletions
     return new ChatModel(openaiOpts)
   }
@@ -1835,6 +1840,96 @@ export class AgentService {
   handleChatCancel(requestId) {
     const stream = this._activeStreams.get(requestId)
     if (stream) stream.abortController.abort()
+  }
+
+  async handleNoteAiRun(request = {}) {
+    const startTime = Date.now()
+    const requestId = request.requestId || crypto.randomUUID()
+    const abortController = new AbortController()
+
+    if (!request.providerId) {
+      this._send('noteAi:error', { requestId, error: '缺少服务商 ID', code: 'INVALID_REQUEST' })
+      return { success: false, error: '缺少服务商 ID' }
+    }
+    if (!request.apiKey) {
+      this._send('noteAi:error', { requestId, error: '缺少 API Key', code: 'INVALID_REQUEST' })
+      return { success: false, error: '缺少 API Key' }
+    }
+    if (!request.baseUrl) {
+      this._send('noteAi:error', { requestId, error: '缺少 Base URL', code: 'INVALID_REQUEST' })
+      return { success: false, error: '缺少 Base URL' }
+    }
+    if (!request.model) {
+      this._send('noteAi:error', { requestId, error: '缺少模型 ID', code: 'INVALID_REQUEST' })
+      return { success: false, error: '缺少模型 ID' }
+    }
+
+    this._activeNoteAiRuns.set(requestId, { abortController })
+    this._send('noteAi:started', { requestId })
+
+    try {
+      const model = this._createModel(
+        request.providerId,
+        request.apiKey,
+        request.baseUrl,
+        request.model,
+        {
+          temperature: request.temperature,
+          maxTokens: request.maxTokens || 1200,
+          topP: request.topP,
+          apiFormat: request.apiFormat,
+        },
+      )
+
+      const directMessages = toDirectMessages(request.systemPrompt || '', request.messages || [])
+      const sendFn = (text) => this._send('noteAi:chunk', { requestId, text })
+      const result = await streamDirectModel(model, directMessages, abortController.signal, sendFn)
+      if (abortController.signal.aborted) throw new Error('ABORTED')
+      const { fullContent, thinkingContent, totalUsage } = result
+      const latencyMs = Date.now() - startTime
+      const cost = calcCost(request.model, totalUsage)
+      totalUsage.cost = cost
+
+      this._db.createTokenUsage({
+        provider_id: request.providerId,
+        model_id: request.model,
+        input_tokens: totalUsage.inputTokens,
+        output_tokens: totalUsage.outputTokens,
+        cache_read_tokens: totalUsage.cacheReadTokens,
+        cache_write_tokens: totalUsage.cacheWriteTokens,
+        thinking_tokens: totalUsage.thinkingTokens,
+        cost,
+        latency_ms: latencyMs,
+        agent_id: 'note_ai',
+        conversation_id: 'note_oneshot',
+      })
+
+      this._send('noteAi:done', {
+        requestId,
+        content: fullContent,
+        thinkingContent,
+        usage: totalUsage,
+        latencyMs,
+        cost,
+      })
+      return { success: true, content: fullContent, usage: totalUsage, latencyMs, cost }
+    } catch (err) {
+      const isAborted = err.name === 'AbortError' || err.message === 'ABORTED' || abortController.signal.aborted
+      if (isAborted) {
+        this._send('noteAi:cancelled', { requestId })
+        return { success: false, cancelled: true }
+      }
+      const classified = this._errorClassifier.classify(err)
+      this._send('noteAi:error', { requestId, error: err.message, code: classified.code })
+      return { success: false, error: err.message, code: classified.code }
+    } finally {
+      this._activeNoteAiRuns.delete(requestId)
+    }
+  }
+
+  handleNoteAiCancel(requestId) {
+    const run = this._activeNoteAiRuns.get(requestId)
+    if (run) run.abortController.abort()
   }
 
   // ── Builtin Agent Modules ────────────────────────────────────

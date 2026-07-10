@@ -31,6 +31,10 @@ const TRANSLATION_CONTRACT = `硬性约束：
 
 const CONVERSATIONAL_PREFIX_PATTERN = /^(?:\s*(?:好的|当然|可以|没问题|sure|ok|okay)[，,。.\s]*(?:以下是|这是|翻译如下|译文如下|翻译结果如下|为你翻译如下|here(?:'s| is)(?: the)? translation)?[：:\s]*|(?:here(?:'s| is)(?: the)? translation|translation(?: result)?|translated text|translation|翻译结果|译文|翻译如下|以下是译文)[：:\s]*)/i
 
+function createTranslateRequestId() {
+  return `translate_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`
+}
+
 export const useTranslateStore = defineStore('translate', () => {
   const settingsStore = useSettingsStore()
 
@@ -181,6 +185,8 @@ export const useTranslateStore = defineStore('translate', () => {
 
     isTranslating.value = true
     translatedText.value = ''
+    const requestId = createTranslateRequestId()
+    let chunkHandler = null
 
     try {
       const temp = Number.isFinite(Number(temperature.value)) ? Math.min(1, Math.max(0, Number(temperature.value))) : 0.1
@@ -193,7 +199,15 @@ export const useTranslateStore = defineStore('translate', () => {
         return
       }
 
+      if (window.electronAPI.translate.onChunk) {
+        chunkHandler = window.electronAPI.translate.onChunk((chunk) => {
+          if (!chunk || chunk.requestId !== requestId || typeof chunk.text !== 'string') return
+          translatedText.value += chunk.text
+        })
+      }
+
       const result = await window.electronAPI.translate.run({
+        requestId,
         providerId: provider.id,
         apiFormat,
         apiKey: provider.apiKey,
@@ -209,11 +223,13 @@ export const useTranslateStore = defineStore('translate', () => {
         return
       }
 
-      translatedText.value = normalizeTranslationOutput(result.text) || '翻译结果为空'
+      const finalText = normalizeTranslationOutput(result.text || translatedText.value)
+      translatedText.value = finalText || '翻译结果为空'
       addToHistory()
     } catch (e) {
       translatedText.value = `翻译失败: ${e.message}`
     } finally {
+      window.electronAPI?.translate?.removeChunkListener?.(chunkHandler)
       isTranslating.value = false
     }
   }

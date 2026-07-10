@@ -83,7 +83,7 @@ import { computed } from 'vue'
       {{ label }}
     </span>
     <!-- Badge -->
-    <span v-if="badge" class="shrink-0 text-[10px] ml-1" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">{{ badge }}</span>
+    <span v-if="badge" class="shrink-0 text-[11px] ml-1" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">{{ badge }}</span>
     <!-- Right slot -->
     <slot name="actions" />
   </div>

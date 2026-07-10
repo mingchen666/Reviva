@@ -287,7 +287,7 @@ button{
 /* Date Picker Input */
 .date-picker-input {
   font-size: 11px;
-  border-radius: 6px;
+  border-radius: 4px;
   padding: 3px 6px;
   border: 1px solid;
   width: 130px;

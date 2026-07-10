@@ -123,12 +123,39 @@ function hashText(value) {
   return crypto.createHash('sha256').update(String(value || '')).digest('hex')
 }
 
+function sameMtime(a, b) {
+  return Math.abs(Number(a || 0) - Number(b || 0)) < 1
+}
+
+function fileIdentityKey(stat) {
+  const dev = Number(stat?.dev || 0)
+  const ino = Number(stat?.ino || 0)
+  if (dev || ino) return `inode:${dev}:${ino}`
+  return `fingerprint:${Number(stat?.size || 0)}:${Number(stat?.mtimeMs || 0)}:${Number(stat?.birthtimeMs || 0)}`
+}
+
+function documentIdForIdentity(root, identityKey, stat) {
+  return `pdf_${hashText([root, identityKey, stat.size, stat.mtimeMs].join('|')).slice(0, 16)}`
+}
+
+function legacyDocumentId(root, realPath, stat) {
+  return `pdf_${hashText([root, realPath, stat.size, stat.mtimeMs].join('|')).slice(0, 16)}`
+}
+
+function manifestMatchesStat(manifest, stat) {
+  return Number(manifest?.fileSize || 0) === Number(stat?.size || 0)
+    && sameMtime(manifest?.mtimeMs, stat?.mtimeMs)
+}
+
 function manifestMatchesDoc(manifest, doc) {
   if (!manifest || !doc) return false
-  return manifest.pdfId === doc.id
-    && Number(manifest.fileSize || 0) === Number(doc.fileSize || 0)
-    && Number(manifest.mtimeMs || 0) === Number(doc.mtimeMs || 0)
-    && String(manifest.realPathHash || '') === String(doc.realPathHash || '')
+  if (manifest.pdfId !== doc.id) return false
+  if (Number(manifest.fileSize || 0) !== Number(doc.fileSize || 0)) return false
+  if (!sameMtime(manifest.mtimeMs, doc.mtimeMs)) return false
+  if (manifest.fileIdentityHash || doc.fileIdentityHash) {
+    return String(manifest.fileIdentityHash || '') === String(doc.fileIdentityHash || '')
+  }
+  return String(manifest.realPathHash || '') === String(doc.realPathHash || '')
 }
 
 export class PdfCache {
@@ -143,9 +170,21 @@ export class PdfCache {
     const stat = await fs.promises.stat(filePath)
     const realPath = path.resolve(filePath)
     const realPathHash = hashText(realPath)
-    const id = `pdf_${hashText([root, realPath, stat.size, stat.mtimeMs].join('|')).slice(0, 16)}`
+    const identityKey = fileIdentityKey(stat)
+    const fileIdentityHash = hashText([root, identityKey].join('|'))
+    const preferredId = documentIdForIdentity(root, identityKey, stat)
+    const legacyId = legacyDocumentId(root, realPath, stat)
+    const resolvedCache = await this._resolveDocumentCache({
+      root,
+      stat,
+      preferredId,
+      legacyId,
+      fileIdentityHash,
+      fileName: path.basename(realPath),
+    })
+    const id = resolvedCache.id
     const relCachePath = `context/pdf/${id}`
-    const cacheRoot = path.join(root, relCachePath)
+    const cacheRoot = resolvedCache.cacheRoot
     await fs.promises.mkdir(cacheRoot, { recursive: true })
 
     const doc = {
@@ -154,6 +193,7 @@ export class PdfCache {
       realPath,
       virtualPath,
       realPathHash,
+      fileIdentityHash,
       fileSize: stat.size,
       mtimeMs: stat.mtimeMs,
       cachePath: toPosix(relCachePath),
@@ -170,6 +210,54 @@ export class PdfCache {
     return doc
   }
 
+  async _resolveDocumentCache({ root, stat, preferredId, legacyId, fileIdentityHash, fileName }) {
+    const contextRoot = path.join(root, 'context', 'pdf')
+    const preferredRoot = path.join(contextRoot, preferredId)
+    const preferredManifest = await this.readManifest(preferredRoot)
+    if (preferredManifest && manifestMatchesStat(preferredManifest, stat)) {
+      return { id: preferredManifest.pdfId || preferredId, cacheRoot: preferredRoot }
+    }
+
+    const legacyRoot = path.join(contextRoot, legacyId)
+    const legacyManifest = await this.readManifest(legacyRoot)
+    if (legacyManifest && manifestMatchesStat(legacyManifest, stat)) {
+      return { id: legacyManifest.pdfId || legacyId, cacheRoot: legacyRoot }
+    }
+
+    const existing = await this._findExistingCacheByIdentity(contextRoot, { stat, fileIdentityHash, fileName })
+    if (existing) return existing
+    return { id: preferredId, cacheRoot: preferredRoot }
+  }
+
+  async _findExistingCacheByIdentity(contextRoot, { stat, fileIdentityHash, fileName }) {
+    let entries = []
+    try {
+      entries = await fs.promises.readdir(contextRoot, { withFileTypes: true })
+    } catch {
+      return null
+    }
+
+    const fallback = []
+    const ext = path.extname(fileName || '').toLowerCase()
+    for (const entry of entries) {
+      if (!entry.isDirectory() || !entry.name.startsWith('pdf_')) continue
+      const cacheRoot = path.join(contextRoot, entry.name)
+      const manifest = await this.readManifest(cacheRoot)
+      if (!manifest || !manifestMatchesStat(manifest, stat)) continue
+
+      if (manifest.fileIdentityHash && String(manifest.fileIdentityHash) === String(fileIdentityHash)) {
+        return { id: manifest.pdfId || entry.name, cacheRoot }
+      }
+
+      const manifestExt = path.extname(manifest.fileName || '').toLowerCase()
+      if (!manifest.fileIdentityHash && manifestExt === ext) {
+        fallback.push({ id: manifest.pdfId || entry.name, cacheRoot })
+      }
+    }
+
+    return fallback.length === 1 ? fallback[0] : null
+  }
+
   async _writeManifest(doc, extra = {}) {
     const existing = await this.readManifest(doc.cacheRoot)
     await writeJson(path.join(doc.cacheRoot, 'manifest.json'), {
@@ -179,6 +267,7 @@ export class PdfCache {
       fileName: doc.fileName,
       virtualPath: doc.virtualPath,
       realPathHash: doc.realPathHash,
+      fileIdentityHash: doc.fileIdentityHash,
       fileSize: doc.fileSize,
       mtimeMs: doc.mtimeMs,
       cachePath: doc.cachePath,
@@ -408,16 +497,17 @@ export class PdfCache {
     return chunks.join('\n\n')
   }
 
-  async writeEmbeddedImagesIndex(doc, images = []) {
+  async writeEmbeddedImagesIndex(doc, images = [], extra = {}) {
     await writeJson(path.join(doc.cacheRoot, 'assets', 'embedded', 'images.json'), {
       version: 1,
       images,
+      coverage: Array.isArray(extra.coverage) ? extra.coverage : [],
       updatedAt: new Date().toISOString(),
     })
   }
 
   async readEmbeddedImagesIndex(doc) {
-    return readJson(path.join(doc.cacheRoot, 'assets', 'embedded', 'images.json'), { version: 1, images: [] })
+    return readJson(path.join(doc.cacheRoot, 'assets', 'embedded', 'images.json'), { version: 1, images: [], coverage: [] })
   }
 
   _upsertDocument(doc, sourceInfo = {}) {

@@ -404,9 +404,15 @@ function onSlashSelect(key) {
   if (slashStartIdx >= 0 && textareaRef.value) {
     const ta = textareaRef.value
     const end = ta.selectionStart
+    const caret = slashStartIdx
     history.pushNow(currentState())
     localContent.value = localContent.value.slice(0, slashStartIdx) + localContent.value.slice(end)
-    nextTick(() => ta.setSelectionRange(slashStartIdx, slashStartIdx))
+    closeSlash()
+    nextTick(() => {
+      ta.setSelectionRange(caret, caret)
+      runAiCommand(key, 'document')
+    })
+    return
   }
   closeSlash()
   runAiCommand(key, 'document')
@@ -430,6 +436,12 @@ function updateBubble() {
 
 function onBubbleAction(key) {
   runAiCommand(key, 'selection')
+}
+
+function noteAiTemperature(key) {
+  if (key === 'continue' || key === 'expand') return 0.55
+  if (key === 'translate' || key === 'translate-zh' || key === 'formula') return 0.15
+  return 0.3
 }
 
 // ─── Run AI commands (slash + selection) ───
@@ -610,7 +622,7 @@ async function runAiCommand(key, scope) {
       userPrompt: promptDef.user,
       providerId: notesStore.aiSettings.noteProviderId || undefined,
       model: notesStore.aiSettings.noteModelId || undefined,
-      temperature: 0.6,
+      temperature: noteAiTemperature(key),
       maxTokens: key === 'summarize' || key === 'outline' ? 1600 : 1200,
       signal: aiAbortController.value.signal,
       onChunk: (_chunk, full) => {

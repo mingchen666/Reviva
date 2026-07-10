@@ -396,6 +396,17 @@ ipcMain.handle('fs:rename', async (event, oldPath, newPath) => {
   try {
     const vOld = validateFsPath(oldPath)
     const vNew = validateFsPath(newPath)
+    const oldStat = await fs.promises.stat(vOld)
+    if (oldStat.isFile()) {
+      const oldExt = path.extname(vOld).toLowerCase()
+      const newExt = path.extname(vNew).toLowerCase()
+      if (oldExt !== newExt) {
+        return { success: false, error: '不能修改文件扩展名，仅支持修改文件名。' }
+      }
+    }
+    if (fs.existsSync(vNew) && path.resolve(vOld).toLowerCase() !== path.resolve(vNew).toLowerCase()) {
+      return { success: false, error: '目标名称已存在。' }
+    }
     await fs.promises.rename(vOld, vNew)
     return { success: true }
   } catch (err) {
@@ -1108,6 +1119,9 @@ ipcMain.handle('pdf:getStatus', async (event, filePath, options = {}) => {
 ipcMain.handle('pdf:startOcr', async (event, filePath, options = {}) => {
   try {
     const inputPath = validateFsPath(filePath)
+    const explicitPageSelection = Array.isArray(options.pages) && options.pages.length > 0
+      || options.startPage !== undefined
+      || options.maxPages !== undefined
     const result = await pdfService().read({
       inputPath,
       virtualPath: toWorkspaceVirtualPath(inputPath),
@@ -1115,6 +1129,7 @@ ipcMain.handle('pdf:startOcr', async (event, filePath, options = {}) => {
       pages: Array.isArray(options.pages) ? options.pages : [],
       startPage: options.startPage || 1,
       maxPages: options.maxPages || 5,
+      explicitPageSelection,
       provider: options.provider || 'auto',
       confirmFull: !!options.confirmFull,
       fullDocument: !!options.fullDocument,
@@ -1135,6 +1150,7 @@ ipcMain.handle('pdf:listImages', async (event, filePath, options = {}) => {
       mode: 'images',
       startPage: options.startPage || 1,
       maxPages: options.maxPages || 5,
+      maxImages: options.maxImages || 50,
     })
     return result
   } catch (err) {
@@ -1939,6 +1955,124 @@ function readAnthropicTranslationText(data) {
     .join('')
 }
 
+function stringifyTranslationContent(content) {
+  if (typeof content === 'string') return content
+  if (!Array.isArray(content)) return ''
+  return content
+    .map((part) => {
+      if (typeof part === 'string') return part
+      if (part?.type === 'text' || part?.type === 'output_text') return part.text || ''
+      return part?.text || ''
+    })
+    .join('')
+}
+
+function readOpenAITranslationDelta(data) {
+  if (!Array.isArray(data?.choices)) return ''
+  return data.choices
+    .map((choice) => stringifyTranslationContent(choice?.delta?.content) || choice?.text || '')
+    .join('')
+}
+
+function readOpenAIResponsesTranslationDelta(eventName, data) {
+  if (typeof data?.delta === 'string' && (eventName === 'response.output_text.delta' || data?.type === 'response.output_text.delta')) {
+    return data.delta
+  }
+  if (typeof data?.delta?.text === 'string') return data.delta.text
+  return readOpenAITranslationDelta(data)
+}
+
+function readAnthropicTranslationDelta(data) {
+  if (typeof data?.delta?.text === 'string') return data.delta.text
+  if (typeof data?.completion === 'string') return data.completion
+  return ''
+}
+
+function parseSSEFrame(frame) {
+  let eventName = 'message'
+  const dataLines = []
+  for (const line of String(frame || '').split('\n')) {
+    if (!line || line.startsWith(':')) continue
+    if (line.startsWith('event:')) {
+      eventName = line.slice(6).trim() || eventName
+    } else if (line.startsWith('data:')) {
+      dataLines.push(line.slice(5).trimStart())
+    }
+  }
+  if (dataLines.length === 0) return null
+  return { eventName, dataText: dataLines.join('\n') }
+}
+
+function readTranslationStreamDelta(normalizedFormat, eventName, data) {
+  if (normalizedFormat === 'anthropic') return readAnthropicTranslationDelta(data)
+  if (normalizedFormat === 'openai_responses') return readOpenAIResponsesTranslationDelta(eventName, data)
+  return readOpenAITranslationDelta(data)
+}
+
+function readTranslationCompletedText(normalizedFormat, data) {
+  if (normalizedFormat === 'anthropic') return readAnthropicTranslationText(data?.message || data)
+  if (normalizedFormat === 'openai_responses') return readOpenAIResponsesText(data?.response || data)
+  return readOpenAITranslationText(data)
+}
+
+async function readTranslationSSE(response, normalizedFormat, sender, requestId) {
+  const reader = response.body?.getReader?.()
+  if (!reader) return ''
+
+  const decoder = new TextDecoder()
+  let buffer = ''
+  let fullText = ''
+  let completedText = ''
+
+  const processFrame = (frame) => {
+    const parsedFrame = parseSSEFrame(frame)
+    if (!parsedFrame) return
+    const { eventName, dataText } = parsedFrame
+    if (!dataText || dataText === '[DONE]') return
+
+    let data
+    try {
+      data = JSON.parse(dataText)
+    } catch (_) {
+      return
+    }
+
+    const delta = readTranslationStreamDelta(normalizedFormat, eventName, data)
+    if (delta) {
+      fullText += delta
+      if (requestId) sender?.send('translate:chunk', { requestId, text: delta })
+    }
+
+    if (
+      eventName === 'response.completed' ||
+      data?.type === 'response.completed' ||
+      eventName === 'message_stop' ||
+      data?.type === 'message_stop'
+    ) {
+      const finalText = readTranslationCompletedText(normalizedFormat, data)
+      if (finalText) completedText = finalText
+    }
+  }
+
+  while (true) {
+    const { done, value } = await reader.read()
+    buffer += decoder.decode(value || new Uint8Array(), { stream: !done })
+    buffer = buffer.replace(/\r\n/g, '\n').replace(/\r/g, '\n')
+
+    let boundary = buffer.indexOf('\n\n')
+    while (boundary !== -1) {
+      processFrame(buffer.slice(0, boundary))
+      buffer = buffer.slice(boundary + 2)
+      boundary = buffer.indexOf('\n\n')
+    }
+
+    if (done) break
+  }
+
+  if (buffer.trim()) processFrame(buffer)
+  return completedText || fullText
+}
+
 ipcMain.handle('models:fetchList', async (event, providerId, apiKey, baseUrl, apiFormat = '') => {
   if (!apiKey) return { success: false, error: '缺少 API Key' }
   if (!baseUrl) return { success: false, error: '缺少 Base URL' }
@@ -1969,8 +2103,9 @@ ipcMain.handle('models:fetchList', async (event, providerId, apiKey, baseUrl, ap
   }
 })
 
-ipcMain.handle('translate:run', async (_, req = {}) => {
+ipcMain.handle('translate:run', async (event, req = {}) => {
   const {
+    requestId = '',
     providerId = '',
     apiFormat = '',
     apiKey = '',
@@ -2006,6 +2141,7 @@ ipcMain.handle('translate:run', async (_, req = {}) => {
         max_tokens: 4096,
         temperature: temp,
         system,
+        stream: true,
         messages: [{ role: 'user', content: userMessage }],
       })
     } else if (normalizedFormat === 'openai_responses') {
@@ -2017,6 +2153,7 @@ ipcMain.handle('translate:run', async (_, req = {}) => {
         ...(system ? { instructions: system } : {}),
         max_output_tokens: 4096,
         temperature: temp,
+        stream: true,
       })
     } else {
       headers['Authorization'] = `Bearer ${apiKey}`
@@ -2029,7 +2166,7 @@ ipcMain.handle('translate:run', async (_, req = {}) => {
           { role: 'system', content: system },
           { role: 'user', content: userMessage },
         ],
-        stream: false,
+        stream: true,
       })
     }
 
@@ -2037,6 +2174,12 @@ ipcMain.handle('translate:run', async (_, req = {}) => {
     if (!response.ok) {
       const text = await response.text()
       return { success: false, error: `HTTP ${response.status}: ${text.slice(0, 500)}` }
+    }
+
+    const contentType = response.headers.get('content-type') || ''
+    if (contentType.includes('text/event-stream')) {
+      const text = await readTranslationSSE(response, normalizedFormat, event?.sender, requestId)
+      return { success: true, text }
     }
 
     const data = await response.json()
@@ -2274,10 +2417,10 @@ app.whenReady().then(async () => {
 
   registerDbHandlers(dbService, { notes: noteFileService, noteFolders: noteFileService })
   createWindow()
+  initAutoUpdater(win)
   if (VITE_DEV_SERVER_URL) {
     createMenu(win)
   } else {
     Menu.setApplicationMenu(null)
-    initAutoUpdater(win)
   }
 })

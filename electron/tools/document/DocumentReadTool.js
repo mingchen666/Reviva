@@ -339,11 +339,15 @@ export function createDocumentReadTool({
       if (PDF_EXTS.has(ext)) {
         const mode = resolvePdfMode(args)
         const service = new PdfReadService({ workDirService, dbService })
+        const explicitPageSelection = args.startPage !== undefined
+          || args.maxPages !== undefined
+          || (Array.isArray(args.pages) && args.pages.length > 0)
         const raw = await service.read({
           ...args,
           mode,
           inputPath: resolved,
           virtualPath,
+          explicitPageSelection,
           startPage: clampInt(args.startPage, 1, 1, Number.MAX_SAFE_INTEGER),
           maxPages: clampInt(args.maxPages, PDF_DEFAULT_MAX_PAGES, 1, PDF_MAX_PAGES),
           maxChars: clampInt(args.maxChars, PDF_DEFAULT_MAX_CHARS, 1000, PDF_MAX_CHARS),
@@ -480,7 +484,7 @@ export function createDocumentReadTool({
         maxLines: z.number().optional().describe('Office text 最多读取行数。'),
         exportImages: z.boolean().optional().describe('Office images 模式是否导出图片文件。'),
         imagePath: z.string().optional().describe('Office images 模式匹配单张图片的 DOM path、名称或 relId。'),
-        maxImages: z.number().optional().describe('Office images 模式最多列出或导出图片数。'),
+        maxImages: z.number().optional().describe('images 模式最多列出、抽取或导出图片数。PDF 默认 50，Office 默认 200。'),
       }),
     },
   )
