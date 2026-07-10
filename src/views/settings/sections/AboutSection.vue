@@ -1,15 +1,22 @@
 <script setup>
-import { ref, computed } from 'vue';
+import { computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAppStore } from '@/stores/app';
+import { useAutoUpdate } from '@/composables/useAutoUpdate'
 import { getAppVersion } from '@/utils/tools'
 
 const appVersion = getAppVersion()
 const router = useRouter();
 const appStore = useAppStore();
 const isDark = computed(() => appStore.isDark);
-
-const updateNotice = ref('');
+const { checking, updateInfo, error, lastCheckStatus, lastCheckMessage, checkForUpdate } = useAutoUpdate()
+const updateNotice = computed(() => {
+  if (checking.value) return '正在检查更新...'
+  if (updateInfo.value?.version) return `发现新版本 v${updateInfo.value.version}，请在更新弹窗中继续处理。`
+  if (error.value) return '自动更新连接失败，可稍后重试，或使用更新弹窗中的夸克网盘下载。'
+  if (lastCheckStatus.value === 'not-available') return lastCheckMessage.value || '当前已是最新版本。'
+  return ''
+})
 
 const betaChecklist = [
   {
@@ -57,7 +64,7 @@ const releaseNotes = [
     meta: '内测说明',
     type: 'limit',
     items: [
-      '自动检查更新暂未开放；版本信息仅展示当前客户端版本。',
+      '自动更新优先使用系统更新通道；网络不可达时会提示备用发布入口。',
       '模型价格、上下文长度和能力标签会随服务商调整，实际调用以服务商为准。',
       '部分功能仍可能调整入口、名称和默认配置，不建议把内测版当作稳定发行版归档。'
     ]
@@ -93,7 +100,7 @@ function go(route) {
 }
 
 function checkUpdate() {
-  updateNotice.value = '内测版暂未开放自动检查更新；请以你收到的安装包或发布说明为准。';
+  checkForUpdate()
 }
 
 function toneClass(tone) {
@@ -174,14 +181,16 @@ function releaseTone(type) {
             </div>
             <button
               class="h-8 px-3 rounded-lg text-[11px] font-medium flex items-center gap-1.5 shrink-0 border transition-colors"
+              :disabled="checking"
               :class="
                 isDark
-                  ? 'bg-d0 border-bdr text-wt-sub hover:border-brand-400/30'
-                  : 'bg-l2 border-bdrF text-lt-sub hover:border-brand-200'
+                  ? 'bg-d0 border-bdr text-wt-sub hover:border-brand-400/30 disabled:opacity-60'
+                  : 'bg-l2 border-bdrF text-lt-sub hover:border-brand-200 disabled:opacity-60'
               "
               @click="checkUpdate"
             >
-              <i class="ri-refresh-line text-[12px]" /> 检查更新
+              <i class="ri-refresh-line text-[12px]" :class="checking ? 'animate-spin' : ''" />
+              {{ checking ? '检查中' : '检查更新' }}
             </button>
           </div>
           <div

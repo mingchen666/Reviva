@@ -121,6 +121,10 @@ const api = {
   // Translate
   translate: {
     run: (req) => ipcRenderer.invoke('translate:run', req),
+    onChunk: (cb) => { const h = (_, d) => cb(d); ipcRenderer.on('translate:chunk', h); return h },
+    removeChunkListener: (handler) => {
+      if (handler) ipcRenderer.removeListener('translate:chunk', handler)
+    },
   },
 
   // Token Usage
@@ -151,6 +155,17 @@ const api = {
     onCancelled: (cb) => { const h = (_, d) => cb(d); ipcRenderer.on('chat:cancelled', h); return h },
     onAuthRequest: (cb) => { const h = (_, d) => cb(d); ipcRenderer.on('chat:authRequest', h); return h },
     respondAuth: (requestId, approved) => ipcRenderer.invoke('agent:authRespond', requestId, approved),
+    removeListener: (channel, handler) => {
+      const channels = {
+        started: 'chat:started',
+        chunk: 'chat:chunk',
+        done: 'chat:done',
+        error: 'chat:error',
+        cancelled: 'chat:cancelled',
+        authRequest: 'chat:authRequest',
+      }
+      if (channels[channel] && handler) ipcRenderer.removeListener(channels[channel], handler)
+    },
     removeListeners: () => {
       ipcRenderer.removeAllListeners('chat:started')
       ipcRenderer.removeAllListeners('chat:chunk')
@@ -158,6 +173,27 @@ const api = {
       ipcRenderer.removeAllListeners('chat:error')
       ipcRenderer.removeAllListeners('chat:cancelled')
       ipcRenderer.removeAllListeners('chat:authRequest')
+    },
+  },
+
+  // One-shot note AI tasks
+  noteAi: {
+    run: (req) => ipcRenderer.invoke('noteAi:run', req),
+    cancel: (requestId) => ipcRenderer.invoke('noteAi:cancel', requestId),
+    onStarted: (cb) => { const h = (_, d) => cb(d); ipcRenderer.on('noteAi:started', h); return h },
+    onChunk: (cb) => { const h = (_, d) => cb(d); ipcRenderer.on('noteAi:chunk', h); return h },
+    onDone: (cb) => { const h = (_, d) => cb(d); ipcRenderer.on('noteAi:done', h); return h },
+    onError: (cb) => { const h = (_, d) => cb(d); ipcRenderer.on('noteAi:error', h); return h },
+    onCancelled: (cb) => { const h = (_, d) => cb(d); ipcRenderer.on('noteAi:cancelled', h); return h },
+    removeListener: (channel, handler) => {
+      const channels = {
+        started: 'noteAi:started',
+        chunk: 'noteAi:chunk',
+        done: 'noteAi:done',
+        error: 'noteAi:error',
+        cancelled: 'noteAi:cancelled',
+      }
+      if (channels[channel] && handler) ipcRenderer.removeListener(channels[channel], handler)
     },
   },
 

@@ -178,8 +178,17 @@ function selectorOptionClasses(selected) {
 
 const hasLocalText = computed(() => !!props.pdfEnvironment?.success)
 const hasOcrProvider = computed(() => !!props.effectiveOcrProvider)
+const currentPdfEngine = computed(() => model.value?.pdfEngine || 'auto')
+const selectedOcrProviderType = computed(() => String(props.effectiveOcrProvider?.type || '').toLowerCase())
 const missingLocalParser = computed(() => ['PYMUPDF_NOT_INSTALLED', 'PYPDF_NOT_INSTALLED'].includes(props.pdfEnvironment?.code))
 const canInstallLocalParser = computed(() => missingLocalParser.value)
+const showOcrProviderSelect = computed(() => hasOcrProvider.value && currentPdfEngine.value !== 'local_fast')
+const showOcrSetupPrompt = computed(() => !hasOcrProvider.value && (currentPdfEngine.value !== 'local_fast' || !hasLocalText.value))
+const showLargePdfMode = computed(() => hasOcrProvider.value && currentPdfEngine.value !== 'local_fast')
+const showMissingLocalFallback = computed(() => currentPdfEngine.value === 'auto' && !hasLocalText.value && hasOcrProvider.value)
+const showFullDocumentOcrToggle = computed(() => hasOcrProvider.value && currentPdfEngine.value !== 'local_fast')
+const showPaddleFallbackToggle = computed(() => showFullDocumentOcrToggle.value && selectedOcrProviderType.value === 'paddleocr')
+const showOcrAdvancedToggles = computed(() => showFullDocumentOcrToggle.value || showPaddleFallbackToggle.value)
 const localStatusBadge = computed(() => {
   if (hasLocalText.value) return '可用'
   if (missingLocalParser.value) return '缺少 PyMuPDF'
@@ -208,14 +217,14 @@ const recommendation = computed(() => {
   if (hasLocalText.value && !hasOcrProvider.value) {
     return {
       title: '本地快速解析可用',
-      body: '文本型 PDF 可以正常处理；扫描件、图片页或复杂表格需要先配置 OCR 服务商。',
+      body: `${props.ocrProviderStatusText || 'OCR 服务商当前不可用'}；文本型 PDF 可以正常处理，扫描件、图片页或复杂表格需要启用 OCR 服务商。`,
       tone: 'warn',
       icon: 'ri-file-text-line',
     }
   }
   return {
-    title: '需要配置 OCR 服务商',
-    body: '当前没有可用的本地文本层环境，也没有可用 OCR 服务商。普通用户建议直接配置 MinerU 或 PaddleOCR。',
+    title: '需要可用的 OCR 服务商',
+    body: `当前没有可用的本地文本层环境，且${props.ocrProviderStatusText || '没有可用 OCR 服务商'}。普通用户建议启用 MinerU 或 PaddleOCR。`,
     tone: 'danger',
     icon: 'ri-error-warning-line',
   }
@@ -400,7 +409,7 @@ function toneClasses(tone) {
             </div>
           </div>
 
-          <div class="compact-select">
+          <div v-if="showOcrProviderSelect" class="compact-select">
             <div class="compact-select__label" :class="isDark ? 'text-wt-main' : 'text-lt-main'">OCR 服务商</div>
             <button type="button" :class="selectorButtonClasses()" @click="toggleSelect('defaultOcrProvider')">
               <span class="compact-select__icon"><i :class="selectedOption(ocrProviderOptions, model.defaultOcrProvider).icon" /></span>
@@ -437,8 +446,24 @@ function toneClasses(tone) {
               </button>
             </div>
           </div>
+          <div
+            v-else-if="showOcrSetupPrompt"
+            class="settings-action-card compact-select--wide"
+            :class="isDark ? 'settings-action-card--dark' : 'settings-action-card--light'">
+            <div class="min-w-0">
+              <div class="settings-action-card__title">OCR 服务商不可用</div>
+              <div class="settings-action-card__desc">{{ ocrProviderStatusText || '扫描件、图片页、复杂表格和本地不可用时，需要启用 MinerU 或 PaddleOCR。' }}</div>
+            </div>
+            <button
+              type="button"
+              class="settings-action-card__button"
+              :class="isDark ? 'settings-action-card__button--dark' : 'settings-action-card__button--light'"
+              @click="emit('open-ocr-settings')">
+              去配置
+            </button>
+          </div>
 
-          <div class="compact-select">
+          <div v-if="showLargePdfMode" class="compact-select">
             <div class="compact-select__label" :class="isDark ? 'text-wt-main' : 'text-lt-main'">大 PDF 对话策略</div>
             <button type="button" :class="selectorButtonClasses()" @click="toggleSelect('largePdfMode')">
               <span class="compact-select__icon"><i :class="selectedOption(largePdfOptions, model.largePdfMode).icon" /></span>
@@ -465,7 +490,7 @@ function toneClasses(tone) {
             </div>
           </div>
 
-          <div class="compact-select compact-select--wide">
+          <div v-if="showMissingLocalFallback" class="compact-select compact-select--wide">
             <div class="compact-select__label" :class="isDark ? 'text-wt-main' : 'text-lt-main'">本地不可用时</div>
             <button type="button" :class="selectorButtonClasses()" @click="toggleSelect('missingPythonFallback')">
               <span class="compact-select__icon"><i :class="selectedOption(fallbackOptions, model.missingPythonFallback).icon" /></span>
@@ -493,12 +518,12 @@ function toneClasses(tone) {
           </div>
         </div>
 
-        <div class="space-y-2">
-          <label class="flex items-start gap-2 text-[12px]" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">
+        <div v-if="showOcrAdvancedToggles" class="space-y-2">
+          <label v-if="showFullDocumentOcrToggle" class="flex items-start gap-2 text-[12px]" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">
             <input v-model="model.allowFullDocumentOcr" type="checkbox" class="mt-0.5" />
             <span>允许后台对整份 PDF 执行文档智能解析</span>
           </label>
-          <label class="flex items-start gap-2 text-[12px]" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">
+          <label v-if="showPaddleFallbackToggle" class="flex items-start gap-2 text-[12px]" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">
             <input v-model="model.allowPaddleFullDocumentForPageRanges" type="checkbox" class="mt-0.5" />
             <span>PaddleOCR 收到页段任务时允许改为全文解析并复用缓存</span>
           </label>
@@ -548,6 +573,7 @@ function toneClasses(tone) {
           </div>
         </div>
       </div>
+
     </div>
 
     <template #footer="{ close }">
@@ -571,7 +597,7 @@ function toneClasses(tone) {
 .settings-selector-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
+  gap: 11px;
   align-items: start;
 }
 
@@ -598,14 +624,14 @@ function toneClasses(tone) {
   border-radius: 8px;
   display: flex;
   align-items: center;
-  gap: 9px;
+  gap: 8px;
   text-align: left;
   transition: border-color 160ms ease, background-color 160ms ease, box-shadow 160ms ease;
 }
 
 .compact-select__button {
-  min-height: 58px;
-  padding: 8px 9px;
+  min-height: 53px;
+  padding: 7px 9px;
 }
 
 .compact-select__button--light {
@@ -640,7 +666,7 @@ function toneClasses(tone) {
   left: 0;
   right: 0;
   top: calc(100% + 6px);
-  max-height: 252px;
+  max-height: 244px;
   overflow: auto;
   border: 1px solid transparent;
   border-radius: 8px;
@@ -659,8 +685,8 @@ function toneClasses(tone) {
 }
 
 .compact-select__option {
-  min-height: 62px;
-  padding: 8px;
+  min-height: 56px;
+  padding: 7px;
 }
 
 .compact-select__option + .compact-select__option {
@@ -687,15 +713,15 @@ function toneClasses(tone) {
 
 .compact-select__icon {
   display: inline-flex;
-  width: 24px;
-  height: 24px;
-  flex: 0 0 24px;
+  width: 22px;
+  height: 22px;
+  flex: 0 0 22px;
   align-items: center;
   justify-content: center;
   border-radius: 7px;
   background: rgba(99, 102, 241, 0.1);
   color: #6366f1;
-  font-size: 14px;
+  font-size: 13px;
 }
 
 .compact-select__content {
@@ -723,6 +749,10 @@ function toneClasses(tone) {
   overflow: hidden;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
+}
+
+.compact-select__button .compact-select__desc {
+  -webkit-line-clamp: 1;
 }
 
 .compact-select__arrow {
@@ -754,6 +784,72 @@ function toneClasses(tone) {
 
 .compact-select__meta button {
   flex: 0 0 auto;
+}
+
+.settings-action-card {
+  display: flex;
+  min-height: 62px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  padding: 10px 11px;
+}
+
+.settings-action-card--light {
+  background: rgba(255, 251, 235, 0.7);
+  border-color: rgba(245, 158, 11, 0.24);
+  color: #92400e;
+}
+
+.settings-action-card--dark {
+  background: rgba(245, 158, 11, 0.08);
+  border-color: rgba(245, 158, 11, 0.2);
+  color: #fbbf24;
+}
+
+.settings-action-card__title {
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1.25;
+}
+
+.settings-action-card__desc {
+  margin-top: 3px;
+  font-size: 10.5px;
+  line-height: 1.35;
+  opacity: 0.82;
+}
+
+.settings-action-card__button {
+  display: inline-flex;
+  height: 28px;
+  flex: 0 0 auto;
+  align-items: center;
+  border-radius: 7px;
+  padding: 0 9px;
+  font-size: 11px;
+  font-weight: 650;
+  transition: background-color 160ms ease;
+}
+
+.settings-action-card__button--light {
+  background: rgba(99, 102, 241, 0.1);
+  color: #4f46e5;
+}
+
+.settings-action-card__button--light:hover {
+  background: rgba(99, 102, 241, 0.16);
+}
+
+.settings-action-card__button--dark {
+  background: rgba(129, 140, 248, 0.14);
+  color: #a5b4fc;
+}
+
+.settings-action-card__button--dark:hover {
+  background: rgba(129, 140, 248, 0.2);
 }
 
 .local-install-btn {

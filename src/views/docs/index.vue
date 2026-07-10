@@ -40,6 +40,7 @@ const newFolderName = ref('')
 const showRenameModal = ref(false)
 const renameItem = ref(null)
 const renameValue = ref('')
+const renameError = ref('')
 const confirmDelete = ref(null)
 const contextMenu = ref(null)
 const showUploadModal = ref(false)
@@ -68,6 +69,7 @@ const ocrProviders = ref([])
 const pdfEnvironment = ref(null)
 const installingPdfLocalParser = ref(false)
 const pdfLocalParserInstallResult = ref(null)
+const manualParsingPdfPaths = ref(new Set())
 
 function normalizeProcessingSettings(value = {}) {
   return {
@@ -89,7 +91,7 @@ async function loadProcessingSettings() {
 
 async function loadOcrProviders() {
   try {
-    const result = await api()?.listOcrProviders?.()
+    const result = await (api()?.wiki?.listOcrProviders?.() || api()?.listOcrProviders?.())
     ocrProviders.value = result?.success ? (result.data || []) : []
   } catch (e) {
     console.warn('[Docs] load OCR providers failed:', e)
@@ -130,27 +132,56 @@ async function installPdfLocalParser() {
   }
 }
 
+function isOcrProviderEnabled(provider) {
+  if (!provider || provider.enabled === undefined) return true
+  return provider?.enabled === true || provider?.enabled === 1 || provider?.enabled === '1' || provider?.enabled === 'true'
+}
+
+function isSupportedPdfOcrProvider(provider) {
+  return ['mineru', 'paddleocr'].includes(String(provider?.type || '').toLowerCase())
+}
+
 const enabledOcrProviders = computed(() => ocrProviders.value.filter(provider =>
-  provider?.enabled
-  && ['mineru', 'paddleocr'].includes(String(provider.type || '').toLowerCase())
-  && provider.base_url
-  && provider.api_key_ref
+  isOcrProviderEnabled(provider)
+  && isSupportedPdfOcrProvider(provider)
+  && String(provider.base_url || '').trim()
+  && String(provider.api_key_ref || '').trim()
 ))
 
-const effectiveOcrProvider = computed(() => {
-  const selected = processingSettings.value.defaultOcrProvider
-  if (selected && selected !== 'auto') {
-    return enabledOcrProviders.value.find(provider => provider.id === selected) || null
-  }
+const supportedOcrProviders = computed(() => ocrProviders.value.filter(provider => isSupportedPdfOcrProvider(provider)))
+
+const configuredOcrProviders = computed(() => supportedOcrProviders.value.filter(provider =>
+  String(provider.base_url || '').trim()
+  && String(provider.api_key_ref || '').trim()
+))
+
+function autoOcrProvider() {
   return enabledOcrProviders.value.find(provider => String(provider.type || '').toLowerCase() === 'mineru')
     || enabledOcrProviders.value.find(provider => String(provider.type || '').toLowerCase() === 'paddleocr')
     || null
+}
+
+function selectedEnabledOcrProvider() {
+  const selected = processingSettings.value.defaultOcrProvider
+  if (!selected || selected === 'auto') return null
+  return enabledOcrProviders.value.find(provider => provider.id === selected) || null
+}
+
+const effectiveOcrProvider = computed(() => {
+  return selectedEnabledOcrProvider() || autoOcrProvider()
 })
 
 const ocrProviderStatusText = computed(() => {
   const provider = effectiveOcrProvider.value
-  if (!enabledOcrProviders.value.length) return '未配置可用的文档智能解析服务'
-  if (!provider) return '当前选择的服务商不可用'
+  if (!enabledOcrProviders.value.length) {
+    if (configuredOcrProviders.value.length) return '已保存 OCR 服务商，但当前未启用'
+    if (supportedOcrProviders.value.length) return 'OCR 服务商配置不完整，请补全 URL 和 API Key'
+    return '未配置 MinerU 或 PaddleOCR 文档智能解析服务'
+  }
+  const selected = processingSettings.value.defaultOcrProvider
+  if (selected && selected !== 'auto' && !selectedEnabledOcrProvider()) {
+    return provider ? `当前选择不可用，已自动使用：${provider.name || provider.type}` : '当前选择的服务商不可用'
+  }
   return `当前使用：${provider.name || provider.type}`
 })
 
@@ -177,6 +208,61 @@ function extOfFile(item = {}) {
   return String(item.ext || item.name?.split('.').pop() || '').toLowerCase()
 }
 
+function splitEditableName(name = '', isDirectory = false) {
+  const value = String(name || '')
+  if (isDirectory) return { base: value, ext: '' }
+  const dot = value.lastIndexOf('.')
+  if (dot <= 0) return { base: value, ext: '' }
+  return { base: value.slice(0, dot), ext: value.slice(dot) }
+}
+
+const renameExtension = computed(() => splitEditableName(renameItem.value?.name, renameItem.value?.isDirectory).ext)
+
+function normalizedRenameBaseName() {
+  let value = String(renameValue.value || '').trim()
+  const ext = renameExtension.value
+  if (ext && value.toLowerCase().endsWith(ext.toLowerCase())) {
+    value = value.slice(0, -ext.length).trim()
+  }
+  return value
+}
+
+const renameTargetName = computed(() => {
+  const base = normalizedRenameBaseName()
+  return renameItem.value?.isDirectory ? base : `${base}${renameExtension.value}`
+})
+
+const renameValidationMessage = computed(() => {
+  if (!renameItem.value) return ''
+  const base = normalizedRenameBaseName()
+  if (!base) return '名称不能为空'
+  if (/[\\/:*?"<>|]/.test(base)) return '名称不能包含 \\ / : * ? " < > |'
+  if (!renameItem.value.isDirectory && !renameExtension.value && base.lastIndexOf('.') > 0) return '不能新增文件扩展名'
+  if (renameTargetName.value === renameItem.value.name) return '名称未变化'
+  return ''
+})
+
+const renameCanSubmit = computed(() => !!renameItem.value && !renameValidationMessage.value)
+
+const renameFeedbackText = computed(() => {
+  if (renameError.value) return renameError.value
+  if (!String(renameValue.value || '').trim()) return renameValidationMessage.value
+  if (renameValidationMessage.value === '名称未变化') return ''
+  return renameValidationMessage.value
+})
+
+function dirnameOfPath(filePath = '') {
+  const value = String(filePath || '')
+  const slash = Math.max(value.lastIndexOf('/'), value.lastIndexOf('\\'))
+  return slash >= 0 ? value.slice(0, slash) : ''
+}
+
+function joinPathName(dir = '', name = '') {
+  const base = String(dir || '').replace(/[\\/]+$/, '')
+  const sep = base.includes('\\') ? '\\' : '/'
+  return `${base}${sep}${name}`
+}
+
 function pdfProcessingStatusFromResult(result) {
   if (!result) return { kind: 'pdf', state: 'unknown', tone: 'pending', label: '未检测', detail: '尚未读取 PDF 缓存状态' }
   if (!result.success) {
@@ -185,7 +271,7 @@ function pdfProcessingStatusFromResult(result) {
     }
     return { kind: 'pdf', state: 'error', tone: 'error', label: '状态异常', detail: result.message || result.error || 'PDF 状态读取失败' }
   }
-  if (result.ocrManifestCount > 0 || result.processingStatus === 'ocr_ready') {
+  if (result.ocrManifestCount > 0 || result.processingStatus === 'ocr_ready' || (result.mode === 'ocr' && result.ocrProfileKey)) {
     return { kind: 'pdf', state: 'ocr_ready', tone: 'ready', label: '智能解析完成', detail: `已生成 ${result.ocrManifestCount || 1} 份 OCR/版面缓存` }
   }
   const mode = result.pdfTextMode || ''
@@ -207,6 +293,49 @@ function baseProcessingStatusFor(item) {
   const ext = extOfFile(item)
   if (ext === 'pdf') return { kind: 'pdf', state: 'pending', tone: 'pending', label: '未解析', detail: '尚未生成 PDF 解析缓存' }
   return mediaProcessingStatusFor(item)
+}
+
+function isPdfItem(item) {
+  return !item?.isDirectory && extOfFile(item) === 'pdf'
+}
+
+function currentProcessingStatusFor(item) {
+  if (!item) return null
+  const current = items.value.find(entry => entry.path === item.path)
+  if (current?.processingStatus) return current.processingStatus
+  if (selectedFile.value?.path === item.path && selectedFile.value.processingStatus) return selectedFile.value.processingStatus
+  return item.processingStatus || baseProcessingStatusFor(item)
+}
+
+function isPdfParsing(item) {
+  return !!item?.path && manualParsingPdfPaths.value.has(item.path)
+}
+
+function isLocalFastPdfStrategy() {
+  return (processingSettings.value.pdfEngine || 'auto') === 'local_fast'
+}
+
+function isPdfParsed(item) {
+  const status = currentProcessingStatusFor(item)
+  return status?.state === 'ocr_ready'
+    || (status?.state === 'text_ready' && isLocalFastPdfStrategy())
+}
+
+function pdfContextMenuLabel(item) {
+  if (isPdfParsing(item)) return '解析中'
+  const status = currentProcessingStatusFor(item)
+  if (status?.state === 'ocr_ready') return '已智能解析'
+  if (status?.state === 'text_ready') {
+    return isLocalFastPdfStrategy() ? '本地已解析' : '本地已解析，继续智能解析'
+  }
+  if (['partial', 'mixed', 'needs_ocr'].includes(status?.state)) return '执行智能解析'
+  return isLocalFastPdfStrategy() ? '本地解析 PDF' : '解析 PDF'
+}
+
+function pdfContextMenuIcon(item) {
+  if (isPdfParsing(item)) return 'ri-loader-4-line animate-spin'
+  if (isPdfParsed(item)) return 'ri-check-line'
+  return 'ri-scan-2-line'
 }
 
 function applyProcessingStatus(filePath, status) {
@@ -563,24 +692,45 @@ async function uploadFiles() {
 
 function openRenameModal(item) {
   renameItem.value = item
-  renameValue.value = item.name
+  renameValue.value = splitEditableName(item.name, item.isDirectory).base
+  renameError.value = ''
   showRenameModal.value = true
   contextMenu.value = null
 }
 
 async function confirmRename() {
-  if (!renameItem.value || !renameValue.value.trim()) return
-  const dir = getAbsolutePath(currentPath.value)
-  const oldPath = dir + '/' + renameItem.value.name
-  const newPath = dir + '/' + renameValue.value
+  renameError.value = ''
+  if (!renameItem.value) return false
+  if (!renameCanSubmit.value) {
+    renameError.value = renameValidationMessage.value
+    return false
+  }
+  const oldPath = renameItem.value.path
+  if (!oldPath) {
+    renameError.value = '缺少原文件路径'
+    return false
+  }
+  const newName = renameTargetName.value
+  const dir = dirnameOfPath(oldPath)
+  const newPath = joinPathName(dir, newName)
   const result = await api()?.rename?.(oldPath, newPath)
   if (result?.success) {
+    if (selectedItem.value?.path === oldPath) {
+      selectedItem.value = { ...selectedItem.value, path: newPath, name: newName }
+    }
+    if (selectedFile.value?.path === oldPath) {
+      selectedFile.value = { ...selectedFile.value, path: newPath, name: newName }
+    }
     renameItem.value = null
     renameValue.value = ''
+    renameError.value = ''
     showRenameModal.value = false
     loadDirectory(currentPath.value)
     loadFolderTree()
+    return true
   }
+  renameError.value = result?.error || '重命名失败'
+  return false
 }
 
 async function deleteItem(item) {
@@ -606,6 +756,21 @@ function selectItem(item) {
 function showContextMenu(e, item) {
   e.preventDefault()
   contextMenu.value = { x: e.clientX, y: e.clientY, item }
+  if (isPdfItem(item)) {
+    const statusPromise = api()?.pdf?.getStatus?.(item.path, { probe: false })
+    if (statusPromise?.then) {
+      statusPromise.then((result) => {
+        const status = pdfProcessingStatusFromResult(result)
+        applyProcessingStatus(item.path, status)
+        if (contextMenu.value?.item?.path === item.path) {
+          contextMenu.value = {
+            ...contextMenu.value,
+            item: { ...contextMenu.value.item, processingStatus: status },
+          }
+        }
+      }).catch(() => {})
+    }
+  }
 }
 
 function closeContextMenu() {
@@ -697,43 +862,88 @@ function isLocalParserMissingResult(result) {
     || String(result?.message || result?.error || '').includes('PyMuPDF')
 }
 
+function pdfOcrProviderForRun() {
+  const selected = processingSettings.value.defaultOcrProvider
+  if (selected && selected !== 'auto' && selectedEnabledOcrProvider()) return selected
+  return 'auto'
+}
+
+async function parsePdfByStrategy(filePath, engine = processingSettings.value.pdfEngine, origin = 'docs_manual_parse') {
+  const selectedEngine = engine || 'auto'
+  const provider = pdfOcrProviderForRun()
+  if (selectedEngine === 'document_intelligent') {
+    return api()?.pdf?.startOcr?.(filePath, {
+      provider,
+      confirmFull: true,
+      fullDocument: true,
+      sourceInfo: { origin },
+    })
+  }
+  const preflight = await api()?.pdf?.preflight?.(filePath, {
+    sourceInfo: { origin },
+  })
+  if (selectedEngine === 'local_fast') return preflight
+  if (preflight?.success && preflight.pdfTextMode === 'text') return preflight
+  if (!preflight?.success && isLocalParserMissingResult(preflight)) {
+    if (processingSettings.value.missingPythonFallback !== 'ocr_provider') return preflight
+    if (!effectiveOcrProvider.value) return preflight
+  }
+  if (!effectiveOcrProvider.value) return preflight
+  if (preflight?.success && Array.isArray(preflight.ocrCandidatePages) && preflight.ocrCandidatePages.length) {
+    return api()?.pdf?.startOcr?.(filePath, {
+      provider,
+      pages: preflight.ocrCandidatePages,
+      confirmFull: true,
+      fullDocument: false,
+      sourceInfo: { origin },
+    })
+  }
+  return api()?.pdf?.startOcr?.(filePath, {
+    provider,
+    confirmFull: true,
+    fullDocument: preflight?.success === false,
+    sourceInfo: { origin },
+  })
+}
+
+async function parsePdfFromContextMenu(item) {
+  if (!isPdfItem(item) || isPdfParsed(item) || isPdfParsing(item)) return
+  const filePath = item.path
+  const status = currentProcessingStatusFor(item)
+  const engine = ['text_ready', 'partial', 'mixed', 'needs_ocr'].includes(status?.state)
+    ? 'document_intelligent'
+    : processingSettings.value.pdfEngine
+  manualParsingPdfPaths.value = new Set([...manualParsingPdfPaths.value, filePath])
+  applyProcessingStatus(filePath, {
+    kind: 'pdf',
+    state: 'parsing',
+    tone: 'pending',
+    label: '解析中',
+    detail: '正在按默认策略处理 PDF',
+  })
+  try {
+    const result = await parsePdfByStrategy(filePath, engine, 'docs_context_menu_parse')
+    applyProcessingStatus(filePath, pdfProcessingStatusFromResult(result))
+    if (result?.success === false) console.warn('[Docs] PDF manual parse failed:', result)
+  } catch (e) {
+    applyProcessingStatus(filePath, {
+      kind: 'pdf',
+      state: 'error',
+      tone: 'error',
+      label: '解析失败',
+      detail: e.message || 'PDF 解析失败',
+    })
+  } finally {
+    const next = new Set(manualParsingPdfPaths.value)
+    next.delete(filePath)
+    manualParsingPdfPaths.value = next
+    loadDocumentProcessingStatuses(items.value)
+  }
+}
+
 function runPdfParseForUploads(paths = pendingPdfUploads.value, engine = pdfUploadEngine.value) {
   const selectedEngine = engine || 'auto'
-  Promise.allSettled(paths.map(async (filePath) => {
-    if (selectedEngine === 'document_intelligent') {
-      return api()?.pdf?.startOcr?.(filePath, {
-        provider: processingSettings.value.defaultOcrProvider || 'auto',
-        confirmFull: true,
-        fullDocument: true,
-        sourceInfo: { origin: 'docs_upload_full_parse' },
-      })
-    }
-    const preflight = await api()?.pdf?.preflight?.(filePath, {
-      sourceInfo: { origin: 'docs_upload' },
-    })
-    if (selectedEngine === 'local_fast') return preflight
-    if (preflight?.success && preflight.pdfTextMode === 'text') return preflight
-    if (!preflight?.success && isLocalParserMissingResult(preflight)) {
-      if (processingSettings.value.missingPythonFallback !== 'ocr_provider') return preflight
-      if (!effectiveOcrProvider.value) return preflight
-    }
-    if (!effectiveOcrProvider.value) return preflight
-    if (preflight?.success && Array.isArray(preflight.ocrCandidatePages) && preflight.ocrCandidatePages.length) {
-      return api()?.pdf?.startOcr?.(filePath, {
-        provider: processingSettings.value.defaultOcrProvider || 'auto',
-        pages: preflight.ocrCandidatePages,
-        confirmFull: true,
-        fullDocument: false,
-        sourceInfo: { origin: 'docs_upload_auto_candidate_pages' },
-      })
-    }
-    return api()?.pdf?.startOcr?.(filePath, {
-      provider: processingSettings.value.defaultOcrProvider || 'auto',
-      confirmFull: true,
-      fullDocument: preflight?.success === false,
-      sourceInfo: { origin: 'docs_upload_full_parse' },
-    })
-  })).then((results) => {
+  Promise.allSettled(paths.map(filePath => parsePdfByStrategy(filePath, selectedEngine, 'docs_upload_full_parse'))).then((results) => {
     loadDocumentProcessingStatuses(items.value)
     const failed = results.filter(item => item.status === 'rejected' || item.value?.success === false)
     if (failed.length) console.warn('[Docs] PDF full parse failed:', failed)
@@ -828,13 +1038,17 @@ watch(
 
 watch(showProcessingSettingsModal, (visible) => {
   if (visible) {
+    loadProcessingSettings()
     loadOcrProviders()
     loadPdfEnvironment()
   }
 })
 
 watch(showPdfUploadPrompt, (visible) => {
-  if (visible) loadOcrProviders()
+  if (visible) {
+    loadProcessingSettings()
+    loadOcrProviders()
+  }
 })
 </script>
 
@@ -847,8 +1061,8 @@ watch(showPdfUploadPrompt, (visible) => {
         class="h-10 flex items-center justify-between px-3 shrink-0"
         :class="isDark ? 'border-b border-d4' : 'border-b border-bdrL'">
         <div class="flex items-center gap-1.5">
-          <i class="ri-folder-line text-[14px]" :class="isDark ? 'text-brand-400' : 'text-brand-500'" />
-          <span class="text-[12.5px] font-semibold tracking-wide" :class="isDark ? 'text-wt-main' : 'text-lt-main'">
+          <i class="ri-folder-line text-[16px]" :class="isDark ? 'text-brand-400' : 'text-brand-500'" />
+          <span class="text-[14px] font-semibold tracking-wide" :class="isDark ? 'text-wt-main' : 'text-lt-main'">
             我的文档
           </span>
         </div>
@@ -860,7 +1074,7 @@ watch(showPdfUploadPrompt, (visible) => {
               isDark ? 'text-wt-aux hover:text-wt-sub hover:bg-white/5' : 'text-lt-aux hover:text-lt-sub hover:bg-l4'
             "
             title="新建文件夹">
-            <i class="ri-folder-add-line text-[13px]" />
+            <i class="ri-folder-add-line text-[14px]" />
           </button>
           <button
             @click="showUploadModal = true"
@@ -869,7 +1083,7 @@ watch(showPdfUploadPrompt, (visible) => {
               isDark ? 'text-wt-aux hover:text-wt-sub hover:bg-white/5' : 'text-lt-aux hover:text-lt-sub hover:bg-l4'
             "
             title="上传文件">
-            <i class="ri-upload-2-line text-[13px]" />
+            <i class="ri-upload-2-line text-[14px]" />
           </button>
           <button
             @click="showProcessingSettingsModal = true"
@@ -878,7 +1092,7 @@ watch(showPdfUploadPrompt, (visible) => {
               isDark ? 'text-wt-aux hover:text-wt-sub hover:bg-white/5' : 'text-lt-aux hover:text-lt-sub hover:bg-l4'
             "
             title="解析设置">
-            <i class="ri-settings-3-line text-[13px]" />
+            <i class="ri-settings-3-line text-[14px]" />
           </button>
           <button
             @click="
@@ -889,7 +1103,7 @@ watch(showPdfUploadPrompt, (visible) => {
               isDark ? 'text-wt-dim hover:text-wt-aux hover:bg-white/5' : 'text-lt-aux hover:text-lt-sub hover:bg-l4'
             "
             title="刷新">
-            <i class="ri-refresh-line text-[12px]" />
+            <i class="ri-refresh-line text-[14px]" />
           </button>
         </div>
       </div>
@@ -904,7 +1118,7 @@ watch(showPdfUploadPrompt, (visible) => {
             v-model="searchQuery"
             type="text"
             placeholder="搜索文件..."
-            class="w-full h-7 rounded-md py-0 pl-7 pr-2 text-[11.5px] outline-none transition-colors"
+            class="w-full h-7 rounded-md py-0 pl-7 pr-2 text-[12px] outline-none transition-colors"
             :class="
               isDark
                 ? 'bg-d0 border border-d4 text-wt-sub placeholder-wt-dim focus:border-brand-400/40'
@@ -932,8 +1146,8 @@ watch(showPdfUploadPrompt, (visible) => {
                 ? 'text-wt-sub hover:bg-white/5'
                 : 'text-lt-sub hover:bg-l4',
           ]">
-          <i class="ri-home-4-line text-[12px]" />
-          <span class="text-[11.5px] font-medium flex-1">全部文档</span>
+          <i class="ri-home-4-line text-[14px]" />
+          <span class="text-[13px] font-medium flex-1">全部文档</span>
           <span class="text-[9.5px] opacity-60">{{ folderTree.folders.length + folderTree.files.length }}</span>
         </div>
       </div>
@@ -947,7 +1161,7 @@ watch(showPdfUploadPrompt, (visible) => {
           v-if="folderTree.folders.length === 0 && folderTree.files.length === 0"
           class="flex flex-col items-center gap-1.5 py-8 px-3 text-center">
           <i class="ri-folders-line text-[22px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'" />
-          <p class="text-[11px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">暂无文件</p>
+          <p class="text-[14px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">暂无文件</p>
         </div>
 
         <!-- Folder tree nodes (recursive, level 0 = tightly indented) -->
@@ -1072,7 +1286,7 @@ watch(showPdfUploadPrompt, (visible) => {
                         ? 'text-wt-dim hover:text-wt-aux'
                         : 'text-lt-aux hover:text-lt-sub'
                   ">
-                  <i class="ri-grid-line text-[13px]" />
+                  <i class="ri-grid-line text-[16px]" />
                 </button>
                 <button
                   @click="viewMode = 'list'"
@@ -1086,7 +1300,7 @@ watch(showPdfUploadPrompt, (visible) => {
                         ? 'text-wt-dim hover:text-wt-aux'
                         : 'text-lt-aux hover:text-lt-sub'
                   ">
-                  <i class="ri-list-unordered text-[13px]" />
+                  <i class="ri-list-unordered text-[16px]" />
                 </button>
               </div>
               <button
@@ -1097,7 +1311,7 @@ watch(showPdfUploadPrompt, (visible) => {
                     ? 'text-brand-400 bg-brand-400/8 border border-brand-400/20 hover:bg-brand-400/15'
                     : 'text-brand-500 bg-brand-50 border border-brand-100 hover:bg-brand-100'
                 ">
-                <i class="ri-folder-add-line text-[10px]" />
+                <i class="ri-folder-add-line text-[14px]" />
                 新建文件夹
               </button>
               <button
@@ -1108,7 +1322,7 @@ watch(showPdfUploadPrompt, (visible) => {
                     ? 'text-wt-aux bg-d3 border border-bdr hover:text-wt-sub'
                     : 'text-lt-aux bg-l3 border border-bdrF hover:text-lt-sub'
                 ">
-                <i class="ri-settings-3-line text-[10px]" />
+                <i class="ri-settings-3-line text-[14px]" />
                 解析设置
               </button>
               <button
@@ -1119,7 +1333,7 @@ watch(showPdfUploadPrompt, (visible) => {
                     ? 'text-wt-aux bg-d3 border border-bdr hover:text-wt-sub'
                     : 'text-lt-aux bg-l3 border border-bdrF hover:text-lt-sub'
                 ">
-                <i class="ri-upload-2-line text-[10px]" />
+                <i class="ri-upload-2-line text-[14px]" />
                 上传
               </button>
             </div>
@@ -1220,6 +1434,21 @@ watch(showPdfUploadPrompt, (visible) => {
             :class="isDark ? 'text-wt-sub hover:bg-white/4' : 'text-lt-sub hover:bg-l4'">
             <i class="ri-eye-line text-[13px]" />
             <span>预览</span>
+          </button>
+          <!-- PDF parse (file only) -->
+          <button
+            v-if="isPdfItem(contextMenu.item)"
+            :disabled="isPdfParsed(contextMenu.item) || isPdfParsing(contextMenu.item)"
+            @click="
+              parsePdfFromContextMenu(contextMenu.item);
+              closeContextMenu()
+            "
+            class="w-full flex items-center gap-2.5 px-3 py-2 text-[11px] transition-colors disabled:cursor-default"
+            :class="isPdfParsed(contextMenu.item)
+              ? isDark ? 'text-emerald-300/80' : 'text-emerald-600'
+              : isDark ? 'text-wt-sub hover:bg-white/4 disabled:text-wt-dim' : 'text-lt-sub hover:bg-l4 disabled:text-lt-aux'">
+            <i :class="[pdfContextMenuIcon(contextMenu.item), 'text-[13px]']" />
+            <span>{{ pdfContextMenuLabel(contextMenu.item) }}</span>
           </button>
           <!-- Chat -->
           <button
@@ -1364,19 +1593,41 @@ watch(showPdfUploadPrompt, (visible) => {
           <label
             class="block text-[10px] font-bold uppercase tracking-wider mb-1.5"
             :class="isDark ? 'text-wt-aux' : 'text-lt-aux'">
-            新名称
+            {{ renameExtension ? '文件名' : '新名称' }}
           </label>
-          <input
-            v-model="renameValue"
-            type="text"
-            placeholder="输入新名称"
-            class="w-full h-9 px-3 rounded-lg text-[12px] outline-none transition-colors"
-            :class="
-              isDark
-                ? 'bg-d0 border border-d4 text-wt-sub placeholder-wt-dim focus:border-brand-400/40'
-                : 'bg-l3 border border-bdrF text-lt-sub placeholder-lt-aux focus:border-brand-400'
-            "
-            @keyup.enter="confirmRename" />
+          <div class="flex items-stretch">
+            <input
+              v-model="renameValue"
+              type="text"
+              placeholder="输入新名称"
+              class="h-9 min-w-0 flex-1 px-3 text-[12px] outline-none transition-colors"
+              :class="[
+                renameExtension ? 'rounded-l-lg rounded-r-none' : 'w-full rounded-lg',
+                isDark
+                  ? 'bg-d0 border border-d4 text-wt-sub placeholder-wt-dim focus:border-brand-400/40'
+                  : 'bg-l3 border border-bdrF text-lt-sub placeholder-lt-aux focus:border-brand-400',
+              ]"
+              @input="renameError = ''"
+              @keyup.enter="confirmRename" />
+            <span
+              v-if="renameExtension"
+              class="h-9 shrink-0 inline-flex items-center rounded-r-lg border border-l-0 px-3 text-[12px] font-medium"
+              :class="isDark ? 'bg-d2 border-d4 text-wt-aux' : 'bg-l2 border-bdrF text-lt-aux'">
+              {{ renameExtension }}
+            </span>
+          </div>
+          <p
+            v-if="renameExtension"
+            class="mt-1 text-[10.5px]"
+            :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">
+            仅修改文件名，扩展名保持不变
+          </p>
+          <p
+            v-if="renameFeedbackText"
+            class="mt-1 text-[10.5px]"
+            :class="renameError ? 'text-red-400' : (isDark ? 'text-wt-dim' : 'text-lt-aux')">
+            {{ renameFeedbackText }}
+          </p>
         </div>
       </div>
 
@@ -1388,11 +1639,9 @@ watch(showPdfUploadPrompt, (visible) => {
           取消
         </button>
         <button
-          @click="
-            confirmRename();
-            close()
-          "
-          class="px-4 py-2 rounded-lg text-[11px] font-medium transition-colors"
+          :disabled="!renameCanSubmit"
+          @click="confirmRename"
+          class="px-4 py-2 rounded-lg text-[11px] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50"
           :class="isDark ? 'bg-brand-400 text-d0 hover:bg-brand-500' : 'bg-brand-500 text-white hover:bg-brand-600'">
           确认重命名
         </button>
@@ -1568,7 +1817,7 @@ watch(showPdfUploadPrompt, (visible) => {
   animation: pulse 1.5s ease-in-out infinite;
 }
 .ctx-pill {
-  font-size: 11px;
+  font-size: 14px;
   border-radius: 6px;
   padding: 3px 8px;
   display: inline-flex;

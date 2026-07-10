@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted, watch, h } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useAppStore } from '@/stores/app'
 import { useSettingsStore } from '@/stores/settings'
 import { useUserStore } from '@/stores/user'
@@ -7,6 +7,12 @@ import { useUserProfileStore } from '@/stores/userProfile'
 import { cloudLlmApi } from '@/apis/cloudLlm'
 import MsModal from '@/components/MsModal/MsModal.vue'
 import { useMessage } from '@/components/MsMessage/useMessage'
+import ProviderSidebar from './model-components/ProviderSidebar.vue'
+import ProviderHeader from './model-components/ProviderHeader.vue'
+import ProviderConfigPanel from './model-components/ProviderConfigPanel.vue'
+import OfficialProviderPanel from './model-components/OfficialProviderPanel.vue'
+import ModelList from './model-components/ModelList.vue'
+import OfficialUsageRecords from './model-components/OfficialUsageRecords.vue'
 
 const appStore = useAppStore()
 const settingsStore = useSettingsStore()
@@ -512,12 +518,18 @@ function requestDeleteModel(providerId, modelId) {
   showDeleteModal.value = true
 }
 
-function confirmDeleteModel() {
+async function confirmDeleteModel() {
   if (!pendingDeleteModel.value) return
   settingsStore.removeModelFromProvider(pendingDeleteModel.value.providerId, pendingDeleteModel.value.modelId)
-  hasUnsavedChanges.value = true
-  msg.info('模型已移除，点击保存生效')
-  pendingDeleteModel.value = null
+  try {
+    await saveProvidersOrThrow()
+    hasUnsavedChanges.value = false
+    msg.success('模型已删除')
+    pendingDeleteModel.value = null
+  } catch (e) {
+    hasUnsavedChanges.value = true
+    msg.error(e.message || '删除后保存失败', { title: '保存失败', duration: 4000 })
+  }
 }
 
 // Add model
@@ -655,54 +667,6 @@ function loadMoreUsageRecords() {
   loadUsageRecords({ page: usageRecordsPage.value + 1, append: true })
 }
 
-function statusLabel(status) {
-  const map = { pending: '进行中', succeeded: '成功', failed: '失败', partial_failed: '部分失败' }
-  return map[status] || status || '-'
-}
-
-function statusTone(status) {
-  if (status === 'succeeded') return isDark.value ? 'text-emerald-400 bg-emerald-400/8 border border-emerald-400/20' : 'text-emerald-600 bg-emerald-50 border border-emerald-100'
-  if (status === 'failed' || status === 'partial_failed') return isDark.value ? 'text-red-400 bg-red-400/8 border border-red-400/20' : 'text-red-600 bg-red-50 border border-red-100'
-  return isDark.value ? 'text-amber-400 bg-amber-400/8 border border-amber-400/20' : 'text-amber-600 bg-amber-50 border border-amber-100'
-}
-
-function formatDateTime(value) {
-  if (!value) return '-'
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return value
-  return date.toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
-}
-
-function formatNumber(value) {
-  const n = Number(value)
-  if (!Number.isFinite(n)) return '0'
-  return n.toLocaleString('zh-CN')
-}
-
-function formatLatency(value) {
-  const n = Number(value)
-  if (!Number.isFinite(n) || n <= 0) return '-'
-  if (n >= 1000) return `${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}s`
-  return `${Math.round(n)}ms`
-}
-
-function shortId(value) {
-  const text = String(value || '')
-  if (!text) return '-'
-  return text.length > 12 ? `${text.slice(0, 6)}...${text.slice(-4)}` : text
-}
-
-function usageTokenParts(record) {
-  return `${formatNumber(record.input_tokens || 0)} / ${formatNumber(record.output_tokens || 0)}`
-}
-
-function maskKey(value) {
-  if (!value) return '未创建'
-  const text = String(value)
-  if (text.length <= 8) return '********'
-  return `${text.slice(0, 3)}********${text.slice(-4)}`
-}
-
 function costUnitLabel(model) {
   return model?.billingUnit === 'points' ? '积分/1M' : '元/1M'
 }
@@ -721,79 +685,10 @@ function providerConfigHint() {
   return ''
 }
 
-const API_FORMAT_OPTIONS = [
-  {
-    value: 'openai',
-    label: 'OpenAI Chat',
-    endpoint: '/chat/completions',
-    help: '默认格式，兼容大多数 OpenAI-compatible 服务。',
-  },
-  {
-    value: 'openai_responses',
-    label: 'OpenAI Responses',
-    endpoint: '/responses',
-    help: '适合官方 OpenAI 或明确支持 Responses API 的网关。',
-  },
-  {
-    value: 'anthropic',
-    label: 'Anthropic Messages',
-    endpoint: '/messages',
-    help: '适合 Claude 官方 API 或 Anthropic-compatible 网关。',
-  },
-]
-
-const apiFormatSelectOptions = computed(() => API_FORMAT_OPTIONS.map(option => ({
-  label: option.label,
-  value: option.value,
-  endpoint: option.endpoint,
-  help: option.help,
-})))
-
-function apiFormatOptionByValue(value) {
-  return API_FORMAT_OPTIONS.find(item => item.value === value) || API_FORMAT_OPTIONS[0]
-}
-
-function renderApiFormatLabel(option, selected) {
-  const item = apiFormatOptionByValue(option.value)
-  const titleClass = isDark.value ? 'text-wt-main' : 'text-lt-main'
-  const descClass = isDark.value ? 'text-wt-dim' : 'text-lt-aux'
-  const endpointClass = isDark.value
-    ? 'bg-d0 text-brand-300 border border-brand-400/20'
-    : 'bg-brand-50 text-brand-600 border border-brand-100'
-
-  if (selected) {
-    return h('div', { class: 'flex items-center gap-2 min-w-0' }, [
-      h('span', { class: ['truncate text-[12px] font-medium', titleClass] }, item.label),
-      h('span', { class: ['shrink-0 rounded px-1.5 py-0.5 font-mono text-[10px] leading-none', endpointClass] }, item.endpoint),
-    ])
-  }
-
-  return h('div', { class: 'min-w-0 py-1' }, [
-    h('div', { class: 'flex items-center justify-between gap-3 min-w-0' }, [
-      h('span', { class: ['truncate text-[12px] font-semibold', titleClass] }, item.label),
-      h('span', { class: ['shrink-0 rounded px-1.5 py-0.5 font-mono text-[10px] leading-none', endpointClass] }, item.endpoint),
-    ]),
-    h('div', { class: ['mt-1 pr-5 text-[10.5px] leading-snug', descClass] }, item.help),
-  ])
-}
-
 function providerApiFormat(provider) {
   return settingsStore.normalizeProviderApiFormat
     ? settingsStore.normalizeProviderApiFormat(provider?.apiFormat, provider?.id)
     : (provider?.apiFormat || (provider?.id === 'anthropic' ? 'anthropic' : 'openai'))
-}
-
-function providerFormatOption(provider) {
-  const format = providerApiFormat(provider)
-  return API_FORMAT_OPTIONS.find(item => item.value === format) || API_FORMAT_OPTIONS[0]
-}
-
-function providerFormatLabel(provider) {
-  return providerFormatOption(provider).label
-}
-
-function providerFormatEndpoint(provider) {
-  return providerFormatOption(provider).endpoint
 }
 
 function selectApiFormat(format) {
@@ -803,17 +698,6 @@ function selectApiFormat(format) {
     : format
   hasUnsavedChanges.value = true
   debouncedAutoSave()
-}
-
-function providerFormatHelpText(provider) {
-  return providerFormatOption(provider).help
-}
-
-function providerFormatWarningText(provider) {
-  const format = providerApiFormat(provider)
-  if (format === 'openai_responses') return '谨慎修改：只有 OpenAI 官方或明确支持 /responses 的网关可用；普通兼容服务通常会连接失败。'
-  if (format === 'anthropic') return '谨慎修改：只有 Claude 官方或 Anthropic Messages 兼容服务可用；OpenAI 兼容接口请保持 OpenAI Chat。'
-  return '建议保持默认。只有当服务商文档要求其他格式时，再切换这里的请求格式。'
 }
 
 function baseUrlHelpText(provider) {
@@ -839,57 +723,16 @@ const COST_FIELDS = [
 
 <template>
   <div class="flex h-full overflow-hidden">
-    <!-- Left Panel: Provider List -->
-    <div class="w-[280px] border-0 border-r-2 border-solid shrink-0 overflow-y-auto" :class="isDark ? 'border-r border-d4' : 'border-r border-bdrL'">
-      <div class="px-4 py-3" :class="isDark ? 'bg-d3/50' : 'bg-l3'">
-        <div class="flex items-center gap-2">
-          <i class="ri-server-line text-[14px]" style="color: #A78BFA" />
-          <span class="section-title text-[12.5px]" :class="isDark ? 'text-wt-main' : 'text-lt-main'">服务商列表</span>
-          <span class="ctx-pill ml-auto" :class="isDark ? 'text-wt-dim bg-d0 border border-bdr' : 'text-lt-aux bg-l2 border border-bdrF'">
-            {{ settingsStore.providers.length }}
-          </span>
-        </div>
-        <div class="flex items-center gap-3 mt-2">
-          <div class="flex items-center gap-1.5 text-[11px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">
-            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-            {{ enabledProvidersCount }} 已启用
-          </div>
-          <div class="flex items-center gap-1.5 text-[11px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">
-            <i class="ri-cpu-line text-[11px]" style="color: #A78BFA" />
-            {{ availableModelsCount }} 模型
-          </div>
-        </div>
-      </div>
-      <div class="px-2 py-1 space-y-0.5">
-        <button v-for="provider in settingsStore.providers" :key="provider.id"
-          @click="selectedProviderId = provider.id"
-          class="w-full flex items-center gap-2.5 px-2.5 py-[7px] rounded-md relative"
-          :class="selectedProviderId === provider.id
-            ? (isDark ? 'bg-white/6 text-wt-main' : 'bg-l3 text-lt-main')
-            : (isDark ? 'text-wt-sub hover:bg-white/4' : 'text-lt-sub hover:bg-l4')">
-          <span v-show="selectedProviderId === provider.id" class="absolute left-0 top-2 bottom-2 w-[2px] rounded-r" :style="{ backgroundColor: accentHex }" />
-          <div v-if="provider.iconName" class="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 overflow-hidden">
-            <SvgIcon :icon-class="provider.iconName" :size="20" />
-          </div>
-          <div v-else class="w-7 h-7 rounded-full flex items-center justify-center text-white text-[14px] font-bold shrink-0" :style="{ background: provider.logoBg }">
-            {{ provider.logoChar }}
-          </div>
-          <div class="flex-1 min-w-0">
-            <div class="flex items-center gap-1.5">
-              <span class="text-[13px] font-medium truncate">{{ provider.name }}</span>
-              <span v-if="provider.configured" class="w-1 h-1 rounded-full bg-emerald-400" />
-            </div>
-            <div class="flex items-center gap-1 mt-0.5">
-              <span class="text-[11px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">{{ provider.models.length }} 模型</span>
-              <span v-if="provider.official || provider.builtin" class="text-[11px]" :class="isDark ? 'text-wt-dim/70' : 'text-lt-aux/70'">·</span>
-              <span v-if="provider.official" class="text-[11px]" :class="isDark ? 'text-brand-400' : 'text-brand-600'">官方</span>
-              <span v-else-if="provider.builtin" class="text-[11px]" :class="isDark ? 'text-wt-dim/70' : 'text-lt-aux/70'">内置</span>
-            </div>
-          </div>
-          <NSwitch :value="provider.enabled" size="small" :active-color="accentHex" @update:value="toggleProviderEnabled(provider.id)" @click.stop />
-        </button>
-      </div>
-    </div>
+    <ProviderSidebar
+      :providers="settingsStore.providers"
+      :selected-provider-id="selectedProviderId"
+      :enabled-providers-count="enabledProvidersCount"
+      :available-models-count="availableModelsCount"
+      :is-dark="isDark"
+      :accent-hex="accentHex"
+      @select-provider="selectedProviderId = $event"
+      @toggle-provider="toggleProviderEnabled"
+    />
 
     <!-- Right Panel -->
     <div class="flex-1 overflow-y-auto relative">
@@ -917,207 +760,50 @@ const COST_FIELDS = [
         </Transition>
 
         <div class="max-w-4xl mx-auto px-4 lg:px-6 py-4 space-y-4">
-        <!-- Provider Header -->
-        <div class="flex items-center gap-2 pb-1">
-          <div v-if="selectedProvider.iconName" class="w-11 h-11 rounded-xl flex items-center justify-center shrink-0  overflow-hidden">
-            <SvgIcon :icon-class="selectedProvider.iconName" :size="26" />
-          </div>
-          <div v-else class="w-11 h-11 rounded-xl flex items-center justify-center text-white text-[17px] font-bold shrink-0" :style="{ background: selectedProvider.logoBg }">
-            {{ selectedProvider.logoChar }}
-          </div>
-          <div class="flex-1 min-w-0">
-            <div class="flex items-center gap-1.5 flex-wrap">
-              <span class="text-[15px] font-semibold" :class="isDark ? 'text-wt-main' : 'text-lt-main'">{{ selectedProvider.name }}</span>
-              <span v-if="selectedProvider.official" class="ctx-pill" :class="isDark ? 'bg-brand-400/10 text-brand-300 border border-brand-400/15' : 'bg-brand-50 text-brand-600 border border-brand-100'">
-                <i class="ri-verified-badge-line text-[10px]" />官方
-              </span>
-              <span v-if="selectedProvider.recommended" class="ctx-pill" :class="isDark ? 'bg-emerald-400/8 text-emerald-400 border border-emerald-400/15' : 'bg-emerald-50 text-emerald-600 border border-emerald-100'">
-                <i class="ri-thumb-up-line text-[10px]" />推荐
-              </span>
-              <span v-else-if="selectedProvider.builtin" class="ctx-pill" :class="isDark ? 'bg-violet-400/10 text-violet-300 border border-violet-400/15' : 'bg-violet-50 text-violet-600 border border-violet-100'">
-                <i class="ri-shield-check-line text-[10px]" />内置
-              </span>
-              <span v-if="selectedProvider.configured" class="ctx-pill" :class="isDark ? 'bg-emerald-400/8 text-emerald-400 border border-emerald-400/15' : 'bg-emerald-50 text-emerald-600 border border-emerald-100'">
-                <span class="w-1 h-1 rounded-full" :class="isDark ? 'bg-emerald-400' : 'bg-emerald-600'" />已配置
-              </span>
-              <span v-else class="ctx-pill" :class="isDark ? 'bg-d0 text-wt-dim border border-bdr' : 'bg-l3 text-lt-aux border border-bdrF'">未配置</span>
-              <span class="ctx-pill" :class="isDark ? 'bg-d0 text-wt-dim border border-bdr' : 'bg-l3 text-lt-aux border border-bdrF'">
-                {{ providerFormatLabel(selectedProvider) }}
-              </span>
-            </div>
-            <div class="text-[12px] mt-0.5" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">{{ selectedProvider.desc }}</div>
-          </div>
-          <NSwitch :value="selectedProvider.enabled" size="small" :active-color="accentHex" @update:value="toggleProviderEnabled(selectedProvider.id)" />
-        </div>
+        <ProviderHeader
+          :provider="selectedProvider"
+          :is-dark="isDark"
+          :accent-hex="accentHex"
+          @toggle-provider="toggleProviderEnabled"
+        />
 
-        <template v-if="isOfficialProvider">
-          <div class="rounded-xl overflow-hidden" :class="isDark ? 'bg-d2/70 border border-bdr' : 'bg-white border border-bdrF'">
-            <div class="p-4 border-0 border-b border-solid" :class="isDark ? 'border-bdr' : 'border-bdrF'">
-              <div class="flex items-start justify-between gap-4">
-                <div class="min-w-0">
-                  <div class="flex items-center gap-2 flex-wrap mb-1.5">
-                    <span class="text-[13px] font-semibold" :class="isDark ? 'text-wt-main' : 'text-lt-main'">官方模型详情</span>
-                    <span class="ctx-pill" :class="officialStatus.className">
-                      <i :class="[officialStatus.icon, officialStatus.label === '同步中' ? 'animate-spin' : '', 'text-[9px]']" />{{ officialStatus.label }}
-                    </span>
-                    <span class="ctx-pill" :class="isDark ? 'text-brand-400 bg-brand-400/8 border border-brand-400/20' : 'text-brand-600 bg-brand-50 border border-brand-100'">
-                      <i class="ri-router-line text-[9px]" />OpenAI 兼容
-                    </span>
-                  </div>
-                  <p class="text-[11px] leading-relaxed max-w-[620px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">
-                    官方路由使用账户积分结算，模型列表可从云端同步；本地内置默认模型用于首次展示，云端返回后会自动替换为最新价格。
-                  </p>
-                </div>
-                <button class="h-8 px-3 rounded-lg text-[11px] font-medium transition-colors flex items-center gap-1.5 shrink-0"
-                  :class="userStore.isLoggedIn
-                    ? (isDark ? 'text-wt-sub bg-d0 border border-bdr hover:bg-d3' : 'text-lt-sub bg-l1 border border-bdrF hover:bg-l3')
-                    : (isDark ? 'text-wt-dim/50 bg-d4 cursor-not-allowed' : 'text-lt-aux/50 bg-l4 cursor-not-allowed')"
-                  :disabled="!userStore.isLoggedIn || officialBalanceLoading || officialKeyLoading || fetchingModels"
-                  @click="loadOfficialProviderData()">
-                  <i class="ri-refresh-line text-[12px]" :class="(officialBalanceLoading || officialKeyLoading || fetchingModels) ? 'animate-spin' : ''" />
-                  刷新状态
-                </button>
-              </div>
-            </div>
+        <OfficialProviderPanel
+          v-if="isOfficialProvider"
+          :provider="selectedProvider"
+          :is-dark="isDark"
+          :user-logged-in="userStore.isLoggedIn"
+          :official-status="officialStatus"
+          :official-balance-loading="officialBalanceLoading"
+          :official-balance="officialBalance"
+          :official-balance-loaded="officialBalanceLoaded"
+          :official-key-loading="officialKeyLoading"
+          :official-key-error="officialKeyError"
+          :fetching-models="fetchingModels"
+          :is-provider-configured="isProviderConfigured"
+          @refresh="loadOfficialProviderData()"
+          @reset-key="resetOfficialApiKey"
+          @copy-api-key="copyApiKey(selectedProvider.id)"
+          @test="openTestModal"
+        />
 
-            <div class="grid grid-cols-1 md:grid-cols-[1.1fr_.9fr] gap-0">
-              <div class="p-4 border-0 md:border-r border-solid" :class="isDark ? 'border-bdr' : 'border-bdrF'">
-                <div class="flex items-end justify-between gap-3 mb-3">
-                  <div>
-                    <div class="text-[10px] uppercase" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">Credits</div>
-                    <div class="mt-1 flex items-baseline gap-2">
-                      <span class="text-[30px] leading-none font-semibold tabular-nums" :class="isDark ? 'text-wt-main' : 'text-lt-main'">
-                        {{ officialBalanceLoading ? '...' : formatNumber(officialBalance) }}
-                      </span>
-                      <span class="text-[11px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">积分</span>
-                    </div>
-                  </div>
-                  <span class="ctx-pill" :class="officialBalanceLoaded ? (isDark ? 'text-emerald-400 bg-emerald-400/8 border border-emerald-400/20' : 'text-emerald-600 bg-emerald-50 border border-emerald-100') : (isDark ? 'text-wt-dim bg-d0 border border-bdr' : 'text-lt-aux bg-l3 border border-bdrF')">
-                    {{ officialBalanceLoaded ? '已获取余额' : '默认 0' }}
-                  </span>
-                </div>
-
-              </div>
-
-              <div class="p-4">
-                <div class="flex items-center justify-between gap-2 mb-2">
-                  <div>
-                    <div class="text-[11px] font-semibold" :class="isDark ? 'text-wt-main' : 'text-lt-main'">官方调用 Key</div>
-                    <div class="text-[10px] mt-0.5" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">{{ officialStatus.desc }}</div>
-                  </div>
-                  <button class="h-7 px-2.5 rounded-md text-[11px] font-medium transition-colors flex items-center gap-1"
-                    :class="userStore.isLoggedIn
-                      ? (isDark ? 'text-brand-400 hover:bg-brand-400/10' : 'text-brand-600 hover:bg-brand-50')
-                      : (isDark ? 'text-wt-dim/50 cursor-not-allowed' : 'text-lt-aux/50 cursor-not-allowed')"
-                    :disabled="!userStore.isLoggedIn || officialKeyLoading" @click="resetOfficialApiKey">
-                    <i class="ri-refresh-line text-[12px]" />{{ officialKeyLoading ? '处理中' : '重置 Key' }}
-                  </button>
-                </div>
-                <div class="h-9 rounded-lg px-3 flex items-center gap-2 font-mono text-[12px]"
-                  :class="isDark ? 'bg-d0 border border-bdr text-wt-sub' : 'bg-l1 border border-bdrF text-lt-sub'">
-                  <i class="ri-key-2-line text-[13px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'" />
-                  <span class="truncate">{{ maskKey(selectedProvider.apiKey) }}</span>
-                </div>
-                <div class="mt-2 flex items-center gap-1.5">
-                  <button class="h-8 px-3 rounded-lg text-[11px] font-medium transition-colors flex items-center gap-1"
-                    :class="isProviderConfigured
-                      ? (isDark ? 'text-wt-sub bg-d0 border border-bdr hover:bg-d3' : 'text-lt-sub bg-l1 border border-bdrF hover:bg-l3')
-                      : (isDark ? 'text-wt-dim/50 bg-d4 cursor-not-allowed' : 'text-lt-aux/50 bg-l4 cursor-not-allowed')"
-                    :disabled="!isProviderConfigured" @click="copyApiKey(selectedProvider.id)">
-                    <i class="ri-file-copy-line text-[12px]" />复制
-                  </button>
-                  <button class="h-8 px-3 rounded-lg text-[11px] font-medium transition-colors flex items-center gap-1"
-                    :class="isProviderConfigured
-                      ? (isDark ? 'text-brand-400 bg-brand-400/8 hover:bg-brand-400/12' : 'text-brand-600 bg-brand-50 hover:bg-brand-100')
-                      : (isDark ? 'text-wt-dim/50 bg-d4 cursor-not-allowed' : 'text-lt-aux/50 bg-l4 cursor-not-allowed')"
-                    :disabled="!isProviderConfigured" @click="openTestModal">
-                    <i class="ri-link text-[12px]" />测试
-                  </button>
-                </div>
-                <p v-if="officialKeyError" class="text-[10px] mt-2" :class="isDark ? 'text-red-400' : 'text-red-500'">{{ officialKeyError }}</p>
-              </div>
-            </div>
-          </div>
-        </template>
-
-        <template v-else>
-          <!-- API Key -->
-          <div class="rounded-xl p-2" :class="isDark ? 'bg-d2/60 border border-bdr' : 'bg-white border border-bdrF'">
-            <div class="flex items-center justify-between mb-1.5">
-              <label class="text-[11px] font-medium" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">API Key</label>
-              <button class="flex items-center gap-1 text-[11px] font-medium transition-colors"
-                :class="isProviderConfigured
-                  ? (isDark ? 'text-brand-400 hover:text-brand-300' : 'text-brand-600 hover:text-brand-500')
-                  : (isDark ? 'text-wt-dim/50 cursor-not-allowed' : 'text-lt-aux/50 cursor-not-allowed')"
-                :disabled="!isProviderConfigured" @click="openTestModal">
-                <i class="ri-link text-[12px]" />测试连接
-              </button>
-            </div>
-            <div class="flex items-center gap-2">
-              <input :type="showApiKeys[selectedProvider.id] ? 'text' : 'password'"
-                :value="selectedProvider.apiKey" @input="selectedProvider.apiKey = $event.target.value; onApiKeyInput(selectedProvider.id)"
-                class="flex-1 h-9 rounded-lg px-3 text-[12px] font-mono outline-none transition-colors"
-                :class="isDark ? 'bg-d0 border border-bdr text-wt-sub placeholder-wt-dim focus:border-brand-400/40' : 'bg-l1 border border-bdrF text-lt-sub placeholder-lt-aux focus:border-brand-400'"
-                :placeholder="selectedProvider.local ? '本地服务可填写任意值，例如 ollama' : '输入 API Key...'" />
-              <button class="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 transition-colors"
-                :class="isDark ? 'bg-d0 border border-bdr text-wt-aux hover:text-wt-sub hover:bg-d3' : 'bg-l1 border border-bdrF text-lt-aux hover:text-lt-sub hover:bg-l3'"
-                @click="toggleApiKeyVisibility(selectedProvider.id)">
-                <i :class="showApiKeys[selectedProvider.id] ? 'ri-eye-off-line' : 'ri-eye-line'" class="text-[13px]" />
-              </button>
-              <button class="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 transition-colors"
-                :class="isDark ? 'bg-d0 border border-bdr text-wt-aux hover:text-wt-sub hover:bg-d3' : 'bg-l1 border border-bdrF text-lt-aux hover:text-lt-sub hover:bg-l3'"
-                @click="copyApiKey(selectedProvider.id)">
-                <i class="ri-file-copy-line text-[13px]" />
-              </button>
-            </div>
-          </div>
-
-          <!-- Request Format -->
-          <div class="rounded-xl p-2" :class="isDark ? 'bg-d2/60 border border-bdr' : 'bg-white border border-bdrF'">
-            <div class="flex items-center justify-between gap-2 mb-2">
-              <label class="text-[11px] font-medium" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">请求格式</label>
-              <span class="ctx-pill font-mono" :class="isDark ? 'bg-d0 text-wt-dim border border-bdr' : 'bg-l3 text-lt-aux border border-bdrF'">
-                {{ providerFormatEndpoint(selectedProvider) }}
-              </span>
-            </div>
-            <NSelect :value="providerApiFormat(selectedProvider)" @update:value="selectApiFormat"
-              :options="apiFormatSelectOptions" :render-label="renderApiFormatLabel"
-              size="medium" :theme="isDark ? 'dark' : 'light'"
-              placeholder="选择请求格式" />
-            <p class="text-[10px] leading-relaxed mt-1.5" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">
-              {{ providerFormatHelpText(selectedProvider) }}
-            </p>
-            <div class="mt-2 rounded-lg px-2.5 py-2 flex items-start gap-2"
-              :class="isDark ? 'bg-amber-400/6 border border-amber-400/15' : 'bg-amber-50 border border-amber-100'">
-              <i class="ri-alert-line text-[13px] mt-[1px]" :class="isDark ? 'text-amber-400' : 'text-amber-600'" />
-              <span class="text-[10.5px] leading-relaxed" :class="isDark ? 'text-amber-300/90' : 'text-amber-700'">
-                {{ providerFormatWarningText(selectedProvider) }}
-              </span>
-            </div>
-          </div>
-
-          <!-- Base URL -->
-          <div class="rounded-xl p-2" :class="isDark ? 'bg-d2/60 border border-bdr' : 'bg-white border border-bdrF'">
-            <div class="flex items-center justify-between mb-1.5">
-              <label class="text-[11px] font-medium" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">Base URL</label>
-              <button class="flex items-center gap-1 text-[11px] font-medium transition-colors"
-                :class="isBaseUrlDefault
-                  ? (isDark ? 'text-wt-dim/50 cursor-not-allowed' : 'text-lt-aux/50 cursor-not-allowed')
-                  : (isDark ? 'text-brand-400 hover:text-brand-300' : 'text-brand-600 hover:text-brand-500')"
-                :disabled="isBaseUrlDefault" @click="resetBaseUrlToDefault">
-                <i class="ri-restart-line text-[12px]" />恢复默认
-              </button>
-            </div>
-            <input :value="selectedProvider.baseUrl"
-              @input="canEditBaseUrl && (selectedProvider.baseUrl = $event.target.value, onBaseUrlInput())"
-              :readonly="!canEditBaseUrl"
-              class="w-full h-9 rounded-lg px-3 text-[12px] font-mono outline-none transition-colors"
-              :class="isDark ? 'bg-d0 border border-bdr text-wt-sub focus:border-brand-400/40' : 'bg-l1 border border-bdrF text-lt-sub focus:border-brand-400'" />
-            <p class="text-[10px] leading-relaxed mt-1.5" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">
-              {{ baseUrlHelpText(selectedProvider) }}
-            </p>
-          </div>
-        </template>
+        <ProviderConfigPanel
+          v-else
+          :provider="selectedProvider"
+          :is-dark="isDark"
+          :is-provider-configured="isProviderConfigured"
+          :show-api-key="!!showApiKeys[selectedProvider.id]"
+          :can-edit-base-url="canEditBaseUrl"
+          :is-base-url-default="isBaseUrlDefault"
+          :api-format="providerApiFormat(selectedProvider)"
+          :base-url-help-text="baseUrlHelpText(selectedProvider)"
+          @test="openTestModal"
+          @toggle-api-key="toggleApiKeyVisibility(selectedProvider.id)"
+          @copy-api-key="copyApiKey(selectedProvider.id)"
+          @api-key-input="value => { selectedProvider.apiKey = value; onApiKeyInput(selectedProvider.id) }"
+          @base-url-input="value => { selectedProvider.baseUrl = value; onBaseUrlInput() }"
+          @reset-base-url="resetBaseUrlToDefault"
+          @select-api-format="selectApiFormat"
+        />
 
         <!-- Unconfigured hint -->
         <div v-if="!isProviderConfigured" class="rounded-lg px-3 py-2 flex items-center gap-2"
@@ -1128,233 +814,45 @@ const COST_FIELDS = [
           </span>
         </div>
 
-        <!-- Model Cards Grid -->
-        <div class="rounded-xl p-4" :class="isDark ? 'bg-d2/60 border border-bdr' : 'bg-white border border-bdrF'">
-          <div class="flex items-center justify-between mb-3 gap-3">
-            <div class="flex items-center gap-2 min-w-0">
-              <i class="ri-stack-line text-[14px]" :class="isDark ? 'text-wt-aux' : 'text-lt-aux'" />
-              <span class="section-title" :class="isDark ? 'text-wt-main' : 'text-lt-main'">{{ isOfficialProvider ? '官方模型列表' : '已添加模型' }}</span>
-              <span class="ctx-pill" :class="isDark ? 'bg-d0 text-wt-dim border border-bdr' : 'bg-l3 text-lt-aux border border-bdrF'">
-                {{ selectedProvider.models.length }}
-              </span>
-              <span v-if="isOfficialProvider && officialModelsLoaded" class="ctx-pill" :class="isDark ? 'text-emerald-400 bg-emerald-400/8 border border-emerald-400/20' : 'text-emerald-600 bg-emerald-50 border border-emerald-100'">
-                <i class="ri-check-line text-[9px]" />已同步
-              </span>
-              <span v-if="fetchError" class="text-[11px] ml-1 truncate" :class="isDark ? 'text-red-400' : 'text-red-500'">{{ fetchError }}</span>
-            </div>
-            <div class="flex items-center gap-1.5 shrink-0">
-              <button class="flex items-center gap-1 h-7 px-2.5 rounded-md text-[11px] font-medium transition-colors"
-                :class="canFetchModels
-                  ? (isDark ? 'text-agent-400 hover:bg-agent-400/10' : 'text-agent-600 hover:bg-agent-50')
-                  : (isDark ? 'text-wt-dim/40 cursor-not-allowed' : 'text-lt-aux/40 cursor-not-allowed')"
-                :disabled="!canFetchModels || fetchingModels" @click="fetchModelList">
-                <i class="ri-download-cloud-line text-[12px]" />
-                <span v-if="fetchingModels">获取中</span>
-                <span v-else>{{ isOfficialProvider ? '同步模型' : '获取模型' }}</span>
-              </button>
-              <button v-if="!isOfficialProvider" class="flex items-center gap-1 h-7 px-2.5 rounded-md text-[11px] font-medium transition-colors"
-                :class="isProviderConfigured
-                  ? (isDark ? 'text-wt-sub hover:bg-white/5' : 'text-lt-sub hover:bg-l3')
-                  : (isDark ? 'text-wt-dim/40 cursor-not-allowed' : 'text-lt-aux/40 cursor-not-allowed')"
-                :disabled="!isProviderConfigured" @click="openAddModal">
-                <i class="ri-add-line text-[12px]" />手动添加
-              </button>
-            </div>
-          </div>
+        <ModelList
+          :provider="selectedProvider"
+          :is-dark="isDark"
+          :accent-hex="accentHex"
+          :is-official-provider="isOfficialProvider"
+          :official-models-loaded="officialModelsLoaded"
+          :fetch-error="fetchError"
+          :can-fetch-models="canFetchModels"
+          :fetching-models="fetchingModels"
+          :is-provider-configured="isProviderConfigured"
+          :capability-meta="CAPABILITY_META"
+          :tier-label="tierLabel"
+          :tier-color="tierColor"
+          :cap-class="capClass"
+          :get-active-capabilities="getActiveCapabilities"
+          :format-cost="formatCost"
+          :cost-unit-label="costUnitLabel"
+          @fetch-models="fetchModelList"
+          @add-model="openAddModal"
+          @edit-model="openEditModal"
+          @delete-model="requestDeleteModel"
+          @toggle-model="toggleModelEnabled"
+        />
 
-          <div v-if="selectedProvider.models.length === 0" class="flex flex-col items-center justify-center py-10 gap-2">
-            <i class="ri-inbox-line text-[28px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'" />
-            <span class="text-[12px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">{{ isOfficialProvider ? '登录后点击右上方按钮同步官方模型' : '暂无模型，点击右上方按钮获取或手动添加' }}</span>
-          </div>
-
-          <div v-else class="grid gap-2" style="grid-template-columns: repeat(auto-fill, minmax(240px, 1fr))">
-            <div v-for="model in selectedProvider.models" :key="model.id"
-              class="rounded-lg p-3 relative group transition-colors"
-              :class="model.enabled
-                ? (isDark ? 'bg-d3/60 border border-bdr' : 'bg-l1 border border-bdrF')
-                : (isDark ? 'bg-d3/30 border border-d4' : 'bg-l3/40 border border-bdrF')">
-              <!-- Actions -->
-              <div v-if="!isOfficialProvider" class="absolute top-2 right-2 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                <button class="w-5 h-5 rounded-md flex items-center justify-center"
-                  :class="isDark ? 'text-wt-dim hover:text-brand-400 hover:bg-brand-400/10' : 'text-lt-aux hover:text-brand-600 hover:bg-brand-50'"
-                  @click="openEditModal(selectedProvider.id, model)">
-                  <i class="ri-edit-line text-[12px]" />
-                </button>
-                <button class="w-5 h-5 rounded-md flex items-center justify-center"
-                  :class="isDark ? 'text-wt-dim hover:text-red-400 hover:bg-red-400/10' : 'text-lt-aux hover:text-red-500 hover:bg-red-50'"
-                  @click="requestDeleteModel(selectedProvider.id, model.id)">
-                  <i class="ri-close-line text-[12px]" />
-                </button>
-              </div>
-
-              <!-- Model name -->
-              <div class="flex items-center gap-1.5 mb-2 pr-12">
-                <span class="text-[12px] font-medium truncate" :class="model.enabled ? (isDark ? 'text-wt-main' : 'text-lt-main') : (isDark ? 'text-wt-dim' : 'text-lt-aux')">{{ model.name }}</span>
-              </div>
-
-              <!-- Tier + Context + MaxOutput + addedBy -->
-              <div class="flex items-center gap-1.5 mb-2 flex-wrap">
-                <span class="ctx-pill" :style="{ color: tierColor(model.tier).text, background: tierColor(model.tier).bg, borderColor: tierColor(model.tier).border }">
-                  {{ tierLabel(model.tier) }}
-                </span>
-                <span class="ctx-pill" :class="isDark ? 'text-wt-dim bg-d0 border border-bdr' : 'text-lt-aux bg-l2 border border-bdrF'">
-                  <i class="ri-text-wrap text-[9px]" />{{ model.ctx }}
-                </span>
-                <span v-if="model.maxOutput && model.maxOutput !== '?'" class="ctx-pill" :class="isDark ? 'text-wt-dim bg-d0 border border-bdr' : 'text-lt-aux bg-l2 border border-bdrF'">
-                  <i class="ri-arrow-right-down-line text-[9px]" />{{ model.maxOutput }}
-                </span>
-              </div>
-
-              <!-- Capability pills -->
-              <div class="flex items-center gap-1 flex-wrap mb-2">
-                <span v-for="capKey in getActiveCapabilities(model.capabilities)" :key="capKey"
-                  class="ctx-pill border" :class="capClass(capKey)">
-                  <i :class="CAPABILITY_META[capKey].icon" class="text-[9px]" />{{ CAPABILITY_META[capKey].label }}
-                </span>
-              </div>
-
-              <!-- Cost info -->
-              <div v-if="(model.costInput || model.costOutput || model.costCacheRead)" class="mb-2.5">
-                <div class="flex items-center gap-2 flex-wrap">
-                  <span class="ctx-pill" :class="isDark ? 'text-orange-400 bg-orange-400/8 border border-orange-400/20' : 'text-orange-600 bg-orange-50 border border-orange-100'">
-                    <i class="ri-money-cny-circle-line text-[9px]" />{{ formatCost(model.costInput) }}/{{ formatCost(model.costOutput) }} {{ costUnitLabel(model) }}
-                  </span>
-                  <span v-if="model.costCacheRead" class="ctx-pill" :class="isDark ? 'text-teal-400 bg-teal-400/8 border border-teal-400/20' : 'text-teal-600 bg-teal-50 border border-teal-100'">
-                    <i class="ri-database-2-line text-[9px]" />缓存 {{ formatCost(model.costCacheRead) }} {{ costUnitLabel(model) }}
-                  </span>
-                  <span v-if="model.requestMinPoints" class="ctx-pill" :class="isDark ? 'text-amber-400 bg-amber-400/8 border border-amber-400/20' : 'text-amber-600 bg-amber-50 border border-amber-100'">
-                    <i class="ri-safe-2-line text-[9px]" />最低 {{ formatCost(model.requestMinPoints) }} 积分
-                  </span>
-                </div>
-              </div>
-
-              <!-- Enable toggle -->
-              <div class="flex items-center justify-between">
-                <span class="text-[10px]" :class="model.enabled ? (isDark ? 'text-brand-400' : 'text-brand-600') : (isDark ? 'text-wt-dim' : 'text-lt-aux')">
-                  {{ model.enabled ? '已启用' : '未启用' }}
-                </span>
-                <NSwitch :value="model.enabled" size="small" :active-color="accentHex" @update:value="toggleModelEnabled(selectedProvider.id, model.id)" @click.stop />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div v-if="isOfficialProvider" class="rounded-xl overflow-hidden" :class="isDark ? 'bg-d2/60 border border-bdr' : 'bg-white border border-bdrF'">
-          <div class="p-4 border-0 border-b border-solid" :class="isDark ? 'border-bdr' : 'border-bdrF'">
-            <div class="flex items-start justify-between gap-3">
-              <div class="min-w-0">
-                <div class="flex items-center gap-2">
-                  <i class="ri-history-line text-[14px]" :class="isDark ? 'text-wt-aux' : 'text-lt-aux'" />
-                  <span class="section-title" :class="isDark ? 'text-wt-main' : 'text-lt-main'">云端调用记录</span>
-                  <span class="ctx-pill" :class="isDark ? 'bg-d0 text-wt-dim border border-bdr' : 'bg-l3 text-lt-aux border border-bdrF'">
-                    {{ formatNumber(usageRecordsTotal) }}
-                  </span>
-                </div>
-                <p class="text-[11px] mt-1" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">只展示必要运营字段，不包含请求正文和消息内容。</p>
-              </div>
-              <button class="h-8 px-3 rounded-lg text-[11px] font-medium transition-colors flex items-center gap-1 shrink-0"
-                :class="userStore.isLoggedIn
-                  ? (isDark ? 'text-brand-400 bg-brand-400/8 hover:bg-brand-400/12' : 'text-brand-600 bg-brand-50 hover:bg-brand-100')
-                  : (isDark ? 'text-wt-dim/40 bg-d4 cursor-not-allowed' : 'text-lt-aux/40 bg-l4 cursor-not-allowed')"
-                :disabled="!userStore.isLoggedIn || usageRecordsLoading" @click="reloadUsageRecords">
-                <i class="ri-refresh-line text-[12px]" :class="usageRecordsLoading ? 'animate-spin' : ''" />{{ usageRecordsLoading ? '刷新中' : '刷新' }}
-              </button>
-            </div>
-
-            <div class="grid grid-cols-2 lg:grid-cols-4 gap-2 mt-3">
-              <div class="rounded-lg px-3 py-2" :class="isDark ? 'bg-d0 border border-bdr' : 'bg-l1 border border-bdrF'">
-                <div class="text-[10px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">本页消耗</div>
-                <div class="text-[14px] font-semibold mt-0.5" :class="isDark ? 'text-wt-main' : 'text-lt-main'">{{ formatCost(usageRecordSummary.totalPoints) }} 积分</div>
-              </div>
-              <div class="rounded-lg px-3 py-2" :class="isDark ? 'bg-d0 border border-bdr' : 'bg-l1 border border-bdrF'">
-                <div class="text-[10px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">本页 Tokens</div>
-                <div class="text-[14px] font-semibold mt-0.5" :class="isDark ? 'text-wt-main' : 'text-lt-main'">{{ formatNumber(usageRecordSummary.totalTokens) }}</div>
-              </div>
-              <div class="rounded-lg px-3 py-2" :class="isDark ? 'bg-d0 border border-bdr' : 'bg-l1 border border-bdrF'">
-                <div class="text-[10px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">成功请求</div>
-                <div class="text-[14px] font-semibold mt-0.5" :class="isDark ? 'text-wt-main' : 'text-lt-main'">{{ usageRecordSummary.successCount }}</div>
-              </div>
-              <div class="rounded-lg px-3 py-2" :class="isDark ? 'bg-d0 border border-bdr' : 'bg-l1 border border-bdrF'">
-                <div class="text-[10px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">平均延迟</div>
-                <div class="text-[14px] font-semibold mt-0.5" :class="isDark ? 'text-wt-main' : 'text-lt-main'">{{ formatLatency(usageRecordSummary.avgLatency) }}</div>
-              </div>
-            </div>
-
-            <div class="grid gap-2 sm:grid-cols-[140px_1fr_auto] mt-3">
-              <select v-model="usageStatusFilter" @change="reloadUsageRecords"
-                class="h-8 rounded-lg px-2 text-[12px] outline-none transition-colors appearance-none"
-                :class="isDark ? 'bg-d0 border border-d4 text-wt-sub focus:border-brand-400/40' : 'bg-l2 border border-bdrL text-lt-sub focus:border-brand-400'">
-                <option value="">全部状态</option>
-                <option value="succeeded">成功</option>
-                <option value="failed">失败</option>
-                <option value="partial_failed">部分失败</option>
-                <option value="pending">进行中</option>
-              </select>
-              <div class="relative">
-                <i class="ri-search-line absolute left-2.5 top-[8px] text-[12px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'" />
-                <input v-model="usageModelFilter" type="text" placeholder="按模型 ID 过滤，回车查询"
-                  class="w-full h-8 rounded-lg py-0 pl-7 pr-2 text-[12px] outline-none transition-colors"
-                  :class="isDark ? 'bg-d0 border border-d4 text-wt-sub placeholder-wt-dim focus:border-brand-400/40' : 'bg-l2 border border-bdrL text-lt-sub placeholder-lt-aux focus:border-brand-400'"
-                  @keyup.enter="reloadUsageRecords" />
-              </div>
-              <button class="h-8 px-3 rounded-lg text-[11px] font-medium transition-colors"
-                :class="isDark ? 'text-wt-sub bg-d0 border border-bdr hover:bg-d3' : 'text-lt-sub bg-l1 border border-bdrF hover:bg-l3'"
-                @click="reloadUsageRecords">
-                查询
-              </button>
-            </div>
-            <p v-if="usageRecordsError" class="text-[10px] mt-2" :class="isDark ? 'text-red-400' : 'text-red-500'">{{ usageRecordsError }}</p>
-          </div>
-
-          <div v-if="usageRecordsLoading && usageRecords.length === 0" class="flex items-center gap-2 py-8 justify-center">
-            <div class="w-4 h-4 border-2 rounded-full animate-spin" :class="isDark ? 'border-brand-400 border-t-transparent' : 'border-brand-500 border-t-transparent'" />
-            <span class="text-[12px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">正在获取调用记录...</span>
-          </div>
-          <div v-else-if="usageRecords.length === 0" class="flex flex-col items-center justify-center py-9 gap-2">
-            <i class="ri-file-list-3-line text-[24px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'" />
-            <span class="text-[12px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">暂无云端模型调用记录</span>
-          </div>
-          <div v-else class="overflow-x-auto">
-            <div class="min-w-[760px]">
-            <div class="grid grid-cols-[minmax(150px,1.3fr)_84px_112px_96px_82px_110px] gap-3 px-4 py-2 text-[10px] border-0 border-b border-solid"
-              :class="isDark ? 'text-wt-dim border-bdr bg-d0/50' : 'text-lt-aux border-bdrF bg-l1'">
-              <span>模型 / 请求</span>
-              <span>状态</span>
-              <span>输入 / 输出</span>
-              <span>积分</span>
-              <span>延迟</span>
-              <span>时间</span>
-            </div>
-            <div class="divide-y" :class="isDark ? 'divide-bdr' : 'divide-bdrF'">
-              <div v-for="record in usageRecords" :key="record.id || record.request_id"
-                class="grid grid-cols-[minmax(150px,1.3fr)_84px_112px_96px_82px_110px] gap-3 px-4 py-2.5 items-center text-[11px]"
-                :class="isDark ? 'hover:bg-white/4' : 'hover:bg-l2'">
-                <div class="min-w-0">
-                  <div class="text-[12px] font-medium truncate" :class="isDark ? 'text-wt-main' : 'text-lt-main'">{{ record.model_alias || '-' }}</div>
-                  <div class="flex items-center gap-1 mt-0.5 min-w-0">
-                    <span class="truncate font-mono" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">{{ shortId(record.request_id || record.id) }}</span>
-                    <span v-if="record.stream" class="ctx-pill shrink-0" :class="isDark ? 'text-sky-400 bg-sky-400/8 border border-sky-400/20' : 'text-sky-600 bg-sky-50 border border-sky-100'" style="font-size:9px;padding:1px 4px">流式</span>
-                  </div>
-                </div>
-                <span class="ctx-pill w-fit" :class="statusTone(record.status)">{{ statusLabel(record.status) }}</span>
-                <span class="font-mono" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">{{ usageTokenParts(record) }}</span>
-                <span class="font-mono" :class="isDark ? 'text-orange-400' : 'text-orange-600'">{{ formatCost(record.charged_points || 0) }}</span>
-                <span class="font-mono" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">{{ formatLatency(record.latency_ms) }}</span>
-                <span :title="record.error_message || ''" class="truncate" :class="record.error_message ? (isDark ? 'text-red-400' : 'text-red-500') : (isDark ? 'text-wt-dim' : 'text-lt-aux')">
-                  {{ record.error_message || formatDateTime(record.started_at || record.created) }}
-                </span>
-              </div>
-            </div>
-            </div>
-            <div v-if="usageRecordsHasNext" class="p-3 border-0 border-t border-solid" :class="isDark ? 'border-bdr' : 'border-bdrF'">
-              <button class="w-full h-8 rounded-lg text-[11px] font-medium transition-colors"
-                :class="isDark ? 'text-wt-sub bg-d0 border border-bdr hover:bg-d3' : 'text-lt-sub bg-l1 border border-bdrF hover:bg-l3'"
-                :disabled="usageRecordsLoading" @click="loadMoreUsageRecords">
-                {{ usageRecordsLoading ? '加载中...' : '加载更多' }}
-              </button>
-            </div>
-          </div>
-        </div>
+        <OfficialUsageRecords
+          v-if="isOfficialProvider"
+          v-model:status-filter="usageStatusFilter"
+          v-model:model-filter="usageModelFilter"
+          :is-dark="isDark"
+          :user-logged-in="userStore.isLoggedIn"
+          :records="usageRecords"
+          :total="usageRecordsTotal"
+          :has-next="usageRecordsHasNext"
+          :loading="usageRecordsLoading"
+          :error="usageRecordsError"
+          :summary="usageRecordSummary"
+          @reload="reloadUsageRecords"
+          @load-more="loadMoreUsageRecords"
+        />
         </div>
       </template>
 

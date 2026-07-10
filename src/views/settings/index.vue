@@ -82,10 +82,10 @@ const currentSectionInfo = computed(() => sectionMap[activeSection.value])
               >
                 <span v-show="activeSection === k" class="absolute left-0 top-2 bottom-2 w-[2px] rounded-r" :style="{ backgroundColor: accentHex }" />
                 <div class="w-[22px] h-[22px] rounded-md flex items-center justify-center shrink-0" :class="activeSection === k ? (isDark ? 'bg-d0' : 'bg-l2') : ''">
-                  <i :class="`${sectionMap[k].icon} text-[14px] ${activeSection === k ? (isDark ? 'text-brand-400' : 'text-brand-500') : ''}`" />
+                  <i :class="`${sectionMap[k].icon} text-[16px] ${activeSection === k ? (isDark ? 'text-brand-400' : 'text-brand-500') : ''}`" />
                 </div>
-                <span class="text-[14px] font-medium flex-1 text-left">{{ sectionMap[k].name }}</span>
-                <span v-if="sectionMap[k].badge" class="text-[9px] font-semibold px-1.5 py-[1px] rounded" :class="isDark ? 'bg-d4 text-wt-dim' : 'bg-l4 text-lt-aux'">{{ sectionMap[k].badge }}</span>
+                <span class="text-[15px] font-medium flex-1 text-left">{{ sectionMap[k].name }}</span>
+                <span v-if="sectionMap[k].badge" class="text-[10px] font-semibold px-1.5 py-[1px] rounded" :class="isDark ? 'bg-d4 text-wt-dim' : 'bg-l4 text-lt-aux'">{{ sectionMap[k].badge }}</span>
               </button>
             </div>
           </div>

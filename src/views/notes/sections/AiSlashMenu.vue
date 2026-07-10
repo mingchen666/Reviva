@@ -81,6 +81,8 @@ function colorCls(c) { return isDark.value ? COLOR_TEXT[c]?.dark : COLOR_TEXT[c]
       class="slash-menu fixed z-[80] rounded-lg shadow-2xl backdrop-blur-md"
       :class="isDark ? 'bg-d3/95 border border-bdr' : 'bg-l1/95 border border-bdrL'"
       :style="{ left: x + 'px', top: y + 'px', width: '280px', maxHeight: '320px' }">
+      <div class="slash-arrow absolute -top-[5px] left-5 h-2.5 w-2.5 rotate-45"
+        :class="isDark ? 'bg-d3/95 border-l border-t border-bdr' : 'bg-l1/95 border-l border-t border-bdrL'" />
       <div class="flex items-center gap-1.5 px-3 py-2"
         :class="isDark ? 'border-b border-d4' : 'border-b border-bdrF'">
         <i class="ri-magic-line text-[12px] text-agent-400" />

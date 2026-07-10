@@ -1,17 +1,11 @@
 import pkg from 'electron-updater'
 const { autoUpdater } = pkg
-import { ipcMain } from 'electron'
+import { app, ipcMain } from 'electron'
 
 let win = null
 
 function initAutoUpdater(mainWindow) {
   win = mainWindow
-
-  // 开发模式不检查更新
-  if (process.env.NODE_ENV === 'development') {
-    console.log('[AutoUpdater] 开发模式，跳过自动更新')
-    return
-  }
 
   // 配置
   autoUpdater.autoDownload = false // 不自动下载，先提示用户
@@ -59,6 +53,13 @@ function initAutoUpdater(mainWindow) {
 
   // IPC handlers
   ipcMain.handle('update:check', () => {
+    if (process.env.NODE_ENV === 'development' || !app.isPackaged) {
+      return {
+        skipped: true,
+        reason: 'not-packaged',
+        message: '当前为开发或未打包环境，默认自动更新通道不可用',
+      }
+    }
     try {
       return autoUpdater.checkForUpdates()
     } catch (e) {
@@ -80,9 +81,13 @@ function initAutoUpdater(mainWindow) {
   })
 
   // 启动后延迟 3s 自动检查一次
-  setTimeout(() => {
-    autoUpdater.checkForUpdates().catch(() => {})
-  }, 3000)
+  if (process.env.NODE_ENV !== 'development' && app.isPackaged) {
+    setTimeout(() => {
+      autoUpdater.checkForUpdates().catch(() => {})
+    }, 3000)
+  } else {
+    console.log('[AutoUpdater] 开发或未打包环境，跳过默认自动更新检查')
+  }
 }
 
 function sendToRenderer(channel, data) {

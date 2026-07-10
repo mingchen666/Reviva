@@ -2,8 +2,9 @@
 // Called from AgentService via IPC so model requests stay in the main process.
 
 import { ChatAnthropic } from '@langchain/anthropic'
-import { ChatOpenAICompletions, ChatOpenAIResponses } from '@langchain/openai'
+import { ChatOpenAICompletions } from '@langchain/openai'
 import { HumanMessage } from '@langchain/core/messages'
+import { ChatOpenAIResponsesCompat, normalizeAnthropicApiUrl } from './runtime/modelAdapters.js'
 
 function normalizeApiFormat(providerId, apiFormat = '') {
   const value = String(apiFormat || '').trim().toLowerCase()
@@ -34,12 +35,12 @@ export class TitleGenerator {
     let chatModel
     const normalizedApiFormat = normalizeApiFormat(providerId, apiFormat)
     if (normalizedApiFormat === 'anthropic') {
-      const anthropicBaseURL = (baseUrl || '').replace(/\/v1\/?$/, '').replace(/\/$/, '') || undefined
-      chatModel = new ChatAnthropic({ apiKey, model, baseURL: anthropicBaseURL, temperature: 0.3, maxTokens: 50 })
+      const anthropicApiUrl = normalizeAnthropicApiUrl(baseUrl)
+      chatModel = new ChatAnthropic({ apiKey, model, anthropicApiUrl, temperature: 0.3, maxTokens: 50 })
     } else {
       const openaiOpts = { apiKey, model, temperature: 0.3, maxTokens: 50 }
       if (baseUrl) openaiOpts.configuration = { baseURL: baseUrl }
-      const ChatModel = normalizedApiFormat === 'openai_responses' ? ChatOpenAIResponses : ChatOpenAICompletions
+      const ChatModel = normalizedApiFormat === 'openai_responses' ? ChatOpenAIResponsesCompat : ChatOpenAICompletions
       chatModel = new ChatModel(openaiOpts)
     }
 

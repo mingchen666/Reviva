@@ -116,12 +116,12 @@ function reset() {
       <div class="flex items-center gap-2.5">
         <div class="w-8 h-8 rounded-lg flex items-center justify-center"
           :class="isDark ? 'bg-brand-400/12' : 'bg-brand-50'">
-          <i class="ri-upload-cloud-2-line text-[16px]" :class="isDark ? 'text-brand-400' : 'text-brand-500'" />
+          <i class="ri-upload-cloud-2-line text-[18px]" :class="isDark ? 'text-brand-400' : 'text-brand-500'" />
         </div>
         <div>
-          <div class="text-[13px] font-bold" :class="isDark ? 'text-wt-main' : 'text-lt-main'">添加文档</div>
+          <div class="text-[14px] font-bold" :class="isDark ? 'text-wt-main' : 'text-lt-main'">添加文档</div>
           <div class="text-[10px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">
-            <i class="ri-folder-line text-[10px] mr-0.5" />
+            <i class="ri-folder-line text-[12px] mr-0.5" />
             {{ currentPath || '根目录' }}
           </div>
         </div>
@@ -132,14 +132,14 @@ function reset() {
     <div class="flex gap-1 mb-4 p-1 rounded-lg"
       :class="isDark ? 'bg-d0' : 'bg-l3'">
       <button @click="tab = 'local'"
-        class="flex-1 h-8 rounded-md text-[12px] font-medium transition-all flex items-center justify-center gap-1.5"
+        class="flex-1 h-8 rounded-md text-[14px] font-medium transition-all flex items-center justify-center gap-1.5"
         :class="tab === 'local'
           ? (isDark ? 'bg-d3 text-wt-main shadow-sm' : 'bg-white text-lt-main shadow-sm')
           : (isDark ? 'text-wt-dim hover:text-wt-aux' : 'text-lt-aux hover:text-lt-sub')">
         <i class="ri-folder-upload-line text-[14px]" />本地文件
       </button>
       <button @click="tab = 'url'"
-        class="flex-1 h-8 rounded-md text-[12px] font-medium transition-all flex items-center justify-center gap-1.5"
+        class="flex-1 h-8 rounded-md text-[14px] font-medium transition-all flex items-center justify-center gap-1.5"
         :class="tab === 'url'
           ? (isDark ? 'bg-d3 text-wt-main shadow-sm' : 'bg-white text-lt-main shadow-sm')
           : (isDark ? 'text-wt-dim hover:text-wt-aux' : 'text-lt-aux hover:text-lt-sub')">
@@ -172,7 +172,7 @@ function reset() {
               {{ isDragging ? '松开以添加文件' : '点击选择或拖放文件到这里' }}
             </p>
             <p class="text-[10px] mt-0.5" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">
-              支持 PDF、Word、Excel、PPT、Markdown、图片等格式
+              支持 PDF、DOCX、Excel、PPTX、Markdown、TXT等格式
             </p>
           </div>
         </div>
@@ -183,21 +183,21 @@ function reset() {
         <div v-for="(f, idx) in pickedFiles" :key="f.path"
           class="flex items-center gap-2.5 px-3 py-2 rounded-lg group transition-colors"
           :class="isDark ? 'bg-d0 hover:bg-d0/80' : 'bg-l3 hover:bg-l4'">
-          <i :class="fileIconFor(f.name)" class="text-[15px] shrink-0" />
+          <i :class="fileIconFor(f.name)" class="text-[18px] shrink-0" />
           <div class="flex-1 min-w-0">
-            <div class="text-[12px] truncate" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">{{ f.name }}</div>
+            <div class="text-[13px] truncate" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">{{ f.name }}</div>
             <div class="text-[10px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">{{ formatSize(f.size) }}</div>
           </div>
           <button @click.stop="removeFile(idx)"
             class="w-6 h-6 rounded-md flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all"
             :class="isDark ? 'text-wt-dim hover:text-red-400 hover:bg-red-400/12' : 'text-lt-aux hover:text-red-500 hover:bg-red-50'">
-            <i class="ri-close-line text-[12px]" />
+            <i class="ri-close-line text-[13px]" />
           </button>
         </div>
       </div>
-      <div v-if="pickedFiles.length > 0" class="mt-2 text-[10px] flex items-center gap-1"
+      <div v-if="pickedFiles.length > 0" class="mt-2 text-[12px] flex items-center gap-1"
         :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">
-        <i class="ri-information-line text-[11px]" />
+        <i class="ri-information-line text-[14px]" />
         已选择 {{ pickedFiles.length }} 个文件
       </div>
     </div>
@@ -247,15 +247,15 @@ function reset() {
     </div>
 
     <template #footer="{ close }">
-      <button @click="close()" class="px-4 py-2 rounded-lg text-[11px] font-medium transition-colors"
+      <button @click="close()" class="px-4 py-2 rounded-lg text-[13px] font-medium transition-colors"
         :class="isDark ? 'text-wt-aux hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub'">取消</button>
       <button @click="handleSubmit"
         :disabled="tab !== 'local' || pickedFiles.length === 0"
-        class="px-4 py-2 rounded-lg text-[11px] font-medium transition-all flex items-center gap-1"
+        class="px-4 py-2 rounded-lg text-[13px] font-medium transition-all flex items-center gap-1"
         :class="(tab === 'local' && pickedFiles.length > 0)
           ? (isDark ? 'bg-brand-400 text-d0 hover:bg-brand-500' : 'bg-brand-500 text-white hover:bg-brand-600')
           : (isDark ? 'bg-d0 text-wt-dim cursor-not-allowed' : 'bg-l4 text-lt-aux cursor-not-allowed')">
-        <i class="ri-upload-2-line text-[12px]" />
+        <i class="ri-upload-2-line text-[13px]" />
         <span>{{ tab === 'local' && pickedFiles.length > 0 ? `上传 ${pickedFiles.length} 个文件` : '上传' }}</span>
       </button>
     </template>

@@ -19,6 +19,9 @@ import { PdfOcrService } from './PdfOcrService.js'
 import { readPdfReadSettings } from './PdfReadSettings.js'
 import { PdfTextExtractor } from './PdfTextExtractor.js'
 
+const PDF_DEFAULT_MAX_IMAGES = 50
+const PDF_MAX_IMAGES = 200
+
 function compact(value, max = 1200) {
   return String(value || '').replace(/\s+/g, ' ').trim().slice(0, max)
 }
@@ -71,6 +74,7 @@ export class PdfReadService {
     const maxChars = clampInt(input.maxChars, PDF_DEFAULT_MAX_CHARS, 1000, PDF_MAX_CHARS)
     const maxPages = clampInt(input.maxPages, PDF_DEFAULT_MAX_PAGES, 1, PDF_MAX_PAGES)
     const startPage = clampInt(input.startPage, 1, 1, Number.MAX_SAFE_INTEGER)
+    const maxImages = clampInt(input.maxImages, PDF_DEFAULT_MAX_IMAGES, 1, PDF_MAX_IMAGES)
     const doc = await this._cache.documentFor(input.inputPath, {
       virtualPath: input.virtualPath,
       sourceInfo: input.sourceInfo || {},
@@ -81,7 +85,7 @@ export class PdfReadService {
     if (mode === 'ocr') return this.ocr(doc, { ...input, startPage, maxPages, maxChars })
     if (mode === 'layout') return this.layout(doc, { ...input, startPage, maxPages, maxChars })
     if (mode === 'page') return this.page(doc, { ...input, startPage, maxPages, maxChars })
-    if (mode === 'images') return this.images(doc, { ...input, startPage, maxPages, maxChars })
+    if (mode === 'images') return this.images(doc, { ...input, startPage, maxPages, maxChars, maxImages })
     return this.overview(doc, { ...input, startPage, maxPages, maxChars })
   }
 
@@ -295,7 +299,7 @@ export class PdfReadService {
     }
   }
 
-  async ocr(doc, { pages = [], startPage, maxPages, provider = 'auto', confirmFull = false, fullDocument = false, sourceInfo = {} }) {
+  async ocr(doc, { pages = [], startPage, maxPages, provider = 'auto', confirmFull = false, fullDocument = false, explicitPageSelection = false, sourceInfo = {} }) {
     if (this._settings.pdfEngine === 'local_fast' && !confirmFull && !fullDocument) {
       return {
         success: true,
@@ -311,7 +315,7 @@ export class PdfReadService {
         },
       }
     }
-    const shouldFullDocument = !!fullDocument || this._settings.largePdfMode === 'full_document'
+    const shouldFullDocument = !!fullDocument || (this._settings.largePdfMode === 'full_document' && !explicitPageSelection)
     const serviceFirst = this._settings.pdfEngine === 'document_intelligent'
     const canSkipTextProbe = shouldFullDocument && serviceFirst && !pages?.length
     const overview = canSkipTextProbe
@@ -324,9 +328,9 @@ export class PdfReadService {
           serviceFirst: true,
         }
       : await this.ensureOverview(doc, {})
-    const dependencyFallback = !overview.success
-      && overview.code === PDF_ERROR_CODES.TEXT_DEPENDENCY_MISSING
-      && this._settings.missingPythonFallback === 'ocr_provider'
+    const missingLocalParser = !overview.success && overview.code === PDF_ERROR_CODES.TEXT_DEPENDENCY_MISSING
+    const dependencyFallback = missingLocalParser
+      && ['ocr_provider', 'prompt'].includes(this._settings.missingPythonFallback)
     if (!overview.success && !dependencyFallback) return overview
     if (dependencyFallback && !confirmFull && !fullDocument) {
       return {
@@ -335,10 +339,14 @@ export class PdfReadService {
         pdfId: doc.id,
         path: doc.virtualPath,
         status: 'needs_confirmation',
-        message: '当前环境没有可用的 Python/PyMuPDF，无法先读取 PDF 文本层。可按设置改用 OCR 服务商解析整份 PDF。',
+        message: this._settings.missingPythonFallback === 'prompt'
+          ? '当前环境没有可用的 Python/PyMuPDF，无法先读取 PDF 文本层。请确认是否改用 OCR 服务商解析。'
+          : '当前环境没有可用的 Python/PyMuPDF，无法先读取 PDF 文本层。可按设置改用 OCR 服务商解析整份 PDF。',
         recommendation: {
           action: 'ocr_full_document',
-          reason: 'OCR 服务商可直接解析 PDF；建议在文档模块后台执行全文解析后再问答。',
+          reason: this._settings.missingPythonFallback === 'prompt'
+            ? '设置为先提示确认；用户确认后再调用 OCR 服务商。'
+            : 'OCR 服务商可直接解析 PDF；建议在文档模块后台执行全文解析后再问答。',
         },
       }
     }
@@ -389,10 +397,12 @@ export class PdfReadService {
       }
     }
 
+    const explicitProvider = provider && provider !== 'auto'
     const result = await this._ocr.run({
       doc,
       inputPath: doc.realPath,
-      providerId: provider && provider !== 'auto' ? provider : (this._settings.defaultOcrProvider || 'auto'),
+      providerId: explicitProvider ? provider : (this._settings.defaultOcrProvider || 'auto'),
+      allowProviderFallback: !explicitProvider,
       pages: selected.pages,
       sourceInfo,
     })
@@ -416,7 +426,15 @@ export class PdfReadService {
   }
 
   async layout(doc, { ocrProfileKey = '', startPage = 1, maxPages = PDF_DEFAULT_MAX_PAGES, maxChars }) {
-    const profileKey = ocrProfileKey || (await this._cache.listOcrManifests(doc))[0]?.ocrProfileKey || ''
+    const manifests = await this._cache.listOcrManifests(doc)
+    const requestedPages = pageRangePages({ startPage, maxPages })
+    const matchingManifest = !ocrProfileKey
+      ? manifests.find(manifest => {
+          const manifestPages = new Set((manifest.pages || []).map(page => Number(page.page)))
+          return requestedPages.some(page => manifestPages.has(page))
+        })
+      : null
+    const profileKey = ocrProfileKey || matchingManifest?.ocrProfileKey || manifests[0]?.ocrProfileKey || ''
     if (!profileKey) {
       const overview = await this.ensureOverview(doc, {})
       return pdfError(PDF_ERROR_CODES.NEEDS_OCR, '尚未找到 OCR/layout 缓存。', {
@@ -429,6 +447,19 @@ export class PdfReadService {
     const manifest = await this._cache.readOcrManifest(doc, profileKey)
     const pageRefs = (manifest?.pages || [])
       .filter(page => Number(page.page) >= startPage && Number(page.page) < startPage + maxPages)
+    if (!pageRefs.length) {
+      return pdfError(PDF_ERROR_CODES.NEEDS_OCR, '现有 OCR/layout 缓存不包含请求页段。', {
+        path: doc.virtualPath,
+        pdfId: doc.id,
+        ocrProfileKey: profileKey,
+        recommendation: {
+          action: 'ocr_in_ranges',
+          reason: '请先对当前问题需要的页段执行 OCR/版面解析。',
+          pages: requestedPages,
+        },
+        nextAction: '调用 pdf_read(mode="ocr", pages=[...]) 或 document_read(mode="ocr", pages=[...], confirm=true)。',
+      })
+    }
     let markdown = pageRefs.length
       ? await this._cache.readOcrMarkdownPages(doc, profileKey, pageRefs)
       : ''
@@ -468,17 +499,22 @@ export class PdfReadService {
     }
   }
 
-  async images(doc) {
-    const embedded = await this._images.listEmbeddedImages(this._cache, doc)
+  async images(doc, { startPage = 1, maxPages = PDF_DEFAULT_MAX_PAGES, maxImages = PDF_DEFAULT_MAX_IMAGES } = {}) {
+    const embedded = await this._images.listEmbeddedImages(this._cache, doc, { startPage, maxPages, maxImages })
     const ocrManifests = await this._cache.listOcrManifests(doc)
+    const ocrAssets = ocrManifests.flatMap(manifest => manifest.assets || [])
+    const hasAssets = !!(embedded.images?.length || ocrAssets.length)
+    const success = embedded.success !== false || hasAssets
     return {
-      success: true,
+      success,
+      ...(success ? {} : { code: embedded.code || 'PDF_IMAGE_EXTRACT_FAILED', message: embedded.note || 'PDF 图片资源不可用。' }),
       mode: 'images',
       pdfId: doc.id,
       path: doc.virtualPath,
       embedded: embedded.images || [],
-      ocrAssets: ocrManifests.flatMap(manifest => manifest.assets || []),
-      cacheHit: true,
+      ocrAssets,
+      cacheHit: !!embedded.cacheHit,
+      embeddedStatus: embedded.success === false ? 'unavailable' : 'ready',
       note: embedded.note,
     }
   }

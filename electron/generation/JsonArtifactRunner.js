@@ -1,8 +1,9 @@
 import { ChatAnthropic } from '@langchain/anthropic'
-import { ChatOpenAICompletions, ChatOpenAIResponses } from '@langchain/openai'
+import { ChatOpenAICompletions } from '@langchain/openai'
 import { HumanMessage } from '@langchain/core/messages'
 import { FileContextReader } from './FileContextReader.js'
 import { KnowledgeContextSearcher } from './KnowledgeContextSearcher.js'
+import { ChatOpenAIResponsesCompat, normalizeAnthropicApiUrl } from '../agents/runtime/modelAdapters.js'
 
 function normalizeApiFormat(providerId, apiFormat = '') {
   const value = String(apiFormat || '').trim().toLowerCase()
@@ -148,9 +149,9 @@ export class JsonArtifactRunner {
 
     const apiFormat = normalizeApiFormat(providerId, options.apiFormat)
     if (apiFormat === 'anthropic') {
-      const baseURL = (baseUrl || '').replace(/\/v1\/?$/, '').replace(/\/$/, '') || undefined
+      const anthropicApiUrl = normalizeAnthropicApiUrl(baseUrl)
       const opts = { ...common, timeout: 180000 }
-      if (baseURL) opts.baseURL = baseURL
+      if (anthropicApiUrl) opts.anthropicApiUrl = anthropicApiUrl
       return new ChatAnthropic(opts)
     }
 
@@ -158,7 +159,7 @@ export class JsonArtifactRunner {
     if (baseUrl) {
       opts.configuration = { baseURL: baseUrl }
     }
-    const ChatModel = apiFormat === 'openai_responses' ? ChatOpenAIResponses : ChatOpenAICompletions
+    const ChatModel = apiFormat === 'openai_responses' ? ChatOpenAIResponsesCompat : ChatOpenAICompletions
     return new ChatModel(opts)
   }
 }

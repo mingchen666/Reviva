@@ -1,0 +1,105 @@
+name: Build Desktop Installers
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-mac:
+    name: Build unsigned macOS x64 DMG
+    runs-on: macos-13
+
+    env:
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      NODE_OPTIONS: --max-old-space-size=8192
+      VITE_CLOUD_BASE_URL: ${{ secrets.VITE_CLOUD_BASE_URL }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build renderer and main process
+        run: pnpm exec vite build
+
+      - name: Build macOS DMG
+        run: pnpm exec electron-builder --mac dmg --x64 --publish never
+
+      - name: Upload DMG
+        uses: actions/upload-artifact@v4
+        with:
+          name: Reviva-macOS-x64-dmg
+          path: release/**/*.dmg
+          if-no-files-found: error
+
+      - name: Upload DMG to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release/**/*.dmg
+
+  build-windows:
+    name: Build Windows x64 installer
+    if: false
+    runs-on: windows-latest
+
+    env:
+      NODE_OPTIONS: --max-old-space-size=8192
+      VITE_CLOUD_BASE_URL: ${{ secrets.VITE_CLOUD_BASE_URL }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build renderer and main process
+        run: pnpm exec vite build
+
+      - name: Build Windows installer
+        run: pnpm exec electron-builder --win nsis --x64 --publish never
+
+      - name: Upload Windows installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: Reviva-Windows-x64-Setup
+          path: release/**/*.exe
+          if-no-files-found: error
+
+      - name: Upload Windows installer to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release/**/*.exe
