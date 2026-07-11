@@ -12,7 +12,7 @@ permissions:
 jobs:
   build-mac:
     name: Build unsigned macOS x64 DMG
-    runs-on: macos-13
+    runs-on: macos-15-intel
 
     env:
       CSC_IDENTITY_AUTO_DISCOVERY: 'false'
