@@ -10,14 +10,7 @@ import { useWikiStore } from '@/stores/wiki'
 import { useSettingsStore } from '@/stores/settings'
 import { useUserStore } from '@/stores/user'
 import { useWorkchatStore } from '@/stores/workchat'
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
 import { useNotesStore } from '@/stores/notes'
->>>>>>> dev
-=======
-import { useNotesStore } from '@/stores/notes'
->>>>>>> dev
 import { getAgentRuntime } from '@/agents/AgentRuntimeSingleton'
 import { normalizeFilePath } from '@/utils/fileUrl'
 import { readableGenerationContexts } from '@/utils/generationContext'
@@ -1536,14 +1529,6 @@ function animateTitle(convId, targetTitle, tab) {
                     :streaming-steps="isMessageStreaming(item.message.id) ? currentStreamingState.steps : EMPTY_STREAM_ARRAY"
                     :streaming-iteration="isMessageStreaming(item.message.id) ? currentStreamingState.iteration : 0"
                     :pending-auth-requests="pendingAuthRequestsForMessage(item.message.id)"
-<<<<<<< HEAD
-<<<<<<< HEAD
-                    @preview-file="handlePreviewFile"
-                    @retry="handleRetry(item.message.id)"
-                    @copy="handleCopy"
-=======
-=======
->>>>>>> dev
                     :branching="branchingMessageId === item.message.id"
                     :exporting="exportingMessageId === item.message.id"
                     @preview-file="handlePreviewFile"
@@ -1553,10 +1538,6 @@ function animateTitle(convId, targetTitle, tab) {
                     @save-to-note="openSaveMessageToNote(item.message)"
                     @copy="handleCopy"
                     @copy-error="handleCopyError"
-<<<<<<< HEAD
->>>>>>> dev
-=======
->>>>>>> dev
                     @delete="handleDeleteMessage(item.message.id)"
                     @save-edit="handleSaveEdit"
                     @compress-context="compressContext"
@@ -1566,15 +1547,7 @@ function animateTitle(convId, targetTitle, tab) {
               </div>
               <!-- Empty states -->
               <EmptyStateHero v-if="!currentMessages.length"
-<<<<<<< HEAD
-<<<<<<< HEAD
-                :has-conversation="currentConvId"
-=======
                 :has-conversation="!!currentConvId"
->>>>>>> dev
-=======
-                :has-conversation="!!currentConvId"
->>>>>>> dev
                 :is-dark="isDark"
                 :agents="allAgents"
                 @create-conv="createChat"

@@ -21,22 +21,12 @@ import { GenerationTaskService } from './GenerationTaskService'
 import { McpService } from './McpService'
 import { WikiService } from './WikiService.js'
 import { BackupService } from './BackupService.js'
-<<<<<<< HEAD
-<<<<<<< HEAD
-import { PdfReadService } from './tools/pdf/PdfReadService.js'
-=======
-=======
->>>>>>> dev
 import { createSettingsTransfer, parseSettingsTransfer } from './SettingsTransferService.js'
 import { WebImportService } from './web-import/WebImportService.js'
 import { WebImportJobService } from './web-import/WebImportJobService.js'
 import { DocsWebImportWriter } from './web-import/DocsWebImportWriter.js'
 import { PdfReadService } from './tools/pdf/PdfReadService.js'
 import { PdfLifecycleService } from './tools/pdf/PdfLifecycleService.js'
-<<<<<<< HEAD
->>>>>>> dev
-=======
->>>>>>> dev
 import { PDF_READ_SETTINGS_KEY, normalizePdfReadSettings } from './tools/pdf/PdfReadSettings.js'
 import { PdfTextExtractor } from './tools/pdf/PdfTextExtractor.js'
 import { getOfficeCliCommandCandidates, getOfficeCliSpawnEnv } from './officeCliResolver.js'
@@ -85,20 +75,10 @@ let outputScanService = null
 let generationTaskService = null
 let mcpService = null
 let wikiService = null
-<<<<<<< HEAD
-<<<<<<< HEAD
-let backupService = null
-=======
-=======
->>>>>>> dev
 let webImportService = null
 let webImportJobService = null
 let backupService = null
 let pdfLifecycleService = null
-<<<<<<< HEAD
->>>>>>> dev
-=======
->>>>>>> dev
 let tray = null
 let minimizeToTray = false
 const DEFAULT_TRAY_MENU = [
@@ -2780,11 +2760,6 @@ app.whenReady().then(async () => {
   wikiService.init()
   agentService.setWikiService?.(wikiService)
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
-=======
->>>>>>> dev
   webImportService = new WebImportService({ dbService })
   webImportJobService = new WebImportJobService({
     dbService,
@@ -2799,10 +2774,6 @@ app.whenReady().then(async () => {
     console.warn('[WebImportJobService] Failed to restore jobs:', err.message)
   }), 0)
 
-<<<<<<< HEAD
->>>>>>> dev
-=======
->>>>>>> dev
   backupService = new BackupService(dbService, workDirService, {
     appVersion: app.getVersion(),
   })

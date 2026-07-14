@@ -228,15 +228,7 @@ function openWebSource(url) {
               PDF
             </span>
           </div>
-<<<<<<< HEAD
-<<<<<<< HEAD
-          <div v-if="pdfRecommendationText" class="mt-4 text-[12px] leading-relaxed" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">
-=======
           <div v-if="pdfRecommendationText" class="mt-4 text-[14px] leading-relaxed" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">
->>>>>>> dev
-=======
-          <div v-if="pdfRecommendationText" class="mt-4 text-[14px] leading-relaxed" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">
->>>>>>> dev
             {{ pdfRecommendationText }}
           </div>
           <div class="mt-4 grid grid-cols-3 gap-2">
@@ -282,14 +274,6 @@ function openWebSource(url) {
       </div>
 
       <!-- Markdown -->
-<<<<<<< HEAD
-<<<<<<< HEAD
-      <div v-else-if="renderedMarkdown" class="p-6">
-        <div class="max-w-4xl mx-auto rounded-xl p-6 markdown-content" :class="[isDark ? 'markdown-content--dark bg-d3' : 'markdown-content--light bg-l3']"
-          v-html="renderedMarkdown" />
-=======
-=======
->>>>>>> dev
       <div v-else-if="renderedMarkdown || webSourceMeta" class="p-6">
         <div class="max-w-4xl mx-auto">
           <section v-if="webSourceMeta" class="web-source-card mb-4" :class="isDark ? 'web-source-card--dark' : 'web-source-card--light'">
@@ -338,10 +322,6 @@ function openWebSource(url) {
           class="w-full flex-1 min-h-[420px] rounded-xl border bg-white"
           :class="isDark ? 'border-d4' : 'border-bdrL'" />
         <pre v-else class="flex-1 min-h-[420px] overflow-auto rounded-xl border p-4 text-[12px] font-mono whitespace-pre-wrap break-all" :class="isDark ? 'border-d4 bg-d3 text-wt-sub' : 'border-bdrL bg-l3 text-lt-sub'">{{ htmlSource }}</pre>
-<<<<<<< HEAD
->>>>>>> dev
-=======
->>>>>>> dev
       </div>
 
       <!-- Plain text / code -->

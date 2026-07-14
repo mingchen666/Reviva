@@ -200,15 +200,7 @@ watch(editContent, () => {
         {{ msg.content }}
       </div>
       <div v-if="!isEditing"
-<<<<<<< HEAD
-<<<<<<< HEAD
-        class="flex items-center justify-end gap-0 mt-1 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
-=======
         class="flex items-center justify-end gap-0 mt-1 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto group-focus-within:opacity-100 group-focus-within:pointer-events-auto transition-opacity duration-150">
->>>>>>> dev
-=======
-        class="flex items-center justify-end gap-0 mt-1 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto group-focus-within:opacity-100 group-focus-within:pointer-events-auto transition-opacity duration-150">
->>>>>>> dev
         <button @click="copyContent" title="复制"
           aria-label="复制消息"
           class="h-7 px-1.5 rounded-md flex items-center gap-0.5 text-[12px] transition-colors"

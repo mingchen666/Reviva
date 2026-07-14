@@ -167,11 +167,6 @@ function applyPreset(type) {
         <div class="flex-1">
           <div class="text-[13px] font-semibold mb-0.5" :class="isDark ? 'text-amber-400' : 'text-amber-600'">沙箱保护机制</div>
           <p class="text-[12px] leading-relaxed" :class="isDark ? 'text-wt-aux' : 'text-lt-aux'">以下设置为全局默认值。每个 Agent 任务执行时受这些限制保护，防止过度资源消耗与异常行为。标记 <span class="ctx-pill text-[10px]" :class="isDark ? 'bg-emerald-400/10 text-emerald-400 border border-emerald-400/20' : 'bg-emerald-50 text-emerald-600 border border-emerald-100'">已生效</span> 的设置已接入 Agent 运行时强制执行。</p>
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
-=======
->>>>>>> dev
         </div>
       </div>
     </div>
@@ -210,10 +205,6 @@ function applyPreset(type) {
         <div>
           <div class="text-[10px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">隐私保护</div>
           <div class="mt-1 text-[12px] font-medium text-emerald-500">始终开启</div>
-<<<<<<< HEAD
->>>>>>> dev
-=======
->>>>>>> dev
         </div>
       </div>
     </div>

@@ -165,11 +165,6 @@ export class PdfOcrService {
         error.code = 'PDF_OCR_EMPTY_RESULT'
         throw error
       }
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
-=======
->>>>>>> dev
       if (run?.id && !this._cache?.isParseRunWritable?.(run.id)) {
         await this._cache?.removeOcrProfile?.(doc, ocrProfileKey)
         return {
@@ -178,10 +173,6 @@ export class PdfOcrService {
           message: 'PDF 已移入回收站或被删除，本次 OCR 结果未保存。',
         }
       }
-<<<<<<< HEAD
->>>>>>> dev
-=======
->>>>>>> dev
       const manifest = await this._cache.writeOcrResult(doc, ocrProfileKey, result, {
         provider,
         ranges: effectiveRanges,
@@ -192,18 +183,9 @@ export class PdfOcrService {
       return { success: true, cacheHit: false, ocrProfileKey, manifest, result, provider }
     } catch (err) {
       const code = err.code || 'PDF_OCR_FAILED'
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
       if (code === 'PDF_SOURCE_INACTIVE' || code === 'PDF_OPERATION_CANCELLED') {
         await this._cache?.removeOcrProfile?.(doc, ocrProfileKey)
       }
->>>>>>> dev
-=======
-      if (code === 'PDF_SOURCE_INACTIVE' || code === 'PDF_OPERATION_CANCELLED') {
-        await this._cache?.removeOcrProfile?.(doc, ocrProfileKey)
-      }
->>>>>>> dev
       if (run?.id) this._cache.updateParseRun(run.id, { status: 'failed', progress: 100, error_code: code, error_message: err.message || 'OCR failed' })
       return { success: false, code, message: code === 'PDF_OCR_EMPTY_RESULT' ? 'PDF OCR 未返回可读取内容。' : 'PDF OCR 失败。', detail: err.message || '' }
     }

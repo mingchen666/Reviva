@@ -12,7 +12,6 @@
   <a href="./README_EN.md">English</a>
 </p>
 
-
 <p>
   <a href="https://github.com/mingchen666/Reviva/releases">
     <img src="https://img.shields.io/github/v/release/mingchen666/Reviva?include_prereleases&label=release&color=4A6CFF" alt="Release" />
@@ -29,15 +28,7 @@
 <p>
   <img src="https://img.shields.io/badge/status-beta-FFB020" alt="Status Beta" />
   <img src="https://img.shields.io/badge/version-0.1.1--beta-4A6CFF" alt="Version 0.1.1-beta" />
-<<<<<<< HEAD
-<<<<<<< HEAD
-  <img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS(即将)%20-2E2E3A" alt="Platform" />
-=======
   <img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20-2E2E3A" alt="Platform" />
->>>>>>> dev
-=======
-  <img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20-2E2E3A" alt="Platform" />
->>>>>>> dev
   <img src="https://img.shields.io/badge/Electron-30-47848F?logo=electron&logoColor=white" alt="Electron 30" />
   <img src="https://img.shields.io/badge/Vue-3-42B883?logo=vuedotjs&logoColor=white" alt="Vue 3" />
   <img src="https://img.shields.io/badge/SQLite-Local--First-003B57?logo=sqlite&logoColor=white" alt="Local First" />
@@ -274,24 +265,11 @@ Reviva 支持多种模型服务商和 OpenAI-compatible 接口。你可以根据
 
 ## 未来计划
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-- [ ] 支持检查自动更新
-- [ ] 音视频文件解析处理
-- [ ] wiki支持链接和音视频解析
-- [ ] 支持response api格式
-=======
-=======
->>>>>>> dev
 - [x] 支持检查自动更新
 - [x] 支持Url导入爬取
 - [ ] 音视频文件解析处理
 - [ ] wiki支持链接和音视频解析
 - [x] 支持response api格式
-<<<<<<< HEAD
->>>>>>> dev
-=======
->>>>>>> dev
 - [ ] 自定义skill
 - [ ] 更丰富的内置 Agent 和 Skills
 - [x] 更完善的导入导出与备份能力
