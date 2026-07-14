@@ -1,4 +1,8 @@
 import { spawn } from 'node:child_process'
+<<<<<<< HEAD
+=======
+import crypto from 'node:crypto'
+>>>>>>> dev
 import fs from 'node:fs'
 import path from 'node:path'
 import { getSystemEnv } from '../../systemEnv.js'
@@ -229,8 +233,13 @@ export class PdfImageExtractor {
     return { ...(base || process.env), PYTHONIOENCODING: 'utf-8' }
   }
 
+<<<<<<< HEAD
   async _extract(doc, { startPage = 1, maxPages = 5, maxImages = 50 } = {}) {
     const outputDir = path.join(doc.cacheRoot, 'assets', 'embedded')
+=======
+  async _extract(doc, { startPage = 1, maxPages = 5, maxImages = 50, outputDir: requestedOutputDir = '' } = {}) {
+    const outputDir = requestedOutputDir || path.join(doc.cacheRoot, 'assets', 'embedded')
+>>>>>>> dev
     await fs.promises.mkdir(outputDir, { recursive: true })
     const env = await this._pythonEnv()
     let lastMissing = null
@@ -279,6 +288,80 @@ export class PdfImageExtractor {
     }
   }
 
+<<<<<<< HEAD
+=======
+  async extractToDirectory(filePath, {
+    outputDir = '',
+    outputRelDir = '',
+    sourceId = '',
+    maxPages = 2000,
+    maxImages = 40,
+  } = {}) {
+    if (!filePath || !outputDir || !outputRelDir) {
+      return { success: false, assets: [], errors: [], code: 'PDF_IMAGE_OUTPUT_DIR_MISSING', message: 'PDF 图片输出目录不完整。' }
+    }
+    const limit = Math.min(Math.max(Number(maxImages) || 40, 1), 200)
+    const pageLimit = Math.min(Math.max(Number(maxPages) || 1, 1), 2000)
+    const rawImages = []
+    const errors = []
+    let startPage = 1
+    let pageCount = pageLimit
+    let truncated = false
+
+    while (startPage <= Math.min(pageCount, pageLimit) && rawImages.length < limit) {
+      const extracted = await this._extract({ realPath: filePath, cacheRoot: outputDir }, {
+        startPage,
+        maxPages: Math.min(50, pageLimit - startPage + 1),
+        maxImages: limit - rawImages.length,
+        outputDir,
+      })
+      if (!extracted.success) {
+        errors.push({ page: startPage, code: extracted.code || 'PDF_IMAGE_EXTRACT_FAILED', detail: extracted.detail || extracted.message || '' })
+        break
+      }
+      pageCount = Math.min(Number(extracted.pageCount) || pageLimit, pageLimit)
+      rawImages.push(...(extracted.images || []).filter(item => {
+        if (item?.error || !item?.name) {
+          if (item?.error) errors.push({ page: item.page || startPage, detail: item.error })
+          return false
+        }
+        return true
+      }))
+      truncated = truncated || !!extracted.truncated
+      if (Number(extracted.endPage || 0) < startPage) break
+      startPage = Number(extracted.endPage || startPage + 49) + 1
+    }
+
+    const assets = []
+    const safeSourceId = String(sourceId || path.basename(filePath, path.extname(filePath)) || 'pdf').replace(/[^a-zA-Z0-9_-]+/g, '-').slice(0, 80)
+    for (const image of rawImages.slice(0, limit)) {
+      const absPath = path.join(outputDir, image.name)
+      try {
+        const buffer = await fs.promises.readFile(absPath)
+        const hash = crypto.createHash('sha256').update(buffer).digest('hex')
+        assets.push({
+          id: `asset_${safeSourceId}_${hash.slice(0, 12)}`,
+          source_id: sourceId || '',
+          kind: 'pdf_embedded_image',
+          path: toPosix(path.posix.join(toPosix(outputRelDir), image.name)),
+          original_path: `${filePath}#page=${image.page || 0}&xref=${image.xref || 0}`,
+          content_hash: `sha256:${hash}`,
+          size: buffer.length,
+          page: Number(image.page) || 0,
+          name: image.name,
+          width: Number(image.width) || 0,
+          height: Number(image.height) || 0,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+      } catch (error) {
+        errors.push({ page: image.page || 0, name: image.name, detail: error.message || String(error) })
+      }
+    }
+    return { success: true, assets, errors, pageCount, truncated: truncated || rawImages.length >= limit }
+  }
+
+>>>>>>> dev
   async listEmbeddedImages(cache, doc, { startPage = 1, maxPages = 5, maxImages = 50 } = {}) {
     const current = await cache.readEmbeddedImagesIndex(doc)
     const coverage = Array.isArray(current.coverage) ? current.coverage : []

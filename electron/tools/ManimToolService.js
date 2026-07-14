@@ -263,7 +263,7 @@ function _missingManimMessage() {
   return [
     '未检测到可用的 Manim Community Edition。',
     '请先安装 Python 包 manim（官方文档：https://docs.manim.community/en/stable/installation.html），或在已安装 Manim 的 Python/Conda/venv 环境中运行。',
-    '如果系统里已经安装，请把对应 Python 可执行文件或 Scripts 目录加入系统 PATH，然后重启 MindSpace。',
+    '如果系统里已经安装，请把对应 Python 可执行文件或 Scripts 目录加入系统 PATH，然后重启 Reviva。',
   ].join(' ')
 }
 
@@ -316,7 +316,7 @@ function _usesLatex(source) {
 
 function _latexMissingMessage({ miktexAvailable = false, engineAvailable = false, dvisvgmAvailable = false } = {}) {
   if (miktexAvailable && (!engineAvailable || !dvisvgmAvailable)) {
-    return '检测到 MiKTeX，但公式渲染所需的 latex/pdflatex/xelatex 或 dvisvgm 不可用。请打开 MiKTeX Console 更新/安装缺失组件，确认 MiKTeX bin 目录已加入系统 PATH，然后重启 MindSpace。'
+    return '检测到 MiKTeX，但公式渲染所需的 latex/pdflatex/xelatex 或 dvisvgm 不可用。请打开 MiKTeX Console 更新/安装缺失组件，确认 MiKTeX bin 目录已加入系统 PATH，然后重启 Reviva。'
   }
   return '此脚本使用 MathTex/Tex，需要本机 LaTeX 发行版。Windows 推荐安装 MiKTeX：https://miktex.org/download；安装后确认 latex/pdflatex/xelatex、dvisvgm 和 mpm 可在 PATH 中运行，或改用 Text 标签回退。'
 }

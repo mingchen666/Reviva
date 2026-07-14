@@ -1,6 +1,7 @@
 // electron/DatabaseService.js — Database service class wrapping better-sqlite3
 import path from 'node:path'
 import fs from 'node:fs'
+<<<<<<< HEAD
 import crypto from 'node:crypto'
 import { createRequire } from 'node:module'
 
@@ -127,18 +128,81 @@ function dynamicUpdate(db, table, id, data, jsonFields = [], boolFields = []) {
     throw e
   }
 }
+=======
+import { DatabaseContext, getDatabaseDriver } from './db/DatabaseContext.js'
+import { SettingsRepository } from './db/repositories/SettingsRepository.js'
+import { MemoryRepository } from './db/repositories/MemoryRepository.js'
+import { RecycleBinRepository } from './db/repositories/RecycleBinRepository.js'
+import { UsageRepository } from './db/repositories/UsageRepository.js'
+import { NotesRepository } from './db/repositories/NotesRepository.js'
+import { WorkspaceRepository } from './db/repositories/WorkspaceRepository.js'
+import { ExtensionRepository } from './db/repositories/ExtensionRepository.js'
+import { TaskRepository } from './db/repositories/TaskRepository.js'
+import { ConversationRepository } from './db/repositories/ConversationRepository.js'
+import { AgentRepository } from './db/repositories/AgentRepository.js'
+import { WikiRepository } from './db/repositories/WikiRepository.js'
+import { PdfRepository } from './db/repositories/PdfRepository.js'
+import { WebImportRepository } from './db/repositories/WebImportRepository.js'
+import { SchemaManager } from './db/schema/createSchema.js'
+import { LegacyMigrationManager } from './db/schema/migrations/legacyMigrations.js'
+import { VersionedMigrationManager } from './db/schema/migrations/versionedMigrations.js'
+import { SeedManager } from './db/schema/seeds/baseSeeds.js'
+import {
+  DB_FILE_NAME,
+  WORKSPACE_META_DIR,
+} from './db/helpers.js'
+>>>>>>> dev
 
 export class DatabaseService {
   static workspaceDbPath(rootPath) {
     return path.join(path.resolve(rootPath), WORKSPACE_META_DIR, DB_FILE_NAME)
   }
 
-  constructor() {
-    this._db = null
-    this._dbPath = null
+  static checkDatabaseIntegrity(dbPath) {
+    const BetterSqlite3 = getDatabaseDriver()
+    if (!BetterSqlite3) return { ok: false, error: 'better-sqlite3 is unavailable' }
+    const resolvedPath = path.resolve(dbPath)
+    if (!fs.existsSync(resolvedPath)) return { ok: false, error: '数据库文件不存在' }
+    let db = null
+    try {
+      db = new BetterSqlite3(resolvedPath, { readonly: true, fileMustExist: true })
+      const result = db.pragma('integrity_check', { simple: true })
+      return result === 'ok' ? { ok: true } : { ok: false, error: String(result || 'integrity_check failed') }
+    } catch (error) {
+      return { ok: false, error: error.message }
+    } finally {
+      try { db?.close() } catch { /* noop */ }
+    }
   }
 
+  constructor() {
+    this._context = new DatabaseContext()
+    this._settingsRepository = new SettingsRepository(this._context)
+    this._memoryRepository = new MemoryRepository(this._context)
+    this._recycleBinRepository = new RecycleBinRepository(this._context)
+    this._usageRepository = new UsageRepository(this._context)
+    this._notesRepository = new NotesRepository(this._context)
+    this._workspaceRepository = new WorkspaceRepository(this._context)
+    this._extensionRepository = new ExtensionRepository(this._context)
+    this._taskRepository = new TaskRepository(this._context)
+    this._conversationRepository = new ConversationRepository(this._context)
+    this._agentRepository = new AgentRepository(this._context)
+    this._wikiRepository = new WikiRepository(this._context)
+    this._pdfRepository = new PdfRepository(this._context)
+    this._webImportRepository = new WebImportRepository(this._context)
+    this._schemaManager = new SchemaManager(this._context)
+    this._legacyMigrationManager = new LegacyMigrationManager(this._context)
+    this._versionedMigrationManager = new VersionedMigrationManager(this._context)
+    this._seedManager = new SeedManager(this._context)
+  }
+
+  get _db() { return this._context.db }
+  set _db(value) { this._context.db = value }
+  get _dbPath() { return this._context.dbPath }
+  set _dbPath(value) { this._context.dbPath = value }
+
   init(dbPath) {
+    const BetterSqlite3 = getDatabaseDriver()
     if (!BetterSqlite3) {
       console.warn('Database module not available')
       return null
@@ -179,6 +243,7 @@ export class DatabaseService {
   }
 
   async relocateToWorkspace(rootPath) {
+    const BetterSqlite3 = getDatabaseDriver()
     if (!rootPath || !BetterSqlite3 || !this._db) return false
     const dbDir = path.join(rootPath, WORKSPACE_META_DIR)
     if (!fs.existsSync(dbDir)) fs.mkdirSync(dbDir, { recursive: true })
@@ -212,196 +277,53 @@ export class DatabaseService {
 
   // ─── Spaces ───
 
-  listSpaces() {
-    return this._db.prepare('SELECT * FROM spaces ORDER BY sort_order, created_at DESC').all()
-      .map(r => ({ ...r, docCount: 0 }))
-  }
-
-  getSpace(id) {
-    return this._db.prepare('SELECT * FROM spaces WHERE id = ?').get(id)
-  }
-
-  createSpace(data) {
-    const id = data.id || 'sp_' + Date.now()
-    this._db.prepare(`INSERT INTO spaces (id, name, description, icon, color, sort_order)
-      VALUES (?, ?, ?, ?, ?, ?)`).run(id, data.name || '', data.description || '', data.icon || 'ri-folder-3-line', data.color || '#6C8AFF', data.sort_order || 0)
-    return { id, ...data }
-  }
-
-  updateSpace(id, data) {
-    return dynamicUpdate(this._db, 'spaces', id, data)
-  }
-
-  deleteSpace(id) {
-    this._db.prepare('DELETE FROM spaces WHERE id = ?').run(id)
-    return { success: true }
-  }
-
-  spaceDocCount(id) {
-    const row = this._db.prepare('SELECT COUNT(*) as c FROM documents WHERE space_id = ?').get(id)
-    return row.c
-  }
+  listSpaces() { return this._workspaceRepository.listSpaces() }
+  getSpace(id) { return this._workspaceRepository.getSpace(id) }
+  createSpace(data) { return this._workspaceRepository.createSpace(data) }
+  updateSpace(id, data) { return this._workspaceRepository.updateSpace(id, data) }
+  deleteSpace(id) { return this._workspaceRepository.deleteSpace(id) }
+  spaceDocCount(id) { return this._workspaceRepository.spaceDocCount(id) }
 
   // ─── Documents ───
 
-  listDocs(spaceId) {
-    return this._db.prepare('SELECT * FROM documents WHERE space_id = ? ORDER BY created_at DESC').all(spaceId)
-  }
-
-  createDoc(data) {
-    const id = data.id || 'doc_' + Date.now()
-    this._db.prepare(`INSERT INTO documents (id, space_id, name, type, size, status, progress, file_path)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`).run(id, data.space_id, data.name, data.type || '', data.size || 0, data.status || 'pending', data.progress || 0, data.file_path || '')
-    return { id, ...data }
-  }
-
-  updateDoc(id, data) {
-    return dynamicUpdate(this._db, 'documents', id, data)
-  }
-
-  deleteDoc(id) {
-    this._db.prepare('DELETE FROM documents WHERE id = ?').run(id)
-    return { success: true }
-  }
+  listDocs(spaceId) { return this._workspaceRepository.listDocs(spaceId) }
+  createDoc(data) { return this._workspaceRepository.createDoc(data) }
+  updateDoc(id, data) { return this._workspaceRepository.updateDoc(id, data) }
+  deleteDoc(id) { return this._workspaceRepository.deleteDoc(id) }
 
   // ─── Conversations ───
 
-  _parseConv(r) {
-    if (!r) return null
-    return {
-      id: r.id, spaceId: r.space_id, agentId: r.agent_id,
-      title: r.title, architecture: r.architecture, model: r.model,
-      groupId: r.group_id || 'default', contextLength: r.context_length || 50,
-      createdAt: r.created_at, updatedAt: r.updated_at,
-    }
-  }
-
-  _parseMsg(r) {
-    if (!r) return null
-    return {
-      id: r.id, conversationId: r.conversation_id,
-      role: r.role, content: r.content,
-      meta: parseJSON(r.meta), createdAt: r.created_at,
-      status: r.status || 'completed',
-      modelId: r.model_id || '', providerId: r.provider_id || '',
-      inputTokens: r.input_tokens || 0, outputTokens: r.output_tokens || 0,
-      cacheReadTokens: r.cache_read_tokens || 0, cacheWriteTokens: r.cache_write_tokens || 0,
-      thinkingTokens: r.thinking_tokens || 0,
-      thinkingContent: r.thinking_content || '',
-      latencyMs: r.latency_ms || 0, cost: r.cost || 0,
-      errorMessage: r.error_message || '', errorCode: r.error_code || '', parentMsgId: r.parent_msg_id || '',
-    }
-  }
-
-  _parseConvGroup(r) {
-    if (!r) return null
-    return {
-      id: r.id, name: r.name, sortOrder: r.sort_order,
-      createdAt: r.created_at,
-    }
-  }
-
-  listConvs(spaceId, groupId) {
-    if (groupId) {
-      if (spaceId) return this._db.prepare('SELECT * FROM conversations WHERE space_id = ? AND group_id = ? ORDER BY updated_at DESC').all(spaceId, groupId).map(r => this._parseConv(r))
-      return this._db.prepare('SELECT * FROM conversations WHERE group_id = ? ORDER BY updated_at DESC').all(groupId).map(r => this._parseConv(r))
-    }
-    if (spaceId) return this._db.prepare('SELECT * FROM conversations WHERE space_id = ? ORDER BY updated_at DESC').all(spaceId).map(r => this._parseConv(r))
-    return this._db.prepare('SELECT * FROM conversations ORDER BY updated_at DESC').all().map(r => this._parseConv(r))
-  }
-
-  getConv(id) {
-    return this._parseConv(this._db.prepare('SELECT * FROM conversations WHERE id = ?').get(id))
-  }
-
-  createConv(data) {
-    const id = data.id || 'conv_' + Date.now()
-    const spaceId = data.space_id ?? ''
-    const agentId = data.agent_id ?? ''
-    const title = data.title ?? '新对话'
-    const architecture = data.architecture ?? ''
-    const model = data.model ?? ''
-    const groupId = data.group_id ?? 'default'
-    const contextLength = data.context_length ?? 50
-    this._db.prepare(`INSERT INTO conversations (id, space_id, agent_id, title, architecture, model, group_id, context_length)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`).run(id, spaceId, agentId, title, architecture, model, groupId, contextLength)
-    return this.getConv(id)
-  }
-
-  updateConv(id, data) {
-    dynamicUpdate(this._db, 'conversations', id, data)
-    return this.getConv(id)
-  }
-
-  deleteConv(id) {
-    this._db.prepare('DELETE FROM conversations WHERE id = ?').run(id)
-    return { success: true }
-  }
+  _parseConv(row) { return this._conversationRepository._parseConv(row) }
+  _parseMsg(row) { return this._conversationRepository._parseMsg(row) }
+  _parseConvGroup(row) { return this._conversationRepository._parseConvGroup(row) }
+  listConvs(spaceId, groupId) { return this._conversationRepository.listConvs(spaceId, groupId) }
+  getConv(id) { return this._conversationRepository.getConv(id) }
+  createConv(data) { return this._conversationRepository.createConv(data) }
+  updateConv(id, data) { return this._conversationRepository.updateConv(id, data) }
+  deleteConv(id) { return this._conversationRepository.deleteConv(id) }
+  createConversationBranch(data) { return this._conversationRepository.createConversationBranch(data) }
 
   // ─── Conversation Groups ───
 
-  listConvGroups() {
-    return this._db.prepare('SELECT * FROM conv_groups ORDER BY sort_order, created_at ASC').all().map(r => this._parseConvGroup(r))
-  }
-
-  createConvGroup(data) {
-    const id = data.id || 'grp_' + Date.now()
-    this._db.prepare(`INSERT INTO conv_groups (id, name, sort_order)
-      VALUES (?, ?, ?)`).run(id, data.name || '新分组', data.sort_order || 0)
-    return this._parseConvGroup(this._db.prepare('SELECT * FROM conv_groups WHERE id = ?').get(id))
-  }
-
-  updateConvGroup(id, data) {
-    dynamicUpdate(this._db, 'conv_groups', id, data)
-    return this._parseConvGroup(this._db.prepare('SELECT * FROM conv_groups WHERE id = ?').get(id))
-  }
-
-  deleteConvGroup(id) {
-    if (id === 'default') return { success: false, error: 'Cannot delete default group' }
-    this._db.prepare('UPDATE conversations SET group_id = \'default\' WHERE group_id = ?').run(id)
-    this._db.prepare('DELETE FROM conv_groups WHERE id = ?').run(id)
-    return { success: true }
-  }
+  listConvGroups() { return this._conversationRepository.listConvGroups() }
+  createConvGroup(data) { return this._conversationRepository.createConvGroup(data) }
+  updateConvGroup(id, data) { return this._conversationRepository.updateConvGroup(id, data) }
+  deleteConvGroup(id) { return this._conversationRepository.deleteConvGroup(id) }
 
   // ─── Messages ───
 
-  listMsgs(convId) {
-    return this._db.prepare('SELECT * FROM messages WHERE conversation_id = ? ORDER BY created_at ASC').all(convId).map(r => this._parseMsg(r))
-  }
-
-  listMsgsPaginated(convId, limit = 30, offset = 0) {
-    return this._db.prepare('SELECT * FROM messages WHERE conversation_id = ? ORDER BY created_at ASC LIMIT ? OFFSET ?').all(convId, limit, offset).map(r => this._parseMsg(r))
-  }
-
-  countMsgs(convId) {
-    return this._db.prepare('SELECT COUNT(*) as count FROM messages WHERE conversation_id = ?').get(convId).count
-  }
-
-  createMsg(data) {
-    const id = data.id || 'msg_' + Date.now()
-    const convId = data.conversation_id ?? ''
-    const role = data.role ?? 'user'
-    const content = data.content ?? ''
-    const meta = stringifyJSON(data.meta ?? {})
-    const status = data.status ?? 'completed'
-    const modelId = data.model_id ?? ''
-    const providerId = data.provider_id ?? ''
-    this._db.prepare(`INSERT INTO messages (id, conversation_id, role, content, meta, status, model_id, provider_id)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`).run(id, convId, role, content, meta, status, modelId, providerId)
-    return this._parseMsg(this._db.prepare('SELECT * FROM messages WHERE id = ?').get(id))
-  }
-
-  deleteMsg(id) {
-    this._db.prepare('DELETE FROM messages WHERE id = ?').run(id)
-    return { success: true }
-  }
-
-  updateMsg(id, data) {
-    return dynamicUpdate(this._db, 'messages', id, data, ['meta'], [])
-  }
+  listMsgs(convId) { return this._conversationRepository.listMsgs(convId) }
+  getMsg(id) { return this._conversationRepository.getMsg(id) }
+  getPreviousUserMsg(convId, assistantMsgId) { return this._conversationRepository.getPreviousUserMsg(convId, assistantMsgId) }
+  listMsgsPaginated(convId, limit = 30, offset = 0) { return this._conversationRepository.listMsgsPaginated(convId, limit, offset) }
+  countMsgs(convId) { return this._conversationRepository.countMsgs(convId) }
+  createMsg(data) { return this._conversationRepository.createMsg(data) }
+  deleteMsg(id) { return this._conversationRepository.deleteMsg(id) }
+  updateMsg(id, data) { return this._conversationRepository.updateMsg(id, data) }
 
   // ─── Agents ───
 
+<<<<<<< HEAD
   _normalizeAgentField(field, value) {
     if (AGENT_JSON_FIELDS.includes(field)) {
       const parsed = parseJSON(value)
@@ -711,270 +633,105 @@ export class DatabaseService {
     return !row
   }
 
+=======
+  _normalizeAgentField(field, value) { return this._agentRepository._normalizeAgentField(field, value) }
+  _normalizeBuiltinAgentTemplate(data = {}) { return this._agentRepository._normalizeBuiltinAgentTemplate(data) }
+  _builtinAgentTemplatePayload(template) { return this._agentRepository._builtinAgentTemplatePayload(template) }
+  _agentRowFieldValue(row, field) { return this._agentRepository._agentRowFieldValue(row, field) }
+  _hasBuiltinTemplate(row) { return this._agentRepository._hasBuiltinTemplate(row) }
+  _agentLooksUserEdited(row) { return this._agentRepository._agentLooksUserEdited(row) }
+  _deriveBuiltinAgentOverrides(row, template) { return this._agentRepository._deriveBuiltinAgentOverrides(row, template) }
+  _normalizeBuiltinAgentOverrides(row, storedOverrides = {}, nextTemplate = {}) { return this._agentRepository._normalizeBuiltinAgentOverrides(row, storedOverrides, nextTemplate) }
+  _applyBuiltinAgentTemplateOverrides(templatePayload, overrides = {}) { return this._agentRepository._applyBuiltinAgentTemplateOverrides(templatePayload, overrides) }
+  _applyBuiltinAgentOverrides(row, data = {}) { return this._agentRepository._applyBuiltinAgentOverrides(row, data) }
+  _parseAgent(row) { return this._agentRepository._parseAgent(row) }
+  syncBuiltinAgentTemplate(data = {}) { return this._agentRepository.syncBuiltinAgentTemplate(data) }
+  listAgents() { return this._agentRepository.listAgents() }
+  getAgent(id) { return this._agentRepository.getAgent(id) }
+  createAgent(data) { return this._agentRepository.createAgent(data) }
+  updateAgent(id, data) { return this._agentRepository.updateAgent(id, data) }
+  deleteAgent(id) { return this._agentRepository.deleteAgent(id) }
+  isEnglishNameUnique(englishName, excludeId = '') { return this._agentRepository.isEnglishNameUnique(englishName, excludeId) }
+>>>>>>> dev
   // ─── Custom Skills ───
 
-  listSkills() {
-    return this._db.prepare('SELECT * FROM custom_skills ORDER BY created_at').all()
-      .map(r => this._parseSkill(r))
-  }
-
-  _parseSkill(r) {
-    if (!r) return null
-    return {
-      id: r.id, name: r.name, icon: r.icon, color: r.color,
-      description: r.description || '', detail: r.detail || '',
-      promptTemplate: r.prompt_template || r.prompt_content || '',
-      promptContent: r.prompt_content || r.prompt_template || '',
-      outputTypes: parseJSON(r.output_types),
-      allowedTools: parseJSON(r.allowed_tools || '[]'),
-      source: r.source || 'custom', category: r.category || '',
-      version: r.version || '1.0', author: r.author || '',
-      license: r.license || '', enabled: !!r.enabled,
-      builtin: !!r.builtin,
-    }
-  }
-
-  createSkill(data) {
-    const id = data.id || 'skill_' + Date.now()
-    this._db.prepare(`INSERT INTO custom_skills (id, name, icon, color, description, detail, prompt_template, prompt_content, output_types, allowed_tools, source, category, version, author, license, builtin, enabled)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
-      id, data.name || '', data.icon || 'ri-flashlight-line', data.color || '#6C8AFF',
-      data.description || '', data.detail || '',
-      data.prompt_template || data.promptContent || '', data.prompt_content || data.promptContent || '',
-      stringifyJSON(data.output_types || ['Markdown']),
-      stringifyJSON(data.allowed_tools || []),
-      data.source || 'custom', data.category || '',
-      data.version || '1.0', data.author || '',
-      data.license || '', data.builtin ? 1 : 0, data.enabled ? 1 : 0)
-    return this._parseSkill(this._db.prepare('SELECT * FROM custom_skills WHERE id = ?').get(id))
-  }
-
-  updateSkill(id, data) {
-    return dynamicUpdate(this._db, 'custom_skills', id, data, ['output_types', 'allowed_tools'])
-  }
-
-  deleteSkill(id) {
-    this._db.prepare('DELETE FROM custom_skills WHERE id = ?').run(id)
-    return { success: true }
-  }
+  _parseSkill(row) { return this._extensionRepository._parseSkill(row) }
+  listSkills() { return this._extensionRepository.listSkills() }
+  createSkill(data) { return this._extensionRepository.createSkill(data) }
+  updateSkill(id, data) { return this._extensionRepository.updateSkill(id, data) }
+  deleteSkill(id) { return this._extensionRepository.deleteSkill(id) }
 
   // ─── Custom Tools ───
 
-  listTools() {
-    return this._db.prepare('SELECT * FROM custom_tools ORDER BY created_at').all()
-      .map(r => ({ ...r, builtin: !!r.builtin, enabled: !!r.enabled, headers: parseJSON(r.headers), params: parseJSON(r.params), arch_compat: parseJSON(r.arch_compat), provider_config: parseJSON(r.provider_config) }))
-  }
-
-  createTool(data) {
-    const id = data.id || 'tool_' + Date.now()
-    this._db.prepare(`INSERT INTO custom_tools (id, name, icon, color, category, description, type, api_url, method, headers, params, response_format, script_path, sandbox, perm_required, arch_compat, builtin, enabled, provider_config)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
-      id, data.name || '', data.icon || 'ri-tools-line', data.color || '#4ADE80', data.category || 'custom', data.description || '',
-      data.type || 'api', data.api_url || '', data.method || 'POST', stringifyJSON(data.headers || {}),
-      stringifyJSON(data.params || []), data.response_format || 'JSON', data.script_path || '',
-      data.sandbox || '', data.perm_required || '', stringifyJSON(data.arch_compat || ['react', 'plan_exec', 'hybrid']),
-      0, data.enabled === false || data.enabled === 0 ? 0 : 1, stringifyJSON(data.provider_config || {}))
-    return { id, ...data }
-  }
-
-  updateTool(id, data) {
-    dynamicUpdate(this._db, 'custom_tools', id, data, ['headers', 'params', 'arch_compat', 'provider_config'])
-    return { success: true }
-  }
-
-  deleteTool(id) {
-    this._db.prepare('DELETE FROM custom_tools WHERE id = ?').run(id)
-    return { success: true }
-  }
+  listTools() { return this._extensionRepository.listTools() }
+  createTool(data) { return this._extensionRepository.createTool(data) }
+  updateTool(id, data) { return this._extensionRepository.updateTool(id, data) }
+  deleteTool(id) { return this._extensionRepository.deleteTool(id) }
 
   // ─── MCP Servers ───
 
-  listMcpServers() {
-    return this._db.prepare('SELECT * FROM mcp_servers ORDER BY created_at').all()
-      .map(r => ({
-        ...r,
-        enabled: !!r.enabled,
-        headers: parseJSON(r.headers),
-        disabled_tools: parseJSON(r.disabled_tools),
-        tools_cache: parseJSON(r.tools_cache),
-        resources_cache: parseJSON(r.resources_cache),
-        resource_templates_cache: parseJSON(r.resource_templates_cache),
-        prompts_cache: parseJSON(r.prompts_cache),
-        capabilities_cache: parseJSON(r.capabilities_cache),
-        server_info_cache: parseJSON(r.server_info_cache),
-      }))
-  }
-
-  getMcpServer(id) {
-    const r = this._db.prepare('SELECT * FROM mcp_servers WHERE id = ?').get(id)
-    if (!r) return null
-    return {
-      ...r,
-      enabled: !!r.enabled,
-      headers: parseJSON(r.headers),
-      disabled_tools: parseJSON(r.disabled_tools),
-      tools_cache: parseJSON(r.tools_cache),
-      resources_cache: parseJSON(r.resources_cache),
-      resource_templates_cache: parseJSON(r.resource_templates_cache),
-      prompts_cache: parseJSON(r.prompts_cache),
-      capabilities_cache: parseJSON(r.capabilities_cache),
-      server_info_cache: parseJSON(r.server_info_cache),
-    }
-  }
-
-  createMcpServer(data) {
-    const id = data.id || 'mcp_' + Date.now()
-    this._db.prepare(`INSERT INTO mcp_servers (id, name, transport, url, headers, enabled, disabled_tools, last_status, last_error, last_synced_at, tools_cache, resources_cache, resource_templates_cache, prompts_cache, capabilities_cache, server_info_cache, instructions)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
-      id, data.name || '', data.transport || 'http', data.url || '',
-      stringifyJSON(data.headers || {}), data.enabled === false ? 0 : 1,
-      stringifyJSON(data.disabled_tools || []),
-      '', '', '',
-      stringifyJSON(data.tools_cache || []),
-      stringifyJSON(data.resources_cache || []),
-      stringifyJSON(data.resource_templates_cache || []),
-      stringifyJSON(data.prompts_cache || []),
-      stringifyJSON(data.capabilities_cache || {}),
-      stringifyJSON(data.server_info_cache || {}),
-      data.instructions || '')
-    return { id, ...data }
-  }
-
-  updateMcpServer(id, data) {
-    dynamicUpdate(this._db, 'mcp_servers', id, data, ['headers', 'disabled_tools', 'tools_cache', 'resources_cache', 'resource_templates_cache', 'prompts_cache', 'capabilities_cache', 'server_info_cache'])
-    return { success: true }
-  }
-
-  deleteMcpServer(id) {
-    this._db.prepare('DELETE FROM mcp_servers WHERE id = ?').run(id)
-    return { success: true }
-  }
+  listMcpServers() { return this._extensionRepository.listMcpServers() }
+  getMcpServer(id) { return this._extensionRepository.getMcpServer(id) }
+  createMcpServer(data) { return this._extensionRepository.createMcpServer(data) }
+  updateMcpServer(id, data) { return this._extensionRepository.updateMcpServer(id, data) }
+  deleteMcpServer(id) { return this._extensionRepository.deleteMcpServer(id) }
 
   // ─── Custom Sub Agents ───
 
-  listSubAgents() {
-    return this._db.prepare('SELECT * FROM custom_sub_agents ORDER BY created_at').all()
-      .map(r => ({ ...r, builtin: !!r.builtin, enabled: !!r.enabled, tools: parseJSON(r.tools), skills: parseJSON(r.skills) }))
-  }
-
-  createSubAgent(data) {
-    const id = data.id || 'sub_' + Date.now()
-    this._db.prepare(`INSERT INTO custom_sub_agents (id, name, icon, color, description, prompt, tools, skills, model, temperature, builtin, enabled)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
-      id, data.name || '', data.icon || 'ri-team-line', data.color || '#6C8AFF',
-      data.description || '', data.prompt || '',
-      stringifyJSON(data.tools || []), stringifyJSON(data.skills || []),
-      data.model || '', data.temperature ?? 0.7, 0, 1)
-    return { id, ...data }
-  }
-
-  updateSubAgent(id, data) {
-    dynamicUpdate(this._db, 'custom_sub_agents', id, data, ['tools', 'skills'])
-    return { success: true }
-  }
-
-  deleteSubAgent(id) {
-    this._db.prepare('DELETE FROM custom_sub_agents WHERE id = ?').run(id)
-    return { success: true }
-  }
+  listSubAgents() { return this._extensionRepository.listSubAgents() }
+  createSubAgent(data) { return this._extensionRepository.createSubAgent(data) }
+  updateSubAgent(id, data) { return this._extensionRepository.updateSubAgent(id, data) }
+  deleteSubAgent(id) { return this._extensionRepository.deleteSubAgent(id) }
 
   // ─── Tasks ───
 
-  listTasks() {
-    return this._db.prepare('SELECT * FROM tasks ORDER BY created_at DESC').all()
-      .map(r => ({ ...r, steps: parseJSON(r.steps), params: parseJSON(r.params_json) }))
-  }
-
-  listTasksByGroup(groupId, toolIds) {
-    let sql = 'SELECT * FROM tasks WHERE group_id = ?'
-    const args = [groupId]
-    if (Array.isArray(toolIds) && toolIds.length) {
-      sql += ` AND tool_id IN (${toolIds.map(() => '?').join(',')})`
-      args.push(...toolIds)
-    }
-    sql += ' ORDER BY created_at DESC'
-    return this._db.prepare(sql).all(...args)
-      .map(r => ({ ...r, steps: parseJSON(r.steps), params: parseJSON(r.params_json) }))
-  }
-
-  getTask(id) {
-    const row = this._db.prepare('SELECT * FROM tasks WHERE id = ?').get(id)
-    if (!row) return null
-    return { ...row, steps: parseJSON(row.steps), params: parseJSON(row.params_json) }
-  }
-
-  createTask(data) {
-    const id = data.id || 'task_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8)
-    this._db.prepare(`INSERT INTO tasks (id, name, type, status, architecture, space_id, agent_id, skill_type, progress, steps, result, error, tool_id, mode, conversation_id, group_id, params_json, artifact_id, cloud_task_id)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
-      id, data.name || '', data.type || 'agent', data.status || 'pending', data.architecture || '',
-      data.space_id || '', data.agent_id || '', data.skill_type || '', data.progress || 0,
-      stringifyJSON(data.steps || []), data.result || '', data.error || '',
-      data.tool_id || '', data.mode || 'local',
-      data.conversation_id || '', data.group_id || 'default',
-      stringifyJSON(data.params || data.params_json || {}),
-      data.artifact_id || '', data.cloud_task_id || '')
-    return this.getTask(id)
-  }
-
-  updateTask(id, data) {
-    const payload = { ...data, updated_at: new Date().toISOString() }
-    if (data.params !== undefined && data.params_json === undefined) {
-      payload.params_json = data.params
-      delete payload.params
-    }
-    dynamicUpdate(this._db, 'tasks', id, payload, ['steps', 'params_json'])
-    return { success: true }
-  }
-
-  deleteTask(id) {
-    this._db.prepare('DELETE FROM tasks WHERE id = ?').run(id)
-    return { success: true }
-  }
+  listTasks() { return this._taskRepository.listTasks() }
+  listTasksByGroup(groupId, toolIds) { return this._taskRepository.listTasksByGroup(groupId, toolIds) }
+  getTask(id) { return this._taskRepository.getTask(id) }
+  createTask(data) { return this._taskRepository.createTask(data) }
+  updateTask(id, data) { return this._taskRepository.updateTask(id, data) }
+  deleteTask(id) { return this._taskRepository.deleteTask(id) }
 
   // ─── LLM Wiki ───
 
-  _parseWiki(row) {
-    if (!row) return null
-    return {
-      ...row,
-      agent_config: parseJSON(row.agent_config) || {},
-    }
-  }
+  _parseWiki(row) { return this._wikiRepository._parseWiki(row) }
+  _parseWikiSource(row) { return this._wikiRepository._parseWikiSource(row) }
+  _parseWikiJob(row) { return this._wikiRepository._parseWikiJob(row) }
+  _parseOcrProvider(row) { return this._wikiRepository._parseOcrProvider(row) }
+  _parseWikiOcrJob(row) { return this._wikiRepository._parseWikiOcrJob(row) }
+  _parsePdfDocument(row) { return this._pdfRepository._parsePdfDocument(row) }
+  _parsePdfParseRun(row) { return this._pdfRepository._parsePdfParseRun(row) }
+  _parsePdfSourceLink(row) { return this._pdfRepository._parsePdfSourceLink(row) }
 
-  _parseWikiSource(row) {
-    if (!row) return null
-    return {
-      ...row,
-      meta: parseJSON(row.meta_json) || {},
-    }
-  }
+  listWikis() { return this._wikiRepository.listWikis() }
+  getWiki(id) { return this._wikiRepository.getWiki(id) }
+  createWiki(data) { return this._wikiRepository.createWiki(data) }
+  upsertWiki(data) { return this._wikiRepository.upsertWiki(data) }
+  updateWiki(id, data) { return this._wikiRepository.updateWiki(id, data) }
+  deleteWiki(id) { return this._wikiRepository.deleteWiki(id) }
+  deleteWikiSource(wikiId, sourceId) { return this._wikiRepository.deleteWikiSource(wikiId, sourceId) }
+  listWikiSources(wikiId) { return this._wikiRepository.listWikiSources(wikiId) }
+  getWikiSource(id) { return this._wikiRepository.getWikiSource(id) }
+  upsertWikiSource(data) { return this._wikiRepository.upsertWikiSource(data) }
+  updateWikiSource(id, data) { return this._wikiRepository.updateWikiSource(id, data) }
+  listWikiJobs(wikiId) { return this._wikiRepository.listWikiJobs(wikiId) }
 
-  _parseWikiJob(row) {
-    if (!row) return null
-    return {
-      ...row,
-      meta: parseJSON(row.meta_json) || {},
-    }
-  }
+  // ─── Web Import Jobs ───
 
-  _parseOcrProvider(row) {
-    if (!row) return null
-    return {
-      ...row,
-      enabled: !!row.enabled,
-      config: parseJSON(row.config_json) || {},
-    }
-  }
+  // ─── Web Import Jobs ───
 
-  _parseWikiOcrJob(row) {
-    if (!row) return null
-    return {
-      ...row,
-      metrics: parseJSON(row.metrics_json) || {},
-    }
-  }
+  _parseWebImportJob(row) { return this._webImportRepository._parseWebImportJob(row) }
+  _validateWebImportJobFields(fields, options = {}) { return this._webImportRepository._validateWebImportJobFields(fields, options) }
+  createWebImportJob(data = {}) { return this._webImportRepository.createWebImportJob(data) }
+  getWebImportJob(id) { return this._webImportRepository.getWebImportJob(id) }
+  listWebImportJobs(options = {}) { return this._webImportRepository.listWebImportJobs(options) }
+  updateWebImportJob(id, patch = {}) { return this._webImportRepository.updateWebImportJob(id, patch) }
+  deleteWebImportJob(id) { return this._webImportRepository.deleteWebImportJob(id) }
+  clearFinishedWebImportJobs(options = {}) { return this._webImportRepository.clearFinishedWebImportJobs(options) }
+  listPendingWebImportJobs() { return this._webImportRepository.listPendingWebImportJobs() }
+  markRunningWebImportJobsInterrupted() { return this._webImportRepository.markRunningWebImportJobsInterrupted() }
 
+<<<<<<< HEAD
   _parsePdfDocument(row) {
     if (!row) return null
     return {
@@ -1290,350 +1047,127 @@ export class DatabaseService {
     dynamicUpdate(this._db, 'wiki_ocr_jobs', id, payload, ['metrics_json'])
     return this.getWikiOcrJob(id)
   }
+=======
+  createWikiJob(data) { return this._wikiRepository.createWikiJob(data) }
+  listOcrProviders() { return this._wikiRepository.listOcrProviders() }
+  getOcrProvider(id) { return this._wikiRepository.getOcrProvider(id) }
+  createOcrProvider(data = {}) { return this._wikiRepository.createOcrProvider(data) }
+  updateOcrProvider(id, data = {}) { return this._wikiRepository.updateOcrProvider(id, data) }
+  deleteOcrProvider(id) { return this._wikiRepository.deleteOcrProvider(id) }
+
+  getPdfDocument(id) { return this._pdfRepository.getPdfDocument(id) }
+  upsertPdfDocument(data = {}) { return this._pdfRepository.upsertPdfDocument(data) }
+  updatePdfDocument(id, data = {}) { return this._pdfRepository.updatePdfDocument(id, data) }
+  findPdfDocumentByPathHash(realPathHash) { return this._pdfRepository.findPdfDocumentByPathHash(realPathHash) }
+  deletePdfDocument(id) { return this._pdfRepository.deletePdfDocument(id) }
+  listPdfSourceLinks() { return this._pdfRepository.listPdfSourceLinks() }
+  listPdfSourceLinksForPdf(pdfId) { return this._pdfRepository.listPdfSourceLinksForPdf(pdfId) }
+  listPdfSourceLinksByTrashId(trashId) { return this._pdfRepository.listPdfSourceLinksByTrashId(trashId) }
+  upsertPdfSourceLink(data = {}) { return this._pdfRepository.upsertPdfSourceLink(data) }
+  updatePdfSourceLink(id, data = {}) { return this._pdfRepository.updatePdfSourceLink(id, data) }
+  markPdfSourceLinksTrashed(linkIds = [], trashId = '') { return this._pdfRepository.markPdfSourceLinksTrashed(linkIds, trashId) }
+  restorePdfSourceLink(id, ownerLocator) { return this._pdfRepository.restorePdfSourceLink(id, ownerLocator) }
+  deletePdfSourceLinks(linkIds = []) { return this._pdfRepository.deletePdfSourceLinks(linkIds) }
+  countPdfSourceLinks(pdfId) { return this._pdfRepository.countPdfSourceLinks(pdfId) }
+  hasActivePdfSourceLink(pdfId) { return this._pdfRepository.hasActivePdfSourceLink(pdfId) }
+  listPdfParseRuns(pdfId) { return this._pdfRepository.listPdfParseRuns(pdfId) }
+  getPdfParseRun(id) { return this._pdfRepository.getPdfParseRun(id) }
+  cancelPdfParseRuns(pdfIds = [], message = 'PDF source is no longer active.') { return this._pdfRepository.cancelPdfParseRuns(pdfIds, message) }
+  cancelInterruptedPdfParseRuns() { return this._pdfRepository.cancelInterruptedPdfParseRuns() }
+  createPdfParseRun(data = {}) { return this._pdfRepository.createPdfParseRun(data) }
+  updatePdfParseRun(id, data = {}) { return this._pdfRepository.updatePdfParseRun(id, data) }
+  listWikiOcrJobs(wikiId, sourceId = '') { return this._wikiRepository.listWikiOcrJobs(wikiId, sourceId) }
+  getWikiOcrJob(id) { return this._wikiRepository.getWikiOcrJob(id) }
+  createWikiOcrJob(data = {}) { return this._wikiRepository.createWikiOcrJob(data) }
+  upsertWikiOcrJob(data = {}) { return this._wikiRepository.upsertWikiOcrJob(data) }
+  updateWikiOcrJob(id, data = {}) { return this._wikiRepository.updateWikiOcrJob(id, data) }
+>>>>>>> dev
 
   // ─── Outputs ───
 
-  listOutputs() {
-    return this._db.prepare('SELECT * FROM outputs ORDER BY created_at DESC').all()
-  }
-
-  createOutput(data) {
-    const id = data.id || 'out_' + Date.now()
-    this._db.prepare(`INSERT INTO outputs (id, name, type, category, agent_name, skill_name, format, file_path, file_size, content, space_id)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
-      id, data.name || '', data.type || 'summary', data.category || 'desk',
-      data.agent_name || '', data.skill_name || '', data.format || 'Markdown',
-      data.file_path || '', data.file_size || '', data.content || '', data.space_id || '')
-    return { id, ...data }
-  }
-
-  deleteOutput(id) {
-    this._db.prepare('DELETE FROM outputs WHERE id = ?').run(id)
-    return { success: true }
-  }
+  listOutputs() { return this._taskRepository.listOutputs() }
+  createOutput(data) { return this._taskRepository.createOutput(data) }
+  deleteOutput(id) { return this._taskRepository.deleteOutput(id) }
 
   // ─── Artifacts ───
 
-  listArtifactsByGroup(groupId) {
-    return this._db.prepare('SELECT * FROM artifacts WHERE group_id = ? ORDER BY created_at DESC').all(groupId)
-  }
-
-  getArtifact(id) {
-    return this._db.prepare('SELECT * FROM artifacts WHERE id = ?').get(id)
-  }
-
-  createArtifact(data) {
-    const id = data.id || 'art_' + Date.now()
-    this._db.prepare(`INSERT INTO artifacts (id, group_id, conversation_id, title, type, icon, color, storage_type, file_path, content, agent_name, skill_name)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
-      id, data.group_id || 'default', data.conversation_id || '',
-      data.title || '', data.type || 'summary', data.icon || 'ri-file-line',
-      data.color || 'brand', data.storage_type || 'data',
-      data.file_path || '', data.content || '',
-      data.agent_name || '', data.skill_name || '')
-    return this._db.prepare('SELECT * FROM artifacts WHERE id = ?').get(id)
-  }
-
-  deleteArtifact(id) {
-    this._db.prepare('DELETE FROM artifacts WHERE id = ?').run(id)
-    return { success: true }
-  }
-
-  updateArtifact(id, data) {
-    return dynamicUpdate(this._db, 'artifacts', id, data)
-  }
+  listArtifactsByGroup(groupId) { return this._taskRepository.listArtifactsByGroup(groupId) }
+  getArtifact(id) { return this._taskRepository.getArtifact(id) }
+  createArtifact(data) { return this._taskRepository.createArtifact(data) }
+  deleteArtifact(id) { return this._taskRepository.deleteArtifact(id) }
+  updateArtifact(id, data) { return this._taskRepository.updateArtifact(id, data) }
 
   // ─── Settings ───
 
-  getSetting(key) {
-    const row = this._db.prepare('SELECT value FROM settings WHERE key = ?').get(key)
-    return row ? parseJSON(row.value) : null
-  }
-
-  setSetting(key, value) {
-    this._db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)').run(key, stringifyJSON(value))
-    return { success: true }
-  }
-
-  getAllSettings() {
-    const rows = this._db.prepare('SELECT key, value FROM settings').all()
-    const obj = {}
-    for (const r of rows) obj[r.key] = parseJSON(r.value)
-    return obj
-  }
+  getSetting(key) { return this._settingsRepository.getSetting(key) }
+  setSetting(key, value) { return this._settingsRepository.setSetting(key, value) }
+  getAllSettings() { return this._settingsRepository.getAllSettings() }
+  importSettings(settings) { return this._settingsRepository.importSettings(settings) }
 
   // ─── Memories ───
 
-  listMemories() {
-    return this._db.prepare('SELECT * FROM memories ORDER BY created_at DESC').all()
-  }
-
-  createMemory(data) {
-    const id = data.id || 'mem_' + Date.now()
-    this._db.prepare(`INSERT INTO memories (id, type, source, content)
-      VALUES (?, ?, ?, ?)`).run(id, data.type || 'semantic', data.source || '', data.content || '')
-    return this._db.prepare('SELECT * FROM memories WHERE id = ?').get(id)
-  }
-
-  updateMemory(id, data) {
-    return dynamicUpdate(this._db, 'memories', id, data)
-  }
-
-  deleteMemory(id) {
-    this._db.prepare('DELETE FROM memories WHERE id = ?').run(id)
-    return { success: true }
-  }
+  listMemories() { return this._memoryRepository.listMemories() }
+  createMemory(data) { return this._memoryRepository.createMemory(data) }
+  updateMemory(id, data) { return this._memoryRepository.updateMemory(id, data) }
+  deleteMemory(id) { return this._memoryRepository.deleteMemory(id) }
 
   // ─── Recycle Bin ───
 
-  listTrash() {
-    return this._db.prepare('SELECT * FROM recycle_bin ORDER BY deleted_at DESC').all()
-  }
-
-  listTrashByCategory(category) {
-    return this._db.prepare('SELECT * FROM recycle_bin WHERE category = ? ORDER BY deleted_at DESC').all(category)
-  }
-
-  getTrashItem(id) {
-    return this._db.prepare('SELECT * FROM recycle_bin WHERE id = ?').get(id)
-  }
-
-  createTrashItem(data) {
-    const id = data.id || 'trash_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7)
-    this._db.prepare(`INSERT INTO recycle_bin (id, original_path, original_name, trash_path, is_directory, size, file_type, category, item_type, item_id, payload_json)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
-      id, data.original_path || '', data.original_name, data.trash_path || '',
-      data.is_directory ? 1 : 0, data.size || 0, data.file_type || '', data.category || 'other',
-      data.item_type || 'file', data.item_id || '', data.payload_json || '')
-    return this._db.prepare('SELECT * FROM recycle_bin WHERE id = ?').get(id)
-  }
-
-  deleteTrashItem(id) {
-    this._db.prepare('DELETE FROM recycle_bin WHERE id = ?').run(id)
-    return { success: true }
-  }
-
-  deleteTrashItems(ids) {
-    const stmt = this._db.prepare('DELETE FROM recycle_bin WHERE id = ?')
-    this._db.transaction(() => { for (const id of ids) stmt.run(id) })()
-    return { success: true }
-  }
-
-  emptyTrash() {
-    this._db.prepare('DELETE FROM recycle_bin').run()
-    return { success: true }
-  }
-
-  trashItemCount() {
-    const row = this._db.prepare('SELECT COUNT(*) as c FROM recycle_bin').get()
-    return row.c
-  }
+  listTrash() { return this._recycleBinRepository.listTrash() }
+  listTrashByCategory(category) { return this._recycleBinRepository.listTrashByCategory(category) }
+  getTrashItem(id) { return this._recycleBinRepository.getTrashItem(id) }
+  createTrashItem(data) { return this._recycleBinRepository.createTrashItem(data) }
+  deleteTrashItem(id) { return this._recycleBinRepository.deleteTrashItem(id) }
+  deleteTrashItems(ids) { return this._recycleBinRepository.deleteTrashItems(ids) }
+  emptyTrash() { return this._recycleBinRepository.emptyTrash() }
+  trashItemCount() { return this._recycleBinRepository.trashItemCount() }
 
   // ─── Token Usage ───
 
-  createTokenUsage(data) {
-    const id = data.id || 'tu_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8)
-    this._db.prepare(`INSERT INTO token_usage (id, provider_id, model_id, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens, thinking_tokens, cost, latency_ms, agent_id, conversation_id, run_id, iteration)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
-      id, data.provider_id || '', data.model_id || '',
-      data.input_tokens || 0, data.output_tokens || 0,
-      data.cache_read_tokens || 0, data.cache_write_tokens || 0,
-      data.thinking_tokens || 0,
-      data.cost || 0, data.latency_ms || 0,
-      data.agent_id || '', data.conversation_id || '',
-      data.run_id || '', data.iteration || 0)
-    return this._db.prepare('SELECT * FROM token_usage WHERE id = ?').get(id)
-  }
-
-  listTokenUsage(filters = {}) {
-    let sql = 'SELECT * FROM token_usage'
-    const conditions = []
-    const params = []
-    if (filters.provider_id) { conditions.push('provider_id = ?'); params.push(filters.provider_id) }
-    if (filters.model_id) { conditions.push('model_id = ?'); params.push(filters.model_id) }
-    if (filters.agent_id) { conditions.push('agent_id = ?'); params.push(filters.agent_id) }
-    if (filters.conversation_id) { conditions.push('conversation_id = ?'); params.push(filters.conversation_id) }
-    if (filters.startDate) { conditions.push('created_at >= ?'); params.push(filters.startDate) }
-    if (filters.endDate) { conditions.push('created_at <= ?'); params.push(filters.endDate) }
-    if (conditions.length > 0) sql += ' WHERE ' + conditions.join(' AND ')
-    sql += ' ORDER BY created_at DESC'
-    if (filters.limit) sql += ` LIMIT ${filters.limit}`
-    return this._db.prepare(sql).all(...params)
-  }
-
-  getTokenUsageSummary(range = 'month') {
-    const dr = this._getDateRangeFilter(range)
-    const where = dr.end ? 'created_at >= ? AND created_at < ?' : 'created_at >= ?'
-    const params = dr.end ? [dr.start, dr.end] : [dr.start]
-    const row = this._db.prepare(`SELECT
-      COUNT(*) as call_count,
-      COALESCE(SUM(input_tokens + output_tokens + cache_read_tokens + cache_write_tokens + thinking_tokens), 0) as total_tokens,
-      COALESCE(SUM(input_tokens), 0) as input_tokens,
-      COALESCE(SUM(output_tokens), 0) as output_tokens,
-      COALESCE(SUM(cache_read_tokens), 0) as cache_read_tokens,
-      COALESCE(SUM(cache_write_tokens), 0) as cache_write_tokens,
-      COALESCE(SUM(thinking_tokens), 0) as thinking_tokens,
-      COALESCE(SUM(cost), 0) as total_cost,
-      COALESCE(AVG(latency_ms), 0) as avg_latency
-      FROM token_usage WHERE ${where}`).get(...params)
-    return row
-  }
-
-  getTokenUsageByModel(range = 'month') {
-    const dr = this._getDateRangeFilter(range)
-    const where = dr.end ? 'created_at >= ? AND created_at < ?' : 'created_at >= ?'
-    const params = dr.end ? [dr.start, dr.end] : [dr.start]
-    return this._db.prepare(`SELECT COALESCE(provider_id, '') as provider_id, COALESCE(model_id, '') as model_id,
-      COUNT(*) as call_count,
-      SUM(input_tokens) as input_tokens,
-      SUM(output_tokens) as output_tokens,
-      SUM(cache_read_tokens) as cache_read_tokens,
-      SUM(cache_write_tokens) as cache_write_tokens,
-      SUM(thinking_tokens) as thinking_tokens,
-      SUM(cost) as cost
-      FROM token_usage WHERE ${where}
-      GROUP BY COALESCE(provider_id, ''), COALESCE(model_id, '') ORDER BY cost DESC`).all(...params)
-  }
-
-  getTokenUsageByAgent(range = 'month') {
-    const dr = this._getDateRangeFilter(range)
-    const where = dr.end ? 'created_at >= ? AND created_at < ?' : 'created_at >= ?'
-    const params = dr.end ? [dr.start, dr.end] : [dr.start]
-    return this._db.prepare(`SELECT agent_id,
-      COUNT(*) as call_count,
-      SUM(input_tokens) as input_tokens,
-      SUM(output_tokens) as output_tokens,
-      SUM(cache_read_tokens) as cache_read_tokens,
-      SUM(cache_write_tokens) as cache_write_tokens,
-      SUM(thinking_tokens) as thinking_tokens,
-      SUM(cost) as cost
-      FROM (
-        SELECT
-          CASE
-            WHEN LOWER(COALESCE(agent_id, '')) LIKE 'wiki-agent:%' THEN 'wikiagent'
-            WHEN LOWER(COALESCE(agent_id, '')) IN ('wikiagent', 'wiki_agent', 'wiki-agent') THEN 'wikiagent'
-            ELSE COALESCE(agent_id, '')
-          END as agent_id,
-          input_tokens,
-          output_tokens,
-          cache_read_tokens,
-          cache_write_tokens,
-          thinking_tokens,
-          cost
-        FROM token_usage WHERE ${where}
-      )
-      GROUP BY agent_id ORDER by call_count DESC`).all(...params)
-  }
-
-  getTokenUsageDaily(range = 'month') {
-    const dr = this._getDateRangeFilter(range)
-    const where = dr.end ? 'created_at >= ? AND created_at < ?' : 'created_at >= ?'
-    const params = dr.end ? [dr.start, dr.end] : [dr.start]
-    return this._db.prepare(`SELECT DATE(created_at) as date,
-      SUM(input_tokens) as input_tokens,
-      SUM(output_tokens) as output_tokens,
-      SUM(cache_read_tokens) as cache_read_tokens,
-      SUM(cache_write_tokens) as cache_write_tokens,
-      SUM(thinking_tokens) as thinking_tokens,
-      SUM(cost) as cost,
-      COUNT(*) as call_count
-      FROM token_usage WHERE ${where}
-      GROUP BY DATE(created_at) ORDER BY date ASC`).all(...params)
-  }
-
-  deleteOldTokenUsage(beforeDate) {
-    const result = this._db.prepare('DELETE FROM token_usage WHERE created_at < ?').run(beforeDate)
-    return { deleted: result.changes }
-  }
+  _getDateRangeFilter(range) { return this._usageRepository._getDateRangeFilter(range) }
+  createTokenUsage(data) { return this._usageRepository.createTokenUsage(data) }
+  listTokenUsage(filters = {}) { return this._usageRepository.listTokenUsage(filters) }
+  getTokenUsageSummary(range = 'month') { return this._usageRepository.getTokenUsageSummary(range) }
+  getTokenUsageByModel(range = 'month') { return this._usageRepository.getTokenUsageByModel(range) }
+  getTokenUsageByAgent(range = 'month') { return this._usageRepository.getTokenUsageByAgent(range) }
+  getTokenUsageDaily(range = 'month') { return this._usageRepository.getTokenUsageDaily(range) }
+  deleteOldTokenUsage(beforeDate) { return this._usageRepository.deleteOldTokenUsage(beforeDate) }
 
   // ─── Agent Runs ───
 
-  createAgentRun(data) {
-    const id = data.id || 'run_' + Date.now()
-    this._db.prepare(`INSERT INTO agent_runs (id, conversation_id, agent_id, parent_run_id, status, iterations, max_iterations, total_input_tokens, total_output_tokens, total_cost, steps, error_code, error_message, compressed)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
-      id, data.conversation_id || '', data.agent_id || '', data.parent_run_id || '',
-      data.status || 'running', data.iterations || 0, data.max_iterations ?? 10,
-      data.total_input_tokens || 0, data.total_output_tokens || 0, data.total_cost || 0,
-      data.steps || '[]', data.error_code || '', data.error_message || '', data.compressed || 0)
-    return this._db.prepare('SELECT * FROM agent_runs WHERE id = ?').get(id)
-  }
-
-  getAgentRun(id) {
-    return this._db.prepare('SELECT * FROM agent_runs WHERE id = ?').get(id)
-  }
-
-  updateAgentRun(id, data) {
-    return dynamicUpdate(this._db, 'agent_runs', id, data, ['steps'])
-  }
-
-  listAgentRunsByConversation(convId) {
-    return this._db.prepare('SELECT * FROM agent_runs WHERE conversation_id = ? ORDER BY created_at DESC').all(convId)
-  }
-
-  listAgentRunsByAgent(agentId) {
-    return this._db.prepare('SELECT * FROM agent_runs WHERE agent_id = ? ORDER BY created_at DESC').all(agentId)
-  }
-
-  deleteAgentRun(id) {
-    this._db.prepare('DELETE FROM agent_runs WHERE id = ?').run(id)
-    return { success: true }
-  }
+  createAgentRun(data) { return this._usageRepository.createAgentRun(data) }
+  getAgentRun(id) { return this._usageRepository.getAgentRun(id) }
+  updateAgentRun(id, data) { return this._usageRepository.updateAgentRun(id, data) }
+  listAgentRunsByConversation(convId) { return this._usageRepository.listAgentRunsByConversation(convId) }
+  listAgentRunsByAgent(agentId) { return this._usageRepository.listAgentRunsByAgent(agentId) }
+  deleteAgentRun(id) { return this._usageRepository.deleteAgentRun(id) }
 
   // ─── Note Folders ───
 
-  listNoteFolders(parentId) {
-    if (parentId) return this._db.prepare('SELECT * FROM note_folders WHERE parent_id = ? ORDER BY sort_order, created_at ASC').all(parentId)
-    return this._db.prepare('SELECT * FROM note_folders ORDER BY sort_order, created_at ASC').all()
-  }
-
-  getNoteFolder(id) {
-    return this._db.prepare('SELECT * FROM note_folders WHERE id = ?').get(id)
-  }
-
-  createNoteFolder(data) {
-    const id = data.id || 'nf_' + Date.now()
-    this._db.prepare(`INSERT INTO note_folders (id, parent_id, name, icon, color, sort_order)
-      VALUES (?, ?, ?, ?, ?, ?)`).run(id, data.parent_id || '', data.name || '新文件夹', data.icon || 'ri-folder-2-line', data.color || '#6C8AFF', data.sort_order || 0)
-    return this.getNoteFolder(id)
-  }
-
-  updateNoteFolder(id, data) {
-    return dynamicUpdate(this._db, 'note_folders', id, data)
-  }
-
-  deleteNoteFolder(id) {
-    this._db.prepare('DELETE FROM note_folders WHERE id = ?').run(id)
-    return { success: true }
-  }
+  listNoteFolders(parentId) { return this._notesRepository.listNoteFolders(parentId) }
+  getNoteFolder(id) { return this._notesRepository.getNoteFolder(id) }
+  createNoteFolder(data) { return this._notesRepository.createNoteFolder(data) }
+  updateNoteFolder(id, data) { return this._notesRepository.updateNoteFolder(id, data) }
+  deleteNoteFolder(id) { return this._notesRepository.deleteNoteFolder(id) }
 
   // ─── Notes ───
 
-  listNotes(folderId) {
-    if (folderId) return this._db.prepare('SELECT * FROM notes WHERE folder_id = ? ORDER BY sort_order, created_at DESC').all(folderId)
-    return this._db.prepare('SELECT * FROM notes ORDER BY created_at DESC').all()
-  }
+  listNotes(folderId) { return this._notesRepository.listNotes(folderId) }
+  getNote(id) { return this._notesRepository.getNote(id) }
+  createNote(data) { return this._notesRepository.createNote(data) }
+  updateNote(id, data) { return this._notesRepository.updateNote(id, data) }
+  deleteNote(id) { return this._notesRepository.deleteNote(id) }
 
-  getNote(id) {
-    return this._db.prepare('SELECT * FROM notes WHERE id = ?').get(id)
-  }
+  _ensureSchemaMigrationsTable() { return this._versionedMigrationManager._ensureSchemaMigrationsTable() }
 
-  createNote(data) {
-    const id = data.id || 'nt_' + Date.now()
-    this._db.prepare(`INSERT INTO notes (id, folder_id, title, content, file_path, sort_order)
-      VALUES (?, ?, ?, ?, ?, ?)`).run(id, data.folder_id || '', data.title || '新笔记', data.content || '', data.file_path || '', data.sort_order || 0)
-    return this.getNote(id)
-  }
+  _getVersionedMigrations() { return this._versionedMigrationManager._getVersionedMigrations() }
+  _ensureArtifactsTable() { return this._legacyMigrationManager._ensureArtifactsTable() }
 
-  updateNote(id, data) {
-    return dynamicUpdate(this._db, 'notes', id, data)
-  }
+  _ensureTaskGenerationColumns(taskCols = null) { return this._legacyMigrationManager._ensureTaskGenerationColumns(taskCols) }
 
-  deleteNote(id) {
-    this._db.prepare('DELETE FROM notes WHERE id = ?').run(id)
-    return { success: true }
-  }
+  _ensureCreationCenterSubAgentSeeds() { return this._legacyMigrationManager._ensureCreationCenterSubAgentSeeds() }
 
+<<<<<<< HEAD
   _getDateRangeFilter(range) {
     const now = new Date()
     const todayStr = now.toISOString().slice(0, 10)
@@ -2892,4 +2426,11 @@ export class DatabaseService {
 
     this._db.transaction(() => { for (const a of agents) insert.run(a) })()
   }
+=======
+  _ensureCreationCenterAgentPrompts() { return this._legacyMigrationManager._ensureCreationCenterAgentPrompts() }
+  _runVersionedMigrations() { return this._versionedMigrationManager._runVersionedMigrations() }
+  _migrateTables() { return this._legacyMigrationManager._migrateTables() }
+  _createTables() { return this._schemaManager._createTables() }
+  _seedBuiltinData() { return this._seedManager._seedBuiltinData() }
+>>>>>>> dev
 }

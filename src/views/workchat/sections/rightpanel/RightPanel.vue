@@ -1,11 +1,11 @@
 <script setup>
-import { ref, watch } from 'vue'
+import { defineAsyncComponent, ref, watch } from 'vue'
 import { useMessage } from '@/components/MsMessage/useMessage'
 import { useMessageBox } from '@/components/MsMessageBox/useMessageBox'
 import { useRecycleBinStore } from '@/stores/recycleBin'
 import PreviewTab from './PreviewTab.vue'
 import WorkspaceTab from './WorkspaceTab.vue'
-import ArtifactModal from './ArtifactModal.vue'
+const ArtifactModal = defineAsyncComponent(() => import('./ArtifactModal.vue'))
 
 const props = defineProps({
   previewFile: Object,

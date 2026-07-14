@@ -5,6 +5,7 @@ const api = {
   // Dialog
   openDirectory: () => ipcRenderer.invoke('dialog:openDirectory'),
   openFile: (options) => ipcRenderer.invoke('dialog:openFile', options),
+  saveTextFile: (options, content) => ipcRenderer.invoke('dialog:saveTextFile', options, content),
 
   // File system
   readFile: (filePath, options) => ipcRenderer.invoke('fs:readFile', filePath, options),
@@ -54,6 +55,15 @@ const api = {
   setStartup: (enabled) => ipcRenderer.invoke('app:setStartup', enabled),
   setMinimizeToTray: (enabled) => ipcRenderer.invoke('app:setMinimizeToTray', enabled),
   setTrayIcon: (enabled) => ipcRenderer.invoke('app:setTrayIcon', enabled),
+  setTrayMenu: (items) => ipcRenderer.invoke('app:setTrayMenu', items),
+  onTrayNavigate: (callback) => {
+    const handler = (_event, route) => callback(route)
+    ipcRenderer.on('tray:navigate', handler)
+    return handler
+  },
+  removeTrayNavigateListener: (handler) => {
+    if (typeof handler === 'function') ipcRenderer.removeListener('tray:navigate', handler)
+  },
   setSingleInstance: (enabled) => ipcRenderer.invoke('app:setSingleInstance', enabled),
   getWindowPresence: () => ipcRenderer.invoke('app:getWindowPresence'),
   playSound: (name) => ipcRenderer.invoke('app:playSound', name),
@@ -90,6 +100,28 @@ const api = {
     getRoot: async () => {
       const s = await ipcRenderer.invoke('workdir:getStatus')
       return s?.rootPath || ''
+    },
+  },
+
+  workspace: {
+    list: () => ipcRenderer.invoke('workspace:list'),
+    getBootstrapState: () => ipcRenderer.invoke('workspace:getBootstrapState'),
+    selectDirectory: (options) => ipcRenderer.invoke('workspace:selectDirectory', options),
+    create: (data) => ipcRenderer.invoke('workspace:create', data),
+    open: (data) => ipcRenderer.invoke('workspace:open', data),
+    setPending: (id) => ipcRenderer.invoke('workspace:setPending', id),
+    cancelPending: () => ipcRenderer.invoke('workspace:cancelPending'),
+    rename: (data) => ipcRenderer.invoke('workspace:rename', data),
+    remove: (id) => ipcRenderer.invoke('workspace:remove', id),
+    migrate: (data) => ipcRenderer.invoke('workspace:migrate', data),
+    cleanupFailedMigration: (targetRoot) => ipcRenderer.invoke('workspace:cleanupFailedMigration', targetRoot),
+    onMigrationProgress: (callback) => {
+      const handler = (_, progress) => callback(progress)
+      ipcRenderer.on('workspace:migrationProgress', handler)
+      return handler
+    },
+    removeMigrationProgressListener: (handler) => {
+      if (handler) ipcRenderer.removeListener('workspace:migrationProgress', handler)
     },
   },
 
@@ -285,6 +317,25 @@ const api = {
     agentDraft: (req) => ipcRenderer.invoke('wiki:agentDraft', req),
     agentRun: (req) => ipcRenderer.invoke('wiki:agentRun', req),
     wikiTool: (req) => ipcRenderer.invoke('wiki:tool', req),
+    runLint: (id) => ipcRenderer.invoke('wiki:runLint', id),
+    getLintReport: (id) => ipcRenderer.invoke('wiki:getLintReport', id),
+    runSemanticAudit: (id) => ipcRenderer.invoke('wiki:runSemanticAudit', id),
+    getSemanticAudit: (id) => ipcRenderer.invoke('wiki:getSemanticAudit', id),
+  },
+
+  webImport: {
+    getSettings: () => ipcRenderer.invoke('webImport:getSettings'),
+    saveSettings: (patch) => ipcRenderer.invoke('webImport:saveSettings', patch),
+    createJob: (data) => ipcRenderer.invoke('webImport:createJob', data),
+    listJobs: (filters) => ipcRenderer.invoke('webImport:listJobs', filters),
+    getJob: (id) => ipcRenderer.invoke('webImport:getJob', id),
+    retryJob: (id) => ipcRenderer.invoke('webImport:retryJob', id),
+    deleteJob: (id) => ipcRenderer.invoke('webImport:deleteJob', id),
+    clearFinishedJobs: (filters) => ipcRenderer.invoke('webImport:clearFinishedJobs', filters),
+    onJobUpdated: (cb) => { const h = (_, data) => cb(data); ipcRenderer.on('webImport:jobUpdated', h); return h },
+    onNotification: (cb) => { const h = (_, data) => cb(data); ipcRenderer.on('webImport:notification', h); return h },
+    removeJobUpdatedListener: (handler) => { if (handler) ipcRenderer.removeListener('webImport:jobUpdated', handler) },
+    removeNotificationListener: (handler) => { if (handler) ipcRenderer.removeListener('webImport:notification', handler) },
   },
 
   // Generation Tasks (async creation jobs — mindmap / graph / podcast / etc.)
@@ -325,6 +376,7 @@ const api = {
       list: (spaceId, groupId) => ipcRenderer.invoke('db:convs:list', spaceId, groupId),
       get: (id) => ipcRenderer.invoke('db:convs:get', id),
       create: (data) => ipcRenderer.invoke('db:convs:create', data),
+      createBranch: (data) => ipcRenderer.invoke('db:convs:createBranch', data),
       update: (id, data) => ipcRenderer.invoke('db:convs:update', id, data),
       delete: (id) => ipcRenderer.invoke('db:convs:delete', id),
     },
@@ -338,6 +390,8 @@ const api = {
     // Messages
     msgs: {
       list: (convId) => ipcRenderer.invoke('db:msgs:list', convId),
+      get: (id) => ipcRenderer.invoke('db:msgs:get', id),
+      getPreviousUser: (convId, assistantMsgId) => ipcRenderer.invoke('db:msgs:getPreviousUser', convId, assistantMsgId),
       listPaginated: (convId, limit, offset) => ipcRenderer.invoke('db:msgs:listPaginated', convId, limit, offset),
       count: (convId) => ipcRenderer.invoke('db:msgs:count', convId),
       create: (data) => ipcRenderer.invoke('db:msgs:create', data),
@@ -400,6 +454,7 @@ const api = {
     // Artifacts
     artifacts: {
       listByGroup: (groupId) => ipcRenderer.invoke('db:artifacts:listByGroup', groupId),
+      get: (id) => ipcRenderer.invoke('db:artifacts:get', id),
       create: (data) => ipcRenderer.invoke('db:artifacts:create', data),
       delete: (id) => ipcRenderer.invoke('db:artifacts:delete', id),
       update: (id, data) => ipcRenderer.invoke('db:artifacts:update', id, data),

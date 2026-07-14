@@ -121,7 +121,7 @@ function formatSize(bytes) {
       <span class="text-[12px] font-semibold text-center truncate w-full px-1"
         :class="isDark ? 'text-wt-main' : 'text-lt-main'">{{ item.name }}</span>
       <!-- Meta: child count -->
-      <span class="text-[10px] mt-0.5" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">
+      <span class="text-[14px] mt-0.5" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">
         {{ (item.childCount != null) ? `${item.childCount} 项` : '文件夹' }}
       </span>
     </div>
@@ -129,14 +129,14 @@ function formatSize(bytes) {
     <!-- Footer actions -->
     <div class="relative shrink-0 flex items-center gap-1 px-3 pb-2.5 opacity-0 group-hover:opacity-100 transition-opacity">
       <button @click.stop="emit('open', item)"
-        class="flex-1 h-6 rounded-md text-[10px] font-medium flex items-center justify-center gap-1 transition-colors"
+        class="flex-1 h-6 rounded-md text-[14px] font-medium flex items-center justify-center gap-1 transition-colors"
         :class="isDark ? 'bg-amber-400/12 text-amber-400 hover:bg-amber-400/20' : 'bg-amber-50 text-amber-600 hover:bg-amber-100'">
-        <i class="ri-folder-open-line text-[10px]" />进入
+        <i class="ri-folder-open-line text-[14px]" />进入
       </button>
       <button @click.stop="emit('chat', item)"
-        class="h-6 px-2 rounded-md text-[10px] font-medium flex items-center gap-1 transition-colors"
+        class="h-6 px-2 rounded-md text-[14px] font-medium flex items-center gap-1 transition-colors"
         :class="isDark ? 'bg-d0 text-wt-aux hover:text-wt-sub' : 'bg-white text-lt-aux hover:text-lt-sub'">
-        <i class="ri-chat-1-line text-[10px]" />
+        <i class="ri-chat-1-line text-[14px]" />
       </button>
     </div>
   </div>
@@ -166,7 +166,7 @@ function formatSize(bytes) {
       <span class="text-[12px] font-medium text-center truncate w-full px-1"
         :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">{{ item.name }}</span>
       <!-- Meta -->
-      <span class="text-[10px] mt-0.5" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">
+      <span class="text-[14px] mt-0.5" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">
         {{ formatSize(item.size) || '--' }}
       </span>
       <DocumentProcessingBadge
@@ -179,14 +179,14 @@ function formatSize(bytes) {
     <!-- Card footer: actions -->
     <div class="shrink-0 flex items-center gap-1 px-3 pb-2.5 opacity-0 group-hover:opacity-100 transition-opacity">
       <button @click.stop="emit('preview', item)"
-        class="flex-1 h-6 rounded-md text-[10px] font-medium flex items-center justify-center gap-1 transition-colors"
+        class="flex-1 h-6 rounded-md text-[14px] font-medium flex items-center justify-center gap-1 transition-colors"
         :class="isDark ? 'bg-brand-400/12 text-brand-400 hover:bg-brand-400/20' : 'bg-brand-50 text-brand-500 hover:bg-brand-100'">
-        <i class="ri-eye-line text-[10px]" />预览
+        <i class="ri-eye-line text-[14px]" />预览
       </button>
       <button @click.stop="emit('chat', item)"
-        class="h-6 px-2 rounded-md text-[10px] font-medium flex items-center gap-1 transition-colors"
+        class="h-6 px-2 rounded-md text-[14px] font-medium flex items-center gap-1 transition-colors"
         :class="isDark ? 'bg-d0 text-wt-aux hover:text-wt-sub' : 'bg-white text-lt-aux hover:text-lt-sub'">
-        <i class="ri-chat-1-line text-[10px]" />
+        <i class="ri-chat-1-line text-[14px]" />
       </button>
     </div>
   </div>

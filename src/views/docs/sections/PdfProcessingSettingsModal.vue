@@ -1,5 +1,9 @@
 <script setup>
+<<<<<<< HEAD
 import { ref, computed } from 'vue'
+=======
+import { ref, computed, watch, toRaw } from 'vue'
+>>>>>>> dev
 import MsModal from '@/components/MsModal/MsModal.vue'
 
 const props = defineProps({
@@ -13,11 +17,30 @@ const props = defineProps({
   pdfEnvironmentStatusText: { type: String, default: '' },
   installingPdfLocalParser: { type: Boolean, default: false },
   pdfLocalParserInstallResult: { type: Object, default: null },
+<<<<<<< HEAD
 })
 
 const emit = defineEmits(['update:show', 'save', 'open-ocr-settings', 'install-local-parser'])
 const activeTab = ref('pdf')
 const openSelectKey = ref('')
+=======
+  initialTab: { type: String, default: 'pdf' },
+  webSettings: { type: Object, default: null },
+  webProviders: { type: Array, default: () => [] },
+})
+
+const emit = defineEmits(['update:show', 'save', 'save-web-settings', 'open-ocr-settings', 'install-local-parser'])
+const activeTab = ref('pdf')
+const openSelectKey = ref('')
+const webApiKey = ref('')
+const webApiKeyAction = ref('keep')
+const webDraft = ref(null)
+
+function cloneWebSettings(value) {
+  if (!value) return null
+  return structuredClone(toRaw(value))
+}
+>>>>>>> dev
 
 const model = computed(() => props.settings)
 const show = computed({
@@ -25,6 +48,77 @@ const show = computed({
   set: value => emit('update:show', value),
 })
 
+<<<<<<< HEAD
+=======
+watch(() => props.show, visible => {
+  if (!visible) { webDraft.value = null; return }
+  activeTab.value = ['pdf', 'web', 'media'].includes(props.initialTab) ? props.initialTab : 'pdf'
+  webApiKey.value = ''
+  webApiKeyAction.value = 'keep'
+  webDraft.value = cloneWebSettings(props.webSettings)
+})
+
+watch(() => props.webSettings, value => {
+  if (props.show && !webDraft.value && value) webDraft.value = cloneWebSettings(value)
+})
+
+const selectedWebProviderId = computed(() => webDraft.value?.selectedProvider || '')
+const selectedWebProvider = computed(() => props.webProviders.find(item => item.id === selectedWebProviderId.value) || null)
+const selectedWebConfig = computed(() => webDraft.value?.providers?.[selectedWebProviderId.value] || null)
+const providerRasterAssets = import.meta.glob('../../../assets/icons/*.{ico,png,jpg,jpeg,webp}', { eager: true, query: '?url', import: 'default' })
+const webProviderVisuals = {
+  jina: { icon: 'jina', raster: true, desc: '轻量网页阅读器，适合文章与公开页面', dark: 'bg-cyan-400/12 text-cyan-300', light: 'bg-cyan-50 text-cyan-600', badge: 'text-cyan-500 bg-cyan-400/10' },
+  firecrawl: { icon: 'firecrawl', raster: true, desc: '结构化网页抓取，支持 Markdown 与 HTML', dark: 'bg-orange-400/12 text-orange-300', light: 'bg-orange-50 text-orange-600', badge: 'text-orange-500 bg-orange-400/10' },
+  tavily: { icon: 'tavily', desc: '快速正文提取，适合 Markdown 知识导入', dark: 'bg-emerald-400/12 text-emerald-300', light: 'bg-emerald-50 text-emerald-600', badge: 'text-emerald-500 bg-emerald-400/10' },
+}
+const webTimeoutOptions = [30, 60, 90]
+
+function webProviderVisual(id) {
+  return webProviderVisuals[id] || { icon: 'search-eye', desc: '网页内容解析服务', dark: 'bg-brand-400/12 text-brand-300', light: 'bg-brand-50 text-brand-600', badge: 'text-brand-500 bg-brand-400/10' }
+}
+
+function webProviderRasterSrc(id) {
+  const suffixes = [`/${id}.ico`, `/${id}.png`, `/${id}.webp`, `/${id}.jpg`, `/${id}.jpeg`]
+  const entry = Object.entries(providerRasterAssets).find(([filePath]) => suffixes.some(suffix => filePath.toLowerCase().endsWith(suffix)))
+  return entry?.[1] || ''
+}
+
+function selectWebProvider(id) {
+  if (!webDraft.value) return
+  webDraft.value.selectedProvider = id
+  webApiKey.value = ''
+  webApiKeyAction.value = 'keep'
+}
+
+function replaceWebKey() { webApiKeyAction.value = 'replace' }
+function clearWebKey() { webApiKey.value = ''; webApiKeyAction.value = 'clear' }
+function keepWebKey() { webApiKey.value = ''; webApiKeyAction.value = 'keep' }
+function selectWebTimeout(value) {
+  if (webDraft.value) webDraft.value.timeoutSeconds = value
+  openSelectKey.value = ''
+}
+
+function webSettingsPatch() {
+  const id = selectedWebProviderId.value
+  return {
+    selectedProvider: id,
+    timeoutSeconds: Number(webDraft.value?.timeoutSeconds) || 60,
+    providers: id ? {
+      [id]: {
+        baseUrl: selectedWebConfig.value?.baseUrl || '',
+        apiKeyAction: webApiKeyAction.value,
+        apiKey: webApiKeyAction.value === 'replace' ? webApiKey.value : '',
+      },
+    } : {},
+  }
+}
+
+function saveCurrent(close) {
+  if (activeTab.value === 'web') emit('save-web-settings', webSettingsPatch(), close)
+  else emit('save', close)
+}
+
+>>>>>>> dev
 const pdfEngineOptions = [
   {
     value: 'auto',
@@ -262,7 +356,11 @@ function toneClasses(tone) {
 
     <div class="space-y-4">
       <div
+<<<<<<< HEAD
         class="grid grid-cols-2 rounded-lg border p-0.5"
+=======
+        class="grid grid-cols-3 rounded-lg border p-0.5"
+>>>>>>> dev
         :class="isDark ? 'border-bdr bg-d3/60' : 'border-bdrF bg-l3'">
         <button
           @click="activeTab = 'pdf'"
@@ -274,6 +372,18 @@ function toneClasses(tone) {
           PDF 解析
         </button>
         <button
+<<<<<<< HEAD
+=======
+          @click="activeTab = 'web'"
+          class="h-8 rounded-md text-[11px] font-medium transition-colors flex items-center justify-center gap-1.5"
+          :class="activeTab === 'web'
+            ? isDark ? 'bg-d0 text-brand-400 shadow-sm' : 'bg-white text-brand-500 shadow-sm'
+            : isDark ? 'text-wt-dim hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub'">
+          <i class="ri-global-line text-[12px]" />
+          网页解析
+        </button>
+        <button
+>>>>>>> dev
           @click="activeTab = 'media'"
           class="h-8 rounded-md text-[11px] font-medium transition-colors flex items-center justify-center gap-1.5"
           :class="activeTab === 'media'
@@ -530,6 +640,77 @@ function toneClasses(tone) {
         </div>
       </div>
 
+<<<<<<< HEAD
+=======
+      <div v-else-if="activeTab === 'web'" class="space-y-4">
+        <div class="rounded-xl border p-3.5" :class="isDark ? 'border-brand-400/16 bg-brand-400/6' : 'border-brand-100 bg-brand-50/70'">
+          <div class="flex items-start gap-2.5">
+            <i class="ri-shield-check-line text-[15px] mt-0.5 text-brand-400" />
+            <div>
+              <div class="text-[12px] font-semibold" :class="isDark ? 'text-wt-main' : 'text-lt-main'">网页导入由第三方解析引擎处理</div>
+              <div class="text-[11px] leading-relaxed mt-1" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">选择默认引擎后配置连接信息。请求失败时不会自动切换服务商。</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="web-provider-select">
+          <div class="text-[11px] font-semibold mb-1.5" :class="isDark ? 'text-wt-main' : 'text-lt-main'">默认解析引擎</div>
+          <button type="button" class="web-provider-trigger" :class="isDark ? 'web-provider-trigger--dark' : 'web-provider-trigger--light'" @click="toggleSelect('webProvider')">
+            <template v-if="selectedWebProvider">
+              <span class="web-provider-logo" :class="isDark ? webProviderVisual(selectedWebProvider.id).dark : webProviderVisual(selectedWebProvider.id).light"><img v-if="webProviderVisual(selectedWebProvider.id).raster && webProviderRasterSrc(selectedWebProvider.id)" :src="webProviderRasterSrc(selectedWebProvider.id)" :alt="selectedWebProvider.name" class="web-provider-raster" /><SvgIcon v-else :icon-class="webProviderVisual(selectedWebProvider.id).icon" :size="24" /></span>
+              <span class="flex-1 min-w-0 text-left">
+                <span class="flex items-center gap-2"><span class="text-[12px] font-semibold" :class="isDark ? 'text-wt-main' : 'text-lt-main'">{{ selectedWebProvider.name }}</span><span class="web-format-badge" :class="webProviderVisual(selectedWebProvider.id).badge">{{ selectedWebProvider.formats?.includes('html') ? 'MD + HTML' : 'Markdown' }}</span></span>
+                <span class="block text-[10.5px] mt-0.5 truncate" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">{{ webProviderVisual(selectedWebProvider.id).desc }}</span>
+              </span>
+            </template>
+            <template v-else><span class="web-provider-logo" :class="isDark ? 'bg-brand-400/12 text-brand-300' : 'bg-brand-50 text-brand-600'"><i class="ri-global-line text-[20px]" /></span><span class="flex-1 text-left text-[12px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">选择网页解析引擎</span></template>
+            <i class="ri-arrow-down-s-line text-[16px] transition-transform" :class="[{ 'rotate-180': openSelectKey === 'webProvider' }, isDark ? 'text-wt-dim' : 'text-lt-aux']" />
+          </button>
+          <div v-if="openSelectKey === 'webProvider'" class="web-provider-menu" :class="isDark ? 'web-provider-menu--dark' : 'web-provider-menu--light'">
+            <button v-for="provider in webProviders" :key="provider.id" type="button" class="web-provider-option" :class="[isDark ? 'web-provider-option--dark' : 'web-provider-option--light', selectedWebProviderId === provider.id ? 'web-provider-option--selected' : '']" @click="selectWebProvider(provider.id); openSelectKey = ''">
+              <span class="web-provider-logo" :class="isDark ? webProviderVisual(provider.id).dark : webProviderVisual(provider.id).light"><img v-if="webProviderVisual(provider.id).raster && webProviderRasterSrc(provider.id)" :src="webProviderRasterSrc(provider.id)" :alt="provider.name" class="web-provider-raster" /><SvgIcon v-else :icon-class="webProviderVisual(provider.id).icon" :size="24" /></span>
+              <span class="flex-1 min-w-0 text-left"><span class="flex items-center gap-2"><span class="text-[12px] font-semibold">{{ provider.name }}</span><span class="web-format-badge" :class="webProviderVisual(provider.id).badge">{{ provider.formats?.includes('html') ? 'MD + HTML' : 'Markdown' }}</span></span><span class="block text-[10.5px] mt-0.5" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">{{ webProviderVisual(provider.id).desc }}</span></span>
+              <i v-if="selectedWebProviderId === provider.id" class="ri-checkbox-circle-fill text-brand-400 text-[16px]" />
+            </button>
+          </div>
+        </div>
+
+        <div v-if="selectedWebProvider && selectedWebConfig" class="web-settings-panel" :class="isDark ? 'web-settings-panel--dark' : 'web-settings-panel--light'">
+          <div class="web-field">
+            <label class="block text-[11px] font-semibold mb-1.5" :class="isDark ? 'text-wt-main' : 'text-lt-main'">Base URL</label>
+            <div class="web-input-shell" :class="isDark ? 'web-input-shell--dark' : 'web-input-shell--light'"><i class="ri-links-line web-input-icon" /><input v-model="selectedWebConfig.baseUrl" /><span class="web-input-suffix">HTTP(S)</span></div>
+            <div class="web-field-help" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">支持官方地址、代理地址或私有部署。</div>
+          </div>
+          <div class="web-field">
+            <div class="flex items-center justify-between mb-1.5">
+              <label class="text-[11px] font-semibold" :class="isDark ? 'text-wt-main' : 'text-lt-main'">API Key <span class="font-normal" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">（可选）</span></label>
+              <span v-if="selectedWebConfig.apiKeyConfigured && webApiKeyAction === 'keep'" class="text-[9.5px] text-emerald-400">已配置 {{ selectedWebConfig.apiKeyMasked }}</span>
+            </div>
+            <div class="flex gap-2">
+              <div class="web-input-shell flex-1" :class="isDark ? 'web-input-shell--dark' : 'web-input-shell--light'"><i class="ri-key-2-line web-input-icon" /><input v-model="webApiKey" type="password" :placeholder="selectedWebConfig.apiKeyConfigured ? '输入新 Key 以替换' : '留空则不发送 API Key'" @input="replaceWebKey" /><span class="web-input-suffix">可选</span></div>
+              <button v-if="selectedWebConfig.apiKeyConfigured && webApiKeyAction !== 'clear'" type="button" class="px-3 rounded-lg text-[10.5px]" :class="isDark ? 'bg-red-400/10 text-red-300' : 'bg-red-50 text-red-600'" @click="clearWebKey">清除</button>
+              <button v-if="webApiKeyAction === 'clear'" type="button" class="px-3 rounded-lg text-[10.5px]" :class="isDark ? 'bg-d4 text-wt-sub' : 'bg-l4 text-lt-sub'" @click="keepWebKey">撤销</button>
+            </div>
+            <div class="web-field-help" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">API Key 可留空；是否可直接使用由当前解析服务商的接口规则决定。</div>
+          </div>
+          <div class="web-field web-timeout-select">
+            <label class="block text-[11px] font-semibold mb-1.5" :class="isDark ? 'text-wt-main' : 'text-lt-main'">请求超时</label>
+            <button type="button" class="web-timeout-trigger" :class="isDark ? 'web-timeout-trigger--dark' : 'web-timeout-trigger--light'" @click="toggleSelect('webTimeout')">
+              <i class="ri-timer-line text-brand-400 text-[14px]" />
+              <span class="flex-1 text-left text-[11.5px]">{{ webDraft.timeoutSeconds || 60 }} 秒</span>
+              <i class="ri-arrow-down-s-line text-[14px] transition-transform" :class="[{ 'rotate-180': openSelectKey === 'webTimeout' }, isDark ? 'text-wt-dim' : 'text-lt-aux']" />
+            </button>
+            <div v-if="openSelectKey === 'webTimeout'" class="web-timeout-menu" :class="isDark ? 'web-timeout-menu--dark' : 'web-timeout-menu--light'">
+              <button v-for="seconds in webTimeoutOptions" :key="seconds" type="button" class="web-timeout-option" :class="[isDark ? 'web-timeout-option--dark' : 'web-timeout-option--light', webDraft.timeoutSeconds === seconds ? 'web-timeout-option--selected' : '']" @click="selectWebTimeout(seconds)">
+                <span>{{ seconds }} 秒</span><i v-if="webDraft.timeoutSeconds === seconds" class="ri-check-line text-brand-400" />
+              </button>
+            </div>
+          </div>
+        </div>
+        <div v-else class="py-8 text-center text-[11px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">请选择一个网页解析引擎。</div>
+      </div>
+
+>>>>>>> dev
       <div v-else class="space-y-4">
         <div
           class="rounded-lg border p-3"
@@ -584,7 +765,11 @@ function toneClasses(tone) {
         取消
       </button>
       <button
+<<<<<<< HEAD
         @click="emit('save', close)"
+=======
+        @click="saveCurrent(close)"
+>>>>>>> dev
         class="px-4 py-2 rounded-lg text-[11px] font-medium transition-colors"
         :class="isDark ? 'bg-brand-400 text-d0 hover:bg-brand-500' : 'bg-brand-500 text-white hover:bg-brand-600'">
         保存设置
@@ -601,6 +786,51 @@ function toneClasses(tone) {
   align-items: start;
 }
 
+<<<<<<< HEAD
+=======
+.web-provider-select { position: relative; }
+.web-provider-trigger { width: 100%; min-height: 48px; padding: 9px 11px; border: 1px solid transparent; border-radius: 11px; display: flex; align-items: center; gap: 10px; transition: all 160ms ease; }
+.web-provider-trigger--light { background: #fff; border-color: rgba(15,23,42,.1); box-shadow: 0 2px 10px rgba(15,23,42,.04); }
+.web-provider-trigger--light:hover { border-color: rgba(99,102,241,.3); box-shadow: 0 0 0 3px rgba(99,102,241,.07); }
+.web-provider-trigger--dark { background: rgba(255,255,255,.04); border-color: rgba(255,255,255,.09); }
+.web-provider-trigger--dark:hover { border-color: rgba(129,140,248,.34); background: rgba(255,255,255,.055); box-shadow: 0 0 0 3px rgba(129,140,248,.07); }
+.web-provider-logo { width: 40px; height: 40px; flex: 0 0 40px; border-radius: 11px; display: inline-flex; align-items: center; justify-content: center; }
+.web-provider-raster { width: 25px; height: 25px; display: block; object-fit: contain; }
+.web-format-badge { display: inline-flex; align-items: center; height: 18px; padding: 0 6px; border-radius: 5px; font-size: 8.5px; font-weight: 700; letter-spacing: .02em; }
+.web-provider-menu { position: absolute; z-index: 45; left: 0; right: 0; top: calc(100% + 7px); padding: 6px; border-radius: 12px; border: 1px solid transparent; box-shadow: 0 20px 48px rgba(15,23,42,.18); }
+.web-provider-menu--light { background: #fff; border-color: rgba(15,23,42,.1); }
+.web-provider-menu--dark { background: #202026; border-color: rgba(255,255,255,.1); }
+.web-provider-option { width: 100%; min-height: 62px; padding: 8px; border-radius: 9px; display: flex; align-items: center; gap: 10px; transition: background-color 150ms ease; }
+.web-provider-option + .web-provider-option { margin-top: 3px; }
+.web-provider-option--light:hover, .web-provider-option--light.web-provider-option--selected { background: rgba(238,242,255,.9); }
+.web-provider-option--dark:hover, .web-provider-option--dark.web-provider-option--selected { background: rgba(129,140,248,.1); }
+.web-settings-panel { display: grid; grid-template-columns: minmax(0, 1fr) 150px; gap: 12px; padding: 13px; border: 1px solid transparent; border-radius: 12px; }
+.web-settings-panel--light { background: rgba(248,250,252,.8); border-color: rgba(15,23,42,.07); }
+.web-settings-panel--dark { background: rgba(255,255,255,.025); border-color: rgba(255,255,255,.07); }
+.web-field:nth-child(2), .web-test-card { grid-column: 1 / -1; }
+.web-input-shell { min-height: 38px; display: flex; align-items: center; border: 1px solid transparent; border-radius: 9px; transition: all 160ms ease; overflow: hidden; }
+.web-input-shell--light { background: #fff; border-color: rgba(15,23,42,.1); }
+.web-input-shell--dark { background: rgba(0,0,0,.14); border-color: rgba(255,255,255,.09); }
+.web-input-shell:focus-within { border-color: rgba(99,102,241,.48); box-shadow: 0 0 0 3px rgba(99,102,241,.09); }
+.web-input-shell input, .web-input-shell select { min-width: 0; flex: 1; height: 36px; padding: 0 5px; background: transparent; border: 0; outline: 0; color: inherit; font-size: 11.5px; appearance: none; }
+.web-input-icon { width: 34px; text-align: center; color: #818cf8; font-size: 14px; }
+.web-input-suffix { flex: 0 0 auto; padding: 0 10px 0 5px; font-size: 8.5px; font-weight: 650; opacity: .55; }
+.web-field-help { margin-top: 5px; font-size: 9.5px; line-height: 1.4; }
+.web-timeout-select { position: relative; }
+.web-timeout-trigger { width: 100%; min-height: 38px; padding: 0 10px; border: 1px solid transparent; border-radius: 9px; display: flex; align-items: center; gap: 9px; transition: all 160ms ease; }
+.web-timeout-trigger--light { background: #fff; border-color: rgba(15,23,42,.1); color: #334155; }
+.web-timeout-trigger--dark { background: rgba(0,0,0,.14); border-color: rgba(255,255,255,.09); color: rgba(255,255,255,.82); }
+.web-timeout-trigger:hover, .web-timeout-trigger:focus-visible { border-color: rgba(99,102,241,.42); box-shadow: 0 0 0 3px rgba(99,102,241,.08); outline: none; }
+.web-timeout-menu { position: absolute; z-index: 48; top: calc(100% + 6px); left: 0; right: 0; padding: 5px; border: 1px solid transparent; border-radius: 10px; box-shadow: 0 14px 34px rgba(15,23,42,.16); }
+.web-timeout-menu--light { background: #fff; border-color: rgba(15,23,42,.1); }
+.web-timeout-menu--dark { background: #202026; border-color: rgba(255,255,255,.1); }
+.web-timeout-option { width: 100%; min-height: 34px; padding: 0 9px; border-radius: 7px; display: flex; align-items: center; justify-content: space-between; font-size: 11px; transition: background-color 150ms ease; }
+.web-timeout-option--light { color: #475569; }
+.web-timeout-option--dark { color: rgba(255,255,255,.72); }
+.web-timeout-option--light:hover, .web-timeout-option--light.web-timeout-option--selected { background: rgba(238,242,255,.95); color: #4338ca; }
+.web-timeout-option--dark:hover, .web-timeout-option--dark.web-timeout-option--selected { background: rgba(129,140,248,.12); color: #a5b4fc; }
+
+>>>>>>> dev
 .compact-select {
   position: relative;
   min-width: 0;

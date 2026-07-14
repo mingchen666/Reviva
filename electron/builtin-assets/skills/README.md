@@ -79,3 +79,9 @@ allowed-tools: kb_search, file_read
 3. Restart the app — the new skill auto-appears in the market
 
 No code changes needed. No re-build needed in dev.
+
+## Adapting External Skills
+
+When importing a Skill from Claude, Codex, Hermes, GitHub, or another Agent platform, follow [SKILL_ADAPTATION_WORKFLOW.md](SKILL_ADAPTATION_WORKFLOW.md).
+
+The workflow covers metadata, tool mapping, virtual paths, file outputs, dependencies, scripts, validation, real generation tests, cleanup, and the current non-overwriting built-in installation behavior.

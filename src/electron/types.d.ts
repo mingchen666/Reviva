@@ -2,6 +2,7 @@ export {}
 
 declare global {
   interface Window {
+    __REVIVA_WORKSPACE_ID__?: string
     electronAPI: {
       openDirectory: () => Promise<string | null>
       openFile: (options?: any) => Promise<string[]>
@@ -21,12 +22,30 @@ declare global {
       setStartup?: (enabled: boolean) => Promise<{ ok: boolean; error?: string }>
       setMinimizeToTray?: (enabled: boolean) => Promise<{ ok: boolean; error?: string }>
       setTrayIcon?: (enabled: boolean) => Promise<{ ok: boolean; error?: string }>
+      setTrayMenu?: (items: any[]) => Promise<{ ok: boolean; error?: string; items?: any[] }>
+      onTrayNavigate?: (callback: (route: string) => void) => any
+      removeTrayNavigateListener?: (handler: any) => void
       setSingleInstance?: (enabled: boolean) => Promise<{ ok: boolean; error?: string }>
       workdir?: {
         init: (rootPath: string) => Promise<{ rootPath?: string; docsPath?: string; notesPath?: string; error?: string }>
         selectRoot: () => Promise<{ rootPath?: string; docsPath?: string; notesPath?: string; error?: string } | null>
         selectDir: () => Promise<{ path?: string; error?: string } | null>
         getStatus: () => Promise<{ initialized: boolean; rootPath?: string | null; docsPath?: string | null; notesPath?: string | null }>
+      }
+      workspace?: {
+        list: () => Promise<any>
+        getBootstrapState: () => Promise<any>
+        selectDirectory: (options?: any) => Promise<{ path?: string; canceled?: boolean; error?: string }>
+        create: (data: { rootPath: string; name?: string }) => Promise<any>
+        open: (data: { rootPath: string }) => Promise<any>
+        setPending: (id: string) => Promise<any>
+        cancelPending: () => Promise<any>
+        rename: (data: { id: string; name: string }) => Promise<any>
+        remove: (id: string) => Promise<any>
+        migrate: (data: { targetRoot: string; name?: string }) => Promise<any>
+        cleanupFailedMigration: (targetRoot: string) => Promise<any>
+        onMigrationProgress: (callback: (progress: any) => void) => any
+        removeMigrationProgressListener: (handler: any) => void
       }
       wiki?: {
         list: () => Promise<any>
@@ -51,6 +70,20 @@ declare global {
         agentDraft: (req: any) => Promise<any>
         agentRun: (req: any) => Promise<any>
         wikiTool: (req: any) => Promise<any>
+      }
+      webImport?: {
+        getSettings: () => Promise<any>
+        saveSettings: (patch: any) => Promise<any>
+        createJob: (data: any) => Promise<any>
+        listJobs: (filters: any) => Promise<any>
+        getJob: (id: string) => Promise<any>
+        retryJob: (id: string) => Promise<any>
+        deleteJob: (id: string) => Promise<any>
+        clearFinishedJobs: (filters: any) => Promise<any>
+        onJobUpdated: (callback: (job: any) => void) => any
+        onNotification: (callback: (job: any) => void) => any
+        removeJobUpdatedListener: (handler: any) => void
+        removeNotificationListener: (handler: any) => void
       }
       db?: {
         noteFolders: any

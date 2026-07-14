@@ -1,0 +1,55 @@
+{
+  "id": "civil-service-exam-coach",
+  "name": "考公备考助手",
+  "english_name": "CivilServiceExamCoach",
+  "description": "一站式公务员笔试备考 Agent，结合用户资料与实时联网信息，提供行测申论讲解、计划、刷题、错题复盘、模考和冲刺支持。",
+  "icon": "ri-government-line",
+  "color": "#F59E0B",
+  "builtin_version": "1.2.0",
+
+  "architecture": "hybrid",
+  "model": "",
+  "temperature": 0.45,
+  "top_p": 1.0,
+  "max_tokens": 16000,
+  "max_iterations": 100,
+  "tool_call_limit": 0,
+  "model_call_limit": 0,
+  "thinking_mode": "auto",
+  "thinking_intensity": "medium",
+
+  "tools": [
+    "file_read",
+    "file_write",
+    "document_read",
+    "office_write",
+    "vision_analyze",
+    "kb_search",
+    "mcp:exa",
+    "mcp:firecrawl-mcp-server",
+    "web_search_bing"
+  ],
+  "skills": [
+    "huasheng13-skill",
+    "civil-service-essay-grader",
+    "review-plan",
+    "civil-service-question-practice",
+    "mock-exam",
+    "mistake-analyzer",
+    "exam-prep",
+    "knowledge-organize",
+    "note-skill",
+    "worksheet-skill",
+    "flashcard-generator"
+  ],
+  "sub_agents": [],
+  "permissions": {
+    "fileRead": true,
+    "fileWrite": true,
+    "fileDelete": false,
+    "fileRename": false,
+    "execCommand": false,
+    "webSearch": true,
+    "kbSearch": true
+  }
+}

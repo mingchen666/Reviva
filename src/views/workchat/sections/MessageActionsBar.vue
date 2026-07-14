@@ -1,4 +1,7 @@
 <script setup>
+import { computed, ref } from 'vue'
+import MessageOutputMenu from './chat/MessageOutputMenu.vue'
+
 const props = defineProps({
   msg: Object,
   isDark: Boolean,
@@ -11,9 +14,16 @@ const props = defineProps({
   isStreaming: Boolean,
   hasContent: Boolean,
   copied: Boolean,
+  branching: Boolean,
+  exporting: Boolean,
 })
 
-const emit = defineEmits(['copy-raw', 'retry', 'delete', 'compress-context'])
+const emit = defineEmits([
+  'copy-raw', 'export-markdown', 'save-to-note',
+  'retry', 'branch', 'delete', 'compress-context',
+])
+
+const outputMenuOpen = ref(false)
 
 const showTokenBar = computed(() =>
   (props.msg.status === 'completed' || props.msg.status === 'cancelled' || props.msg.status === 'streaming') &&
@@ -43,9 +53,12 @@ const costDisplay = computed(() => {
 
 <template>
   <div v-if="(isCompleted || isCancelled || isStreamingStatus || isError) && !isStreaming && hasContent"
-    class="flex items-center gap-2 mt-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+    class="flex items-center gap-2 mt-1.5 transition-opacity duration-150"
+    :class="outputMenuOpen
+      ? 'opacity-100 pointer-events-auto'
+      : 'opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto group-focus-within:opacity-100 group-focus-within:pointer-events-auto'">
     <slot name="source-btn" />
-    <div v-if="showTokenBar" class="flex items-center gap-2 text-[11px] select-none flex-1 min-w-0">
+    <div v-if="showTokenBar" class="flex items-center gap-2 text-[11px] select-none flex-1 min-w-0 overflow-hidden">
       <template v-if="showTokenBar">
         <div class="flex items-center gap-0.5 shrink-0" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">
           <i class="ri-arrow-down-line text-[10px]" :class="isDark ? 'text-brand-400' : 'text-brand-500'" />
@@ -75,22 +88,43 @@ const costDisplay = computed(() => {
     </div>
     <div class="ml-auto flex items-center gap-0 shrink-0">
       <button v-if="isAssistant && isCompleted" @click="$emit('compress-context')" title="压缩上下文"
-        class="h-6 px-1.5 rounded-md flex items-center gap-0.5 text-[11px] transition-colors"
-        :class="isDark ? 'text-wt-dim hover:text-amber-400' : 'text-lt-aux hover:text-amber-500'">
-        <i class="ri-compress-line text-[12px]" />
+        aria-label="压缩上下文"
+        class="h-7 px-1.5 rounded-md flex items-center gap-0.5 text-[12px] transition-colors"
+        :class="isDark ? 'text-white/65 hover:text-amber-400 hover:bg-white/6' : 'text-lt-aux hover:text-amber-500 hover:bg-l4'">
+        <i class="ri-compress-line text-[14px]" />
       </button>
       <slot name="copy-btn" />
+<<<<<<< HEAD
       <button v-if="isAssistant && isCompleted" @click="$emit('copy-raw')" title="复制MD"
         class="h-6 px-1.5 rounded-md flex items-center gap-0.5 text-[11px] transition-colors"
         :class="isDark ? 'text-wt-dim hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub'">
         <i class="ri-markdown-line text-[12px]" />
+=======
+      <button v-if="isAssistant && isCompleted" @click="$emit('copy-raw')" title="复制 Markdown"
+        aria-label="复制 Markdown"
+        class="h-7 px-1.5 rounded-md flex items-center gap-0.5 text-[12px] transition-colors"
+        :class="copied ? (isDark ? 'text-brand-400 bg-brand-400/8' : 'text-brand-500 bg-brand-50') : (isDark ? 'text-white/65 hover:text-white hover:bg-white/6' : 'text-lt-aux hover:text-lt-main hover:bg-l4')">
+        <i :class="copied ? 'ri-check-line' : 'ri-markdown-line'" class="text-[14px]" />
+        <span v-if="copied">已复制</span>
+>>>>>>> dev
       </button>
       <button v-if="isAssistant && isCompleted" @click="$emit('retry')" title="重试"
-        class="h-6 px-1.5 rounded-md flex items-center gap-0.5 text-[11px] transition-colors"
-        :class="isDark ? 'text-wt-dim hover:text-brand-400' : 'text-lt-aux hover:text-brand-500'">
-        <i class="ri-refresh-line text-[12px]" />
+        aria-label="重试"
+        class="h-7 px-1.5 rounded-md flex items-center gap-0.5 text-[12px] transition-colors"
+        :class="isDark ? 'text-white/65 hover:text-brand-400 hover:bg-white/6' : 'text-lt-aux hover:text-brand-500 hover:bg-l4'">
+        <i class="ri-refresh-line text-[14px]" />
       </button>
-      <slot name="delete-btn" class="text-[12px]"/>
+      <slot name="delete-btn" />
+      <MessageOutputMenu
+        v-if="isAssistant && isCompleted"
+        :is-dark="isDark"
+        :exporting="exporting"
+        :branching="branching"
+        @open-change="outputMenuOpen = $event"
+        @branch="$emit('branch')"
+        @export-markdown="$emit('export-markdown')"
+        @save-to-note="$emit('save-to-note')"
+      />
     </div>
   </div>
 </template>

@@ -82,7 +82,6 @@ function onModelChange(key, value) {
           @update:value="v => onModelChange(card.key, v)"
           :options="modelOptionsFor(card)"
           size="small"
-          :theme="isDark ? 'dark' : 'light'"
         />
         <div class="text-[10px] mt-2" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">
           当前: <span class="font-medium" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">{{ settingsStore.getModelName(settingsStore.defaultModels[card.key]) }}</span>

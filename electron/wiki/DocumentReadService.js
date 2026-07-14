@@ -5,6 +5,10 @@ import { getOfficeCliCommandCandidates, getOfficeCliSpawnEnv } from '../officeCl
 import { getSystemEnv } from '../systemEnv.js'
 import { extractOfficeImages } from '../tools/officecli/OfficeImageExtractor.js'
 import { detectPdfTextMode } from '../tools/pdf/PdfNeedOcrDetector.js'
+<<<<<<< HEAD
+=======
+import { PdfImageExtractor } from '../tools/pdf/PdfImageExtractor.js'
+>>>>>>> dev
 
 const OFFICE_EXTS = new Set(['.docx', '.xlsx', '.pptx'])
 const PDF_EXTS = new Set(['.pdf'])
@@ -261,10 +265,14 @@ async function runPdfPython(payload) {
 }
 
 export class DocumentReadService {
+  constructor() {
+    this._pdfImages = new PdfImageExtractor()
+  }
+
   async readDocument(filePath, { sourceType = '', title = '', sourceId = '', imageOutputDir = '', imageOutputRelDir = '' } = {}) {
     const ext = path.extname(filePath || '').toLowerCase()
     if (OFFICE_EXTS.has(ext)) return this._readOffice(filePath, { ext, sourceType, title, sourceId, imageOutputDir, imageOutputRelDir })
-    if (PDF_EXTS.has(ext)) return this._readPdf(filePath, { title })
+    if (PDF_EXTS.has(ext)) return this._readPdf(filePath, { title, sourceId, imageOutputDir, imageOutputRelDir })
     return {
       success: false,
       code: 'UNSUPPORTED_FORMAT',
@@ -362,7 +370,7 @@ export class DocumentReadService {
     return { assets: result.assets, errors: result.errors, cache: result.cache }
   }
 
-  async _readPdf(filePath, { title }) {
+  async _readPdf(filePath, { title, sourceId = '', imageOutputDir = '', imageOutputRelDir = '' }) {
     let first = await runPdfPython({ path: filePath, startPage: 1, maxPages: PDF_CHUNK_PAGES })
     if (!first.success) {
       const code = first.code || 'PDF_READ_FAILED'
@@ -488,10 +496,20 @@ export class DocumentReadService {
       ...chunks,
     ].join('\n')
 
+    const imageResult = await this._pdfImages.extractToDirectory(filePath, {
+      sourceId,
+      outputDir: imageOutputDir,
+      outputRelDir: imageOutputRelDir,
+      maxPages: first.pageCount || pageCount || 1,
+      maxImages: 40,
+    })
+
     return {
       success: true,
       format: 'pdf',
       content: body,
+      assets: imageResult.success ? imageResult.assets : [],
+      assetErrors: imageResult.errors || (imageResult.success ? [] : [{ code: imageResult.code || 'PDF_IMAGE_EXTRACT_FAILED', detail: imageResult.message || '' }]),
       stats: {
         parser: first.parser || 'pymupdf',
         pageCount: first.pageCount || 0,
@@ -513,6 +531,9 @@ export class DocumentReadService {
         readErrors: readErrors.slice(0, 5),
         partial: ocrCandidateCount > 0 || failedPages > 0 || readErrors.length > 0,
         truncated: (first.pageCount || 0) > PDF_MAX_PAGES,
+        asset_count: imageResult.success ? imageResult.assets.length : 0,
+        asset_error_count: imageResult.errors?.length || (imageResult.success ? 0 : 1),
+        asset_truncated: !!imageResult.truncated,
       },
     }
   }

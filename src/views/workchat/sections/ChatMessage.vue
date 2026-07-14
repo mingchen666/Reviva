@@ -13,6 +13,7 @@ import AuthCard from './AuthCard.vue'
 import UserMessageBubble from './UserMessageBubble.vue'
 import MessageActionsBar from './MessageActionsBar.vue'
 import SourceRefBar from './SourceRefBar.vue'
+import { markdownToPlainText, resolveExportableContent } from './chat/markdownExport'
 
 const props = defineProps({
   msg: Object,
@@ -27,10 +28,13 @@ const props = defineProps({
   streamingSteps: { type: Array, default: () => [] },
   streamingIteration: { type: Number, default: 0 },
   pendingAuthRequests: { type: Array, default: () => [] },
+  branching: { type: Boolean, default: false },
+  exporting: { type: Boolean, default: false },
 })
 
 const emit = defineEmits([
-  'preview-file', 'retry', 'copy', 'edit', 'save-edit', 'delete',
+  'preview-file', 'retry', 'copy', 'copy-error', 'edit', 'save-edit', 'delete',
+  'branch', 'export-markdown', 'save-to-note',
   'compress-context', 'auth-approve', 'auth-deny',
 ])
 
@@ -39,7 +43,8 @@ const settingsStore = useSettingsStore()
 const processBlockOpen = ref({})
 const thinkingOpen = ref(false)
 const showDeleteConfirm = ref(false)
-const copied = ref(false)
+const plainCopied = ref(false)
+const markdownCopied = ref(false)
 
 const workRoot = computed(() => settingsStore.workDirRoot || '')
 
@@ -231,15 +236,18 @@ function fmtTokens(n) {
   return String(n)
 }
 function copyContent() {
-  navigator.clipboard.writeText(props.msg.content || '')
-    .then(() => { copied.value = true; setTimeout(() => { copied.value = false }, 1500) })
-    .catch(() => {})
-  emit('copy')
+  navigator.clipboard.writeText(markdownToPlainText(resolveExportableContent(props.msg)))
+    .then(() => {
+      plainCopied.value = true
+      emit('copy')
+      setTimeout(() => { plainCopied.value = false }, 1500)
+    })
+    .catch(() => emit('copy-error'))
 }
 function copyRawMarkdown() {
-  navigator.clipboard.writeText(props.msg.content || '')
-    .then(() => { copied.value = true; setTimeout(() => { copied.value = false }, 1500) })
-    .catch(() => {})
+  navigator.clipboard.writeText(resolveExportableContent(props.msg))
+    .then(() => { markdownCopied.value = true; setTimeout(() => { markdownCopied.value = false }, 1500) })
+    .catch(() => emit('copy-error'))
 }
 function confirmDelete() { emit('delete'); showDeleteConfirm.value = false }
 
@@ -457,8 +465,11 @@ function onMarkdownLinkClick({ href }) {
         :is-cancelled="isCancelled" :is-streaming-status="isStreamingStatus"
         :is-error="isError" :is-streaming="isStreaming"
         :has-content="!!(displayContent || hasSteps || isError)"
-        :copied="copied"
+        :copied="markdownCopied" :branching="branching" :exporting="exporting"
         @copy-raw="copyRawMarkdown" @retry="emit('retry')"
+        @export-markdown="emit('export-markdown')"
+        @save-to-note="emit('save-to-note')"
+        @branch="emit('branch')"
         @delete="showDeleteConfirm = true"
         @compress-context="emit('compress-context')">
         <template #source-btn>
@@ -466,17 +477,19 @@ function onMarkdownLinkClick({ href }) {
         </template>
         <template #copy-btn>
           <button @click="copyContent" title="复制"
-            class="h-6 px-1.5 rounded-md flex items-center gap-0.5 text-[11px] transition-colors"
-            :class="copied ? (isDark ? 'text-brand-400' : 'text-brand-500') : (isDark ? 'text-wt-dim hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub')">
-            <i :class="copied ? 'ri-check-line' : 'ri-file-copy-line'" class="text-[12px]" />
-            <span v-if="copied">已复制</span>
+            aria-label="复制消息"
+            class="h-7 px-1.5 rounded-md flex items-center gap-0.5 text-[12px] transition-colors"
+            :class="plainCopied ? (isDark ? 'text-brand-400 bg-brand-400/8' : 'text-brand-500 bg-brand-50') : (isDark ? 'text-white/65 hover:text-white hover:bg-white/6' : 'text-lt-aux hover:text-lt-main hover:bg-l4')">
+            <i :class="plainCopied ? 'ri-check-line' : 'ri-file-copy-line'" class="text-[14px]" />
+            <span v-if="plainCopied">已复制</span>
           </button>
         </template>
         <template #delete-btn>
           <button @click="showDeleteConfirm = true" title="删除"
-            class="h-6 px-1.5 rounded-md flex items-center gap-0.5 text-[11px] transition-colors"
-            :class="isDark ? 'text-wt-dim hover:text-red-400' : 'text-lt-aux hover:text-red-500'">
-            <i class="ri-delete-bin-line text-[12px]" />
+            aria-label="删除消息"
+            class="h-7 px-1.5 rounded-md flex items-center gap-0.5 text-[12px] transition-colors"
+            :class="isDark ? 'text-white/65 hover:text-red-400 hover:bg-red-400/8' : 'text-lt-aux hover:text-red-500 hover:bg-red-50'">
+            <i class="ri-delete-bin-line text-[14px]" />
           </button>
         </template>
       </MessageActionsBar>

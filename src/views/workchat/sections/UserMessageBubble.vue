@@ -1,5 +1,6 @@
 <script setup>
 import { computed, nextTick, ref, watch } from 'vue'
+import MarkdownImagePreview from '@/components/MarkdownImagePreview.vue'
 import { toFileUrl } from '@/utils/fileUrl'
 import MessageDeleteConfirm from './MessageDeleteConfirm.vue'
 import FileCard from './FileCard.vue'
@@ -21,6 +22,7 @@ const showDeleteConfirm = ref(false)
 const copied = ref(false)
 const bubbleRef = ref(null)
 const editTextareaRef = ref(null)
+const activeImagePreview = ref(null)
 
 function isKnowledgeAttachment(item) {
   return item?.type === 'cloud_kb' || item?.type === 'cloud_doc' || item?.type === 'kb'
@@ -56,7 +58,12 @@ function formatSize(bytes) {
 }
 
 function previewImage(img) {
-  if (img.path) emit('preview-file', img)
+  if (!img?._src) return
+  activeImagePreview.value = {
+    src: img._src,
+    alt: img._name,
+    title: img._name,
+  }
 }
 
 function knowledgeKey(item, index) {
@@ -112,13 +119,14 @@ watch(editContent, () => {
 <template>
   <div class="group relative flex justify-end fade-up">
     <div :class="isEditing ? 'w-[85%] sm:w-[68%] max-w-[760px]' : 'max-w-[85%] sm:max-w-[68%]'">
-      <div v-if="normalizedImageAttachments.length" class="flex flex-wrap gap-2 mb-1">
+      <div v-if="normalizedImageAttachments.length" class="flex flex-wrap justify-end gap-2 mb-1">
         <button v-for="img in normalizedImageAttachments" :key="img._key"
+          type="button"
           class="group/img w-[132px] overflow-hidden rounded-lg text-left transition-colors"
           :class="isDark ? 'bg-d0 border border-d4 hover:border-brand-400/30' : 'bg-l2 border border-bdrF hover:border-brand-300'"
           @click="previewImage(img)">
           <div class="h-[92px] bg-black/10 overflow-hidden flex items-center justify-center">
-            <img v-if="img._src" :src="img._src" class="w-full h-full object-cover group-hover/img:opacity-90 transition-opacity" />
+            <img v-if="img._src" :src="img._src" :alt="img._name" class="w-full h-full object-cover group-hover/img:opacity-90 transition-opacity" />
             <i v-else class="ri-image-line text-[22px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'" />
           </div>
           <div class="px-2 py-1.5 min-w-0">
@@ -140,8 +148,9 @@ watch(editContent, () => {
           :is-dark="isDark"
         />
       </div>
-      <div v-if="localFileAttachments.length && !isEditing" class="flex flex-col gap-2 mb-1">
-        <FileCard v-for="f in localFileAttachments" :key="f.path || f.id || f.name" :file="f" :is-dark="isDark" @preview="$emit('preview-file', f)" />
+      <div v-if="localFileAttachments.length && !isEditing" class="flex flex-col items-end gap-2 mb-1">
+        <FileCard v-for="f in localFileAttachments" :key="f.path || f.id || f.name"
+          class="w-full max-w-[420px]" :file="f" :is-dark="isDark" @preview="$emit('preview-file', f)" />
       </div>
       <div v-if="isEditing"
         class="relative rounded-xl rounded-tr-md overflow-hidden shadow-sm transition-colors"
@@ -191,34 +200,43 @@ watch(editContent, () => {
         {{ msg.content }}
       </div>
       <div v-if="!isEditing"
+<<<<<<< HEAD
         class="flex items-center justify-end gap-0 mt-1 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+=======
+        class="flex items-center justify-end gap-0 mt-1 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto group-focus-within:opacity-100 group-focus-within:pointer-events-auto transition-opacity duration-150">
+>>>>>>> dev
         <button @click="copyContent" title="复制"
-          class="h-6 px-1.5 rounded-md flex items-center gap-0.5 text-[11px] transition-colors"
-          :class="copied ? (isDark ? 'text-brand-400' : 'text-brand-500') : (isDark ? 'text-wt-dim hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub')">
-          <i :class="copied ? 'ri-check-line' : 'ri-file-copy-line'" class="text-[12px]" />
+          aria-label="复制消息"
+          class="h-7 px-1.5 rounded-md flex items-center gap-0.5 text-[12px] transition-colors"
+          :class="copied ? (isDark ? 'text-brand-400 bg-brand-400/8' : 'text-brand-500 bg-brand-50') : (isDark ? 'text-white/65 hover:text-white hover:bg-white/6' : 'text-lt-aux hover:text-lt-main hover:bg-l4')">
+          <i :class="copied ? 'ri-check-line' : 'ri-file-copy-line'" class="text-[14px]" />
           <span v-if="copied">已复制</span>
         </button>
         <button @click="startEdit" title="编辑"
-          class="h-6 px-1.5 rounded-md flex items-center gap-0.5 text-[11px] transition-colors"
-          :class="isDark ? 'text-wt-dim hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub'">
-          <i class="ri-edit-line text-[12px]" />
+          aria-label="编辑消息"
+          class="h-7 px-1.5 rounded-md flex items-center gap-0.5 text-[12px] transition-colors"
+          :class="isDark ? 'text-white/65 hover:text-white hover:bg-white/6' : 'text-lt-aux hover:text-lt-main hover:bg-l4'">
+          <i class="ri-edit-line text-[14px]" />
         </button>
         <button @click="emit('retry')" title="重试" :disabled="chatBusy"
-          class="h-6 px-1.5 rounded-md flex items-center gap-0.5 text-[11px] transition-colors"
+          aria-label="重试消息"
+          class="h-7 px-1.5 rounded-md flex items-center gap-0.5 text-[12px] transition-colors"
           :class="chatBusy
-            ? (isDark ? 'text-wt-dim/60 cursor-not-allowed' : 'text-lt-aux/60 cursor-not-allowed')
-            : (isDark ? 'text-wt-dim hover:text-brand-400' : 'text-lt-aux hover:text-brand-500')">
-          <i class="ri-refresh-line text-[12px]" />
+            ? (isDark ? 'text-white/30 cursor-not-allowed' : 'text-lt-aux/60 cursor-not-allowed')
+            : (isDark ? 'text-white/65 hover:text-brand-400 hover:bg-white/6' : 'text-lt-aux hover:text-brand-500 hover:bg-l4')">
+          <i class="ri-refresh-line text-[14px]" />
         </button>
         <button @click="showDeleteConfirm = true" title="删除"
-          class="h-6 px-1.5 rounded-md flex items-center gap-0.5 text-[11px] transition-colors"
-          :class="isDark ? 'text-wt-dim hover:text-red-400' : 'text-lt-aux hover:text-red-500'">
-          <i class="ri-delete-bin-line text-[12px]" />
+          aria-label="删除消息"
+          class="h-7 px-1.5 rounded-md flex items-center gap-0.5 text-[12px] transition-colors"
+          :class="isDark ? 'text-white/65 hover:text-red-400 hover:bg-red-400/8' : 'text-lt-aux hover:text-red-500 hover:bg-red-50'">
+          <i class="ri-delete-bin-line text-[14px]" />
         </button>
       </div>
       <MessageDeleteConfirm v-if="showDeleteConfirm" :is-dark="isDark"
         @confirm="confirmDelete" @cancel="showDeleteConfirm = false" />
     </div>
+    <MarkdownImagePreview v-if="activeImagePreview" :image="activeImagePreview" @close="activeImagePreview = null" />
   </div>
 </template>
 

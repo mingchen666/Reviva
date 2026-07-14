@@ -901,7 +901,7 @@ const COST_FIELDS = [
           <label class="text-[11px] font-medium mb-1.5 block" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">选择测试模型</label>
           <NSelect :value="testModelId" @update:value="v => testModelId = v"
             :options="enabledModels.map(m => ({ label: m.name, value: m.id }))"
-            size="small" :theme="isDark ? 'dark' : 'light'"
+            size="small"
             placeholder="选择一个已启用的模型" />
         </div>
 

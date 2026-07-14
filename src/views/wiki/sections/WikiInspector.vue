@@ -13,10 +13,17 @@ const props = defineProps({
   reparseSourceId: { type: String, default: '' },
   ocrSourceId: { type: String, default: '' },
   deleteSourceId: { type: String, default: '' },
+  lintReport: { type: Object, default: null },
+  semanticAudit: { type: Object, default: null },
+  linting: { type: Boolean, default: false },
+  auditing: { type: Boolean, default: false },
   isDark: { type: Boolean, default: false },
 })
 
-const emit = defineEmits(['configure-ocr', 'reparse-source', 'run-ocr', 'delete-source'])
+const emit = defineEmits(['configure-ocr', 'reparse-source', 'run-ocr', 'delete-source', 'run-lint', 'run-semantic-audit'])
+
+const lintSummary = computed(() => props.lintReport?.summary || { error: 0, warning: 0, info: 0 })
+const semanticAuditEnabled = computed(() => !!props.agent?.semantic_audit?.enabled)
 
 const enabledOcrCount = computed(() =>
   props.ocrProviders.filter(item =>
@@ -87,6 +94,40 @@ const statusText = computed(() => {
             <span class="text-[15px] font-bold leading-none" :class="(sourceStats.failed + sourceStats.waitingOcr) ? 'text-red-400' : (isDark ? 'text-wt-sub' : 'text-lt-sub')">{{ sourceStats.failed + sourceStats.waitingOcr }}</span>
             <span class="text-[9px] mt-1" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">异常</span>
           </div>
+        </div>
+      </section>
+
+      <section class="rounded-xl p-3.5 space-y-3" :class="isDark ? 'bg-d3 border border-bdr' : 'bg-l3 border border-bdrF'">
+        <div class="flex items-center justify-between gap-3">
+          <div>
+            <div class="flex items-center gap-1.5">
+              <i class="ri-shield-check-line text-[13px] text-emerald-400" />
+              <span class="text-[11px] font-semibold" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">Wiki 健康检查</span>
+            </div>
+            <div class="mt-1 text-[10px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">本地确定性检查，不调用模型</div>
+          </div>
+          <button class="h-7 px-2.5 rounded-lg text-[10px] border transition-colors disabled:opacity-50"
+            :disabled="linting" :class="isDark ? 'border-d4 text-wt-sub hover:bg-white/5' : 'border-bdrF text-lt-sub hover:bg-white'"
+            @click="emit('run-lint')">
+            <i :class="linting ? 'ri-loader-4-line spin' : 'ri-play-line'" /> {{ linting ? '检查中' : '立即检查' }}
+          </button>
+        </div>
+        <div class="grid grid-cols-3 gap-1.5">
+          <div class="stat-mini" :class="isDark ? 'bg-d0' : 'bg-white'"><span class="text-[14px] font-bold text-red-400">{{ lintSummary.error || 0 }}</span><span class="text-[9px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">错误</span></div>
+          <div class="stat-mini" :class="isDark ? 'bg-d0' : 'bg-white'"><span class="text-[14px] font-bold text-amber-400">{{ lintSummary.warning || 0 }}</span><span class="text-[9px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">警告</span></div>
+          <div class="stat-mini" :class="isDark ? 'bg-d0' : 'bg-white'"><span class="text-[14px] font-bold text-blue-400">{{ lintSummary.info || 0 }}</span><span class="text-[9px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">提示</span></div>
+        </div>
+        <div class="pt-2 border-t flex items-center justify-between gap-3" :class="isDark ? 'border-d4' : 'border-bdrL'">
+          <div class="min-w-0">
+            <div class="text-[10.5px] font-medium" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">AI 语义巡检</div>
+            <div class="text-[9.5px] truncate" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">{{ semanticAuditEnabled ? (semanticAudit?.created_at ? `上次：${semanticAudit.created_at}` : '已启用，尚未运行') : '请先在 WikiAgent 设置中开启' }}</div>
+          </div>
+          <button class="h-7 px-2.5 rounded-lg text-[10px] border transition-colors disabled:opacity-50"
+            :disabled="!semanticAuditEnabled || auditing"
+            :class="isDark ? 'border-d4 text-wt-sub hover:bg-white/5' : 'border-bdrF text-lt-sub hover:bg-white'"
+            @click="emit('run-semantic-audit')">
+            <i :class="auditing ? 'ri-loader-4-line spin' : 'ri-sparkling-2-line'" /> {{ auditing ? '巡检中' : '生成报告' }}
+          </button>
         </div>
       </section>
 

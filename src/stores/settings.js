@@ -499,10 +499,58 @@ function _sanitizeDefaultModels(dm, providers) {
 
 let _systemThemeListener = null
 
+export const DEFAULT_WIKI_WEB_RESEARCH_SETTINGS = Object.freeze({
+  enabled: false,
+  providerOrder: ['mcp:exa', 'web_search_bing', 'web_search_searxng', 'web_search_tavily'],
+  adaptiveBudget: true,
+  simpleLimit: 3,
+  normalLimit: 5,
+  complexLimit: 8,
+  hardLimit: 10,
+  pageReadLimit: 12,
+  sourceRegisterLimit: 5,
+  autoRegisterSources: true,
+  directWriteFromSearch: false,
+  privacyFilter: true,
+})
+
+function normalizeWikiWebResearchSettings(value = {}) {
+  const raw = value && typeof value === 'object' && !Array.isArray(value) ? value : {}
+  const defaultOrder = [...DEFAULT_WIKI_WEB_RESEARCH_SETTINGS.providerOrder]
+  const order = Array.isArray(raw.providerOrder)
+    ? [...new Set(raw.providerOrder.map(String).filter(Boolean))]
+    : defaultOrder
+  for (const provider of defaultOrder) if (!order.includes(provider)) order.push(provider)
+  return {
+    ...DEFAULT_WIKI_WEB_RESEARCH_SETTINGS,
+    ...raw,
+    enabled: !!raw.enabled,
+    providerOrder: order,
+    adaptiveBudget: raw.adaptiveBudget !== false,
+    simpleLimit: Math.min(Math.max(Number(raw.simpleLimit || 3), 1), 10),
+    normalLimit: Math.min(Math.max(Number(raw.normalLimit || 5), 1), 10),
+    complexLimit: Math.min(Math.max(Number(raw.complexLimit || 8), 1), 10),
+    hardLimit: Math.min(Math.max(Number(raw.hardLimit || 10), 1), 10),
+    pageReadLimit: Math.min(Math.max(Number(raw.pageReadLimit || 12), 1), 12),
+    sourceRegisterLimit: Math.min(Math.max(Number(raw.sourceRegisterLimit || 5), 1), 5),
+    autoRegisterSources: raw.autoRegisterSources !== false,
+    directWriteFromSearch: false,
+    privacyFilter: true,
+  }
+}
+
 export const useSettingsStore = defineStore('settings', () => {
   // ─── Workspace ───
   const workDirRoot = ref('')
   const isWorkspaceReady = computed(() => !!workDirRoot.value)
+  const workspaceState = ref({
+    activeWorkspaceId: null,
+    pendingWorkspaceId: null,
+    activeWorkspace: null,
+    pendingWorkspace: null,
+    workspaces: [],
+    startupError: '',
+  })
 
   // ─── Preferences ───
   const themeMode = ref('light')
@@ -523,6 +571,7 @@ export const useSettingsStore = defineStore('settings', () => {
   const proxyAuth = ref(false)
   const proxyUser = ref('')
   const proxyPass = ref('')
+  const wikiWebResearchSettings = ref(normalizeWikiWebResearchSettings())
 
   // ─── Sandbox ───
   const maxIter = ref(100)
@@ -562,6 +611,14 @@ export const useSettingsStore = defineStore('settings', () => {
   const autoStart = ref(false)
   const minimizeToTray = ref(true)
   const trayIcon = ref(true)
+  const trayMenuItems = ref([
+    { id: 'show-window', type: 'builtin', action: 'showWindow', label: '显示主窗口', enabled: true },
+    { id: 'separator-default', type: 'separator', enabled: true },
+    { id: 'settings', type: 'route', path: '/settings/notifications', label: '设置', enabled: true },
+    { id: 'quit', type: 'builtin', action: 'quit', label: '退出', enabled: true },
+  ])
+  let trayMenuSaveQueue = Promise.resolve({ ok: true })
+  let trayMenuSaveVersion = 0
   const singleInstance = ref(true)
 
   // ─── LLM Config ───
@@ -661,7 +718,7 @@ export const useSettingsStore = defineStore('settings', () => {
     const refsMap = {
       themeMode, accentColor, customAccentHex, fontSize,
       langPref, animations, reducedMotion, answerStyle, conflictStrategy,
-      proxyMode, proxyType, proxyHost, proxyPort, proxyAuth, proxyUser, proxyPass,
+      proxyMode, proxyType, proxyHost, proxyPort, proxyAuth, proxyUser, proxyPass, wikiWebResearchSettings,
       maxIter, maxTaskMin, searchLimit, fileOpLimit, toolCallLimit, modelCallLimit, loopGuard, auditDays, pathRedact, allowFileDelete, deleteScope, allowExecCommand, commandWhitelist, commandBlacklist,
       notifyTaskDone, notifyTaskFailed, notifySound, notifySoundType, notifyDND,
       autoStart, minimizeToTray, trayIcon, singleInstance,
@@ -719,7 +776,7 @@ export const useSettingsStore = defineStore('settings', () => {
       workDirRoot.value = all.workdir_root ?? ''
 
       // Preferences (no JSON.parse needed — getAllSettings already parsed)
-      themeMode.value = all.themeMode ?? 'dark'
+      themeMode.value = all.themeMode ?? 'light'
       accentColor.value = all.accentColor ?? 'brand'
       customAccentHex.value = all.customAccentHex ?? '#4A6CFF'
       fontSize.value = all.fontSize ?? 'medium'
@@ -737,6 +794,7 @@ export const useSettingsStore = defineStore('settings', () => {
       proxyAuth.value = all.proxyAuth ?? false
       proxyUser.value = all.proxyUser ?? ''
       proxyPass.value = all.proxyPass ?? ''
+      wikiWebResearchSettings.value = normalizeWikiWebResearchSettings(all.wikiWebResearchSettings)
 
       // Sandbox
       maxIter.value = all.maxIter ?? 100
@@ -767,6 +825,7 @@ export const useSettingsStore = defineStore('settings', () => {
       autoStart.value = all.autoStart ?? false
       minimizeToTray.value = all.minimizeToTray ?? true
       trayIcon.value = all.trayIcon ?? true
+      if (Array.isArray(all.trayMenuItems)) trayMenuItems.value = all.trayMenuItems
       singleInstance.value = all.singleInstance ?? true
 
       // LLM Config (objects/arrays — already parsed by getAllSettings)
@@ -793,7 +852,7 @@ export const useSettingsStore = defineStore('settings', () => {
     }
     try {
       const result = await window.electronAPI.workdir.selectRoot()
-      if (result && !result.error) workDirRoot.value = result.rootPath
+      if (result && !result.error && !result.pendingRestart) workDirRoot.value = result.rootPath
       return result
     } catch (e) { console.error('selectWorkspaceRoot error:', e); return { error: e.message } }
   }
@@ -813,7 +872,7 @@ export const useSettingsStore = defineStore('settings', () => {
     if (!window.electronAPI?.workdir) return null
     try {
       const result = await window.electronAPI.workdir.init(rootPath)
-      if (result && !result.error) workDirRoot.value = result.rootPath
+      if (result && !result.error && !result.pendingRestart) workDirRoot.value = result.rootPath
       return result
     } catch (e) { console.error('initWorkspace error:', e); return null }
   }
@@ -821,6 +880,92 @@ export const useSettingsStore = defineStore('settings', () => {
   async function getWorkspaceStatus() {
     if (!window.electronAPI?.workdir) return { initialized: false }
     return window.electronAPI.workdir.getStatus()
+  }
+
+  async function saveTrayMenu(items) {
+    const pendingItems = items.map(item => ({ ...item }))
+    const version = ++trayMenuSaveVersion
+    trayMenuItems.value = pendingItems
+    trayMenuSaveQueue = trayMenuSaveQueue.catch(() => ({ ok: false })).then(async () => {
+      try {
+        const result = await window.electronAPI?.setTrayMenu?.(pendingItems) ?? { ok: true, items: pendingItems }
+        if (result.ok === false) return result
+        const normalizedItems = Array.isArray(result.items) ? result.items : pendingItems
+        await window.electronAPI?.db?.settings?.set('trayMenuItems', JSON.stringify(normalizedItems))
+        if (version === trayMenuSaveVersion) trayMenuItems.value = normalizedItems
+        return { ...result, items: normalizedItems }
+      } catch (e) {
+        console.error('saveTrayMenu error:', e)
+        return { ok: false, error: e.message }
+      }
+    })
+    return trayMenuSaveQueue
+  }
+
+  function applyWorkspaceState(state) {
+    if (!state || state.error) return state
+    workspaceState.value = {
+      activeWorkspaceId: state.activeWorkspaceId || null,
+      pendingWorkspaceId: state.pendingWorkspaceId || null,
+      activeWorkspace: state.activeWorkspace || null,
+      pendingWorkspace: state.pendingWorkspace || null,
+      workspaces: Array.isArray(state.workspaces) ? state.workspaces : [],
+      startupError: state.startupError || '',
+    }
+    if (state.activeWorkspace?.rootPath) workDirRoot.value = state.activeWorkspace.rootPath
+    return workspaceState.value
+  }
+
+  async function loadWorkspaceState() {
+    if (!window.electronAPI?.workspace) return workspaceState.value
+    const state = await window.electronAPI.workspace.list()
+    return applyWorkspaceState(state)
+  }
+
+  async function createWorkspace(data) {
+    const result = await window.electronAPI?.workspace?.create(data)
+    if (result?.state) applyWorkspaceState(result.state)
+    return result
+  }
+
+  async function openWorkspace(data) {
+    const result = await window.electronAPI?.workspace?.open(data)
+    if (result?.state) applyWorkspaceState(result.state)
+    return result
+  }
+
+  async function switchWorkspace(id) {
+    const result = await window.electronAPI?.workspace?.setPending(id)
+    if (result?.state) applyWorkspaceState(result.state)
+    return result
+  }
+
+  async function cancelWorkspaceSwitch() {
+    const result = await window.electronAPI?.workspace?.cancelPending()
+    if (result?.state) applyWorkspaceState(result.state)
+    return result
+  }
+
+  async function renameWorkspace(data) {
+    const result = await window.electronAPI?.workspace?.rename(data)
+    if (result?.state) applyWorkspaceState(result.state)
+    return result
+  }
+
+  async function removeWorkspace(id) {
+    const result = await window.electronAPI?.workspace?.remove(id)
+    if (result?.state) applyWorkspaceState(result.state)
+    return result
+  }
+
+  async function migrateWorkspace(data) {
+    const result = await window.electronAPI?.workspace?.migrate(data)
+    await loadWorkspaceState()
+    return result
+  }
+
+  async function cleanupFailedWorkspaceMigration(targetRoot) {
+    return window.electronAPI?.workspace?.cleanupFailedMigration(targetRoot)
   }
 
   function getDocsPath() {
@@ -953,20 +1098,22 @@ export const useSettingsStore = defineStore('settings', () => {
 
   return {
     // Workspace
-    workDirRoot, isWorkspaceReady,
+    workDirRoot, isWorkspaceReady, workspaceState,
     loadFromDb, selectWorkspaceRoot, selectDirOnly, initWorkspace, getWorkspaceStatus,
-    getDocsPath,
+    getDocsPath, loadWorkspaceState, createWorkspace, openWorkspace, switchWorkspace,
+    cancelWorkspaceSwitch, renameWorkspace, removeWorkspace, migrateWorkspace,
+    cleanupFailedWorkspaceMigration,
     // Preferences
     themeMode, accentColor, customAccentHex, fontSize, langPref,
     animations, reducedMotion, answerStyle, conflictStrategy,
     ACCENT_PRESETS,
     // Network
-    proxyMode, proxyType, proxyHost, proxyPort, proxyAuth, proxyUser, proxyPass,
+    proxyMode, proxyType, proxyHost, proxyPort, proxyAuth, proxyUser, proxyPass, wikiWebResearchSettings,
     // Sandbox
     maxIter, maxTaskMin, searchLimit, fileOpLimit, toolCallLimit, modelCallLimit, loopGuard, auditDays, pathRedact, allowFileDelete, deleteScope, allowExecCommand, commandWhitelist, commandBlacklist,
     // Notifications
     notifyTaskDone, notifyTaskFailed, notifySound, notifySoundType, notifyDND,
-    autoStart, minimizeToTray, trayIcon, singleInstance,
+    autoStart, minimizeToTray, trayIcon, trayMenuItems, singleInstance,
     // LLM Config
     providers, defaultModels,
     enabledProviders, availableModels,
@@ -976,7 +1123,7 @@ export const useSettingsStore = defineStore('settings', () => {
     // Computed
     currentAccentHex, currentAccentHover, currentAccentRgb,
     // Methods
-    savePreference, saveProviders, saveDefaultModels,
+    savePreference, saveTrayMenu, saveProviders, saveDefaultModels,
     applyAccentColor, applyThemeMode,
   }
 }, {

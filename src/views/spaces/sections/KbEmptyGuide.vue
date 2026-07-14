@@ -34,7 +34,7 @@ const steps = [
             ? 'border-white/[0.08] bg-white/[0.04] text-slate-300'
             : 'border-slate-200 bg-slate-50 text-slate-600'">
           <i class="ri-cloud-line text-[12px]" />
-          MindSpace 云端知识库
+          Reviva 云端知识库
         </div>
 
         <h2 class="text-[24px] sm:text-[28px] font-bold leading-snug tracking-tight max-w-[600px]"

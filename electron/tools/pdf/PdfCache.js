@@ -158,6 +158,38 @@ function manifestMatchesDoc(manifest, doc) {
   return String(manifest.realPathHash || '') === String(doc.realPathHash || '')
 }
 
+<<<<<<< HEAD
+=======
+function sourceLinkFor(doc, sourceInfo = {}) {
+  const owner = sourceInfo?.owner && typeof sourceInfo.owner === 'object' ? sourceInfo.owner : {}
+  const ownerLocator = String(
+    sourceInfo.ownerLocator
+      || sourceInfo.owner_locator
+      || owner.locator
+      || owner.path
+      || doc.virtualPath
+      || doc.realPath
+      || '',
+  ).trim().replace(/\\/g, '/')
+  if (!ownerLocator) return null
+  const inferredType = ownerLocator.startsWith('/docs/')
+    ? 'docs_file'
+    : ownerLocator.startsWith('/context/')
+      ? 'context_file'
+      : ownerLocator.startsWith('/wikis/') || ownerLocator.startsWith('/wiki/')
+        ? 'wiki_file'
+        : 'workspace_file'
+  return {
+    pdf_id: doc.id,
+    owner_type: sourceInfo.ownerType || sourceInfo.owner_type || owner.type || inferredType,
+    owner_id: sourceInfo.ownerId || sourceInfo.owner_id || owner.id || '',
+    owner_locator: ownerLocator,
+    state: 'active',
+    reactivate: !!sourceInfo.reactivateLink,
+  }
+}
+
+>>>>>>> dev
 export class PdfCache {
   constructor({ workDirService = null, dbService = null } = {}) {
     this._workDirService = workDirService
@@ -185,7 +217,10 @@ export class PdfCache {
     const id = resolvedCache.id
     const relCachePath = `context/pdf/${id}`
     const cacheRoot = resolvedCache.cacheRoot
+<<<<<<< HEAD
     await fs.promises.mkdir(cacheRoot, { recursive: true })
+=======
+>>>>>>> dev
 
     const doc = {
       id,
@@ -201,12 +236,28 @@ export class PdfCache {
       owners: sourceInfo?.owner ? [sourceInfo.owner] : [],
     }
 
+<<<<<<< HEAD
+=======
+    const latestStat = await fs.promises.stat(realPath)
+    if (Number(latestStat.size || 0) !== Number(stat.size || 0) || !sameMtime(latestStat.mtimeMs, stat.mtimeMs)) {
+      const error = new Error('PDF source changed while it was being registered.')
+      error.code = 'PDF_SOURCE_CHANGED'
+      throw error
+    }
+
+    this._upsertDocument(doc, sourceInfo)
+    this._assertDocumentWritable(doc)
+    await fs.promises.mkdir(cacheRoot, { recursive: true })
+>>>>>>> dev
     const existingManifest = await this.readManifest(cacheRoot)
     await this._writeManifest(doc, {
       status: existingManifest?.status || 'pending',
       sourceInfo: existingManifest?.sourceInfo || sourceInfo,
     })
+<<<<<<< HEAD
     this._upsertDocument(doc, sourceInfo)
+=======
+>>>>>>> dev
     return doc
   }
 
@@ -259,6 +310,10 @@ export class PdfCache {
   }
 
   async _writeManifest(doc, extra = {}) {
+<<<<<<< HEAD
+=======
+    this._assertDocumentWritable(doc)
+>>>>>>> dev
     const existing = await this.readManifest(doc.cacheRoot)
     await writeJson(path.join(doc.cacheRoot, 'manifest.json'), {
       ...existing,
@@ -282,6 +337,10 @@ export class PdfCache {
   }
 
   async writeOverview(doc, overview) {
+<<<<<<< HEAD
+=======
+    this._assertDocumentWritable(doc)
+>>>>>>> dev
     await writeJson(path.join(doc.cacheRoot, 'text', 'overview.json'), overview)
     await this._writeManifest(doc, {
       status: 'overview_ready',
@@ -308,6 +367,10 @@ export class PdfCache {
   }
 
   async writeTextPages(doc, payload) {
+<<<<<<< HEAD
+=======
+    this._assertDocumentWritable(doc)
+>>>>>>> dev
     await writeJson(path.join(doc.cacheRoot, 'text', 'pages.json'), {
       version: 1,
       updatedAt: new Date().toISOString(),
@@ -356,6 +419,10 @@ export class PdfCache {
   }
 
   async writeOcrResult(doc, ocrProfileKey, result, { provider, ranges = [], requestedRanges = [], fullDocumentFallback = false } = {}) {
+<<<<<<< HEAD
+=======
+    this._assertDocumentWritable(doc)
+>>>>>>> dev
     const root = this.ocrRoot(doc, ocrProfileKey)
     const pagesDir = path.join(root, 'pages')
     const assetsDir = path.join(root, 'assets', 'images')
@@ -498,6 +565,10 @@ export class PdfCache {
   }
 
   async writeEmbeddedImagesIndex(doc, images = [], extra = {}) {
+<<<<<<< HEAD
+=======
+    this._assertDocumentWritable(doc)
+>>>>>>> dev
     await writeJson(path.join(doc.cacheRoot, 'assets', 'embedded', 'images.json'), {
       version: 1,
       images,
@@ -524,6 +595,46 @@ export class PdfCache {
       status: existing?.status || 'pending',
       last_accessed_at: new Date().toISOString(),
     })
+<<<<<<< HEAD
+=======
+    const link = sourceLinkFor(doc, sourceInfo)
+    if (link && this._db?.upsertPdfSourceLink) this._db.upsertPdfSourceLink(link)
+  }
+
+  _assertDocumentWritable(doc) {
+    if (!this._db?.getPdfDocument) return true
+    const existing = this._db.getPdfDocument(doc?.id)
+    const active = this._db?.hasActivePdfSourceLink ? this._db.hasActivePdfSourceLink(doc?.id) : !!existing
+    if (existing && active) return true
+    const error = new Error('PDF source is inactive or has been deleted.')
+    error.code = 'PDF_SOURCE_INACTIVE'
+    throw error
+  }
+
+  isParseRunWritable(runId) {
+    if (!runId || !this._db?.getPdfParseRun) return true
+    const run = this._db.getPdfParseRun(runId)
+    return !!run && ['pending', 'running'].includes(run.status)
+  }
+
+  async removeDocumentCache(pdfId) {
+    const root = this._workDirService?.getRootPath?.()
+    if (!root || !pdfId) return
+    const contextPdfRoot = path.resolve(root, 'context', 'pdf')
+    const cacheRoot = path.resolve(contextPdfRoot, String(pdfId))
+    if (cacheRoot !== contextPdfRoot && cacheRoot.startsWith(contextPdfRoot + path.sep)) {
+      await fs.promises.rm(cacheRoot, { recursive: true, force: true })
+    }
+  }
+
+  async removeOcrProfile(doc, ocrProfileKey) {
+    if (!doc?.cacheRoot || !ocrProfileKey) return
+    const root = path.resolve(doc.cacheRoot)
+    const profileRoot = path.resolve(this.ocrRoot(doc, ocrProfileKey))
+    if (profileRoot !== root && profileRoot.startsWith(root + path.sep)) {
+      await fs.promises.rm(profileRoot, { recursive: true, force: true })
+    }
+>>>>>>> dev
   }
 
   _updateDocument(id, data) {

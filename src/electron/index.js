@@ -13,6 +13,10 @@ export async function openFile(options) {
   return api.openFile?.(options) ?? []
 }
 
+export async function saveTextFile(options, content) {
+  return api.saveTextFile?.(options, content) ?? { success: false, error: 'Not in Electron' }
+}
+
 export async function readFile(filePath, options) {
   return api.readFile?.(filePath, options) ?? { success: false, error: 'Not in Electron' }
 }

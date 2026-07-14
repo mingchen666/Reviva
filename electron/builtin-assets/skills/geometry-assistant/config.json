@@ -1,0 +1,23 @@
+{
+  "id": "geometry-assistant",
+  "name": "立体几何 3D 助手",
+  "description": "将高中立体几何题转换为可交互的单文件 Three.js HTML，支持已知条件高亮、辅助构造、截面、线面角、二面角和分步证明展示。",
+  "icon": "ri-box-3-line",
+  "color": "#3B82F6",
+  "category": "学习",
+  "source": "platform",
+  "allowedTools": [
+    "file_read",
+    "file_write",
+    "document_read",
+    "vision_analyze",
+    "exec_command"
+  ],
+  "outputTypes": [
+    "HTML",
+    "JSON"
+  ],
+  "version": "1.0.0",
+  "author": "mindbeam-vc",
+  "license": ""
+}

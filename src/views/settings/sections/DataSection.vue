@@ -19,6 +19,10 @@ const clearConfirm = ref(false)
 const backupLoadingMode = ref('')
 const backupResult = ref(null)
 const backupError = ref('')
+<<<<<<< HEAD
+=======
+const configLoadingMode = ref('')
+>>>>>>> dev
 
 function fmtSize(bytes) {
   if (bytes < 1024) return bytes + ' B'
@@ -70,18 +74,55 @@ async function clearCache() {
   }
 }
 
-async function exportAll() {
-  if (!window.electronAPI?.exportSettings) return
-  const result = await window.electronAPI.exportSettings()
-  if (!result?.success) return
-  const json = JSON.stringify(result.data, null, 2)
+function downloadJson(data, fileName) {
+  const json = JSON.stringify(data, null, 2)
   const blob = new Blob([json], { type: 'application/json' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  a.download = `reviva-settings-${new Date().toISOString().slice(0, 10)}.json`
+  a.download = fileName
   a.click()
-  URL.revokeObjectURL(url)
+  window.setTimeout(() => URL.revokeObjectURL(url), 0)
+}
+
+async function exportConfig() {
+  if (!window.electronAPI?.exportSettings) return
+  configLoadingMode.value = 'export'
+  try {
+    const result = await window.electronAPI.exportSettings()
+    if (!result?.success) throw new Error(result?.error || '导出配置失败')
+    downloadJson(result.data, `reviva-settings-${new Date().toISOString().slice(0, 10)}.json`)
+    msg.success('配置文件已导出', { title: '导出完成', duration: 3200 })
+  } catch (err) {
+    msg.error(err.message || '导出配置失败', { title: '导出失败', duration: 5000 })
+  } finally {
+    configLoadingMode.value = ''
+  }
+}
+
+async function applyImportedRuntimeSettings(importedKeys = []) {
+  const api = window.electronAPI
+  const keys = new Set(importedKeys)
+  const jobs = []
+  const enqueue = callback => jobs.push(Promise.resolve().then(callback))
+  if (keys.has('autoStart') && api?.setStartup) enqueue(() => api.setStartup(ss.autoStart))
+  if (keys.has('minimizeToTray') && api?.setMinimizeToTray) enqueue(() => api.setMinimizeToTray(ss.minimizeToTray))
+  if (keys.has('trayIcon') && api?.setTrayIcon) enqueue(() => api.setTrayIcon(ss.trayIcon))
+  if (keys.has('trayMenuItems') && api?.setTrayMenu) enqueue(() => api.setTrayMenu(ss.trayMenuItems))
+  if (keys.has('singleInstance') && api?.setSingleInstance) enqueue(() => api.setSingleInstance(ss.singleInstance))
+  if (keys.has('shortcutBindings') && api?.db?.settings && api?.shortcuts?.register) {
+    enqueue(async () => {
+      const shortcutBindings = await api.db.settings.get('shortcutBindings')
+      if (!shortcutBindings || typeof shortcutBindings !== 'object') {
+        return { ok: false, error: '快捷键配置不可用' }
+      }
+      return api.shortcuts.register(shortcutBindings)
+    })
+  }
+  const results = await Promise.allSettled(jobs)
+  return results.some(item => item.status === 'rejected'
+    || item.value?.ok === false
+    || item.value?.failed?.length)
 }
 
 async function importConfig() {
@@ -91,47 +132,68 @@ async function importConfig() {
   input.onchange = async (e) => {
     const file = e.target.files[0]
     if (!file) return
+    configLoadingMode.value = 'import'
     try {
       const text = await file.text()
       const data = JSON.parse(text)
       if (!window.electronAPI?.importSettings) return
       const result = await window.electronAPI.importSettings(data)
-      if (result?.success) {
-        await ss.loadFromDb()
-        ss.applyAccentColor()
-        ss.applyThemeMode()
+      if (!result?.success) throw new Error(result?.error || '导入配置失败')
+      await ss.loadFromDb()
+      ss.applyAccentColor()
+      ss.applyThemeMode()
+      const hasRuntimeWarning = await applyImportedRuntimeSettings(result.data?.importedKeys || [])
+      if (hasRuntimeWarning) {
+        msg.warning('配置已导入，部分系统设置或快捷键将在重启后生效', {
+          title: '配置导入完成',
+          duration: 5200,
+        })
+      } else {
+        msg.success(`已导入 ${result.data?.importedCount ?? 0} 项配置`, {
+          title: result.data?.legacy ? '旧版配置导入完成' : '配置导入完成',
+          duration: 3800,
+        })
       }
     } catch (err) {
       console.error('Import failed:', err)
+      msg.error(err.message || '导入配置失败', { title: '导入失败', duration: 5200 })
+    } finally {
+      configLoadingMode.value = ''
     }
   }
   input.click()
 }
 
-async function exportAgents() {
-  if (!window.electronAPI?.db) return
-  const agents = await window.electronAPI.db.agents.list()
-  const json = JSON.stringify(agents, null, 2)
-  const blob = new Blob([json], { type: 'application/json' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = `reviva-agents-${new Date().toISOString().slice(0, 10)}.json`
-  a.click()
-  URL.revokeObjectURL(url)
+async function createBackup(mode) {
+  if (!window.electronAPI?.backup?.create) return
+  backupLoadingMode.value = mode
+  backupResult.value = null
+  backupError.value = ''
+  try {
+    const result = await window.electronAPI.backup.create({ mode })
+    if (result?.canceled) return
+    if (!result?.success) throw new Error(result?.error || '备份失败')
+    backupResult.value = result.data
+    msg.success(`已创建 ${result.data.fileName}`, {
+      title: '备份完成',
+      duration: 4200,
+    })
+    await loadDataMetrics()
+  } catch (err) {
+    backupError.value = err.message || '备份失败'
+    msg.error(backupError.value, {
+      title: '备份失败',
+      duration: 5200,
+    })
+  } finally {
+    backupLoadingMode.value = ''
+  }
 }
 
-async function exportMemory() {
-  if (!window.electronAPI?.db) return
-  const memories = await window.electronAPI.db.memories.list()
-  const json = JSON.stringify(memories, null, 2)
-  const blob = new Blob([json], { type: 'application/json' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = `reviva-memories-${new Date().toISOString().slice(0, 10)}.json`
-  a.click()
-  URL.revokeObjectURL(url)
+async function revealBackup() {
+  const filePath = backupResult.value?.path
+  if (!filePath || !window.electronAPI?.showItemInFolder) return
+  await window.electronAPI.showItemInFolder(filePath)
 }
 
 async function createBackup(mode) {
@@ -169,7 +231,7 @@ async function revealBackup() {
 async function resetSettings() {
   resetConfirm.value = false
   const defaults = {
-    themeMode: 'dark', accentColor: 'brand', customAccentHex: '#4A6CFF',
+    themeMode: 'light', accentColor: 'brand', customAccentHex: '#4A6CFF',
     fontSize: 'medium', langPref: 'zh', animations: true, reducedMotion: false,
     answerStyle: 'default', conflictStrategy: 'ask',
     proxyMode: 'system', proxyType: 'http', proxyHost: '127.0.0.1', proxyPort: '7890',
@@ -245,44 +307,85 @@ onMounted(() => {
         <i class="ri-download-cloud-line text-brand-400 text-[14px]" />
         <span class="section-title" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">导出与备份</span>
       </div>
-      <p class="text-[11px] mb-3" :class="isDark ? 'text-wt-aux' : 'text-lt-aux'">导出配置文件用于设备迁移或备份</p>
+      <p class="text-[11px] mb-3" :class="isDark ? 'text-wt-aux' : 'text-lt-aux'">迁移偏好、模型服务商、网络、沙箱、通知与快捷键配置</p>
       <div class="grid grid-cols-2 gap-2">
-        <button @click="exportAll" class="row flex items-center gap-3 py-3 px-3 rounded-lg text-left transition-colors" :class="isDark ? 'bg-d0 border border-d4 hover:border-brand-400/30' : 'bg-l2 border border-bdrF hover:border-brand-200'">
+        <button @click="exportConfig" :disabled="!!configLoadingMode" class="row flex items-center gap-3 py-3 px-3 rounded-lg text-left transition-colors disabled:opacity-50 disabled:cursor-not-allowed" :class="isDark ? 'bg-d0 border border-d4 hover:border-brand-400/30' : 'bg-l2 border border-bdrF hover:border-brand-200'">
           <i class="ri-archive-line text-[16px] text-brand-400" />
           <div class="flex-1 min-w-0">
-            <div class="text-[12px] font-bold" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">导出全部配置</div>
-            <div class="text-[10px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">服务商 / 智能体 / 记忆 / 偏好</div>
+            <div class="text-[12px] font-bold" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">导出应用配置</div>
+            <div class="text-[10px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">偏好 / 服务商与模型 / 网络 / 沙箱</div>
           </div>
-          <i class="ri-download-line text-[12px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'" />
+          <i v-if="configLoadingMode === 'export'" class="ri-loader-4-line text-[12px] animate-spin" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'" />
+          <i v-else class="ri-download-line text-[12px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'" />
         </button>
-        <button @click="importConfig" class="row flex items-center gap-3 py-3 px-3 rounded-lg text-left transition-colors" :class="isDark ? 'bg-d0 border border-d4 hover:border-emerald-400/30' : 'bg-l2 border border-bdrF hover:border-emerald-200'">
+        <button @click="importConfig" :disabled="!!configLoadingMode" class="row flex items-center gap-3 py-3 px-3 rounded-lg text-left transition-colors disabled:opacity-50 disabled:cursor-not-allowed" :class="isDark ? 'bg-d0 border border-d4 hover:border-emerald-400/30' : 'bg-l2 border border-bdrF hover:border-emerald-200'">
           <i class="ri-upload-cloud-line text-[16px] text-emerald-400" />
           <div class="flex-1 min-w-0">
-            <div class="text-[12px] font-bold" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">导入配置</div>
-            <div class="text-[10px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">从 JSON 文件恢复配置</div>
+            <div class="text-[12px] font-bold" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">导入应用配置</div>
+            <div class="text-[10px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">校验 JSON 后覆盖对应配置项</div>
           </div>
-          <i class="ri-folder-open-line text-[12px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'" />
-        </button>
-        <button @click="exportAgents" class="row flex items-center gap-3 py-3 px-3 rounded-lg text-left transition-colors" :class="isDark ? 'bg-d0 border border-d4 hover:border-agent-400/30' : 'bg-l2 border border-bdrF hover:border-agent-200'">
-          <i class="ri-sparkling-line text-[16px] text-agent-400" />
-          <div class="flex-1 min-w-0">
-            <div class="text-[12px] font-bold" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">仅导出智能体</div>
-            <div class="text-[10px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">分享给其他用户</div>
-          </div>
-          <i class="ri-download-line text-[12px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'" />
-        </button>
-        <button @click="exportMemory" class="row flex items-center gap-3 py-3 px-3 rounded-lg text-left transition-colors" :class="isDark ? 'bg-d0 border border-d4 hover:border-rose-400/30' : 'bg-l2 border border-bdrF hover:border-rose-200'">
-          <i class="ri-brain-line text-[16px] text-rose-400" />
-          <div class="flex-1 min-w-0">
-            <div class="text-[12px] font-bold" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">仅导出记忆</div>
-            <div class="text-[10px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">语义 / 程序 / 情景记忆</div>
-          </div>
-          <i class="ri-download-line text-[12px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'" />
+          <i v-if="configLoadingMode === 'import'" class="ri-loader-4-line text-[12px] animate-spin" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'" />
+          <i v-else class="ri-folder-open-line text-[12px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'" />
         </button>
       </div>
       <div class="mt-3 pt-3 flex items-center gap-2 text-[10px]" :class="isDark ? 'text-wt-dim border-t border-d4' : 'text-lt-aux border-t border-bdrF'">
-        <i class="ri-shield-check-line text-emerald-400 text-[11px]" />
-        <span>导出文件中 API Key 默认加密，可选择不导出敏感信息</span>
+        <i class="ri-error-warning-line text-amber-400 text-[11px]" />
+        <span>导出文件可能包含 API Key 与代理凭据，请妥善保管，不要公开分享</span>
+      </div>
+    </div>
+
+    <!-- Data Backup -->
+    <div class="rounded-xl p-4" :class="isDark ? 'bg-d3 border border-bdr' : 'bg-l3 border border-bdrF'">
+      <div class="flex items-center gap-2 mb-1">
+        <i class="ri-safe-2-line text-cyan-400 text-[14px]" />
+        <span class="section-title" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">数据备份</span>
+      </div>
+      <p class="text-[11px] mb-3" :class="isDark ? 'text-wt-aux' : 'text-lt-aux'">创建本地备份包；配置 JSON 导入导出仍保留在上方</p>
+      <div class="grid gap-2" style="grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));">
+        <button @click="createBackup('full')" :disabled="!!backupLoadingMode" class="row flex items-center gap-3 py-3 px-3 rounded-lg text-left transition-colors disabled:opacity-50 disabled:cursor-not-allowed" :class="isDark ? 'bg-d0 border border-d4 hover:border-cyan-400/30' : 'bg-l2 border border-bdrF hover:border-cyan-200'">
+          <i class="ri-database-2-line text-[16px] text-cyan-400" />
+          <div class="flex-1 min-w-0">
+            <div class="text-[12px] font-bold" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">完整数据备份</div>
+            <div class="text-[10px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">数据库 / 文档 / 笔记 / 知识库 / 产物</div>
+          </div>
+          <i v-if="backupLoadingMode === 'full'" class="ri-loader-4-line text-[12px] animate-spin" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'" />
+          <i v-else class="ri-download-line text-[12px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'" />
+        </button>
+        <button @click="createBackup('compact')" :disabled="!!backupLoadingMode" class="row flex items-center gap-3 py-3 px-3 rounded-lg text-left transition-colors disabled:opacity-50 disabled:cursor-not-allowed" :class="isDark ? 'bg-d0 border border-d4 hover:border-emerald-400/30' : 'bg-l2 border border-bdrF hover:border-emerald-200'">
+          <i class="ri-filter-3-line text-[16px] text-emerald-400" />
+          <div class="flex-1 min-w-0">
+            <div class="text-[12px] font-bold" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">精简备份</div>
+            <div class="text-[10px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">不包含产物、输出、大型附件</div>
+          </div>
+          <i v-if="backupLoadingMode === 'compact'" class="ri-loader-4-line text-[12px] animate-spin" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'" />
+          <i v-else class="ri-download-line text-[12px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'" />
+        </button>
+        <button @click="createBackup('database')" :disabled="!!backupLoadingMode" class="row flex items-center gap-3 py-3 px-3 rounded-lg text-left transition-colors disabled:opacity-50 disabled:cursor-not-allowed" :class="isDark ? 'bg-d0 border border-d4 hover:border-amber-400/30' : 'bg-l2 border border-bdrF hover:border-amber-200'">
+          <i class="ri-hard-drive-line text-[16px] text-amber-400" />
+          <div class="flex-1 min-w-0">
+            <div class="text-[12px] font-bold" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">数据库备份</div>
+            <div class="text-[10px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">仅 SQLite 快照，高级用途</div>
+          </div>
+          <i v-if="backupLoadingMode === 'database'" class="ri-loader-4-line text-[12px] animate-spin" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'" />
+          <i v-else class="ri-download-line text-[12px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'" />
+        </button>
+        <button disabled class="row flex items-center gap-3 py-3 px-3 rounded-lg text-left transition-colors opacity-55 cursor-not-allowed" :class="isDark ? 'bg-d0 border border-d4' : 'bg-l2 border border-bdrF'">
+          <i class="ri-upload-2-line text-[16px] text-sky-400" />
+          <div class="flex-1 min-w-0">
+            <div class="text-[12px] font-bold" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">恢复数据</div>
+            <div class="text-[10px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">导入备份包，即将支持</div>
+          </div>
+          <span class="ctx-pill" :class="isDark ? 'bg-d4 text-wt-dim border border-bdr' : 'bg-l4 text-lt-aux border border-bdrF'">即将支持</span>
+        </button>
+      </div>
+      <div v-if="backupResult" class="mt-3 pt-3 flex items-center gap-2 text-[10px]" :class="isDark ? 'text-wt-dim border-t border-d4' : 'text-lt-aux border-t border-bdrF'">
+        <i class="ri-checkbox-circle-line text-emerald-400 text-[11px]" />
+        <span class="flex-1 min-w-0 truncate">已创建 {{ backupResult.fileName }}，包大小 {{ fmtSize(backupResult.size) }}，包含 {{ backupResult.fileCount }} 个文件</span>
+        <button @click="revealBackup" class="px-2 py-1 rounded-md font-medium" :class="isDark ? 'bg-d4 text-wt-sub hover:bg-white/8' : 'bg-l4 text-lt-sub hover:bg-l5'">定位</button>
+      </div>
+      <div v-if="backupError" class="mt-3 pt-3 flex items-center gap-2 text-[10px]" :class="isDark ? 'text-red-400 border-t border-d4' : 'text-red-500 border-t border-bdrF'">
+        <i class="ri-error-warning-line text-[11px]" />
+        <span>{{ backupError }}</span>
       </div>
     </div>
 

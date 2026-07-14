@@ -14,6 +14,22 @@ function saveDeleteScope() { ss.savePreference('deleteScope', ss.deleteScope) }
 
 function toggleAllowExecCommand() { ss.savePreference('allowExecCommand', !ss.allowExecCommand) }
 
+function updateWikiWebResearch(patch) {
+  ss.savePreference('wikiWebResearchSettings', {
+    ...(ss.wikiWebResearchSettings || {}),
+    ...(patch || {}),
+  })
+}
+
+function toggleWikiWebResearch() {
+  updateWikiWebResearch({ enabled: !ss.wikiWebResearchSettings?.enabled })
+}
+
+function saveWikiWebHardLimit() {
+  const value = Math.min(Math.max(Number(ss.wikiWebResearchSettings?.hardLimit || 10), 1), 10)
+  updateWikiWebResearch({ hardLimit: value })
+}
+
 const wlInput = ref('')
 const blInput = ref('')
 
@@ -151,6 +167,47 @@ function applyPreset(type) {
         <div class="flex-1">
           <div class="text-[13px] font-semibold mb-0.5" :class="isDark ? 'text-amber-400' : 'text-amber-600'">沙箱保护机制</div>
           <p class="text-[12px] leading-relaxed" :class="isDark ? 'text-wt-aux' : 'text-lt-aux'">以下设置为全局默认值。每个 Agent 任务执行时受这些限制保护，防止过度资源消耗与异常行为。标记 <span class="ctx-pill text-[10px]" :class="isDark ? 'bg-emerald-400/10 text-emerald-400 border border-emerald-400/20' : 'bg-emerald-50 text-emerald-600 border border-emerald-100'">已生效</span> 的设置已接入 Agent 运行时强制执行。</p>
+<<<<<<< HEAD
+=======
+        </div>
+      </div>
+    </div>
+
+    <!-- LLM-Wiki Web Verification -->
+    <div class="rounded-xl p-4" :class="isDark ? 'bg-d3 border border-bdr' : 'bg-l3 border border-bdrF'">
+      <div class="flex items-center gap-2 mb-3">
+        <i class="ri-book-2-line text-brand-400 text-[14px]" />
+        <span class="section-title" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">LLM-Wiki 联网求证</span>
+        <span class="ctx-pill text-[10px]" :class="isDark ? 'bg-blue-400/10 text-blue-400 border border-blue-400/20' : 'bg-blue-50 text-blue-600 border border-blue-100'">全局默认</span>
+      </div>
+      <div class="grid grid-cols-[1fr_auto] gap-4 items-center">
+        <div>
+          <div class="text-[13px] font-medium" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">允许证据不足时联网核验</div>
+          <div class="mt-1 text-[11px] leading-relaxed" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">
+            默认关闭。开启后各 Wiki 仍可单独强制关闭；搜索优先级为 Exa → Bing → SearXNG → Tavily，网页登记为来源后才能进入正式页面引用。
+          </div>
+        </div>
+        <div class="toggle shrink-0 cursor-pointer" :class="ss.wikiWebResearchSettings?.enabled ? 'on' : (isDark ? 'off' : 'light-off')" @click="toggleWikiWebResearch" />
+      </div>
+      <div class="mt-3 pt-3 border-t grid grid-cols-3 gap-3" :class="isDark ? 'border-d4' : 'border-bdrL'">
+        <div>
+          <div class="text-[10px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">搜索策略</div>
+          <div class="mt-1 text-[12px] font-medium" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">自适应 3 / 5 / 8</div>
+        </div>
+        <div>
+          <div class="text-[10px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">绝对上限</div>
+          <div class="mt-1 flex items-center gap-1.5">
+            <input v-model.number="ss.wikiWebResearchSettings.hardLimit" type="number" min="1" max="10"
+              class="w-14 h-7 px-2 rounded-md text-[12px] text-center outline-none"
+              :class="isDark ? 'bg-d0 border border-d4 text-wt-sub' : 'bg-l2 border border-bdrF text-lt-sub'"
+              @blur="saveWikiWebHardLimit">
+            <span class="text-[10px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">次</span>
+          </div>
+        </div>
+        <div>
+          <div class="text-[10px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">隐私保护</div>
+          <div class="mt-1 text-[12px] font-medium text-emerald-500">始终开启</div>
+>>>>>>> dev
         </div>
       </div>
     </div>

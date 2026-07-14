@@ -152,6 +152,35 @@ export const useConversationsStore = defineStore('conversations', () => {
     return fallback
   }
 
+  async function createBranch(sourceConversationId, sourceMessageId) {
+    if (!window.electronAPI?.db?.convs?.createBranch) {
+      throw new Error('BRANCH_API_UNAVAILABLE')
+    }
+    const result = await dbConvs().createBranch({ sourceConversationId, sourceMessageId })
+    const conversation = result?.conversation
+    if (!conversation?.id) throw new Error('BRANCH_CREATE_FAILED')
+
+    await loadFromDb()
+    if (!conversations.value.some(item => item.id === conversation.id)) {
+      conversations.value.unshift(conversation)
+    }
+    const total = Math.max(0, Number(result.messageCount || 0))
+    const limit = Math.min(total, MSG_PAGE_SIZE)
+    const offset = Math.max(0, total - limit)
+    try {
+      messages.value[conversation.id] = limit
+        ? await dbMsgs().listPaginated(conversation.id, limit, offset)
+        : []
+    } catch (error) {
+      console.error('[ConversationsStore] Branch created but initial messages failed to load:', error)
+      delete messages.value[conversation.id]
+    }
+    msgsTotalCount.value[conversation.id] = total
+    allMsgsLoaded.value[conversation.id] = !!messages.value[conversation.id] && limit >= total
+    currentConvId.value = conversation.id
+    return conversation
+  }
+
   async function updateConv(id, data) {
     const mapped = {}
     if (data.title !== undefined) mapped.title = data.title
@@ -867,7 +896,7 @@ export const useConversationsStore = defineStore('conversations', () => {
     pendingAuthRequests,
     streamingSubAgents, streamingTodos,
     streamingSteps,
-    loadFromDb, loadMessages, loadMoreMessages, createConv, updateConv, deleteConv,
+    loadFromDb, loadMessages, loadMoreMessages, createConv, createBranch, updateConv, deleteConv,
     addMessage, updateMessage, setCurrentConv,
     createGroup, updateGroup, deleteGroup,
     getStreamingState, getStreamingStateByRunId, isConvStreaming,

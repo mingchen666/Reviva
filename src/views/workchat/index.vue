@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, nextTick, onMounted, onBeforeUnmount, watch } from 'vue'
+import { ref, reactive, computed, defineAsyncComponent, nextTick, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useVirtualizer } from '@tanstack/vue-virtual'
 import { storeToRefs } from 'pinia'
 import { useWindowSize } from '@vueuse/core'
@@ -10,17 +10,20 @@ import { useWikiStore } from '@/stores/wiki'
 import { useSettingsStore } from '@/stores/settings'
 import { useUserStore } from '@/stores/user'
 import { useWorkchatStore } from '@/stores/workchat'
+<<<<<<< HEAD
+=======
+import { useNotesStore } from '@/stores/notes'
+>>>>>>> dev
 import { getAgentRuntime } from '@/agents/AgentRuntimeSingleton'
 import { normalizeFilePath } from '@/utils/fileUrl'
 import { readableGenerationContexts } from '@/utils/generationContext'
 import { parseModelRef } from '@/utils/modelRef'
 import { BASE_URL } from '@/apis/http'
+import { saveTextFile } from '@/electron'
 import { useMessage } from '@/components/MsMessage/useMessage'
 import { useMessageBox } from '@/components/MsMessageBox/useMessageBox'
 import ResizeHandle from '@/components/layout/ResizeHandle.vue'
 import ConversationList from './sections/sidebar/ConversationList.vue'
-import DocumentSelector from './sections/sidebar/DocumentSelector.vue'
-import KbSelector from './sections/sidebar/KbSelector.vue'
 import ChatMessage from './sections/ChatMessage.vue'
 import ChatInput from './sections/ChatInput.vue'
 import RightPanel from './sections/rightpanel/RightPanel.vue'
@@ -28,14 +31,24 @@ import PanelToggle from './sections/PanelToggle.vue'
 import AuthCard from './sections/AuthCard.vue'
 import EmptyStateHero from './sections/EmptyStateHero.vue'
 import ScrollLoader from './sections/ScrollLoader.vue'
-import MindmapModal from './sections/rightpanel/modals/MindmapModal.vue'
-import GraphModal from './sections/rightpanel/modals/GraphModal.vue'
-import FlashcardModal from './sections/rightpanel/modals/FlashcardModal.vue'
-import QuizModal from './sections/rightpanel/modals/QuizModal.vue'
-import ChartModal from './sections/rightpanel/modals/ChartModal.vue'
-import PodcastModal from './sections/rightpanel/modals/PodcastModal.vue'
-import ResearchModal from './sections/rightpanel/modals/ResearchModal.vue'
-import PptModal from './sections/rightpanel/modals/PptModal.vue'
+import {
+  buildSingleMessageMarkdown,
+  deriveMessageExportTitle,
+  sanitizeMessageMarkdownFileName,
+} from './sections/chat/markdownExport'
+
+const DocumentSelector = defineAsyncComponent(() => import('./sections/sidebar/DocumentSelector.vue'))
+const KbSelector = defineAsyncComponent(() => import('./sections/sidebar/KbSelector.vue'))
+const ConversationExportModal = defineAsyncComponent(() => import('./sections/export/ConversationExportModal.vue'))
+const SaveMessageToNoteModal = defineAsyncComponent(() => import('./sections/export/SaveMessageToNoteModal.vue'))
+const MindmapModal = defineAsyncComponent(() => import('./sections/rightpanel/modals/MindmapModal.vue'))
+const GraphModal = defineAsyncComponent(() => import('./sections/rightpanel/modals/GraphModal.vue'))
+const FlashcardModal = defineAsyncComponent(() => import('./sections/rightpanel/modals/FlashcardModal.vue'))
+const QuizModal = defineAsyncComponent(() => import('./sections/rightpanel/modals/QuizModal.vue'))
+const ChartModal = defineAsyncComponent(() => import('./sections/rightpanel/modals/ChartModal.vue'))
+const PodcastModal = defineAsyncComponent(() => import('./sections/rightpanel/modals/PodcastModal.vue'))
+const ResearchModal = defineAsyncComponent(() => import('./sections/rightpanel/modals/ResearchModal.vue'))
+const PptModal = defineAsyncComponent(() => import('./sections/rightpanel/modals/PptModal.vue'))
 
 const appStore = useAppStore()
 const convStore = useConversationsStore()
@@ -44,6 +57,7 @@ const wikiStore = useWikiStore()
 const settingsStore = useSettingsStore()
 const userStore = useUserStore()
 const workchatStore = useWorkchatStore()
+const notesStore = useNotesStore()
 const { ctxItems: globalCtxItems } = storeToRefs(workchatStore)
 const isDark = computed(() => appStore.isDark)
 const msg = useMessage()
@@ -128,14 +142,64 @@ const showFlashcardModal = ref(false)
 const showQuizModal = ref(false)
 const showChartModal = ref(false)
 const showPodcastModal = ref(false)
+const renderedModals = reactive({
+  research: false,
+  ppt: false,
+  mindmap: false,
+  graph: false,
+  flashcard: false,
+  quiz: false,
+  chart: false,
+  podcast: false,
+  conversationExport: false,
+  saveMessageToNote: false,
+})
 
 // Panels
 const leftOpen = ref(true)
 const leftW = ref(260)
 const leftTab = ref('conv') // 'conv' | 'docs' | 'kb'
+const renderedLeftPanels = reactive({ docs: false, kb: false })
+
+watch(leftTab, (tab) => {
+  if (tab === 'docs' || tab === 'kb') renderedLeftPanels[tab] = true
+}, { flush: 'sync' })
 const rightOpen = ref(true)
 const rightW = ref(320)
 const previewFile = ref(null)
+const branchingMessageId = ref(null)
+const branchConfirmationPending = ref(false)
+const showConversationExport = ref(false)
+const exportTargetConversation = ref(null)
+const exportingMessageId = ref(null)
+const showSaveMessageToNote = ref(false)
+
+const lazyModalVisibility = {
+  research: showResearchModal,
+  ppt: showPptModal,
+  mindmap: showMindmapModal,
+  graph: showGraphModal,
+  flashcard: showFlashcardModal,
+  quiz: showQuizModal,
+  chart: showChartModal,
+  podcast: showPodcastModal,
+  conversationExport: showConversationExport,
+  saveMessageToNote: showSaveMessageToNote,
+}
+
+Object.entries(lazyModalVisibility).forEach(([name, visible]) => {
+  watch(visible, (show) => {
+    if (show) renderedModals[name] = true
+  }, { flush: 'sync' })
+})
+const noteTargetMessage = ref(null)
+const noteTargetConversation = ref(null)
+const notePreviousUserMessage = ref(null)
+const notePreviousUserLoading = ref(false)
+const notePreviousUserError = ref('')
+const savingMessageToNote = ref(false)
+const saveMessageToNoteError = ref('')
+let noteTargetSequence = 0
 
 // Responsive: auto-collapse panels when window is narrow
 const { width: windowW } = useWindowSize()
@@ -477,6 +541,221 @@ function onConvRename(data) {
   const tab = tabs.value.find(t => t.id === data.id)
   if (tab) tab.name = data.title
   msg.success('对话已重命名')
+}
+
+function openConversationExport(conversationId) {
+  const conversation = conversations.value.find(item => item.id === conversationId)
+  if (!conversation) {
+    msg.error('对话不存在，无法导出')
+    return
+  }
+  exportTargetConversation.value = conversation
+  showConversationExport.value = true
+}
+
+function conversationForMessage(message) {
+  const conversationId = message?.conversationId || currentConvId.value
+  if (conversationId) return conversations.value.find(item => item.id === conversationId) || null
+  return currentConv.value
+}
+
+async function handleExportMessageMarkdown(message) {
+  if (!message?.id || exportingMessageId.value) return
+  if (message.role !== 'assistant' || message.status !== 'completed') {
+    msg.warning('只能导出已完成的 AI 消息')
+    return
+  }
+  const conversation = conversationForMessage(message)
+  if (!conversation) {
+    msg.error('对话不存在，无法导出')
+    return
+  }
+
+  exportingMessageId.value = message.id
+  try {
+    const exportedAt = new Date()
+    const title = deriveMessageExportTitle(message, conversation)
+    const markdown = buildSingleMessageMarkdown({ message, conversation })
+    const result = await saveTextFile({
+      title: '导出 Markdown',
+      defaultPath: sanitizeMessageMarkdownFileName(title, exportedAt),
+      filters: [{ name: 'Markdown', extensions: ['md'] }],
+      defaultExtension: 'md',
+      encoding: 'utf-8',
+    }, markdown)
+    if (result?.canceled) return
+    if (!result?.success) throw new Error(result?.error || 'EXPORT_WRITE_FAILED')
+    msg.success('Markdown 已导出')
+  } catch (error) {
+    console.error('[Workchat] Failed to export AI message:', error)
+    msg.error('Markdown 导出失败，请检查保存位置后重试')
+  } finally {
+    exportingMessageId.value = null
+  }
+}
+
+async function openSaveMessageToNote(message) {
+  if (!message?.id || savingMessageToNote.value) return
+  if (!settingsStore.isWorkspaceReady) {
+    msg.warning('请先在设置中配置授权根目录')
+    return
+  }
+  if (message.role !== 'assistant' || message.status !== 'completed') {
+    msg.warning('只能保存已完成的 AI 消息')
+    return
+  }
+  const conversation = conversationForMessage(message)
+  if (!conversation) {
+    msg.error('对话不存在，无法保存到笔记')
+    return
+  }
+
+  const sequence = ++noteTargetSequence
+  noteTargetMessage.value = message
+  noteTargetConversation.value = conversation
+  notePreviousUserMessage.value = null
+  notePreviousUserError.value = ''
+  saveMessageToNoteError.value = ''
+  notePreviousUserLoading.value = true
+  showSaveMessageToNote.value = true
+
+  try {
+    const api = window.electronAPI?.db?.msgs?.getPreviousUser
+    if (!api) throw new Error('PREVIOUS_USER_API_UNAVAILABLE')
+    const previous = await api(conversation.id, message.id)
+    if (sequence !== noteTargetSequence || !showSaveMessageToNote.value) return
+    notePreviousUserMessage.value = previous || null
+  } catch (error) {
+    if (sequence !== noteTargetSequence || !showSaveMessageToNote.value) return
+    const detail = String(error?.message || error || '')
+    if (detail.includes('SOURCE_MESSAGE_NOT_FOUND')) {
+      showSaveMessageToNote.value = false
+      msg.error('目标消息已不存在，无法保存到笔记')
+      return
+    }
+    console.error('[Workchat] Failed to find previous user message:', error)
+    notePreviousUserError.value = '读取对应用户提问失败'
+  } finally {
+    if (sequence === noteTargetSequence) notePreviousUserLoading.value = false
+  }
+}
+
+async function handleSaveMessageToNote({ title, folderId, includeUserPrompt }) {
+  if (savingMessageToNote.value || !noteTargetMessage.value || !noteTargetConversation.value) return
+  if (!settingsStore.isWorkspaceReady) {
+    saveMessageToNoteError.value = '请先在设置中配置授权根目录'
+    return
+  }
+  if (folderId && !notesStore.folders.some(folder => folder.id === folderId)) {
+    saveMessageToNoteError.value = '所选目录已不存在，请重新选择'
+    return
+  }
+
+  savingMessageToNote.value = true
+  saveMessageToNoteError.value = ''
+  try {
+    const getMessage = window.electronAPI?.db?.msgs?.get
+    if (!getMessage) throw new Error('MESSAGE_GET_API_UNAVAILABLE')
+    const currentMessage = await getMessage(noteTargetMessage.value.id)
+    if (
+      !currentMessage ||
+      currentMessage.conversationId !== noteTargetConversation.value.id ||
+      currentMessage.role !== 'assistant' ||
+      currentMessage.status !== 'completed'
+    ) {
+      showSaveMessageToNote.value = false
+      msg.error('目标消息已不存在，无法保存到笔记')
+      return
+    }
+    let currentUserMessage = null
+    if (includeUserPrompt) {
+      const getPreviousUser = window.electronAPI?.db?.msgs?.getPreviousUser
+      if (!getPreviousUser) throw new Error('PREVIOUS_USER_API_UNAVAILABLE')
+      currentUserMessage = await getPreviousUser(noteTargetConversation.value.id, currentMessage.id)
+      if (!currentUserMessage) throw new Error('PREVIOUS_USER_MESSAGE_NOT_FOUND')
+    }
+    const content = buildSingleMessageMarkdown({
+      message: currentMessage,
+      conversation: noteTargetConversation.value,
+      userMessage: currentUserMessage,
+      includeUserPrompt: !!includeUserPrompt,
+    })
+    const created = await notesStore.addNote({
+      folder_id: folderId || '',
+      title: title.trim(),
+      content,
+    })
+    showSaveMessageToNote.value = false
+    msg.success(`已保存到笔记：${created?.title || title.trim()}`)
+  } catch (error) {
+    console.error('[Workchat] Failed to save AI message to note:', error)
+    const detail = String(error?.message || error || '')
+    saveMessageToNoteError.value = detail.includes('PREVIOUS_USER_MESSAGE_NOT_FOUND')
+      ? '对应用户提问已不存在，请取消勾选后重试'
+      : '保存到笔记失败，请检查目录后重试'
+  } finally {
+    savingMessageToNote.value = false
+  }
+}
+
+watch(showSaveMessageToNote, (show) => {
+  if (show) return
+  noteTargetSequence += 1
+  noteTargetMessage.value = null
+  noteTargetConversation.value = null
+  notePreviousUserMessage.value = null
+  notePreviousUserLoading.value = false
+  notePreviousUserError.value = ''
+  saveMessageToNoteError.value = ''
+})
+
+function branchErrorMessage(error) {
+  const message = String(error?.message || error || '')
+  if (message.includes('SOURCE_CONVERSATION_NOT_FOUND')) return '原对话已不存在，无法创建分支'
+  if (message.includes('SOURCE_MESSAGE_NOT_FOUND')) return '分支起点无效，请刷新后重试'
+  if (message.includes('BRANCH_REQUIRES_ASSISTANT_MESSAGE')) return '只能从 AI 消息创建分支'
+  if (message.includes('BRANCH_REQUIRES_COMPLETED_MESSAGE')) return 'AI 回复完成后才能创建分支'
+  return '创建分支失败，原对话未受影响'
+}
+
+async function handleCreateBranch(messageId) {
+  const sourceConversationId = currentConvId.value
+  if (!sourceConversationId || !messageId || branchingMessageId.value || branchConfirmationPending.value) return
+  if (convStore.isConvStreaming(sourceConversationId)) {
+    msg.warning('当前回复完成后才能创建对话分支')
+    return
+  }
+
+  branchConfirmationPending.value = true
+  let confirmed = false
+  try {
+    confirmed = await useMessageBox().confirm({
+      title: '创建对话分支？',
+      message: '将复制截至这条 AI 回复的对话内容并创建一个独立对话，原对话不会改变。',
+      confirmText: '创建分支',
+      cancelText: '取消',
+      variant: 'info',
+    })
+  } finally {
+    branchConfirmationPending.value = false
+  }
+  if (!confirmed) return
+  if (convStore.isConvStreaming(sourceConversationId)) {
+    msg.warning('当前回复完成后才能创建对话分支')
+    return
+  }
+
+  branchingMessageId.value = messageId
+  try {
+    const branchConversation = await convStore.createBranch(sourceConversationId, messageId)
+    addTab(branchConversation)
+    msg.success('已从此消息创建对话分支')
+  } catch (error) {
+    console.error('[Workchat] Failed to create conversation branch:', error)
+    msg.error(branchErrorMessage(error))
+  } finally {
+    branchingMessageId.value = null
+  }
 }
 
 function onGroupRename(data) {
@@ -893,6 +1172,10 @@ function handleCopy() {
   msg.success('已复制到剪贴板')
 }
 
+function handleCopyError() {
+  msg.error('复制失败，请检查剪贴板权限')
+}
+
 async function handleDeleteMessage(msgId) {
   await convStore.deleteMessage(currentConvId.value, msgId)
 }
@@ -1141,18 +1424,36 @@ function animateTitle(convId, targetTitle, tab) {
           :conversations="conversations" :groups="groups"
           :current-conv-id="currentConvId" :is-dark="isDark"
           @select="selectConv" @create="createChat"
-          @rename="onConvRename" @delete="deleteConv"
+          @rename="onConvRename" @export="openConversationExport" @delete="deleteConv"
           @group-create="onGroupCreate" @group-rename="onGroupRename" @group-delete="onGroupDelete"
           @add-conv-to-group="createChat" />
-        <DocumentSelector v-if="leftTab === 'docs'"
-          :is-dark="isDark" :selected-docs="currentCtxItems"
-          @toggle-doc="item => addCtxItem({ ...item, type: 'doc-toggle' })"
-          @toggle-folder="item => addCtxItem({ ...item, type: 'doc-toggle' })" />
-        <KbSelector v-if="leftTab === 'kb'"
-          :is-dark="isDark"
-          :selected-items="currentCtxItems.filter(i => i.type === 'cloud_kb' || i.type === 'cloud_doc')"
-          @toggle-kb="addCtxItem"
-          @toggle-doc="addCtxItem" />
+        <Suspense v-if="renderedLeftPanels.docs">
+          <DocumentSelector v-show="leftTab === 'docs'"
+            :is-dark="isDark" :selected-docs="currentCtxItems"
+            @toggle-doc="item => addCtxItem({ ...item, type: 'doc-toggle' })"
+            @toggle-folder="item => addCtxItem({ ...item, type: 'doc-toggle' })" />
+          <template #fallback>
+            <div v-show="leftTab === 'docs'" class="flex-1 flex items-center justify-center gap-2 text-[12px]"
+              :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">
+              <i class="ri-loader-4-line animate-spin text-[14px] text-brand-400" />
+              <span>正在加载文档...</span>
+            </div>
+          </template>
+        </Suspense>
+        <Suspense v-if="renderedLeftPanels.kb">
+          <KbSelector v-show="leftTab === 'kb'"
+            :is-dark="isDark"
+            :selected-items="currentCtxItems.filter(i => i.type === 'cloud_kb' || i.type === 'cloud_doc')"
+            @toggle-kb="addCtxItem"
+            @toggle-doc="addCtxItem" />
+          <template #fallback>
+            <div v-show="leftTab === 'kb'" class="flex-1 flex items-center justify-center gap-2 text-[12px]"
+              :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">
+              <i class="ri-loader-4-line animate-spin text-[14px] text-brand-400" />
+              <span>正在加载知识库...</span>
+            </div>
+          </template>
+        </Suspense>
       </div>
       <ResizeHandle side="left" @resize="onLeftResize" />
     </template>
@@ -1231,9 +1532,21 @@ function animateTitle(convId, targetTitle, tab) {
                     :streaming-steps="isMessageStreaming(item.message.id) ? currentStreamingState.steps : EMPTY_STREAM_ARRAY"
                     :streaming-iteration="isMessageStreaming(item.message.id) ? currentStreamingState.iteration : 0"
                     :pending-auth-requests="pendingAuthRequestsForMessage(item.message.id)"
+<<<<<<< HEAD
                     @preview-file="handlePreviewFile"
                     @retry="handleRetry(item.message.id)"
                     @copy="handleCopy"
+=======
+                    :branching="branchingMessageId === item.message.id"
+                    :exporting="exportingMessageId === item.message.id"
+                    @preview-file="handlePreviewFile"
+                    @retry="handleRetry(item.message.id)"
+                    @branch="handleCreateBranch(item.message.id)"
+                    @export-markdown="handleExportMessageMarkdown(item.message)"
+                    @save-to-note="openSaveMessageToNote(item.message)"
+                    @copy="handleCopy"
+                    @copy-error="handleCopyError"
+>>>>>>> dev
                     @delete="handleDeleteMessage(item.message.id)"
                     @save-edit="handleSaveEdit"
                     @compress-context="compressContext"
@@ -1243,7 +1556,11 @@ function animateTitle(convId, targetTitle, tab) {
               </div>
               <!-- Empty states -->
               <EmptyStateHero v-if="!currentMessages.length"
+<<<<<<< HEAD
                 :has-conversation="currentConvId"
+=======
+                :has-conversation="!!currentConvId"
+>>>>>>> dev
                 :is-dark="isDark"
                 :agents="allAgents"
                 @create-conv="createChat"
@@ -1320,12 +1637,14 @@ function animateTitle(convId, targetTitle, tab) {
 
     <!-- ═══ Creation Config Modals ═══ -->
     <ResearchModal
+      v-if="renderedModals.research"
       v-model:show="showResearchModal"
       :ctx-items="currentCtxItems"
       @start="handleResearchStart"
     />
 
     <PptModal
+      v-if="renderedModals.ppt"
       v-model:show="showPptModal"
       :ctx-items="currentCtxItems"
       @start="handlePptStart"
@@ -1333,35 +1652,61 @@ function animateTitle(convId, targetTitle, tab) {
 
     <!-- Mindmap / Graph / Podcast (async generation tasks) -->
     <MindmapModal
+      v-if="renderedModals.mindmap"
       v-model:show="showMindmapModal"
       :ctx-items="currentCtxItems"
       @submit="handleGenTaskSubmit"
     />
     <GraphModal
+      v-if="renderedModals.graph"
       v-model:show="showGraphModal"
       :ctx-items="currentCtxItems"
       @submit="handleGenTaskSubmit"
     />
     <FlashcardModal
+      v-if="renderedModals.flashcard"
       v-model:show="showFlashcardModal"
       :ctx-items="currentCtxItems"
       @submit="handleGenTaskSubmit"
     />
     <QuizModal
+      v-if="renderedModals.quiz"
       v-model:show="showQuizModal"
       :ctx-items="currentCtxItems"
       @submit="handleGenTaskSubmit"
     />
     <ChartModal
+      v-if="renderedModals.chart"
       v-model:show="showChartModal"
       :ctx-items="currentCtxItems"
       @submit="handleGenTaskSubmit"
     />
     <PodcastModal
+      v-if="renderedModals.podcast"
       v-model:show="showPodcastModal"
       :ctx-items="currentCtxItems"
       @submit="handleGenTaskSubmit"
     />
+    <ConversationExportModal
+      v-if="renderedModals.conversationExport"
+      v-model:show="showConversationExport"
+      :conversation="exportTargetConversation"
+      :agents="allAgents"
+      :is-dark="isDark" />
+    <SaveMessageToNoteModal
+      v-if="renderedModals.saveMessageToNote"
+      v-model:show="showSaveMessageToNote"
+      :message="noteTargetMessage"
+      :conversation="noteTargetConversation"
+      :folders="notesStore.folders"
+      :previous-user-message="notePreviousUserMessage"
+      :previous-user-loading="notePreviousUserLoading"
+      :previous-user-error="notePreviousUserError"
+      :saving="savingMessageToNote"
+      :save-error="saveMessageToNoteError"
+      :is-dark="isDark"
+      @clear-error="saveMessageToNoteError = ''"
+      @save="handleSaveMessageToNote" />
   </div>
 </template>
 

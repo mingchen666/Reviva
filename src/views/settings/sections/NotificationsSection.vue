@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import { useAppStore } from '@/stores/app'
 import { useSettingsStore } from '@/stores/settings'
+import TrayMenuSettings from './TrayMenuSettings.vue'
 
 const appStore = useAppStore()
 const ss = useSettingsStore()
@@ -170,6 +171,8 @@ function getIconColor(item, isDarkMode) {
         </div>
       </div>
     </section>
+
+    <TrayMenuSettings />
   </div>
 </template>
 

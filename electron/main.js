@@ -7,6 +7,8 @@ import { fileURLToPath } from 'node:url'
 import { createMenu } from './menu'
 import { DatabaseService } from './DatabaseService'
 import { WorkDirService } from './WorkDirService'
+import { WorkspaceRegistryService } from './WorkspaceRegistryService.js'
+import { WorkspaceMigrationService } from './WorkspaceMigrationService.js'
 import { LogService } from './LogService'
 import { NoteFileService } from './NoteFileService'
 import { registerDbHandlers } from './db-handlers'
@@ -19,7 +21,16 @@ import { GenerationTaskService } from './GenerationTaskService'
 import { McpService } from './McpService'
 import { WikiService } from './WikiService.js'
 import { BackupService } from './BackupService.js'
+<<<<<<< HEAD
 import { PdfReadService } from './tools/pdf/PdfReadService.js'
+=======
+import { createSettingsTransfer, parseSettingsTransfer } from './SettingsTransferService.js'
+import { WebImportService } from './web-import/WebImportService.js'
+import { WebImportJobService } from './web-import/WebImportJobService.js'
+import { DocsWebImportWriter } from './web-import/DocsWebImportWriter.js'
+import { PdfReadService } from './tools/pdf/PdfReadService.js'
+import { PdfLifecycleService } from './tools/pdf/PdfLifecycleService.js'
+>>>>>>> dev
 import { PDF_READ_SETTINGS_KEY, normalizePdfReadSettings } from './tools/pdf/PdfReadSettings.js'
 import { PdfTextExtractor } from './tools/pdf/PdfTextExtractor.js'
 import { getOfficeCliCommandCandidates, getOfficeCliSpawnEnv } from './officeCliResolver.js'
@@ -55,6 +66,9 @@ if (process.platform === 'win32') app.setAppUserModelId(APP_ID)
 let win
 let dbService = null
 let workDirService = null
+let workspaceRegistryService = null
+let workspaceMigrationService = null
+let workspaceStartupError = ''
 let noteFileService = null
 let logService = null
 let agentService = null
@@ -65,9 +79,23 @@ let outputScanService = null
 let generationTaskService = null
 let mcpService = null
 let wikiService = null
+<<<<<<< HEAD
 let backupService = null
+=======
+let webImportService = null
+let webImportJobService = null
+let backupService = null
+let pdfLifecycleService = null
+>>>>>>> dev
 let tray = null
 let minimizeToTray = false
+const DEFAULT_TRAY_MENU = [
+  { id: 'show-window', type: 'builtin', action: 'showWindow', label: '显示主窗口', enabled: true },
+  { id: 'separator-default', type: 'separator', enabled: true },
+  { id: 'settings', type: 'route', path: '/settings/notifications', label: '设置', enabled: true },
+  { id: 'quit', type: 'builtin', action: 'quit', label: '退出', enabled: true },
+]
+let trayMenuConfig = DEFAULT_TRAY_MENU
 let forceQuit = false
 let singleInstanceLocked = false
 
@@ -209,6 +237,7 @@ function createWindow() {
         minimizeToTray = mt === true
         const autoStart = dbService.getSetting('autoStart')
         applyStartupSetting(autoStart === true)
+        trayMenuConfig = normalizeTrayMenuConfig(dbService.getSetting('trayMenuItems'))
         const showTray = dbService.getSetting('trayIcon') !== false
         if (showTray) createTray()
       }
@@ -344,6 +373,32 @@ ipcMain.handle('dialog:openFile', async (event, options = {}) => {
   return result.filePaths
 })
 
+// Save a text file selected by the user. The main process owns both path selection
+// and writing so the renderer never receives unrestricted filesystem write access.
+ipcMain.handle('dialog:saveTextFile', async (event, options = {}, content = '') => {
+  try {
+    if (typeof content !== 'string') return { success: false, error: 'INVALID_FILE_CONTENT' }
+    const result = await dialog.showSaveDialog(win, {
+      title: options.title || '保存文件',
+      defaultPath: options.defaultPath || '',
+      filters: Array.isArray(options.filters) && options.filters.length
+        ? options.filters
+        : [{ name: 'Text', extensions: ['txt'] }],
+    })
+    if (result.canceled || !result.filePath) return { success: false, canceled: true }
+    const extension = String(options.defaultExtension || '').replace(/[^a-zA-Z0-9]/g, '').trim()
+    const existingExtension = path.extname(result.filePath)
+    const basePath = existingExtension === '.' ? result.filePath.slice(0, -1) : result.filePath
+    const filePath = extension && (!existingExtension || existingExtension === '.')
+      ? `${basePath}.${extension}`
+      : result.filePath
+    await fs.promises.writeFile(filePath, content, options.encoding || 'utf-8')
+    return { success: true, path: filePath }
+  } catch (error) {
+    return { success: false, error: error.message }
+  }
+})
+
 // Read file
 ipcMain.handle('fs:readFile', async (event, filePath, options = {}) => {
   try {
@@ -375,11 +430,22 @@ ipcMain.handle('fs:listDir', async (event, dirPath, options = {}) => {
   try {
     const validatedPath = validateFsPath(dirPath)
     const entries = await fs.promises.readdir(validatedPath, { withFileTypes: true })
-    let results = entries.map(entry => ({
-      name: entry.name,
-      path: path.join(validatedPath, entry.name),
-      isDirectory: entry.isDirectory(),
-      isFile: entry.isFile(),
+    let results = await Promise.all(entries.map(async (entry) => {
+      const entryPath = path.join(validatedPath, entry.name)
+      let size = 0
+      try {
+        const stat = await fs.promises.stat(entryPath)
+        size = stat.size
+      } catch {
+        // The entry may disappear between readdir and stat; keep it listable.
+      }
+      return {
+        name: entry.name,
+        path: entryPath,
+        isDirectory: entry.isDirectory(),
+        isFile: entry.isFile(),
+        size,
+      }
     }))
     if (options.pattern) {
       const regex = new RegExp(options.pattern.replace('*', '.*'))
@@ -408,6 +474,13 @@ ipcMain.handle('fs:rename', async (event, oldPath, newPath) => {
       return { success: false, error: '目标名称已存在。' }
     }
     await fs.promises.rename(vOld, vNew)
+    if (pdfLifecycleService) {
+      try {
+        await pdfLifecycleService.onRenamed(vOld, vNew, { isDirectory: oldStat.isDirectory() })
+      } catch (error) {
+        console.error('[PdfLifecycle] Failed to update renamed PDF references:', error)
+      }
+    }
     return { success: true }
   } catch (err) {
     return { success: false, error: err.message }
@@ -563,18 +636,33 @@ async function _restoreDbItem(record) {
     const conv = payload.conv
     const messages = payload.messages || []
     if (!conv) throw new Error('Conversation payload missing')
-    // Group fallback: if original group was deleted, fall back to 'default'
-    const groupExists = conv.group_id === 'default' || dbService.listConvGroups().some(g => g.id === conv.group_id)
-    if (!groupExists) conv.group_id = 'default'
-    // ID conflict: re-generate
-    if (dbService.getConv(conv.id)) conv.id = 'conv_' + Date.now()
-    dbService.createConv(conv)
-    for (const m of messages) {
-      m.conversation_id = conv.id
-      if (m.id) m.id = 'msg_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6)
-      dbService.createMsg(m)
-    }
-    return { restoredId: conv.id }
+    const restoreConversation = dbService.db.transaction(() => {
+      // Group fallback: if original group was deleted, fall back to 'default'
+      const originalGroupId = conv.group_id || conv.groupId || 'default'
+      const groupExists = originalGroupId === 'default' || dbService.listConvGroups().some(g => g.id === originalGroupId)
+      conv.group_id = groupExists ? originalGroupId : 'default'
+      // ID conflict: re-generate
+      if (dbService.getConv(conv.id)) conv.id = 'conv_' + Date.now()
+      dbService.createConv(conv)
+      const messageIdMap = new Map(messages.map((message, index) => {
+        const oldId = message.id || `missing_${index}`
+        const nextId = message.id && !dbService.getMsg(message.id)
+          ? message.id
+          : 'msg_' + Date.now() + '_' + index + '_' + Math.random().toString(36).slice(2, 8)
+        return [oldId, nextId]
+      }))
+      for (const message of messages) {
+        const oldId = message.id
+        dbService.createMsg({
+          ...message,
+          id: messageIdMap.get(oldId) || 'msg_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8),
+          conversation_id: conv.id,
+          parent_msg_id: messageIdMap.get(message.parentMsgId || message.parent_msg_id) || '',
+        })
+      }
+      return { restoredId: conv.id }
+    })
+    return restoreConversation()
   }
   if (record.item_type === 'note') {
     if (noteFileService) return await noteFileService.restoreNote(record)
@@ -683,11 +771,14 @@ ipcMain.handle('recycleBin:moveToTrash', async (event, itemPath, itemMeta) => {
 
     let stat = null
     try { stat = await fs.promises.stat(validatedPath) } catch { /* ignore */ }
+    const isDir = stat ? stat.isDirectory() : (itemMeta?.isDirectory || false)
+    const pdfSnapshot = pdfLifecycleService
+      ? await pdfLifecycleService.prepareMoveToTrash(validatedPath, { isDirectory: isDir })
+      : null
 
     await fs.promises.rename(validatedPath, trashPath)
 
     const ext = originalName.includes('.') ? originalName.split('.').pop().toLowerCase() : ''
-    const isDir = stat ? stat.isDirectory() : (itemMeta?.isDirectory || false)
     let category = 'other'
     if (isDir) category = 'folder'
     else if (['pdf', 'docx', 'doc', 'md', 'markdown', 'txt', 'xlsx', 'xls', 'pptx', 'ppt', 'csv'].includes(ext)) category = 'document'
@@ -697,7 +788,9 @@ ipcMain.handle('recycleBin:moveToTrash', async (event, itemPath, itemMeta) => {
     else if (['zip', 'rar', '7z', 'tar', 'gz'].includes(ext)) category = 'archive'
     else if (['js', 'py', 'json', 'java', 'cpp', 'ts', 'html', 'css'].includes(ext)) category = 'code'
 
+    const trashId = 'trash_' + timestamp + '_' + Math.random().toString(36).slice(2, 7)
     const record = dbService.createTrashItem({
+      id: trashId,
       original_path: validatedPath,
       original_name: originalName,
       trash_path: trashPath,
@@ -706,7 +799,16 @@ ipcMain.handle('recycleBin:moveToTrash', async (event, itemPath, itemMeta) => {
       file_type: ext,
       category,
       item_type: 'file',
+      payload_json: pdfSnapshot ? JSON.stringify({ pdfLifecycle: pdfSnapshot }) : '',
     })
+
+    if (pdfLifecycleService && pdfSnapshot) {
+      try {
+        pdfLifecycleService.onMovedToTrash(record.id, pdfSnapshot)
+      } catch (error) {
+        console.error('[PdfLifecycle] Failed to mark PDF references as trashed:', error)
+      }
+    }
 
     return { success: true, data: record }
   } catch (err) {
@@ -890,6 +992,7 @@ ipcMain.handle('recycleBin:restore', async (event, trashId) => {
 
     if (record.item_type === 'file' || !record.item_type) {
       const restoredPath = await _restoreFileItem(record)
+      if (pdfLifecycleService) await pdfLifecycleService.onRestored(record, restoredPath)
       dbService.deleteTrashItem(trashId)
       return { success: true, data: { restoredPath } }
     } else {
@@ -910,6 +1013,7 @@ ipcMain.handle('recycleBin:restoreBatch', async (event, trashIds) => {
     try {
       if (record.item_type === 'file' || !record.item_type) {
         const restoredPath = await _restoreFileItem(record)
+        if (pdfLifecycleService) await pdfLifecycleService.onRestored(record, restoredPath)
         dbService.deleteTrashItem(id)
         results.push({ id, success: true, restoredPath })
       } else {
@@ -929,6 +1033,9 @@ ipcMain.handle('recycleBin:deletePermanently', async (event, trashId) => {
     const record = dbService.getTrashItem(trashId)
     if (!record) return { success: false, error: 'Item not found' }
     await _permanentlyDeleteItem(record)
+    if (pdfLifecycleService && (record.item_type === 'file' || !record.item_type)) {
+      await pdfLifecycleService.onPermanentlyDeleted(record)
+    }
     dbService.deleteTrashItem(trashId)
     return { success: true }
   } catch (err) {
@@ -937,27 +1044,57 @@ ipcMain.handle('recycleBin:deletePermanently', async (event, trashId) => {
 })
 
 ipcMain.handle('recycleBin:deleteBatchPermanently', async (event, trashIds) => {
+  const results = []
   for (const id of trashIds) {
     const record = dbService.getTrashItem(id)
-    if (!record) continue
+    if (!record) { results.push({ id, success: false, error: 'Not found' }); continue }
     try {
       await _permanentlyDeleteItem(record)
+      if (pdfLifecycleService && (record.item_type === 'file' || !record.item_type)) {
+        await pdfLifecycleService.onPermanentlyDeleted(record)
+      }
       dbService.deleteTrashItem(id)
+      results.push({ id, success: true })
     } catch (err) {
       console.error('Failed to permanently delete trash item:', id, err)
+      results.push({ id, success: false, error: err.message })
     }
   }
-  return { success: true }
+  const failed = results.filter(item => !item.success)
+  return {
+    success: failed.length === 0,
+    results,
+    deletedIds: results.filter(item => item.success).map(item => item.id),
+    failedIds: failed.map(item => item.id),
+    error: failed.length ? `${failed.length} 个回收站项目未能永久删除。` : '',
+  }
 })
 
 ipcMain.handle('recycleBin:emptyTrash', async () => {
   try {
     const items = dbService.listTrash()
+    const results = []
     for (const item of items) {
-      try { await _permanentlyDeleteItem(item) } catch (e) { console.error('emptyTrash item failed:', item.id, e.message) }
+      try {
+        await _permanentlyDeleteItem(item)
+        if (pdfLifecycleService && (item.item_type === 'file' || !item.item_type)) {
+          await pdfLifecycleService.onPermanentlyDeleted(item)
+        }
+        dbService.deleteTrashItem(item.id)
+        results.push({ id: item.id, success: true })
+      } catch (e) {
+        console.error('emptyTrash item failed:', item.id, e.message)
+        results.push({ id: item.id, success: false, error: e.message })
+      }
     }
-    dbService.emptyTrash()
-    return { success: true }
+    const failed = results.filter(item => !item.success)
+    return {
+      success: failed.length === 0,
+      results,
+      deletedIds: results.filter(item => item.success).map(item => item.id),
+      failedIds: failed.map(item => item.id),
+      error: failed.length ? `${failed.length} 个回收站项目未能永久删除。` : '',
+    }
   } catch (err) {
     return { success: false, error: err.message }
   }
@@ -1668,10 +1805,10 @@ ipcMain.handle('env:installPythonMathVizLibs', async () => {
 ipcMain.handle('app:exportSettings', async () => {
   try {
     const allSettings = dbService.getAllSettings()
-    const agents = dbService.listAgents()
-    const skills = dbService.listSkills()
-    const tools = dbService.listTools()
-    return { success: true, data: { settings: allSettings, agents, skills, tools } }
+    return {
+      success: true,
+      data: createSettingsTransfer(allSettings, { appVersion: app.getVersion() }),
+    }
   } catch (err) {
     return { success: false, error: err.message }
   }
@@ -1680,12 +1817,16 @@ ipcMain.handle('app:exportSettings', async () => {
 // Import settings from JSON
 ipcMain.handle('app:importSettings', async (event, data) => {
   try {
-    if (data.settings) {
-      for (const [key, value] of Object.entries(data.settings)) {
-        dbService.setSetting(key, value)
-      }
+    const parsed = parseSettingsTransfer(data)
+    const imported = dbService.importSettings(parsed.settings)
+    return {
+      success: true,
+      data: {
+        importedCount: imported.count,
+        importedKeys: Object.keys(parsed.settings),
+        legacy: parsed.legacy,
+      },
     }
-    return { success: true }
   } catch (err) {
     return { success: false, error: err.message }
   }
@@ -1720,18 +1861,84 @@ ipcMain.handle('backup:create', async (event, options = {}) => {
 
 // ========== WorkDir IPC Handlers (module-scope) ==========
 
-ipcMain.handle('workdir:init', async (event, rootPath) => {
-  if (!workDirService) return { error: '应用未就绪' }
+async function createWorkspaceAt(rootPath, name) {
+  if (!workspaceRegistryService) throw new Error('工作空间服务未就绪')
+  const normalizedRoot = workspaceRegistryService.normalizeRoot(rootPath)
+  if (!normalizedRoot) throw new Error('工作空间路径无效')
+  workspaceRegistryService.assertNoWorkspaceNesting(normalizedRoot)
+  if (fs.existsSync(path.join(normalizedRoot, '.reviva'))) throw new Error('目标目录已包含 .reviva，请使用“打开已有工作空间”')
+  if (fs.existsSync(normalizedRoot)) {
+    const entries = await fs.promises.readdir(normalizedRoot)
+    if (entries.length) throw new Error('新建独立授权根目录需要选择空目录')
+  }
+  let config = null
+  const tempDb = new DatabaseService()
   try {
-    const result = await workDirService.initWorkspace(rootPath)
-    if (dbService && result && !result.error) {
-      await dbService.relocateToWorkspace(result.rootPath)
-      dbService.setSetting('workdir_root', result.rootPath)
-      workDirService.loadFromDb()
-      await writeWorkspaceRootPointer(result.rootPath)
+    config = await workspaceRegistryService.prepareWorkspace(normalizedRoot, { name })
+    tempDb.init(DatabaseService.workspaceDbPath(normalizedRoot))
+  } catch (error) {
+    await fs.promises.rm(path.join(normalizedRoot, '.reviva'), { recursive: true, force: true }).catch(() => {})
+    for (const dirName of ['docs', 'notes', 'wikis', 'context', 'agents', 'skills']) {
+      await fs.promises.rm(path.join(normalizedRoot, dirName), { recursive: true, force: true }).catch(() => {})
     }
-    await ensureWorkspaceDirs()
-    return result
+    throw error
+  } finally {
+    tempDb.close()
+  }
+  return workspaceRegistryService.registerWorkspace({
+    id: config.workspaceId,
+    name: config.name,
+    rootPath: normalizedRoot,
+    createdAt: config.createdAt,
+  }, { setPending: true })
+}
+
+async function openWorkspaceAt(rootPath) {
+  if (!workspaceRegistryService) throw new Error('工作空间服务未就绪')
+  workspaceRegistryService.assertNoWorkspaceNesting(rootPath, { allowSamePath: true })
+  const validation = await workspaceRegistryService.validateWorkspace(rootPath, { allowLegacyConfig: true })
+  if (!validation.valid) throw new Error(validation.error)
+  const registeredAtPath = workspaceRegistryService.findByPath(validation.rootPath)
+  if (registeredAtPath && validation.config?.workspaceId && registeredAtPath.id !== validation.config.workspaceId) {
+    throw new Error('该路径的工作空间 ID 与已注册记录不一致，请先从列表移除旧记录')
+  }
+  const integrity = DatabaseService.checkDatabaseIntegrity(validation.dbPath)
+  if (!integrity.ok) throw new Error(`数据库验证失败: ${integrity.error}`)
+  const config = await workspaceRegistryService.ensureWorkspaceConfig(validation.rootPath, {
+    workspaceId: registeredAtPath?.id || validation.config?.workspaceId,
+    name: validation.config?.name || registeredAtPath?.name,
+    createdAt: validation.config?.createdAt || registeredAtPath?.createdAt,
+  })
+  return workspaceRegistryService.registerWorkspace({
+    id: config.workspaceId,
+    name: config.name,
+    rootPath: validation.rootPath,
+    createdAt: config.createdAt,
+  }, { setPending: true })
+}
+
+async function getWorkspaceStateWithAvailability() {
+  if (!workspaceRegistryService) return { error: '工作空间服务未就绪', workspaces: [] }
+  const state = workspaceRegistryService.getState()
+  const workspaces = await Promise.all(state.workspaces.map(async workspace => {
+    const validation = await workspaceRegistryService.validateRegisteredWorkspace(workspace)
+    if (!validation.valid) return { ...workspace, available: false, error: validation.error }
+    const integrity = DatabaseService.checkDatabaseIntegrity(validation.dbPath)
+    return { ...workspace, available: integrity.ok, error: integrity.ok ? '' : integrity.error }
+  }))
+  return {
+    ...state,
+    startupError: workspaceStartupError,
+    workspaces,
+    activeWorkspace: workspaces.find(item => item.id === state.activeWorkspaceId) || null,
+    pendingWorkspace: workspaces.find(item => item.id === state.pendingWorkspaceId) || null,
+  }
+}
+
+ipcMain.handle('workdir:init', async (event, rootPath) => {
+  try {
+    const workspace = await createWorkspaceAt(rootPath)
+    return { rootPath: workspace.rootPath, workspace, pendingRestart: true }
   } catch (err) {
     return { error: err.message }
   }
@@ -1743,22 +1950,15 @@ ipcMain.handle('workdir:getStatus', () => {
 })
 
 ipcMain.handle('workdir:selectRoot', async () => {
-  if (!win || !workDirService) return { error: '应用未就绪' }
+  if (!win) return { error: '应用未就绪' }
   const result = await dialog.showOpenDialog(win, {
     properties: ['openDirectory'],
     title: '选择工作目录',
   })
   if (result.canceled) return null
   try {
-    const initResult = await workDirService.initWorkspace(result.filePaths[0])
-    if (dbService && initResult && !initResult.error) {
-      await dbService.relocateToWorkspace(initResult.rootPath)
-      dbService.setSetting('workdir_root', initResult.rootPath)
-      workDirService.loadFromDb()
-      await writeWorkspaceRootPointer(initResult.rootPath)
-    }
-    await ensureWorkspaceDirs()
-    return initResult
+    const workspace = await createWorkspaceAt(result.filePaths[0])
+    return { rootPath: workspace.rootPath, workspace, pendingRestart: true }
   } catch (err) {
     return { error: err.message }
   }
@@ -1773,6 +1973,100 @@ ipcMain.handle('workdir:selectDir', async () => {
   })
   if (result.canceled) return null
   return { path: result.filePaths[0] }
+})
+
+ipcMain.handle('workspace:list', () => getWorkspaceStateWithAvailability())
+ipcMain.handle('workspace:getBootstrapState', () => workspaceRegistryService?.getState() || { activeWorkspaceId: null, workspaces: [] })
+
+ipcMain.handle('workspace:selectDirectory', async (event, options = {}) => {
+  if (!win) return { error: '应用未就绪' }
+  const result = await dialog.showOpenDialog(win, {
+    properties: ['openDirectory', 'createDirectory'],
+    title: options?.title || '选择工作空间目录',
+    defaultPath: options?.defaultPath || undefined,
+  })
+  if (result.canceled || !result.filePaths?.[0]) return { canceled: true }
+  return { path: result.filePaths[0] }
+})
+
+ipcMain.handle('workspace:create', async (event, data = {}) => {
+  try {
+    const workspace = await createWorkspaceAt(data.rootPath, data.name)
+    const state = await getWorkspaceStateWithAvailability()
+    return { success: true, workspace, state, pendingRestart: !!state.pendingWorkspaceId }
+  } catch (error) {
+    return { success: false, error: error.message }
+  }
+})
+
+ipcMain.handle('workspace:open', async (event, data = {}) => {
+  try {
+    const workspace = await openWorkspaceAt(data.rootPath)
+    const state = await getWorkspaceStateWithAvailability()
+    return { success: true, workspace, state, pendingRestart: !!state.pendingWorkspaceId }
+  } catch (error) {
+    return { success: false, error: error.message }
+  }
+})
+
+ipcMain.handle('workspace:setPending', async (event, id) => {
+  try {
+    const workspace = workspaceRegistryService?.findById(id)
+    if (!workspace) throw new Error('工作空间不存在')
+    const validation = await workspaceRegistryService.validateRegisteredWorkspace(workspace)
+    if (!validation.valid) throw new Error(validation.error)
+    const integrity = DatabaseService.checkDatabaseIntegrity(validation.dbPath)
+    if (!integrity.ok) throw new Error(`数据库验证失败: ${integrity.error}`)
+    await workspaceRegistryService.setPending(id)
+    return { success: true, state: await getWorkspaceStateWithAvailability(), pendingRestart: true }
+  } catch (error) {
+    return { success: false, error: error.message }
+  }
+})
+
+ipcMain.handle('workspace:cancelPending', async () => {
+  try {
+    await workspaceRegistryService?.cancelPending()
+    return { success: true, state: await getWorkspaceStateWithAvailability() }
+  } catch (error) {
+    return { success: false, error: error.message }
+  }
+})
+
+ipcMain.handle('workspace:rename', async (event, data = {}) => {
+  try {
+    const workspace = await workspaceRegistryService?.renameWorkspace(data.id, data.name)
+    return { success: true, workspace, state: await getWorkspaceStateWithAvailability() }
+  } catch (error) {
+    return { success: false, error: error.message }
+  }
+})
+
+ipcMain.handle('workspace:remove', async (event, id) => {
+  try {
+    await workspaceRegistryService?.removeWorkspace(id)
+    return { success: true, state: await getWorkspaceStateWithAvailability() }
+  } catch (error) {
+    return { success: false, error: error.message }
+  }
+})
+
+ipcMain.handle('workspace:migrate', async (event, data = {}) => {
+  if (!workspaceMigrationService || !workDirService?.getRootPath()) return { success: false, error: '当前工作空间未就绪' }
+  return workspaceMigrationService.migrate({
+    sourceRoot: workDirService.getRootPath(),
+    targetRoot: data.targetRoot,
+    name: data.name,
+  })
+})
+
+ipcMain.handle('workspace:cleanupFailedMigration', async (event, targetRoot) => {
+  try {
+    if (!workspaceMigrationService) throw new Error('迁移服务未就绪')
+    return await workspaceMigrationService.cleanupFailed(targetRoot)
+  } catch (error) {
+    return { success: false, error: error.message }
+  }
 })
 
 // Shortcut registration
@@ -1822,27 +2116,78 @@ ipcMain.handle('shortcuts:register', async (_e, bindings) => {
 
 // ========== Tray ==========
 
+function normalizeTrayMenuConfig(items) {
+  if (!Array.isArray(items)) return DEFAULT_TRAY_MENU.map(item => ({ ...item }))
+  const normalized = []
+  for (const raw of items.slice(0, 30)) {
+    if (!raw) continue
+    const id = String(raw.id || `tray-${normalized.length}`)
+    const enabled = raw.enabled !== false
+    if (raw.type === 'separator') normalized.push({ id, type: 'separator', enabled })
+    else if (raw.type === 'builtin' && ['showWindow', 'quit'].includes(raw.action)) normalized.push({ id, type: 'builtin', action: raw.action, label: String(raw.label || (raw.action === 'quit' ? '退出' : '显示主窗口')).slice(0, 40), enabled: raw.action === 'quit' ? true : enabled })
+    else if (raw.type === 'route' && typeof raw.path === 'string' && raw.path.startsWith('/')) normalized.push({ id, type: 'route', path: raw.path.slice(0, 200), label: String(raw.label || '打开页面').slice(0, 40), enabled })
+    else if (raw.type === 'url' && typeof raw.url === 'string') {
+      try {
+        const url = new URL(raw.url)
+        if (['http:', 'https:'].includes(url.protocol)) normalized.push({ id, type: 'url', url: url.toString(), label: String(raw.label || url.hostname).slice(0, 40), enabled })
+      } catch {}
+    }
+  }
+  if (!normalized.some(item => item.type === 'builtin' && item.action === 'quit')) normalized.push({ ...DEFAULT_TRAY_MENU.at(-1) })
+  return normalized.length ? normalized : DEFAULT_TRAY_MENU.map(item => ({ ...item }))
+}
+
+function showMainWindow() {
+  if (!win) return
+  win.show()
+  win.focus()
+}
+
+function buildTrayContextMenu() {
+  return Menu.buildFromTemplate(trayMenuConfig.filter(item => item.enabled !== false).map(item => {
+    if (item.type === 'separator') return { type: 'separator' }
+    if (item.type === 'builtin' && item.action === 'quit') return { label: item.label, click: () => { forceQuit = true; app.quit() } }
+    if (item.type === 'builtin') return { label: item.label, click: showMainWindow }
+    if (item.type === 'route') return { label: item.label, click: () => { showMainWindow(); win?.webContents.send('tray:navigate', item.path) } }
+    return { label: item.label, click: () => shell.openExternal(item.url) }
+  }))
+}
+
+function rebuildTrayMenu() {
+  if (tray) tray.setContextMenu(buildTrayContextMenu())
+}
+
 function createTray() {
-  if (tray) return
-  // Try icon paths in order: build/icon.png → public/favicon → empty nativeImage
-  let trayIcon = nativeImage.createEmpty()
+  if (tray) return true
+  // VITE_PUBLIC points to public/ in development and dist/ after packaging.
+  // Keep build/ as a development fallback, but never create a transparent tray.
+  let trayIcon = null
   const candidates = [
+    path.join(process.env.VITE_PUBLIC, 'logo.png'),
+    path.join(process.env.VITE_PUBLIC, 'logo.ico'),
     path.join(process.env.APP_ROOT, 'build', 'icon.png'),
     path.join(process.env.APP_ROOT, 'build', 'icon.ico'),
-    path.join(process.env.VITE_PUBLIC, 'favicon.ico'),
   ]
   for (const p of candidates) {
-    if (fs.existsSync(p)) { trayIcon = nativeImage.createFromPath(p); break }
+    if (!fs.existsSync(p)) continue
+    const source = nativeImage.createFromPath(p)
+    const image = path.extname(p).toLowerCase() === '.png'
+      ? source.resize({ width: 32, height: 32, quality: 'best' })
+      : source
+    if (!image.isEmpty()) {
+      trayIcon = image
+      break
+    }
+  }
+  if (!trayIcon) {
+    console.error('[Tray] Failed to load a non-empty icon. Tried:', candidates)
+    return false
   }
   tray = new Tray(trayIcon)
   tray.setToolTip(APP_NAME)
-  const contextMenu = Menu.buildFromTemplate([
-    { label: '显示主窗口', click: () => { if (win) { win.show(); win.focus() } } },
-    { type: 'separator' },
-    { label: '退出', click: () => { forceQuit = true; app.quit() } },
-  ])
-  tray.setContextMenu(contextMenu)
+  tray.setContextMenu(buildTrayContextMenu())
   tray.on('click', () => { if (win) { win.isVisible() ? win.focus() : win.show() } })
+  return true
 }
 
 function destroyTray() {
@@ -1866,9 +2211,18 @@ ipcMain.handle('app:setMinimizeToTray', (_e, enabled) => {
 })
 
 ipcMain.handle('app:setTrayIcon', (_e, enabled) => {
-  if (enabled) createTray()
-  else destroyTray()
+  if (enabled) {
+    if (!createTray()) return { ok: false, error: '托盘图标资源加载失败' }
+  } else {
+    destroyTray()
+  }
   return { ok: true }
+})
+
+ipcMain.handle('app:setTrayMenu', (_e, items) => {
+  trayMenuConfig = normalizeTrayMenuConfig(items)
+  rebuildTrayMenu()
+  return { ok: true, items: trayMenuConfig }
 })
 
 ipcMain.handle('app:setSingleInstance', (_e, enabled) => {
@@ -2324,26 +2678,57 @@ app.whenReady().then(async () => {
     }
   })
 
-  dbService = new DatabaseService()
-  const savedWorkspaceRoot = readWorkspaceRootPointer()
-  if (savedWorkspaceRoot) {
-    dbService.init(DatabaseService.workspaceDbPath(savedWorkspaceRoot))
-  } else {
-    dbService.init()
+  workspaceRegistryService = new WorkspaceRegistryService(app.getPath('userData'))
+  await workspaceRegistryService.init()
+  let startupWorkspace = null
+  const startupCandidates = workspaceRegistryService.getStartupCandidates()
+  for (const candidate of startupCandidates) {
+    const validation = await workspaceRegistryService.validateRegisteredWorkspace(candidate)
+    if (!validation.valid) {
+      workspaceStartupError = `无法打开“${candidate.name}”: ${validation.error}`
+      continue
+    }
+    const integrity = DatabaseService.checkDatabaseIntegrity(validation.dbPath)
+    if (!integrity.ok) {
+      workspaceStartupError = `无法打开“${candidate.name}”: ${integrity.error}`
+      continue
+    }
+    startupWorkspace = candidate
+    break
   }
+  if (workspaceRegistryService.getState().pendingWorkspaceId && startupWorkspace?.id !== workspaceRegistryService.getState().pendingWorkspaceId) {
+    await workspaceRegistryService.cancelPending()
+  }
+
+  dbService = new DatabaseService()
+  if (startupWorkspace) dbService.init(DatabaseService.workspaceDbPath(startupWorkspace.rootPath))
+  else dbService.init()
   const singleInstance = dbService.getSetting('singleInstance') !== false
   const singleInstanceResult = applySingleInstance(singleInstance, { quitOnFail: true })
   if (singleInstance && !singleInstanceResult.ok) return
 
   workDirService = new WorkDirService(dbService)
-  if (savedWorkspaceRoot) {
-    await workDirService.initWorkspace(savedWorkspaceRoot)
-    dbService.setSetting('workdir_root', savedWorkspaceRoot)
-    await writeWorkspaceRootPointer(savedWorkspaceRoot)
+  if (startupWorkspace) {
+    workDirService.setRootPath(startupWorkspace.rootPath)
+    dbService.setSetting('workdir_root', startupWorkspace.rootPath)
+    await workspaceRegistryService.ensureWorkspaceConfig(startupWorkspace.rootPath, {
+      workspaceId: startupWorkspace.id,
+      name: startupWorkspace.name,
+      createdAt: startupWorkspace.createdAt,
+    })
+    await workspaceRegistryService.markActive(startupWorkspace.id)
   } else {
     workDirService.loadFromDb()
   }
+  workspaceMigrationService = new WorkspaceMigrationService({
+    dbService,
+    registryService: workspaceRegistryService,
+    getWin: () => win,
+  })
   noteFileService = new NoteFileService(dbService, workDirService)
+  pdfLifecycleService = new PdfLifecycleService({ dbService, workDirService })
+  const interruptedPdfRuns = dbService.cancelInterruptedPdfParseRuns?.()
+  if (interruptedPdfRuns?.changes) console.warn(`[PdfLifecycle] Cancelled ${interruptedPdfRuns.changes} interrupted PDF parse run(s).`)
   ensureWorkspaceDirs().catch(err => console.error('[Workspace] Failed to ensure workspace dirs:', err.message))
 
   logService = new LogService(workDirService)
@@ -2383,6 +2768,23 @@ app.whenReady().then(async () => {
   wikiService.init()
   agentService.setWikiService?.(wikiService)
 
+<<<<<<< HEAD
+=======
+  webImportService = new WebImportService({ dbService })
+  webImportJobService = new WebImportJobService({
+    dbService,
+    webImportService,
+    docsWriter: new DocsWebImportWriter({ workDirService }),
+    wikiService,
+    getWin: () => win,
+    ipcMain,
+  })
+  webImportJobService.init()
+  setTimeout(() => webImportJobService.restorePendingJobs().catch(err => {
+    console.warn('[WebImportJobService] Failed to restore jobs:', err.message)
+  }), 0)
+
+>>>>>>> dev
   backupService = new BackupService(dbService, workDirService, {
     appVersion: app.getVersion(),
   })
@@ -2423,4 +2825,10 @@ app.whenReady().then(async () => {
   } else {
     Menu.setApplicationMenu(null)
   }
+}).catch((error) => {
+  console.error('[Startup] Application initialization failed:', error)
+  try {
+    dialog.showErrorBox('Reviva 启动失败', error?.message || String(error))
+  } catch { /* the app may already be shutting down */ }
+  app.quit()
 })

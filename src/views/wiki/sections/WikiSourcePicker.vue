@@ -8,9 +8,13 @@ const props = defineProps({
   isDark: { type: Boolean, default: false },
   busy: { type: Boolean, default: false },
   externalError: { type: String, default: '' },
+  webSettings: { type: Object, default: null },
+  webProviders: { type: Array, default: () => [] },
+  webJobs: { type: Array, default: () => [] },
+  webSubmitting: { type: Boolean, default: false },
 })
 
-const emit = defineEmits(['close', 'add-doc', 'add-note'])
+const emit = defineEmits(['close', 'add-doc', 'add-note', 'add-url', 'open-web-settings', 'retry-web-job', 'delete-web-job', 'clear-web-jobs', 'open-web-source'])
 
 const notesStore = useNotesStore()
 const settingsStore = useSettingsStore()
@@ -19,6 +23,7 @@ const currentPath = ref('')
 const items = ref([])
 const loading = ref(false)
 const query = ref('')
+const urlInput = ref('')
 
 const allowedExts = new Set(['md', 'markdown', 'txt', 'pdf', 'docx', 'pptx', 'xlsx'])
 
@@ -48,11 +53,20 @@ const filteredNotes = computed(() => {
     String(note.content || '').toLowerCase().includes(q)
   )
 })
+const selectedWebProvider = computed(() => props.webProviders.find(item => item.id === props.webSettings?.selectedProvider) || null)
+const selectedWebConfig = computed(() => props.webSettings?.providers?.[props.webSettings?.selectedProvider] || null)
+const webReady = computed(() => !!selectedWebProvider.value && !!selectedWebConfig.value?.baseUrl)
+const validWebUrl = computed(() => /^https?:\/\/[^\s]+$/i.test(urlInput.value.trim()))
+
+function webJobStatus(job) {
+  return ({ pending: '排队中', running: '处理中', succeeded: '已完成', partial: '部分完成', failed: '失败', interrupted: '已中断' })[job.status] || job.status
+}
 
 watch(() => props.show, async (show) => {
   if (!show) return
   activeTab.value = 'docs'
   query.value = ''
+  urlInput.value = ''
   currentPath.value = ''
   await Promise.all([loadDocs(''), notesStore.loadFromDb()])
 })
@@ -161,8 +175,8 @@ function openItem(item) {
             <button class="seg-btn" :class="activeTab === 'notes' ? (isDark ? 'bg-brand-400 text-d0' : 'bg-brand-500 text-white') : (isDark ? 'text-wt-sub hover:text-wt-main' : 'text-lt-sub hover:text-lt-main')" @click="activeTab = 'notes'; query = ''">
               <i class="ri-booklet-line text-[14px]" /><span>笔记</span>
             </button>
-            <button class="seg-btn seg-soon" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'" disabled title="即将支持">
-              <i class="ri-link text-[14px]" /><span>链接</span><span class="soon" :class="isDark ? 'bg-white/8 text-wt-dim' : 'bg-lt-aux/10 text-lt-aux'">即将</span>
+            <button class="seg-btn" :class="activeTab === 'link' ? (isDark ? 'bg-brand-400 text-d0' : 'bg-brand-500 text-white') : (isDark ? 'text-wt-sub hover:text-wt-main' : 'text-lt-sub hover:text-lt-main')" @click="activeTab = 'link'; query = ''">
+              <i class="ri-link text-[14px]" /><span>链接</span>
             </button>
             <button class="seg-btn seg-soon" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'" disabled title="即将支持">
               <i class="ri-movie-2-line text-[14px]" /><span>音视频</span><span class="soon" :class="isDark ? 'bg-white/8 text-wt-dim' : 'bg-lt-aux/10 text-lt-aux'">即将</span>
@@ -182,9 +196,9 @@ function openItem(item) {
               </button>
             </template>
           </div>
-          <div v-else class="text-[12px] font-medium shrink-0" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">全部笔记</div>
+          <div v-else class="text-[12px] font-medium shrink-0" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">{{ activeTab === 'link' ? '网页 URL' : '全部笔记' }}</div>
 
-          <div class="relative ml-auto w-[220px] max-w-[46%] shrink-0">
+          <div v-if="activeTab !== 'link'" class="relative ml-auto w-[220px] max-w-[46%] shrink-0">
             <!-- <i class="ri-search-line absolute left-2.5 top-1/2 -translate-y-1/2 text-[12px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'" /> -->
             <input
               v-model="query"
@@ -241,7 +255,7 @@ function openItem(item) {
             </template>
           </div>
 
-          <div v-else class="space-y-0.5">
+          <div v-else-if="activeTab === 'notes'" class="space-y-0.5">
             <div
               v-for="note in filteredNotes"
               :key="note.id"
@@ -266,13 +280,45 @@ function openItem(item) {
               <i class="ri-sticky-note-line text-[26px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'" />
               <p class="mt-2 text-[12px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">没有可添加的笔记</p>
             </div>
-            
+          </div>
+
+          <div v-else class="px-2 py-2 space-y-3">
+            <div v-if="!webReady" class="rounded-xl border p-4" :class="isDark ? 'border-amber-400/20 bg-amber-400/8' : 'border-amber-200 bg-amber-50'">
+              <div class="text-[12px] font-semibold" :class="isDark ? 'text-amber-300' : 'text-amber-700'">尚未选择网页解析引擎</div>
+              <div class="text-[10.5px] mt-1" :class="isDark ? 'text-amber-300/80' : 'text-amber-600'">请先完成全局网页解析设置，再添加链接来源。</div>
+              <button class="mt-2 text-[10.5px] font-medium text-brand-400" @click="emit('open-web-settings')">去解析设置</button>
+            </div>
+            <div>
+              <label class="block text-[10.5px] font-semibold mb-1.5" :class="isDark ? 'text-wt-main' : 'text-lt-main'">网页地址</label>
+              <div class="flex gap-2">
+                <input v-model="urlInput" type="text" placeholder="https://example.com/article" class="flex-1 h-9 px-3 rounded-lg border text-[12px] outline-none" :class="isDark ? 'bg-d0 border-d4 text-wt-sub focus:border-brand-400/40' : 'bg-l2 border-bdrL text-lt-sub focus:border-brand-400'" @keyup.enter="webReady && validWebUrl && !webSubmitting && emit('add-url', urlInput.trim())" />
+                <button :disabled="!webReady || !validWebUrl || webSubmitting" class="h-9 px-4 rounded-lg text-[11px] font-semibold disabled:opacity-50 disabled:cursor-not-allowed" :class="isDark ? 'bg-brand-400 text-d0' : 'bg-brand-500 text-white'" @click="emit('add-url', urlInput.trim())"><i :class="webSubmitting ? 'ri-loader-4-line pulse' : 'ri-add-line'" /> {{ webSubmitting ? '创建中' : '添加来源' }}</button>
+              </div>
+            </div>
+            <div v-if="selectedWebProvider" class="rounded-lg border p-3 flex items-center justify-between gap-3" :class="isDark ? 'border-d4 bg-d0' : 'border-bdrF bg-l3'">
+              <div><div class="text-[11.5px] font-semibold">{{ selectedWebProvider.name }}</div><div class="text-[10px] mt-0.5" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">{{ selectedWebConfig?.apiKeyConfigured ? `已配置 Key ${selectedWebConfig.apiKeyMasked}` : 'Keyless / 免费模式' }} · Markdown</div></div>
+              <button class="text-[10.5px] text-brand-400" @click="emit('open-web-settings')">解析设置</button>
+            </div>
+            <div class="rounded-lg border px-3 py-2 text-[10.5px] leading-relaxed" :class="isDark ? 'border-bdr bg-d3 text-wt-dim' : 'border-bdrF bg-l3 text-lt-aux'">只保存为当前 Wiki 的内部来源，不会在“我的文档”中创建文件。仅导入当前页面，远程图片 URL 保持不变。</div>
+
+            <div v-if="webJobs.length" class="pt-2 border-t" :class="isDark ? 'border-d4' : 'border-bdrL'">
+              <div class="flex items-center justify-between mb-2"><span class="text-[10.5px] font-semibold">最近导入</span><button class="text-[10px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'" @click="emit('clear-web-jobs')">清除已完成记录</button></div>
+              <div class="space-y-1.5 max-h-[180px] overflow-y-auto thin-scroll">
+                <div v-for="job in webJobs" :key="job.id" class="source-row !min-h-[42px]" :class="isDark ? 'bg-d0 text-wt-sub' : 'bg-l3 text-lt-sub'">
+                  <i :class="job.status === 'pending' || job.status === 'running' ? 'ri-loader-4-line pulse text-brand-400' : job.status === 'succeeded' ? 'ri-checkbox-circle-line text-emerald-400' : 'ri-error-warning-line text-red-400'" />
+                  <div class="flex-1 min-w-0"><div class="text-[10.5px] truncate">{{ job.title || job.requested_url }}</div><div class="text-[9.5px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">{{ webJobStatus(job) }} · {{ job.progress || 0 }}%</div></div>
+                  <button v-if="job.source_id" class="text-[10px] text-brand-400" @click="emit('open-web-source', job)">查看来源</button>
+                  <button v-if="job.status === 'failed' || job.status === 'interrupted'" class="text-[10px] text-brand-400" @click="emit('retry-web-job', job.id)">重试</button>
+                  <button v-if="!['pending','running'].includes(job.status)" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'" @click="emit('delete-web-job', job.id)"><i class="ri-close-line" /></button>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
         <div class="px-5 py-2.5 flex items-center gap-2 border-t shrink-0 text-[10.5px] leading-relaxed" :class="isDark ? 'border-d4 text-wt-dim' : 'border-bdrL text-lt-aux'">
           <i class="ri-information-line text-[13px] shrink-0" :class="isDark ? 'text-brand-400' : 'text-brand-500'" />
-          <span>当前支持 文档(MD / TXT / PDF / DOCX / PPTX / XLSX等) 与笔记;链接、音视频等来源即将支持。</span>
+          <span>支持文档、笔记与单页网页 URL；链接来源只写入当前 Wiki，音视频来源后续支持。</span>
         </div>
       </div>
     </div>

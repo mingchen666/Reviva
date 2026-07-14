@@ -15,7 +15,9 @@
     "preview": "vite preview",
     "migrate-db": "node scripts/migrate-db.js",
     "postinstall": "electron-builder install-app-deps",
-    "build:electron": "cross-env NODE_OPTIONS=--max-old-space-size=8192 vite build"
+    "build:electron": "cross-env NODE_OPTIONS=--max-old-space-size=8192 vite build",
+    "test:wiki": "node --test electron/wiki/__tests__/wiki-core.test.js",
+    "test:web-import": "cross-env ELECTRON_RUN_AS_NODE=1 electron --test electron/web-import/__tests__/core.test.js electron/web-import/__tests__/database.test.js electron/web-import/__tests__/job-service.test.js"
   },
   "pnpm": {
     "peerDependencyRules": {
@@ -41,6 +43,7 @@
     "langsmith": "~0.6.3",
     "mathjs": "^15.2.0",
     "pptxgenjs": "^4.0.1",
+    "sanitize-html": "^2.13.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {

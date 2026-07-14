@@ -1,0 +1,29 @@
+{
+  "id": "civil-service-question-practice",
+  "name": "公考专项刷题",
+  "description": "面向国考、省考和事业单位的专项刷题能力，支持用户题库、知识库、联网公开真题与AI同类题混合选题，提供逐题练习、限时训练、即时批改、错题重做和刷题复盘。",
+  "icon": "ri-checkbox-circle-line",
+  "color": "#10B981",
+  "category": "学习",
+  "source": "platform",
+  "allowedTools": [
+    "file_read",
+    "file_write",
+    "document_read",
+    "office_write",
+    "vision_analyze",
+    "kb_search",
+    "mcp:exa",
+    "mcp:firecrawl-mcp-server",
+    "web_search_bing"
+  ],
+  "outputTypes": [
+    "Markdown",
+    "TXT",
+    "HTML",
+    "XLSX"
+  ],
+  "version": "1.0.0",
+  "author": "reviva",
+  "license": "MIT"
+}

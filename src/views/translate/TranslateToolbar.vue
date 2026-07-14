@@ -48,7 +48,7 @@ const modelOptionsWithLogo = computed(() => {
     <!-- Model selector — logo inside the selector prefix -->
     <div class="flex items-center gap-1.5">
       <NSelect :value="store.selectedModelId" @update:value="v => store.selectedModelId = v"
-        :options="modelOptionsWithLogo" size="small" :theme="isDark ? 'dark' : 'light'"
+        :options="modelOptionsWithLogo" size="small"
         placeholder="选择模型" style="min-width:180px" />
     </div>
     <!-- Settings -->

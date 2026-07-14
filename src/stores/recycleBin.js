@@ -177,7 +177,10 @@ export const useRecycleBinStore = defineStore('recycleBin', () => {
   async function deleteBatchPermanently(trashIds) {
     if (!rbApi()) return { success: false }
     const result = await rbApi().deleteBatchPermanently(trashIds)
-    if (result.success) {
+    if (Array.isArray(result.deletedIds)) {
+      const successfulIds = result.deletedIds
+      items.value = items.value.filter(i => !successfulIds.includes(i.id))
+    } else if (result.success) {
       items.value = items.value.filter(i => !trashIds.includes(i.id))
     }
     return result
@@ -186,7 +189,9 @@ export const useRecycleBinStore = defineStore('recycleBin', () => {
   async function emptyTrash() {
     if (!rbApi()) return { success: false }
     const result = await rbApi().emptyTrash()
-    if (result.success) {
+    if (Array.isArray(result.deletedIds)) {
+      items.value = items.value.filter(item => !result.deletedIds.includes(item.id))
+    } else if (result.success) {
       items.value = []
     }
     return result

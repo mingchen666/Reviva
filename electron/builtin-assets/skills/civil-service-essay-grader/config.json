@@ -1,0 +1,25 @@
+{
+  "id": "civil-service-essay-grader",
+  "name": "申论精批",
+  "description": "批改公务员考试申论小题、公文和大作文，检查材料采分点、审题、结构、格式与表达，支持模拟评分、逐段修改和二次批改。",
+  "icon": "ri-draft-line",
+  "color": "#8B5CF6",
+  "category": "学习",
+  "source": "platform",
+  "allowedTools": [
+    "file_read",
+    "file_write",
+    "document_read",
+    "office_write",
+    "vision_analyze",
+    "kb_search"
+  ],
+  "outputTypes": [
+    "Markdown",
+    "TXT",
+    "DOCX"
+  ],
+  "version": "1.0.0",
+  "author": "reviva",
+  "license": "MIT"
+}

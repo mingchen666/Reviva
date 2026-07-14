@@ -16,6 +16,7 @@ import WikiDeleteConfirmModal from './sections/WikiDeleteConfirmModal.vue'
 import WikiSourceDeleteConfirmModal from './sections/WikiSourceDeleteConfirmModal.vue'
 import WikiSourcePicker from './sections/WikiSourcePicker.vue'
 import WikiAgentSettingsModal from './sections/WikiAgentSettingsModal.vue'
+import PdfProcessingSettingsModal from '@/views/docs/sections/PdfProcessingSettingsModal.vue'
 
 const router = useRouter()
 const appStore = useAppStore()
@@ -72,6 +73,7 @@ const showSourcePicker = ref(false)
 const showSourceDelete = ref(false)
 const showAgentSettings = ref(false)
 const showInspectorDrawer = ref(false)
+const showDocumentProcessingSettings = ref(false)
 const createError = ref('')
 const deleteError = ref('')
 const sourceError = ref('')
@@ -84,8 +86,57 @@ const deletingSourceId = ref('')
 const reparseSourceId = ref('')
 const ocrSourceId = ref('')
 const refreshingWiki = ref(false)
+const lintingWiki = ref(false)
+const auditingWiki = ref(false)
 let pollTimer = null
 let polling = false
+let pollGraceTicks = 0
+let webJobUpdatedHandler = null
+const wikiWebSettings = ref(null)
+const wikiWebProviders = ref([])
+const wikiWebJobs = ref([])
+const wikiWebSubmitting = ref(false)
+const wikiPdfSettings = ref({ pdfEngine: 'auto', uploadAction: 'ask', defaultOcrProvider: 'auto', missingPythonFallback: 'ocr_provider', largePdfMode: 'adaptive', allowFullDocumentOcr: true, allowPaddleFullDocumentForPageRanges: true, mediaAction: 'manual' })
+
+async function loadWikiWebSettings() {
+  const result = await window.electronAPI?.webImport?.getSettings?.()
+  if (result?.success) { wikiWebSettings.value = result.data; wikiWebProviders.value = result.providers || [] }
+}
+
+async function loadWikiWebJobs() {
+  if (!wikiStore.currentWikiId) { wikiWebJobs.value = []; return }
+  const result = await window.electronAPI?.webImport?.listJobs?.({ targetType: 'wiki', targetRef: wikiStore.currentWikiId, limit: 20 })
+  wikiWebJobs.value = result?.success ? (result.data || []) : []
+}
+
+function openWikiWebSettings() {
+  showSourcePicker.value = false
+  showDocumentProcessingSettings.value = true
+}
+
+async function saveWikiWebSettings(patch, close) {
+  const result = await window.electronAPI?.webImport?.saveSettings?.(patch)
+  if (result?.success) { wikiWebSettings.value = result.data; wikiWebProviders.value = result.providers || []; close?.() }
+}
+
+async function addUrlSource(url) {
+  if (!wikiStore.currentWikiId || wikiWebSubmitting.value) return
+  wikiWebSubmitting.value = true
+  sourceError.value = ''
+  try {
+    const result = await window.electronAPI?.webImport?.createJob?.({ targetType: 'wiki', targetRef: wikiStore.currentWikiId, url, includeHtml: false })
+    if (!result?.success) throw new Error(result?.error || '创建网页导入任务失败')
+    armWikiPoller()
+    await loadWikiWebJobs()
+    msg.success('网页来源已加入后台队列')
+  } catch (err) { sourceError.value = err.message; msg.error(err.message || '添加网页来源失败') }
+  finally { wikiWebSubmitting.value = false }
+}
+
+async function retryWikiWebJob(id) { await window.electronAPI?.webImport?.retryJob?.(id); await loadWikiWebJobs() }
+async function deleteWikiWebJob(id) { await window.electronAPI?.webImport?.deleteJob?.(id); await loadWikiWebJobs() }
+async function clearWikiWebJobs() { await window.electronAPI?.webImport?.clearFinishedJobs?.({ targetType: 'wiki', targetRef: wikiStore.currentWikiId }); await loadWikiWebJobs() }
+function openWikiWebSource() { showSourcePicker.value = false; showInspectorDrawer.value = true }
 
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, Math.round(Number(value) || min)))
@@ -154,11 +205,24 @@ onMounted(async () => {
   await wikiStore.loadOcrProviders().catch(() => {})
   if (wikiStore.currentWikiId) await wikiStore.openWiki(wikiStore.currentWikiId)
   startWikiPoller()
+  await loadWikiWebSettings()
+  await loadWikiWebJobs()
+  webJobUpdatedHandler = window.electronAPI?.webImport?.onJobUpdated?.((job) => {
+    if (job?.target_type !== 'wiki' || job.target_ref !== wikiStore.currentWikiId) return
+    const index = wikiWebJobs.value.findIndex(item => item.id === job.id)
+    if (index >= 0) wikiWebJobs.value[index] = job
+    else wikiWebJobs.value.unshift(job)
+    if (['succeeded', 'partial'].includes(job.status)) {
+      armWikiPoller()
+      void wikiStore.refreshCurrentWiki()
+    }
+  })
 })
 
 onBeforeUnmount(() => {
   if (pollTimer) clearInterval(pollTimer)
   stopResize()
+  window.electronAPI?.webImport?.removeJobUpdatedListener?.(webJobUpdatedHandler)
 })
 
 watch(() => settingsStore.workDirRoot, async (root) => {
@@ -167,6 +231,10 @@ watch(() => settingsStore.workDirRoot, async (root) => {
   await wikiStore.loadOcrProviders().catch(() => {})
   if (wikiStore.currentWikiId) await wikiStore.openWiki(wikiStore.currentWikiId)
   startWikiPoller()
+})
+
+watch(() => wikiStore.currentWikiId, () => {
+  if (showSourcePicker.value) loadWikiWebJobs()
 })
 
 async function createWiki(data) {
@@ -271,6 +339,8 @@ function openSourcePicker() {
   if (!selectedWiki.value) return
   sourceError.value = ''
   showSourcePicker.value = true
+  loadWikiWebSettings()
+  loadWikiWebJobs()
 }
 
 async function addDocSource(filePath) {
@@ -278,6 +348,7 @@ async function addDocSource(filePath) {
   sourceAdding.value = true
   try {
     const result = await wikiStore.addSource({ filePath })
+    armWikiPoller()
     showSourcePicker.value = false
     msg.success(result?.duplicate ? '来源已存在' : '来源已加入解析队列')
   } catch (err) {
@@ -293,6 +364,7 @@ async function addNoteSource(noteId) {
   sourceAdding.value = true
   try {
     const result = await wikiStore.addNoteSource(noteId)
+    armWikiPoller()
     showSourcePicker.value = false
     msg.success(result?.duplicate ? '笔记来源已存在' : '笔记来源已添加')
   } catch (err) {
@@ -308,6 +380,7 @@ async function reparseSource(sourceId) {
   reparseSourceId.value = sourceId
   try {
     await wikiStore.reparseSource(sourceId)
+    armWikiPoller()
     msg.success('来源已加入重新解析队列')
   } catch (err) {
     msg.error(err.message || '重新解析失败')
@@ -321,6 +394,7 @@ async function runOcr(sourceId) {
   ocrSourceId.value = sourceId
   try {
     await wikiStore.runOcr(sourceId)
+    armWikiPoller()
     msg.success('OCR 解析已加入后台队列')
   } catch (err) {
     msg.error(err.message || 'OCR 解析失败')
@@ -366,13 +440,19 @@ function hasActiveWikiWork() {
     selectedAgent.value?.status === 'running'
 }
 
+function armWikiPoller(ticks = 3) {
+  pollGraceTicks = Math.max(pollGraceTicks, Math.max(Number(ticks) || 0, 0))
+}
+
 function startWikiPoller() {
   if (pollTimer) return
   pollTimer = setInterval(async () => {
-    if (!wikiStore.currentWikiId || polling || !hasActiveWikiWork()) return
+    if (!wikiStore.currentWikiId || polling || (!hasActiveWikiWork() && pollGraceTicks <= 0)) return
     polling = true
     try {
       await wikiStore.openWiki(wikiStore.currentWikiId)
+      if (hasActiveWikiWork()) pollGraceTicks = Math.max(pollGraceTicks, 2)
+      else if (pollGraceTicks > 0) pollGraceTicks -= 1
     } finally {
       polling = false
     }
@@ -386,6 +466,34 @@ async function saveAgentConfig(config) {
     msg.success('WikiAgent 配置已保存')
   } catch (err) {
     msg.error(err.message || '保存 WikiAgent 配置失败')
+  }
+}
+
+async function runWikiLint() {
+  if (lintingWiki.value) return
+  lintingWiki.value = true
+  try {
+    const report = await wikiStore.runLint()
+    const errors = report?.summary?.error || 0
+    const warnings = report?.summary?.warning || 0
+    msg.success(errors || warnings ? `检查完成：${errors} 个错误，${warnings} 个警告` : 'Wiki 结构检查通过')
+  } catch (err) {
+    msg.error(err.message || 'Wiki 结构检查失败')
+  } finally {
+    lintingWiki.value = false
+  }
+}
+
+async function runSemanticAudit() {
+  if (auditingWiki.value) return
+  auditingWiki.value = true
+  try {
+    await wikiStore.runSemanticAudit()
+    msg.success('AI 语义巡检报告已生成')
+  } catch (err) {
+    msg.error(err.message || 'AI 语义巡检失败')
+  } finally {
+    auditingWiki.value = false
   }
 }
 
@@ -481,6 +589,10 @@ function openOcrSettings() {
                 :jobs="wikiStore.jobs"
                 :ocr-providers="wikiStore.ocrProviders"
                 :ocr-jobs="wikiStore.ocrJobs"
+                :lint-report="wikiStore.lintReport"
+                :semantic-audit="wikiStore.semanticAudit"
+                :linting="lintingWiki"
+                :auditing="auditingWiki"
                 :reparse-source-id="reparseSourceId"
                 :ocr-source-id="ocrSourceId"
                 :delete-source-id="deletingSourceId"
@@ -489,6 +601,8 @@ function openOcrSettings() {
                 @reparse-source="reparseSource"
                 @run-ocr="runOcr"
                 @delete-source="openDeleteSource"
+                @run-lint="runWikiLint"
+                @run-semantic-audit="runSemanticAudit"
               />
             </div>
           </div>
@@ -529,16 +643,37 @@ function openOcrSettings() {
       :is-dark="isDark"
       :busy="sourceAdding"
       :external-error="sourceError"
+      :web-settings="wikiWebSettings"
+      :web-providers="wikiWebProviders"
+      :web-jobs="wikiWebJobs"
+      :web-submitting="wikiWebSubmitting"
       @close="showSourcePicker = false"
       @add-doc="addDocSource"
       @add-note="addNoteSource"
+      @add-url="addUrlSource"
+      @open-web-settings="openWikiWebSettings"
+      @retry-web-job="retryWikiWebJob"
+      @delete-web-job="deleteWikiWebJob"
+      @clear-web-jobs="clearWikiWebJobs"
+      @open-web-source="openWikiWebSource"
     />
+
+    <PdfProcessingSettingsModal
+      v-model:show="showDocumentProcessingSettings"
+      :is-dark="isDark"
+      :settings="wikiPdfSettings"
+      initial-tab="web"
+      :web-settings="wikiWebSettings"
+      :web-providers="wikiWebProviders"
+      @save="close => close?.()"
+      @save-web-settings="saveWikiWebSettings" />
 
     <WikiAgentSettingsModal
       :show="showAgentSettings"
       :agent="selectedAgent"
       :model-options="settingsStore.chatModelOptions"
       :default-model-label="settingsStore.getModelName(settingsStore.defaultModels.chat)"
+      :global-web-research-enabled="!!settingsStore.wikiWebResearchSettings?.enabled"
       :is-dark="isDark"
       @close="showAgentSettings = false"
       @save="saveAgentConfig"

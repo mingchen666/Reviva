@@ -22,6 +22,7 @@ export function registerDbHandlers(db, services = {}) {
   ipcMain.handle('db:convs:list', (_, spaceId, groupId) => db.listConvs(spaceId, groupId))
   ipcMain.handle('db:convs:get', (_, id) => db.getConv(id))
   ipcMain.handle('db:convs:create', (_, data) => db.createConv(data))
+  ipcMain.handle('db:convs:createBranch', (_, data) => db.createConversationBranch(data))
   ipcMain.handle('db:convs:update', (_, id, data) => db.updateConv(id, data))
   ipcMain.handle('db:convs:delete', (_, id) => db.deleteConv(id))
 
@@ -33,6 +34,8 @@ export function registerDbHandlers(db, services = {}) {
 
   // ─── Messages ───
   ipcMain.handle('db:msgs:list', (_, convId) => db.listMsgs(convId))
+  ipcMain.handle('db:msgs:get', (_, id) => db.getMsg(id))
+  ipcMain.handle('db:msgs:getPreviousUser', (_, convId, assistantMsgId) => db.getPreviousUserMsg(convId, assistantMsgId))
   ipcMain.handle('db:msgs:listPaginated', (_, convId, limit, offset) => db.listMsgsPaginated(convId, limit, offset))
   ipcMain.handle('db:msgs:count', (_, convId) => db.countMsgs(convId))
   ipcMain.handle('db:msgs:create', (_, data) => db.createMsg(data))
@@ -87,6 +90,7 @@ export function registerDbHandlers(db, services = {}) {
 
   // ─── Artifacts ───
   ipcMain.handle('db:artifacts:listByGroup', (_, groupId) => db.listArtifactsByGroup(groupId))
+  ipcMain.handle('db:artifacts:get', (_, id) => db.getArtifact(id))
   ipcMain.handle('db:artifacts:create', (_, data) => db.createArtifact(data))
   ipcMain.handle('db:artifacts:delete', (_, id) => db.deleteArtifact(id))
   ipcMain.handle('db:artifacts:update', (_, id, data) => db.updateArtifact(id, data))

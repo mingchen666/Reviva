@@ -115,8 +115,9 @@ export class WikiDocumentParser {
       `asset_count: ${assets.length}`,
       `---`,
       ``,
-      result.content,
-      this._officeImageSection(assets, relExtractPath),
+      source.type === 'pdf'
+        ? this._placePdfImagesByPage(result.content, assets, relExtractPath)
+        : result.content,
     ].join('\n')
     await fs.promises.writeFile(absExtractPath, body, 'utf-8')
 
@@ -135,19 +136,41 @@ export class WikiDocumentParser {
     }
   }
 
-  _officeImageSection(assets, outputRelPath) {
-    if (!Array.isArray(assets) || !assets.length) return ''
-    const outputDir = path.posix.dirname(String(outputRelPath || '').replace(/\\/g, '/'))
-    const lines = ['', '## Embedded Images', '']
+  _placePdfImagesByPage(content, assets, outputRelPath) {
+    if (!Array.isArray(assets) || !assets.length) return content
+    const byPage = new Map()
     for (const asset of assets) {
-      const rel = path.posix.relative(outputDir, String(asset.path || '').replace(/\\/g, '/'))
-      const markdownRef = rel.startsWith('.') ? rel : `./${rel}`
-      const label = asset.name || path.posix.basename(asset.path || 'embedded image')
-      lines.push(`![${label}](${markdownRef})`)
-      if (asset.dom_path) lines.push('', `- DOM path: \`${asset.dom_path}\``)
-      lines.push('')
+      const page = Math.max(Number(asset.page) || 0, 0)
+      if (!page) continue
+      if (!byPage.has(page)) byPage.set(page, [])
+      byPage.get(page).push(asset)
     }
-    return lines.join('\n')
+    if (!byPage.size) return content
+
+    const outputDir = path.posix.dirname(String(outputRelPath || '').replace(/\\/g, '/'))
+    const lines = String(content || '').split('\n')
+    const next = []
+    let currentPage = 0
+    const appendPageImages = (page) => {
+      const pageAssets = byPage.get(page) || []
+      for (const asset of pageAssets) {
+        const rel = path.posix.relative(outputDir, String(asset.path || '').replace(/\\/g, '/'))
+        const markdownRef = rel.startsWith('.') ? rel : `./${rel}`
+        const label = asset.name || `Page ${page} image`
+        next.push('', `![${label}](${markdownRef})`, '', `图片来源：第 ${page} 页`)
+      }
+    }
+
+    for (const line of lines) {
+      const match = line.match(/^## Page\s+(\d+)\s*$/i)
+      if (match) {
+        if (currentPage) appendPageImages(currentPage)
+        currentPage = Number(match[1]) || 0
+      }
+      next.push(line)
+    }
+    if (currentPage) appendPageImages(currentPage)
+    return next.join('\n')
   }
 
   _safeSegment(value, fallback = 'source') {

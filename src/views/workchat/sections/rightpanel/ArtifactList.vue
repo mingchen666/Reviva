@@ -1,11 +1,13 @@
 <script setup>
-import { computed, onBeforeUnmount, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
+import { useVirtualizer } from '@tanstack/vue-virtual'
 import colorMap from './colorMap'
 
 const props = defineProps({
   isDark: Boolean,
   artifacts: { type: Array, default: () => [] },
   tasks: { type: Array, default: () => [] },
+  refreshing: Boolean,
 })
 
 const emit = defineEmits([
@@ -16,9 +18,14 @@ const emit = defineEmits([
   'delete-task-results',
   'cancel-task',
   'dismiss-task',
+  'refresh',
 ])
 
 const dropdown = ref(null)
+const scrollRef = ref(null)
+const searchQuery = ref('')
+const deferredSearch = ref('')
+let searchTimer = null
 
 const taskTools = {
   mindmap: { name: '思维导图', icon: 'ri-mind-map', color: 'emerald' },
@@ -54,6 +61,12 @@ const artifactTypeLabels = {
 }
 
 const visibleTaskStatuses = new Set(['pending', 'running', 'completed', 'failed', 'cancelled'])
+const excludedSearchParamKeys = new Set([
+  'artifactids', 'cloudtaskid', 'ctxitems', 'content', 'html', 'markdown',
+  'base64', 'data', 'attachments', 'toolproviderconfigs', 'cloudcontext',
+])
+
+const artifactById = computed(() => new Map(props.artifacts.map(artifact => [artifact.id, artifact])))
 const visibleTasks = computed(() =>
   props.tasks.filter((t) => {
     if (!visibleTaskStatuses.has(t.status)) return false
@@ -90,7 +103,7 @@ const taskArtifactIdSet = computed(() => {
 function taskArtifacts(t) {
   const ids = taskArtifactIds(t)
   if (!ids.length) return []
-  return props.artifacts.filter((a) => ids.includes(a.id))
+  return ids.map(id => artifactById.value.get(id)).filter(Boolean)
 }
 
 function primaryTaskArtifact(t) {
@@ -106,6 +119,54 @@ function artifactCount(t) {
 
 const standaloneArtifacts = computed(() => props.artifacts.filter((a) => !taskArtifactIdSet.value.has(a.id)))
 
+function appendSearchParamText(value, key, output, budget) {
+  if (budget.remaining <= 0 || value === null || value === undefined) return
+  const normalizedKey = String(key || '').toLowerCase()
+  if (excludedSearchParamKeys.has(normalizedKey)) return
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+    const text = String(value).trim()
+    if (!text || /^data:[^,]+;base64,/i.test(text)) return
+    const clipped = text.slice(0, Math.min(600, budget.remaining))
+    output.push(clipped)
+    budget.remaining -= clipped.length
+    return
+  }
+  if (Array.isArray(value)) {
+    value.slice(0, 30).forEach(item => appendSearchParamText(item, key, output, budget))
+    return
+  }
+  if (typeof value === 'object') {
+    Object.entries(value).slice(0, 40).forEach(([childKey, childValue]) => {
+      appendSearchParamText(childValue, childKey, output, budget)
+    })
+  }
+}
+
+function taskSearchText(task) {
+  const parts = [
+    task?.name,
+    taskMeta(task).name,
+    task?.result,
+    task?.error,
+    task?.params?.topic,
+    ...(Array.isArray(task?.params?.ctxNames) ? task.params.ctxNames : []),
+  ].filter(Boolean)
+  appendSearchParamText(task?.params, 'params', parts, { remaining: 4000 })
+  return parts.join(' ').toLocaleLowerCase()
+}
+
+function artifactSearchText(artifact) {
+  const fileName = String(artifact?.file_path || '').split(/[\\/]/).pop() || ''
+  return [
+    artifact?.title,
+    artifactTypeLabel(artifact),
+    artifact?.type,
+    artifact?.agent_name,
+    artifact?.skill_name,
+    fileName,
+  ].filter(Boolean).join(' ').toLocaleLowerCase()
+}
+
 function timestamp(row) {
   const raw = row?.updated_at || row?.created_at || row?.completed_at || ''
   const time = raw ? new Date(raw).getTime() : 0
@@ -118,15 +179,80 @@ const resultEntries = computed(() => {
     kind: 'task',
     task,
     sortTime: timestamp(task),
+    searchText: taskSearchText(task),
   }))
   const artifactEntries = standaloneArtifacts.value.map((artifact) => ({
     id: `artifact:${artifact.id}`,
     kind: 'artifact',
     artifact,
     sortTime: timestamp(artifact),
+    searchText: artifactSearchText(artifact),
   }))
   return [...taskEntries, ...artifactEntries].sort((a, b) => b.sortTime - a.sortTime)
 })
+
+const normalizedSearch = computed(() => deferredSearch.value.trim().toLocaleLowerCase())
+const pendingSearch = computed(() => searchQuery.value.trim().toLocaleLowerCase())
+const isSearching = computed(() => pendingSearch.value !== normalizedSearch.value)
+const filteredResultEntries = computed(() => {
+  if (!normalizedSearch.value) return resultEntries.value
+  const terms = normalizedSearch.value.split(/\s+/).filter(Boolean)
+  return resultEntries.value.filter(entry => terms.every(term => entry.searchText.includes(term)))
+})
+
+function estimateEntryHeight(index) {
+  const entry = filteredResultEntries.value[index]
+  if (!entry || entry.kind === 'artifact') return 64
+  const linkedCount = taskArtifacts(entry.task).length
+  const progressHeight = ['running', 'pending'].includes(entry.task.status) ? 12 : 0
+  const linkedHeight = linkedCount > 1 ? 12 + linkedCount * 32 : 0
+  return 64 + progressHeight + linkedHeight
+}
+
+const rowVirtualizer = useVirtualizer(computed(() => ({
+  count: filteredResultEntries.value.length,
+  getScrollElement: () => scrollRef.value,
+  estimateSize: estimateEntryHeight,
+  getItemKey: index => filteredResultEntries.value[index]?.id || index,
+  overscan: 10,
+  gap: 4,
+})))
+
+const visibleResultEntries = computed(() => rowVirtualizer.value.getVirtualItems().map(item => {
+  const entry = filteredResultEntries.value[item.index]
+  return entry ? { ...item, ...entry } : null
+}).filter(Boolean))
+
+const totalResultHeight = computed(() => rowVirtualizer.value.getTotalSize())
+
+function measureResultRow(element) {
+  if (element) rowVirtualizer.value.measureElement(element)
+}
+
+watch(searchQuery, (value) => {
+  if (searchTimer) clearTimeout(searchTimer)
+  if (!value.trim()) {
+    deferredSearch.value = ''
+    return
+  }
+  searchTimer = setTimeout(() => {
+    deferredSearch.value = value
+    searchTimer = null
+  }, 150)
+})
+
+watch(normalizedSearch, () => {
+  closeMenu()
+  nextTick(() => {
+    rowVirtualizer.value.scrollToOffset(0, { behavior: 'auto' })
+  })
+})
+
+watch(() => filteredResultEntries.value.map(entry => entry.id).join('|'), () => {
+  nextTick(() => {
+    rowVirtualizer.value.measure()
+  })
+}, { flush: 'post' })
 
 function statusText(t) {
   if (t.status === 'running') return t.result || '处理中...'
@@ -227,7 +353,10 @@ function onDocumentClick(e) {
   closeMenu()
 }
 
-onBeforeUnmount(closeMenu)
+onBeforeUnmount(() => {
+  if (searchTimer) clearTimeout(searchTimer)
+  closeMenu()
+})
 
 function viewArtifact(a, task = null) {
   closeMenu()
@@ -305,11 +434,56 @@ function menuCanRename() {
       <span class="text-[12px] font-bold uppercase tracking-wider" :class="isDark ? 'text-wt-aux' : 'text-lt-aux'">
         生成结果
       </span>
+<<<<<<< HEAD
       <span class="text-[11px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">{{ resultEntries.length }}</span>
+=======
+      <div class="flex items-center gap-1.5">
+        <span class="text-[11px] flex items-center gap-1" :class="isSearching ? 'text-brand-400' : (isDark ? 'text-wt-dim' : 'text-lt-aux')"
+          role="status" aria-live="polite">
+          <template v-if="isSearching">
+            <i class="ri-loader-4-line animate-spin text-[11px]" />
+            正在搜索...
+          </template>
+          <template v-else>
+            {{ filteredResultEntries.length }}<template v-if="normalizedSearch"> / {{ resultEntries.length }}</template>
+          </template>
+        </span>
+        <button type="button" @click="emit('refresh')" :disabled="refreshing"
+          class="h-6 w-6 rounded-md flex items-center justify-center transition-colors disabled:opacity-50"
+          :class="isDark ? 'text-wt-aux hover:text-wt-sub hover:bg-white/5' : 'text-lt-aux hover:text-lt-sub hover:bg-l4'"
+          title="刷新生成结果" aria-label="刷新生成结果">
+          <i class="ri-refresh-line text-[13px]" :class="refreshing ? 'animate-spin' : ''" />
+        </button>
+      </div>
+>>>>>>> dev
     </div>
 
-    <div v-if="resultEntries.length" class="flex-1 min-h-0 overflow-y-auto thin-scroll space-y-1 pb-3">
-      <div v-for="entry in resultEntries" :key="entry.id">
+    <div class="relative mb-2 shrink-0">
+<i :class="[
+      isSearching ? 'ri-loader-4-line animate-spin text-brand-400' : 'ri-search-line',
+      !isSearching && (isDark ? 'text-wt-dim' : 'text-lt-aux')
+    ]"
+   class="absolute left-2.5 top-1/2 -translate-y-1/2 text-[12px] pointer-events-none" />
+      <input v-model="searchQuery" type="text" placeholder="搜索标题、摘要或请求参数"
+        class="w-full h-8 rounded-lg pl-8 pr-8 text-[12px] outline-none transition-colors"
+        :class="isDark
+          ? 'bg-d0 border border-d4 text-wt-sub placeholder:text-wt-dim focus:border-brand-400/50'
+          : 'bg-l2 border border-bdrF text-lt-sub placeholder:text-lt-aux focus:border-brand-300'" />
+      <button v-if="searchQuery" type="button" @click="searchQuery = ''"
+        class="absolute right-1.5 top-1/2 -translate-y-1/2 h-5 w-5 rounded flex items-center justify-center"
+        :class="isDark ? 'text-wt-dim hover:text-wt-sub hover:bg-white/5' : 'text-lt-aux hover:text-lt-sub hover:bg-l4'"
+        aria-label="清空搜索">
+        <i class="ri-close-line text-[13px]" />
+      </button>
+    </div>
+
+    <div v-if="filteredResultEntries.length" ref="scrollRef"
+      class="flex-1 min-h-0 overflow-y-auto thin-scroll pb-3" @scroll.passive="closeMenu">
+      <div class="relative w-full" :style="{ height: totalResultHeight + 'px' }">
+      <div v-for="entry in visibleResultEntries" :key="entry.key"
+        :data-index="entry.index" :ref="measureResultRow"
+        class="absolute left-0 right-0"
+        :style="{ transform: `translateY(${entry.start}px)` }">
         <div
           v-if="entry.kind === 'task'"
           @click="viewTask(entry.task)"
@@ -432,11 +606,17 @@ function menuCanRename() {
           </div>
         </div>
       </div>
+      </div>
     </div>
 
     <div v-else class="flex-1 min-h-0 py-4 text-center" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">
+<<<<<<< HEAD
       <i class="ri-inbox-line text-[20px] mb-1" />
       <p class="text-[12px]">生成结果会显示在这里</p>
+=======
+      <i :class="normalizedSearch ? 'ri-search-eye-line' : 'ri-inbox-line'" class="text-[20px] mb-1" />
+      <p class="text-[12px]">{{ normalizedSearch ? '未找到相关生成结果' : '生成结果会显示在这里' }}</p>
+>>>>>>> dev
     </div>
   </div>
 

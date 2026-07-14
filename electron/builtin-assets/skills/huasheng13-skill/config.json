@@ -1,0 +1,26 @@
+{
+  "id": "huasheng13-skill",
+  "name": "公考花生十三技巧",
+  "description": "公务员考试行测与申论学习助手，覆盖题型方法、资料分析速算、考试策略、套题复盘和个性化备考，并按年份、地区、卷型与专业科目适配具体考情。",
+  "icon": "ri-government-line",
+  "color": "#F59E0B",
+  "category": "学习",
+  "source": "platform",
+  "allowedTools": [
+    "file_read",
+    "file_write",
+    "document_read",
+    "office_write",
+    "vision_analyze",
+    "kb_search"
+  ],
+  "outputTypes": [
+    "Markdown",
+    "TXT",
+    "DOCX",
+    "XLSX"
+  ],
+  "version": "1.0.0",
+  "author": "WangJunqing-coder",
+  "license": ""
+}

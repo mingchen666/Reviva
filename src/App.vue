@@ -9,7 +9,7 @@ import { useConversationsStore } from '@/stores/conversations'
 import { useRecycleBinStore } from '@/stores/recycleBin'
 import { useNotesStore } from '@/stores/notes'
 import { computed, ref, onMounted, onBeforeUnmount, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import CommandPalette from '@/components/CommandPalette.vue'
 import StartupGuideModal from '@/components/onboarding/StartupGuideModal.vue'
@@ -18,10 +18,13 @@ import AppUpdateModal from '@/components/update/AppUpdateModal.vue'
 import { useAppShortcuts } from '@/composables/useAppShortcuts'
 import { useAutoUpdate } from '@/composables/useAutoUpdate'
 import { BETA_RELEASE, isBetaExpired } from '@/config/beta'
+import { useMessage } from '@/components/MsMessage/useMessage'
 
 const appStore = useAppStore()
 const route = useRoute()
+const router = useRouter()
 const settingsStore = useSettingsStore()
+const msg = useMessage()
 
 const commandPaletteVisible = ref(false)
 const showStartupGuide = ref(false)
@@ -32,6 +35,8 @@ const { checking, updateInfo, downloading, downloadProgress, downloaded, error, 
 const betaNow = ref(new Date())
 const betaExpired = computed(() => isBetaExpired(betaNow.value))
 let betaTimer = null
+let webImportNotificationHandler = null
+let trayNavigateHandler = null
 
 // Show modal when update is available
 watch(updateInfo, (v) => {
@@ -133,6 +138,15 @@ onMounted(async () => {
 
   // Listen for play-sound events from main process
   window.electronAPI?.onPlaySound?.(onPlaySound)
+  trayNavigateHandler = window.electronAPI?.onTrayNavigate?.((path) => {
+    if (typeof path === 'string' && path.startsWith('/')) router.push(path)
+  })
+  webImportNotificationHandler = window.electronAPI?.webImport?.onNotification?.((job) => {
+    const target = job?.target_type === 'wiki' ? 'Wiki 来源' : '网页文档'
+    if (job?.status === 'succeeded') msg.success(`${target}导入完成：${job.title || '未命名页面'}`, { placement: 'top-right', duration: 5000 })
+    else if (job?.status === 'partial') msg.warning(`${target}部分完成：Markdown 已保存，HTML 失败。`, { placement: 'top-right', duration: 6000 })
+    else if (job?.status === 'failed') msg.error(`${target}导入失败：${job.error_message || '请查看导入历史'}`, { placement: 'top-right', duration: 6000 })
+  })
 
   // Prompt user to configure workspace root if not set
   // Skip on login/onboarding routes (noLayout pages)
@@ -144,6 +158,10 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   if (betaTimer) window.clearInterval(betaTimer)
+  window.electronAPI?.webImport?.removeNotificationListener?.(webImportNotificationHandler)
+  if (typeof trayNavigateHandler === 'function') {
+    window.electronAPI?.removeTrayNavigateListener?.(trayNavigateHandler)
+  }
 })
 </script>
 

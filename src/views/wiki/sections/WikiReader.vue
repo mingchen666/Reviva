@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import md from '@/utils/markdown'
 import { toFileUrl } from '@/utils/fileUrl'
+import { parseMarkdownFrontMatter } from '@/utils/markdownFrontMatter'
 
 const props = defineProps({
   wiki: { type: Object, default: null },
@@ -14,9 +15,42 @@ const props = defineProps({
 
 const emit = defineEmits(['add-source', 'open-page', 'open-status', 'configure-agent'])
 
+const pageDocument = computed(() => parseMarkdownFrontMatter(props.page?.content || ''))
+
 const renderedContent = computed(() => {
-  if (!props.page?.content) return ''
-  return rewriteImageSources(md.render(preprocessWikiLinks(preprocessSourceRefs(props.page.content))), props.page)
+  if (!pageDocument.value.body) return ''
+  return rewriteImageSources(md.render(preprocessWikiLinks(preprocessSourceRefs(pageDocument.value.body))), props.page)
+})
+
+const pageMetadata = computed(() => {
+  const attributes = pageDocument.value.attributes || {}
+  if (!pageDocument.value.hasFrontMatter) return null
+  return {
+    id: String(attributes.id || ''),
+    type: String(attributes.type || ''),
+    title: String(attributes.title || ''),
+    status: String(attributes.status || ''),
+    sourceIds: Array.isArray(attributes.source_ids) ? attributes.source_ids.map(String) : [],
+    schemaVersion: attributes.schema_version || '',
+    createdAt: String(attributes.created_at || ''),
+    updatedAt: String(attributes.updated_at || ''),
+    verifiedAt: String(attributes.verified_at || ''),
+  }
+})
+
+const pageTypeLabel = computed(() => ({
+  index: '索引', overview: '概览', summary: '摘要', concept: '概念', entity: '实体', question: '问题', comparison: '对比',
+})[pageMetadata.value?.type] || pageMetadata.value?.type || '知识页')
+
+const pageStatusLabel = computed(() => ({
+  active: '正常', stale: '待更新', unsupported: '不支持', review_required: '待审核',
+})[pageMetadata.value?.status] || pageMetadata.value?.status || '未知')
+
+const pageStatusClasses = computed(() => {
+  const status = pageMetadata.value?.status
+  if (status === 'active') return props.isDark ? 'bg-emerald-400/10 text-emerald-300' : 'bg-emerald-50 text-emerald-600'
+  if (status === 'stale' || status === 'review_required') return props.isDark ? 'bg-amber-400/10 text-amber-300' : 'bg-amber-50 text-amber-600'
+  return props.isDark ? 'bg-red-400/10 text-red-300' : 'bg-red-50 text-red-600'
 })
 
 function formatDate(value) {
@@ -194,6 +228,33 @@ function handleMarkdownClick(event) {
           </div>
           <span class="ctx-pill shrink-0" :class="isDark ? 'bg-d2 text-wt-dim border border-bdr' : 'bg-l2 text-lt-aux border border-bdrF'">Markdown</span>
         </div>
+        <section v-if="pageMetadata" class="wiki-page-meta mb-3" :class="isDark ? 'wiki-page-meta--dark' : 'wiki-page-meta--light'">
+          <div class="flex items-start gap-3">
+            <div class="wiki-page-meta__icon" :class="isDark ? 'bg-brand-400/12 text-brand-300' : 'bg-brand-50 text-brand-600'"><i class="ri-file-info-line text-[16px]" /></div>
+            <div class="min-w-0 flex-1">
+              <div class="flex items-center gap-2 flex-wrap">
+                <span class="text-[15px] font-semibold" :class="isDark ? 'text-wt-main' : 'text-lt-main'">{{ pageMetadata.title || page.path }}</span>
+                <span class="wiki-page-meta__chip" :class="isDark ? 'bg-white/5 text-wt-dim' : 'bg-l3 text-lt-aux'">{{ pageTypeLabel }}</span>
+                <span class="wiki-page-meta__chip" :class="pageStatusClasses">{{ pageStatusLabel }}</span>
+                <span class="text-[12px] ml-auto shrink-0" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">更新于 {{ formatDate(pageMetadata.updatedAt) }}</span>
+              </div>
+              <div class="flex items-center gap-4 flex-wrap mt-2 text-[12.5px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">
+                <span><i class="ri-links-line mr-1" />{{ pageMetadata.sourceIds.length }} 个来源</span>
+                <span v-if="pageMetadata.verifiedAt"><i class="ri-shield-check-line mr-1" />已验证 {{ formatDate(pageMetadata.verifiedAt) }}</span>
+                <span v-else><i class="ri-shield-line mr-1" />尚未验证</span>
+              </div>
+              <details class="wiki-page-meta__details mt-2">
+                <summary :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">查看页面元数据</summary>
+                <div class="wiki-page-meta__grid mt-2" :class="isDark ? 'bg-black/10' : 'bg-l3/70'">
+                  <div><span>页面 ID</span><code>{{ pageMetadata.id || '-' }}</code></div>
+                  <div><span>Schema</span><code>v{{ pageMetadata.schemaVersion || '-' }}</code></div>
+                  <div><span>创建时间</span><code>{{ formatDate(pageMetadata.createdAt) }}</code></div>
+                  <div><span>来源 ID</span><code>{{ pageMetadata.sourceIds.length ? pageMetadata.sourceIds.join(', ') : '无' }}</code></div>
+                </div>
+              </details>
+            </div>
+          </div>
+        </section>
         <div
           class="markdown-content rounded-xl p-4 border overflow-x-auto"
           :class="isDark ? 'markdown-content--dark bg-d1 border-d4 text-wt-sub' : 'markdown-content--light bg-white border-bdrL text-lt-sub'"
@@ -279,6 +340,16 @@ function handleMarkdownClick(event) {
 .wbtn:hover {
   transform: translateY(-1px);
 }
+.wiki-page-meta { padding: 14px; border: 1px solid transparent; border-radius: 12px; }
+.wiki-page-meta--light { background: rgba(255,255,255,.82); border-color: rgba(15,23,42,.08); }
+.wiki-page-meta--dark { background: rgba(255,255,255,.035); border-color: rgba(255,255,255,.08); }
+.wiki-page-meta__icon { width: 34px; height: 34px; flex: 0 0 34px; border-radius: 9px; display: inline-flex; align-items: center; justify-content: center; }
+.wiki-page-meta__chip { height: 22px; padding: 0 7px; border-radius: 6px; display: inline-flex; align-items: center; font-size: 11.5px; font-weight: 600; }
+.wiki-page-meta__details summary { width: fit-content; cursor: pointer; font-size: 12px; line-height: 20px; user-select: none; }
+.wiki-page-meta__grid { padding: 10px; border-radius: 8px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 12px; }
+.wiki-page-meta__grid > div { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.wiki-page-meta__grid span { font-size: 11px; opacity: .68; }
+.wiki-page-meta__grid code { font-size: 11.5px; line-height: 18px; overflow-wrap: anywhere; }
 /* Collapse labels based on the reader column's own width, not the viewport. */
 @container (max-width: 600px) {
   .reader-btn--ghost {

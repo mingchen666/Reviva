@@ -5,7 +5,22 @@ import path from 'node:path'
 import { WikiAgentService } from './wiki/WikiAgentService.js'
 import { normalizeAssetRecord } from './wiki/WikiAssetRegistry.js'
 import { WikiDocumentParser, detectSourceType } from './wiki/WikiDocumentParser.js'
+import { normalizeWikiAssetPath } from './wiki/WikiImagePolicy.js'
+import { WikiLintService } from './wiki/WikiLintService.js'
+import { normalizeWikiPageContent, parseFrontmatter } from './wiki/WikiMarkdownMetadata.js'
+import { buildWikiNavigationLines, upsertWikiAutoNavigation } from './wiki/WikiNavigationPolicy.js'
 import { WikiOcrService } from './wiki/WikiOcrService.js'
+import { WikiPageRegistryService } from './wiki/WikiPageRegistryService.js'
+import { WikiSchemaService } from './wiki/WikiSchemaService.js'
+import { WikiSearchService } from './wiki/WikiSearchService.js'
+import { WikiSemanticAuditService } from './wiki/WikiSemanticAuditService.js'
+import {
+  assertPublicWikiWebUrl,
+  htmlToWikiMarkdown,
+  normalizeWikiWebResearchSettings,
+  readWikiWebResponseText,
+  webSourceId,
+} from './wiki/WikiWebResearchService.js'
 
 const REGISTRY_FILE = 'registry.json'
 const LEGACY_WIKI_ROOT = 'wiki'
@@ -69,6 +84,23 @@ async function writeJson(filePath, data) {
   await fs.promises.writeFile(filePath, JSON.stringify(data, null, 2), 'utf-8')
 }
 
+async function fetchPublicWikiWebSource(url, options = {}, maxRedirects = 5) {
+  let currentUrl = String(url || '')
+  for (let redirectCount = 0; redirectCount <= maxRedirects; redirectCount += 1) {
+    await assertPublicWikiWebUrl(currentUrl)
+    const response = await fetch(currentUrl, { ...options, redirect: 'manual' })
+    if (![301, 302, 303, 307, 308].includes(response.status)) {
+      return { response, finalUrl: currentUrl }
+    }
+    const location = response.headers.get('location')
+    try { await response.body?.cancel?.() } catch {}
+    if (!location) throw new Error(`Web source redirect is missing a location header (HTTP ${response.status})`)
+    if (redirectCount >= maxRedirects) throw new Error(`Web source exceeded the ${maxRedirects}-redirect limit`)
+    currentUrl = new URL(location, currentUrl).toString()
+  }
+  throw new Error(`Web source exceeded the ${maxRedirects}-redirect limit`)
+}
+
 function isPathInside(parent, child) {
   const parentPath = path.resolve(parent).toLowerCase()
   const childPath = path.resolve(child).toLowerCase()
@@ -79,6 +111,7 @@ export class WikiService {
   constructor(workDirService, dbService = null, agentService = null) {
     this._workDir = workDirService
     this._db = dbService
+    this._agentService = agentService
     this._wikiAgent = new WikiAgentService({
       workDirService,
       wikiService: this,
@@ -91,6 +124,14 @@ export class WikiService {
     this._ocrQueueRunning = false
     this._agentQueue = []
     this._agentQueueRunning = false
+    this._pageRegistryServices = new Map()
+    this._searchServices = new Map()
+    this._pageMetadataReady = new Set()
+    this._pageMetadataPromises = new Map()
+    this._wikiMutationChains = new Map()
+    this._activeWikiOperations = new Map()
+    this._deletingWikis = new Set()
+    this._wikiLifecycleVersions = new Map()
   }
 
   init() {
@@ -116,6 +157,10 @@ export class WikiService {
     ipcMain.handle('wiki:agentDraft', (_, req) => this.agentDraft(req))
     ipcMain.handle('wiki:agentRun', (_, req) => this.agentRun(req))
     ipcMain.handle('wiki:tool', (_, req) => this.wikiTool(req))
+    ipcMain.handle('wiki:runLint', (_, id) => this.runLint(id, { reason: 'manual' }))
+    ipcMain.handle('wiki:getLintReport', (_, id) => this.getLintReport(id))
+    ipcMain.handle('wiki:runSemanticAudit', (_, id) => this.runSemanticAudit(id, { reason: 'manual' }))
+    ipcMain.handle('wiki:getSemanticAudit', (_, id) => this.getSemanticAudit(id))
     setTimeout(() => this.restorePendingOcrJobs().catch(err => {
       console.warn('[WikiService] Failed to restore OCR queue:', err.message)
     }), 0)
@@ -171,6 +216,138 @@ export class WikiService {
       else if (legacyNestedPath && fs.existsSync(legacyNestedPath)) target = legacyNestedPath
     }
     return this._workDir.resolveAndValidate(target, 'wiki')
+  }
+
+  _pageRegistryService(id) {
+    const wikiDir = this._wikiDir(id)
+    if (!this._pageRegistryServices.has(wikiDir)) {
+      this._pageRegistryServices.set(wikiDir, new WikiPageRegistryService({ wikiDir }))
+    }
+    return this._pageRegistryServices.get(wikiDir)
+  }
+
+  _searchService(id) {
+    const wikiDir = this._wikiDir(id)
+    if (!this._searchServices.has(wikiDir)) {
+      this._searchServices.set(wikiDir, new WikiSearchService({ wikiDir }))
+    }
+    return this._searchServices.get(wikiDir)
+  }
+
+  _wikiRuntimeKey(id) {
+    return safeSegment(id, String(id || '').toLowerCase())
+  }
+
+  getWikiLifecycleVersion(id) {
+    return this._wikiLifecycleVersions.get(this._wikiRuntimeKey(id)) || 0
+  }
+
+  _bumpWikiLifecycle(id) {
+    const key = this._wikiRuntimeKey(id)
+    const next = (this._wikiLifecycleVersions.get(key) || 0) + 1
+    this._wikiLifecycleVersions.set(key, next)
+    return next
+  }
+
+  _isWikiLifecycleCurrent(id, version) {
+    if (!id || this._deletingWikis.has(this._wikiRuntimeKey(id))) return false
+    if (version !== undefined && version !== null && Number(version) !== this.getWikiLifecycleVersion(id)) return false
+    return fs.existsSync(path.join(this._wikiDir(id), 'wiki.json'))
+  }
+
+  _canPersistWiki(id) {
+    return !!id
+      && !this._deletingWikis.has(this._wikiRuntimeKey(id))
+      && fs.existsSync(path.join(this._wikiDir(id), 'wiki.json'))
+  }
+
+  _assertWikiMutable(id, expectedLifecycleVersion) {
+    if (!id) throw new Error('Wiki id is required')
+    const key = this._wikiRuntimeKey(id)
+    if (this._deletingWikis.has(key)) throw new Error('Wiki is being deleted')
+    if (!fs.existsSync(path.join(this._wikiDir(id), 'wiki.json'))) throw new Error('Wiki not found')
+    if (expectedLifecycleVersion !== undefined && expectedLifecycleVersion !== null
+      && Number(expectedLifecycleVersion) !== this.getWikiLifecycleVersion(id)) {
+      throw new Error('Wiki lifecycle changed; stale maintenance write was rejected')
+    }
+  }
+
+  async _withWikiMutation(id, operation, options = {}) {
+    const key = this._wikiRuntimeKey(id)
+    const previous = this._wikiMutationChains.get(key) || Promise.resolve()
+    const run = previous.catch(() => {}).then(async () => {
+      this._assertWikiMutable(id, options.expectedLifecycleVersion)
+      return operation()
+    })
+    const tail = run.catch(() => {})
+    this._wikiMutationChains.set(key, tail)
+    return run.finally(() => {
+      if (this._wikiMutationChains.get(key) === tail) this._wikiMutationChains.delete(key)
+    })
+  }
+
+  async _waitForWikiMutations(id) {
+    const tail = this._wikiMutationChains.get(this._wikiRuntimeKey(id))
+    if (tail) await tail.catch(() => {})
+  }
+
+  async _trackWikiOperation(id, operation) {
+    const key = this._wikiRuntimeKey(id)
+    const active = this._activeWikiOperations.get(key) || new Set()
+    const run = Promise.resolve().then(operation)
+    active.add(run)
+    this._activeWikiOperations.set(key, active)
+    try {
+      return await run
+    } finally {
+      active.delete(run)
+      if (!active.size) this._activeWikiOperations.delete(key)
+    }
+  }
+
+  async _waitForActiveWikiOperations(id) {
+    const active = this._activeWikiOperations.get(this._wikiRuntimeKey(id))
+    if (active?.size) await Promise.allSettled([...active])
+  }
+
+  _clearWikiRuntimeCaches(id, resolvedWikiDir = '') {
+    const wikiDir = resolvedWikiDir || this._wikiDir(id)
+    const key = this._wikiRuntimeKey(id)
+    this._pageRegistryServices.delete(wikiDir)
+    this._searchServices.delete(wikiDir)
+    this._pageMetadataReady.delete(wikiDir)
+    this._pageMetadataPromises.delete(wikiDir)
+    this._wikiMutationChains.delete(key)
+    this._activeWikiOperations.delete(key)
+  }
+
+  _lintService(id) {
+    return new WikiLintService({
+      wikiDir: this._wikiDir(id),
+      pageRegistry: this._pageRegistryService(id),
+    })
+  }
+
+  async getWikiSchema(id) {
+    const wiki = await this.getWiki(id)
+    const title = wiki.success ? (wiki.data?.name || id) : id
+    return new WikiSchemaService({
+      wikiDir: this._wikiDir(id),
+      fallbackFactory: value => this._schemaTemplate(value),
+    }).read(title)
+  }
+
+  getWebResearchSettings(id) {
+    const globalSettings = normalizeWikiWebResearchSettings(this._db?.getSetting?.('wikiWebResearchSettings') || {})
+    if (!id) return globalSettings
+    const meta = readJsonSync(path.join(this._wikiDir(id), 'wiki.json'), null)
+    const agent = this._normalizeAgentConfig(meta?.agent || this._db?.getWiki?.(id)?.agent_config || {})
+    const mode = agent.web_research?.mode || 'inherit'
+    return {
+      ...globalSettings,
+      enabled: mode === 'enabled' ? true : (mode === 'disabled' ? false : globalSettings.enabled),
+      wiki_mode: mode,
+    }
   }
 
   getWikiVirtualPath(id) {
@@ -503,6 +680,14 @@ export class WikiService {
 
   async deleteSource(id, sourceId) {
     try {
+      return await this._withWikiMutation(id, () => this._deleteSourceUnlocked(id, sourceId))
+    } catch (err) {
+      return { success: false, error: err.message }
+    }
+  }
+
+  async _deleteSourceUnlocked(id, sourceId) {
+    try {
       if (!id) throw new Error('Wiki id is required')
       if (!sourceId) throw new Error('Source id is required')
       const registry = await this._loadSources(id)
@@ -539,6 +724,7 @@ export class WikiService {
         created_at: nowIso(),
         updated_at: nowIso(),
       })
+      await this.runLint(id, { reason: `source_deleted:${sourceId}` })
       this._enqueueAgentMaintenance(id, `source_deleted:${sourceId}:${safeTitle(source.title || '')}`)
       return { success: true, data: { id: sourceId, title: source.title || '' } }
     } catch (err) {
@@ -616,6 +802,212 @@ export class WikiService {
     }
   }
 
+  async addWebSource(id, data = {}) {
+    try {
+      return await this._withWikiMutation(
+        id,
+        () => this._addWebSourceUnlocked(id, data),
+        { expectedLifecycleVersion: data.expectedLifecycleVersion },
+      )
+    } catch (err) {
+      return { success: false, error: err.message }
+    }
+  }
+
+  async registerWebImportDocument(id, document, context = {}) {
+    try {
+      return await this._withWikiMutation(
+        id,
+        () => this._registerWebImportDocumentUnlocked(id, document, context),
+        { expectedLifecycleVersion: context.expectedLifecycleVersion },
+      )
+    } catch (err) {
+      return { success: false, error: err.message }
+    }
+  }
+
+  async _registerWebImportDocumentUnlocked(id, document = {}, context = {}) {
+    const markdown = String(document.content?.markdown || '').trim()
+    if (!markdown) throw new Error('Web import document is empty')
+    const requestedUrl = String(context.requestedUrl || document.requestedUrl || '').trim()
+    const finalUrl = String(document.finalUrl || requestedUrl).trim()
+    const title = safeTitle(document.title || new URL(finalUrl).hostname) || 'Web Source'
+    const contentHash = `sha256:${crypto.createHash('sha256').update(markdown).digest('hex')}`
+    const sourceId = webSourceId(finalUrl)
+    const registry = await this._loadSources(id)
+    const existing = registry.sources.find(source => source.original_uri === finalUrl || source.id === sourceId)
+    if (existing && existing.content_hash === contentHash) return { success: true, data: existing, duplicate: true }
+
+    const createdAt = existing?.created_at || nowIso()
+    const relPath = `sources/web/${sourceId}.md`
+    const source = existing || { id: sourceId, created_at: createdAt }
+    const retrievedAt = document.fetchedAt || nowIso()
+    Object.assign(source, {
+      type: 'web',
+      title,
+      original_uri: finalUrl,
+      original_path: '',
+      content_hash: contentHash,
+      status: 'ingested',
+      size: Buffer.byteLength(markdown, 'utf-8'),
+      extract_path: relPath,
+      parser_status: 'complete',
+      parser_message: '',
+      meta: {
+        ...(source.meta || {}),
+        web: {
+          query: String(context.query || '').slice(0, 500),
+          provider: String(document.provider || context.provider || ''),
+          requested_url: requestedUrl,
+          final_url: finalUrl,
+          content_type: 'text/markdown',
+          retrieved_at: retrievedAt,
+          request_id: String(document.metadata?.requestId || ''),
+          usage: document.metadata?.usage || null,
+        },
+      },
+      updated_at: nowIso(),
+    })
+
+    const absPath = path.join(this._wikiDir(id), relPath)
+    await fs.promises.mkdir(path.dirname(absPath), { recursive: true })
+    await fs.promises.writeFile(absPath, [
+      '---',
+      `source_id: ${source.id}`,
+      'source_type: web',
+      `title: ${JSON.stringify(title)}`,
+      `url: ${JSON.stringify(source.original_uri)}`,
+      `requested_url: ${JSON.stringify(requestedUrl)}`,
+      `retrieved_at: ${retrievedAt}`,
+      `provider: ${JSON.stringify(source.meta.web.provider)}`,
+      `content_hash: ${JSON.stringify(contentHash)}`,
+      '---',
+      '',
+      markdown,
+      '',
+    ].join('\n'), 'utf-8')
+    if (!existing) registry.sources.push(source)
+    await this._saveSources(id, registry)
+    await this._refreshWikiSourceCount(id)
+    await this._appendLog(id, `web_source | ${source.id} | ${source.original_uri}`)
+    await this._appendJob(id, {
+      id: `job_${Date.now().toString(36)}_web_source`,
+      type: 'source_ingest',
+      name: `Register ${title}`,
+      source_id: source.id,
+      status: 'completed',
+      progress: 100,
+      message: source.original_uri,
+      meta: { provider: source.meta.web.provider, requested_url: requestedUrl },
+      created_at: createdAt,
+      updated_at: nowIso(),
+    })
+    if (context.enqueueMaintenance !== false) {
+      await this._ensureSourceSummaryFallbacks(id, { unlocked: true })
+      this._enqueueAgentMaintenance(id, 'web_source_ingested')
+    }
+    return { success: true, data: source, duplicate: false }
+  }
+
+  async _addWebSourceUnlocked(id, data = {}) {
+    try {
+      const settings = this.getWebResearchSettings(id)
+      if (!settings.enabled) throw new Error('Wiki web research is disabled')
+      const url = String(data.url || '').trim()
+      const { response, finalUrl } = await fetchPublicWikiWebSource(url, {
+        signal: AbortSignal.timeout(30000),
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (compatible; RevivaWiki/1.0; +local-knowledge-research)',
+          Accept: 'text/html,text/plain,application/xhtml+xml,application/json;q=0.8,*/*;q=0.5',
+        },
+      })
+      if (!response.ok) throw new Error(`Web source fetch failed: HTTP ${response.status}`)
+      const contentLength = Number(response.headers.get('content-length') || 0)
+      if (contentLength > 5 * 1024 * 1024) throw new Error('Web source is larger than the 5 MB fetch limit')
+      const raw = (await readWikiWebResponseText(response, { maxBytes: 5 * 1024 * 1024 })).slice(0, 2_000_000)
+      const contentType = response.headers.get('content-type') || ''
+      const htmlTitle = raw.match(/<title\b[^>]*>([\s\S]*?)<\/title>/i)?.[1]?.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim() || ''
+      const title = safeTitle(data.title || htmlTitle || new URL(finalUrl).hostname) || 'Web Source'
+      const markdown = /html|xhtml/i.test(contentType) || /<html\b/i.test(raw)
+        ? htmlToWikiMarkdown(raw, title)
+        : `# ${title}\n\n${raw.trim()}`
+      const contentHash = `sha256:${crypto.createHash('sha256').update(markdown).digest('hex')}`
+      const sourceId = webSourceId(finalUrl)
+      const registry = await this._loadSources(id)
+      const existing = registry.sources.find(source => source.original_uri === finalUrl || source.id === sourceId)
+      if (existing && existing.content_hash === contentHash) return { success: true, data: existing, duplicate: true }
+
+      const createdAt = existing?.created_at || nowIso()
+      const relPath = `sources/web/${sourceId}.md`
+      const source = existing || { id: sourceId, created_at: createdAt }
+      Object.assign(source, {
+        type: 'web',
+        title,
+        original_uri: finalUrl,
+        original_path: '',
+        content_hash: contentHash,
+        status: 'ingested',
+        size: Buffer.byteLength(markdown, 'utf-8'),
+        extract_path: relPath,
+        parser_status: 'complete',
+        parser_message: '',
+        meta: {
+          ...(source.meta || {}),
+          web: {
+            query: String(data.query || '').slice(0, 500),
+            provider: String(data.provider || ''),
+            requested_url: url,
+            final_url: finalUrl,
+            content_type: contentType,
+            retrieved_at: nowIso(),
+          },
+        },
+        updated_at: nowIso(),
+      })
+
+      const absPath = path.join(this._wikiDir(id), relPath)
+      await fs.promises.mkdir(path.dirname(absPath), { recursive: true })
+      await fs.promises.writeFile(absPath, [
+        '---',
+        `source_id: ${source.id}`,
+        'source_type: web',
+        `title: ${JSON.stringify(title)}`,
+        `url: ${JSON.stringify(source.original_uri)}`,
+        `retrieved_at: ${source.meta.web.retrieved_at}`,
+        `provider: ${JSON.stringify(source.meta.web.provider)}`,
+        `query: ${JSON.stringify(source.meta.web.query)}`,
+        `content_hash: ${JSON.stringify(contentHash)}`,
+        '---',
+        '',
+        markdown,
+        '',
+      ].join('\n'), 'utf-8')
+      if (!existing) registry.sources.push(source)
+      await this._saveSources(id, registry)
+      await this._refreshWikiSourceCount(id)
+      await this._appendLog(id, `web_source | ${source.id} | ${source.original_uri}`)
+      await this._appendJob(id, {
+        id: `job_${Date.now().toString(36)}_web_source`,
+        type: 'source_ingest',
+        name: `Register ${title}`,
+        source_id: source.id,
+        status: 'completed',
+        progress: 100,
+        message: source.original_uri,
+        meta: { provider: source.meta.web.provider, query: source.meta.web.query },
+        created_at: createdAt,
+        updated_at: nowIso(),
+      })
+      if (data.enqueueMaintenance !== false) {
+        await this._ensureSourceSummaryFallbacks(id, { unlocked: true })
+        this._enqueueAgentMaintenance(id, 'web_source_ingested')
+      }
+      return { success: true, data: source }
+    } catch (err) {
+      return { success: false, error: err.message }
+    }
+  }
+
   async createWiki(data = {}) {
     try {
       await this._ensureRoot()
@@ -623,6 +1015,8 @@ export class WikiService {
       const id = await this._uniqueId(data.id || title)
       const createdAt = nowIso()
       const dir = this._wikiDir(id)
+      this._clearWikiRuntimeCaches(id)
+      this._bumpWikiLifecycle(id)
 
       const dirs = [
         dir,
@@ -643,6 +1037,8 @@ export class WikiService {
         path.join(dir, '.cache'),
         path.join(dir, '.cache', 'agent'),
         path.join(dir, '.cache', 'ocr'),
+        path.join(dir, '.cache', 'lint'),
+        path.join(dir, '.cache', 'search'),
       ]
       for (const targetDir of dirs) await fs.promises.mkdir(targetDir, { recursive: true })
 
@@ -660,6 +1056,14 @@ export class WikiService {
           mode: 'supervised',
           status: 'idle',
           default_write_policy: 'direct',
+          auto_maintain: true,
+          web_research: { mode: 'inherit' },
+          semantic_audit: {
+            enabled: false,
+            trigger: 'manual',
+            auto_fix: false,
+            model_ref: '',
+          },
         },
         created_at: createdAt,
         updated_at: createdAt,
@@ -668,12 +1072,14 @@ export class WikiService {
       await writeJson(path.join(dir, 'wiki.json'), meta)
       await writeJson(path.join(dir, 'sources', 'registry.json'), { version: 1, sources: [] })
       await writeJson(path.join(dir, 'assets', 'registry.json'), { version: 1, assets: [] })
+      await writeJson(path.join(dir, 'pages', 'registry.json'), { version: 1, pages: {} })
       await writeJson(path.join(dir, '.cache', 'jobs.json'), { version: 1, jobs: [] })
 
       await fs.promises.writeFile(path.join(dir, 'schema.md'), this._schemaTemplate(title), 'utf-8')
       await fs.promises.writeFile(path.join(dir, 'index.md'), this._indexTemplate(title), 'utf-8')
       await fs.promises.writeFile(path.join(dir, 'overview.md'), this._overviewTemplate(title), 'utf-8')
       await fs.promises.writeFile(path.join(dir, 'log.md'), `# ${title} Log\n\n- ${createdAt}: Wiki created.\n`, 'utf-8')
+      await this._ensurePageMetadata(id)
 
       const registry = await this._loadRegistry()
       registry.wikis.push({
@@ -699,9 +1105,14 @@ export class WikiService {
   }
 
   async deleteWiki(id) {
+    let safeId = ''
+    let runtimeKey = ''
     try {
       if (!id) throw new Error('Wiki id is required')
-      const safeId = safeSegment(id)
+      safeId = safeSegment(id)
+      runtimeKey = this._wikiRuntimeKey(safeId)
+      if (this._deletingWikis.has(runtimeKey)) throw new Error('Wiki is already being deleted')
+      if (!fs.existsSync(path.join(this._wikiDir(safeId), 'wiki.json'))) throw new Error('Wiki not found')
       const dir = this._wikiDir(safeId)
       const target = path.resolve(dir)
       const allowedRoots = [this._rootPath(), this._legacyRootPath()].filter(Boolean).map(item => path.resolve(item).toLowerCase())
@@ -710,10 +1121,14 @@ export class WikiService {
       if (!allowed) {
         throw new Error('Wiki path is outside workspace wikis directory')
       }
+      this._deletingWikis.add(runtimeKey)
+      this._bumpWikiLifecycle(safeId)
 
       this._parseQueue = this._parseQueue.filter(task => task.wikiId !== safeId)
       this._ocrQueue = this._ocrQueue.filter(task => task.wikiId !== safeId)
       this._agentQueue = this._agentQueue.filter(task => task.wikiId !== safeId)
+      await this._waitForWikiMutations(safeId)
+      await this._waitForActiveWikiOperations(safeId)
 
       const registry = await this._loadRegistry()
       registry.wikis = (registry.wikis || []).filter(item => item.id !== safeId)
@@ -724,15 +1139,19 @@ export class WikiService {
         await fs.promises.rm(target, { recursive: true, force: true })
       }
       this._db?.deleteWiki?.(safeId)
+      this._clearWikiRuntimeCaches(safeId, dir)
       return { success: true, data: { id: safeId } }
     } catch (err) {
       return { success: false, error: err.message }
+    } finally {
+      if (runtimeKey) this._deletingWikis.delete(runtimeKey)
     }
   }
 
   async listPages(id) {
     try {
       const dir = this._wikiDir(id)
+      await this._ensurePageMetadata(id)
       const pageRoots = ['index.md', 'overview.md']
       const pages = []
       for (const fileName of pageRoots) {
@@ -743,6 +1162,15 @@ export class WikiService {
         }
       }
       await this._walkMarkdown(path.join(dir, 'pages'), 'pages', pages, new Set(['pages/index.md']))
+      const pageRegistry = await this._pageRegistryService(id).load()
+      for (const page of pages) {
+        const record = pageRegistry.pages?.[page.path]
+        if (!record) continue
+        page.title = record.title || page.title
+        page.page_type = record.type || ''
+        page.status = record.status || 'active'
+        page.source_ids = Array.isArray(record.source_ids) ? record.source_ids : []
+      }
       await this._refreshWikiPageCount(id, pages.length)
       return { success: true, data: pages }
     } catch (err) {
@@ -775,20 +1203,47 @@ export class WikiService {
 
   async writePage(id, data = {}) {
     try {
+      return await this._withWikiMutation(
+        id,
+        () => this._writePageUnlocked(id, data),
+        { expectedLifecycleVersion: data.expectedLifecycleVersion },
+      )
+    } catch (err) {
+      return { success: false, error: err.message }
+    }
+  }
+
+  async _writePageUnlocked(id, data = {}) {
+    try {
       const dir = this._wikiDir(id)
       const title = safeTitle(data.title || '')
       const relPath = this._resolveWritablePagePath(data.pagePath || data.path, title || 'wiki-page')
       const absPath = path.join(dir, relPath)
       const createdAt = nowIso()
-      const content = this._normalizePageContent({
+      const existingContent = await fs.promises.readFile(absPath, 'utf-8').catch(() => '')
+      const sourceIds = Array.isArray(data.sourceIds) ? [...new Set(data.sourceIds.map(String).filter(Boolean))] : null
+      if (sourceIds) {
+        const registry = await this._loadSources(id)
+        const validSourceIds = new Set((registry.sources || []).map(source => String(source.id || '')).filter(Boolean))
+        const invalid = sourceIds.filter(sourceId => !validSourceIds.has(sourceId))
+        if (invalid.length) throw new Error(`Wiki page references unknown source ids: ${invalid.join(', ')}`)
+      }
+      let normalized = normalizeWikiPageContent({
         relPath,
         title,
         content: data.content,
+        sourceIds,
+        status: data.status,
+        requireSourceEvidence: !!data.agentWrite,
+        existingContent,
+        now: createdAt,
       })
+      let content = this._normalizeMarkdownAssetImageRefs(normalized.content, relPath)
 
       await this._snapshotPage(dir, relPath, data.reason || 'wiki_write')
       await fs.promises.mkdir(path.dirname(absPath), { recursive: true })
       await fs.promises.writeFile(absPath, content, 'utf-8')
+      await this._pageRegistryService(id).upsert(relPath, normalized.metadata, content)
       await this._appendLog(id, `write | ${relPath} | ${safeTitle(data.reason || title || 'WikiAgent update')}`)
       await this._appendJob(id, {
         id: `job_${Date.now().toString(36)}_wiki_write`,
@@ -806,7 +1261,35 @@ export class WikiService {
       })
       await this._touchWiki(id)
       await this.listPages(id)
-      return { success: true, data: { path: relPath, title: title || path.basename(relPath, '.md') } }
+      let lint = await this.runLint(id, { reason: `write_page:${relPath}` })
+      const pageLintErrors = data.agentWrite && lint.success
+        ? (lint.data?.issues || []).filter(item => item.severity === 'error' && item.page_path === relPath)
+        : []
+      if (pageLintErrors.length && normalized.metadata.status !== 'review_required') {
+        normalized = normalizeWikiPageContent({
+          relPath,
+          title: normalized.metadata.title,
+          content,
+          sourceIds: normalized.metadata.source_ids,
+          status: 'review_required',
+          existingContent: content,
+          now: nowIso(),
+        })
+        content = this._normalizeMarkdownAssetImageRefs(normalized.content, relPath)
+        await fs.promises.writeFile(absPath, content, 'utf-8')
+        await this._pageRegistryService(id).upsert(relPath, normalized.metadata, content)
+        await this._appendLog(id, `review_required | ${relPath} | deterministic lint error`)
+        lint = await this.runLint(id, { reason: `write_page_review_required:${relPath}` })
+      }
+      return {
+        success: true,
+        data: {
+          path: relPath,
+          title: normalized.metadata.title,
+          metadata: normalized.metadata,
+          lint: lint.success ? lint.data?.summary : null,
+        },
+      }
     } catch (err) {
       return { success: false, error: err.message }
     }
@@ -834,8 +1317,11 @@ export class WikiService {
     const wikiId = req.wikiId || req.id
     const createdAt = nowIso()
     const runId = req.runId || `wiki_run_${Date.now().toString(36)}_${safeSegment(wikiId || 'wiki', 'wiki')}`
+    let lifecycleVersion = req.lifecycleVersion
     try {
       if (!wikiId) throw new Error('wikiId is required')
+      if (lifecycleVersion === undefined || lifecycleVersion === null) lifecycleVersion = this.getWikiLifecycleVersion(wikiId)
+      if (!this._isWikiLifecycleCurrent(wikiId, lifecycleVersion)) throw new Error('Wiki not found or lifecycle changed')
       const modelConfig = hasModelRunConfig(req)
         ? {
             providerId: req.providerId,
@@ -843,13 +1329,14 @@ export class WikiService {
             apiKey: req.apiKey,
             baseUrl: req.baseUrl || '',
             model: req.model,
+            modelHasVision: req.modelHasVision === true || this._modelHasVision(req.providerId, req.model),
             pricing: req.pricing || this._modelPricing(req.providerId, req.model),
             runId,
           }
         : this._resolveWikiAgentModelConfig(wikiId, runId)
 
       if (wikiId) {
-        await this._setWikiAgentStatus(wikiId, 'running')
+        await this._setWikiAgentStatus(wikiId, 'running', lifecycleVersion)
         await this._appendJob(wikiId, {
           id: `job_${Date.now().toString(36)}_wiki_agent`,
           type: 'wiki_agent',
@@ -870,18 +1357,33 @@ export class WikiService {
         ...modelConfig,
         wikiId,
         runId,
+        lifecycleVersion,
       })
+      if (!this._isWikiLifecycleCurrent(wikiId, lifecycleVersion)) {
+        return { success: false, error: 'Wiki was deleted or recreated while maintenance was running' }
+      }
       if (wikiId && result.success) {
-        const fallbackSummaries = await this._ensureSourceSummaryFallbacks(wikiId)
+        const fallbackSummaries = await this._ensureSourceSummaryFallbacks(wikiId, { expectedLifecycleVersion: lifecycleVersion })
+        const lintResult = await this.runLint(wikiId, { reason: 'agent_maintenance_completed' })
+        const wikiState = await this.getWiki(wikiId)
+        const auditConfig = this._normalizeAgentConfig(wikiState.data?.agent || {}).semantic_audit
+        const semanticAudit = auditConfig.enabled && auditConfig.trigger === 'after_maintenance'
+          ? await this.runSemanticAudit(wikiId, { reason: 'after_maintenance', lifecycleVersion })
+          : null
         if (fallbackSummaries.length) {
           result.data = {
             ...(result.data || {}),
             fallbackSummaries,
           }
         }
+        result.data = {
+          ...(result.data || {}),
+          lint: lintResult.success ? lintResult.data : null,
+          semanticAudit: semanticAudit?.success ? semanticAudit.data : null,
+        }
       }
-      if (wikiId) {
-        await this._setWikiAgentStatus(wikiId, result.success ? 'idle' : 'failed')
+      if (wikiId && this._isWikiLifecycleCurrent(wikiId, lifecycleVersion)) {
+        await this._setWikiAgentStatus(wikiId, result.success ? 'idle' : 'failed', lifecycleVersion)
         await this._appendJob(wikiId, {
           id: `job_${Date.now().toString(36)}_wiki_agent_done`,
           type: 'wiki_agent',
@@ -903,8 +1405,8 @@ export class WikiService {
       }
       return result
     } catch (err) {
-      if (wikiId) {
-        await this._setWikiAgentStatus(wikiId, 'failed').catch(() => {})
+      if (wikiId && this._isWikiLifecycleCurrent(wikiId, lifecycleVersion)) {
+        await this._setWikiAgentStatus(wikiId, 'failed', lifecycleVersion).catch(() => {})
         await this._appendJob(wikiId, {
           id: `job_${Date.now().toString(36)}_wiki_agent_failed`,
           type: 'wiki_agent',
@@ -942,6 +1444,24 @@ export class WikiService {
       }
       if (patch.model_ref !== undefined) nextAgent.model_ref = String(patch.model_ref || '')
       if (patch.instruction !== undefined) nextAgent.instruction = String(patch.instruction || '').trim().slice(0, 2000)
+      if (patch.auto_maintain !== undefined) nextAgent.auto_maintain = !!patch.auto_maintain
+      if (patch.web_research !== undefined) {
+        const web = patch.web_research && typeof patch.web_research === 'object' ? patch.web_research : {}
+        nextAgent.web_research = {
+          ...(nextAgent.web_research || {}),
+          mode: ['inherit', 'enabled', 'disabled'].includes(web.mode) ? web.mode : 'inherit',
+        }
+      }
+      if (patch.semantic_audit !== undefined) {
+        const audit = patch.semantic_audit && typeof patch.semantic_audit === 'object' ? patch.semantic_audit : {}
+        nextAgent.semantic_audit = {
+          ...(nextAgent.semantic_audit || {}),
+          enabled: !!audit.enabled,
+          trigger: ['manual', 'after_maintenance'].includes(audit.trigger) ? audit.trigger : 'manual',
+          auto_fix: false,
+          model_ref: String(audit.model_ref || ''),
+        }
+      }
 
       meta.agent = nextAgent
       meta.updated_at = nowIso()
@@ -1031,6 +1551,8 @@ export class WikiService {
         content: req.content,
         reason: req.reason,
         sourceIds: req.sourceIds || req.source_ids,
+        agentWrite: !!req.agentWrite,
+        expectedLifecycleVersion: req.expectedLifecycleVersion,
       })
       if (action === 'append_log') {
         await this._appendLog(wikiId, `note | ${safeTitle(req.message || req.content || '')}`)
@@ -1367,53 +1889,57 @@ export class WikiService {
       const query = String(options.query || '').trim()
       if (!query) return { success: true, data: [] }
       const limit = Math.min(Math.max(Number(options.limit || 10), 1), 50)
-      const terms = query.toLowerCase().split(/\s+/).filter(Boolean)
       const scope = String(options.scope || 'all').toLowerCase()
-      const results = []
-
-      if (scope === 'all' || scope === 'pages' || scope === 'wiki') {
-        const pagesResult = await this.listPages(id)
-        for (const page of pagesResult.data || []) {
-          const read = await this.readPage(id, page.path)
-          if (!read.success) continue
-          const haystack = `${page.path}\n${read.data.content}`.toLowerCase()
-          const score = terms.reduce((sum, term) => sum + (haystack.includes(term) ? 1 : 0), 0)
-          if (!score) continue
-          results.push({
-            kind: 'page',
-            path: page.path,
-            title: page.title,
-            score,
-            snippet: this._snippet(read.data.content, terms),
-          })
-        }
+      const sources = (await this.listSources(id)).data || []
+      try {
+        const results = await this._searchService(id).search({ query, scope, limit, sources })
+        return { success: true, data: results, meta: { backend: 'bm25' } }
+      } catch (searchErr) {
+        console.warn('[WikiService] BM25 search failed, using text fallback:', searchErr.message)
+        const fallback = await this._legacySearchWiki(id, { query, scope, limit, sources })
+        return { success: true, data: fallback, meta: { backend: 'text_fallback', warning: searchErr.message } }
       }
-
-      if (scope === 'all' || scope === 'sources' || scope === 'source') {
-        const sources = (await this.listSources(id)).data || []
-        for (const source of sources) {
-          const read = await this.readSource(id, source.id)
-          const content = read.success ? read.data.content : ''
-          const haystack = `${source.title}\n${source.original_uri}\n${content}`.toLowerCase()
-          const score = terms.reduce((sum, term) => sum + (haystack.includes(term) ? 1 : 0), 0)
-          if (!score) continue
-          results.push({
-            kind: 'source',
-            source_id: source.id,
-            path: source.extract_path || source.original_uri || source.original_path,
-            title: source.title,
-            parser_status: source.parser_status,
-            score,
-            snippet: this._snippet(content || source.parser_message || '', terms),
-          })
-        }
-      }
-
-      results.sort((a, b) => b.score - a.score || String(a.title).localeCompare(String(b.title)))
-      return { success: true, data: results.slice(0, limit) }
     } catch (err) {
       return { success: false, error: err.message, data: [] }
     }
+  }
+
+  async _legacySearchWiki(id, { query, scope = 'all', limit = 10, sources = [] } = {}) {
+    const terms = this._queryTerms(query)
+    const results = []
+    if (scope === 'all' || scope === 'pages' || scope === 'wiki') {
+      const pagesResult = await this.listPages(id)
+      for (const page of pagesResult.data || []) {
+        const read = await this.readPage(id, page.path)
+        if (!read.success) continue
+        const haystack = `${page.path}\n${read.data.content}`.toLowerCase()
+        const score = terms.reduce((sum, term) => sum + (haystack.includes(term) ? 1 : 0), 0)
+        if (!score) continue
+        results.push({ kind: 'page', path: page.path, title: page.title, score, snippet: this._snippet(read.data.content, terms), search_backend: 'text_fallback' })
+      }
+    }
+    if (scope === 'all' || scope === 'sources' || scope === 'source') {
+      for (const source of sources) {
+        const read = await this.readSource(id, source.id)
+        const content = read.success ? read.data.content : ''
+        const haystack = `${source.title}\n${source.original_uri}\n${content}`.toLowerCase()
+        const score = terms.reduce((sum, term) => sum + (haystack.includes(term) ? 1 : 0), 0)
+        if (!score) continue
+        results.push({
+          kind: 'source',
+          source_id: source.id,
+          path: source.extract_path || source.original_uri || source.original_path,
+          title: source.title,
+          parser_status: source.parser_status,
+          score,
+          snippet: this._snippet(content || source.parser_message || '', terms),
+          search_backend: 'text_fallback',
+        })
+      }
+    }
+    return results
+      .sort((a, b) => b.score - a.score || String(a.title).localeCompare(String(b.title)))
+      .slice(0, limit)
   }
 
   async _searchWikiAssets(id, query, limit = 10) {
@@ -1657,6 +2183,136 @@ export class WikiService {
     }
   }
 
+  async runLint(id, options = {}) {
+    try {
+      if (!id) throw new Error('Wiki id is required')
+      const sources = (await this.listSources(id)).data || []
+      const report = await this._lintService(id).run({
+        sources,
+        reason: options.reason || 'manual',
+      })
+      return { success: true, data: report }
+    } catch (err) {
+      return { success: false, error: err.message, data: null }
+    }
+  }
+
+  async getLintReport(id) {
+    try {
+      if (!id) throw new Error('Wiki id is required')
+      return { success: true, data: await this._lintService(id).latest() }
+    } catch (err) {
+      return { success: false, error: err.message, data: null }
+    }
+  }
+
+  async runSemanticAudit(id, options = {}) {
+    const createdAt = nowIso()
+    const runId = options.runId || `wiki_audit_${Date.now().toString(36)}_${safeSegment(id || 'wiki', 'wiki')}`
+    let lifecycleVersion = options.lifecycleVersion
+    try {
+      if (!id) throw new Error('Wiki id is required')
+      if (lifecycleVersion === undefined || lifecycleVersion === null) lifecycleVersion = this.getWikiLifecycleVersion(id)
+      if (!this._isWikiLifecycleCurrent(id, lifecycleVersion)) throw new Error('Wiki not found or lifecycle changed')
+      const wikiResult = await this.getWiki(id)
+      if (!wikiResult.success) throw new Error(wikiResult.error || 'Wiki not found')
+      const agent = this._normalizeAgentConfig(wikiResult.data?.agent || {})
+      if (!agent.semantic_audit?.enabled) throw new Error('AI semantic audit is disabled for this Wiki')
+      if (!this._agentService?._createModel) throw new Error('Agent model factory is not available')
+      const modelConfig = this._resolveWikiAgentModelConfig(id, runId, agent.semantic_audit.model_ref || '')
+      const model = this._agentService._createModel(
+        modelConfig.providerId,
+        modelConfig.apiKey,
+        modelConfig.baseUrl,
+        modelConfig.model,
+        { streaming: false, apiFormat: modelConfig.apiFormat },
+      )
+      const schema = await this.getWikiSchema(id)
+      const lintResult = await this.runLint(id, { reason: `semantic_audit:${options.reason || 'manual'}` })
+      const pages = (await this.listPages(id)).data || []
+      const sources = (await this.listSources(id)).data || []
+      await this._appendJob(id, {
+        id: `job_${Date.now().toString(36)}_semantic_audit`,
+        type: 'wiki_semantic_audit',
+        name: 'Run semantic audit',
+        status: 'running',
+        progress: 20,
+        message: options.reason || 'manual',
+        created_at: createdAt,
+        updated_at: nowIso(),
+      })
+      const result = await new WikiSemanticAuditService({ wikiDir: this._wikiDir(id) }).run({
+        model,
+        wiki: wikiResult.data,
+        schema,
+        lintReport: lintResult.data || {},
+        pages,
+        sources,
+        pricing: modelConfig.pricing || {},
+        canPersist: () => this._isWikiLifecycleCurrent(id, lifecycleVersion),
+      })
+      const usage = result.usage || {}
+      const hasUsage = ['inputTokens', 'outputTokens', 'cacheReadTokens', 'cacheWriteTokens', 'thinkingTokens']
+        .some(key => Number(usage[key] || 0) > 0)
+      if (hasUsage) {
+        this._agentService?._tokenRecorder?.record?.({
+          providerId: modelConfig.providerId,
+          modelId: modelConfig.model,
+          agentId: `wiki-semantic-audit:${id}`,
+          conversationId: '',
+          usage,
+          cost: result.cost || 0,
+          latencyMs: result.latency_ms || 0,
+          runId,
+          iteration: 1,
+        })
+      }
+      if (!this._isWikiLifecycleCurrent(id, lifecycleVersion)) {
+        return { success: false, error: 'Wiki was deleted or recreated while semantic audit was running' }
+      }
+      await this._appendJob(id, {
+        id: `job_${Date.now().toString(36)}_semantic_audit_done`,
+        type: 'wiki_semantic_audit',
+        name: 'Run semantic audit',
+        status: 'completed',
+        progress: 100,
+        message: 'Semantic audit completed (report only)',
+        meta: {
+          run_id: runId,
+          model_id: modelConfig.model,
+          provider_id: modelConfig.providerId,
+          latency_ms: result.latency_ms,
+          usage,
+          cost: result.cost || 0,
+        },
+        created_at: createdAt,
+        updated_at: nowIso(),
+      })
+      return { success: true, data: result }
+    } catch (err) {
+      if (id && this._isWikiLifecycleCurrent(id, lifecycleVersion)) await this._appendJob(id, {
+        id: `job_${Date.now().toString(36)}_semantic_audit_failed`,
+        type: 'wiki_semantic_audit',
+        name: 'Run semantic audit',
+        status: 'failed',
+        progress: 100,
+        message: err.message || 'Semantic audit failed',
+        created_at: createdAt,
+        updated_at: nowIso(),
+      }).catch(() => {})
+      return { success: false, error: err.message }
+    }
+  }
+
+  async getSemanticAudit(id) {
+    try {
+      if (!id) throw new Error('Wiki id is required')
+      return { success: true, data: await new WikiSemanticAuditService({ wikiDir: this._wikiDir(id) }).latest() }
+    } catch (err) {
+      return { success: false, error: err.message, data: null }
+    }
+  }
+
   async listOcrProviders() {
     try {
       return { success: true, data: this._db?.listOcrProviders?.() || [] }
@@ -1736,6 +2392,24 @@ export class WikiService {
     })
   }
 
+  async recordAssetVision(id, assetPath, result = {}) {
+    const normalizedPath = normalizeWikiAssetPath(assetPath)
+    if (!normalizedPath.startsWith('assets/images/')) return false
+    const registryPath = path.join(this._wikiDir(id), 'assets', 'registry.json')
+    const registry = await readJson(registryPath, { version: 1, assets: [] })
+    const asset = (registry.assets || []).find(item => normalizeWikiAssetPath(item.path) === normalizedPath)
+    if (!asset) return false
+    asset.vision = {
+      status: result.success ? 'complete' : 'failed',
+      summary: result.success ? String(result.content || '').trim() : '',
+      model: String(result.model || ''),
+      updated_at: nowIso(),
+      error: result.success ? '' : String(result.message || result.error || ''),
+    }
+    await writeJson(registryPath, { version: registry.version || 1, assets: registry.assets || [] })
+    return true
+  }
+
   _normalizeMarkdownImageTarget(rawTarget, relPath) {
     const text = String(rawTarget || '').trim()
     if (!text) return ''
@@ -1784,10 +2458,12 @@ export class WikiService {
   }
 
   async _appendLog(id, message) {
+    if (!this._canPersistWiki(id)) return false
     const dir = this._wikiDir(id)
     const logPath = path.join(dir, 'log.md')
     await fs.promises.mkdir(path.dirname(logPath), { recursive: true })
     await fs.promises.appendFile(logPath, `- ${nowIso()}: ${String(message || '').replace(/\r?\n/g, ' ').trim()}\n`, 'utf-8')
+    return true
   }
 
   _snippet(content, terms) {
@@ -1854,6 +2530,7 @@ export class WikiService {
 
   _enqueueParseTask(task) {
     if (!task?.wikiId || !task?.sourceId) return
+    if (!this._canPersistWiki(task.wikiId)) return
     const exists = this._parseQueue.some(item => item.wikiId === task.wikiId && item.sourceId === task.sourceId)
     if (!exists) this._parseQueue.push(task)
     this._drainParseQueue()
@@ -1865,7 +2542,7 @@ export class WikiService {
     try {
       while (this._parseQueue.length) {
         const task = this._parseQueue.shift()
-        await this._executeParseTask(task)
+        await this._trackWikiOperation(task.wikiId, () => this._executeParseTask(task))
       }
     } finally {
       this._parseQueueRunning = false
@@ -1875,6 +2552,7 @@ export class WikiService {
   async _executeParseTask(task) {
     const { wikiId, sourceId } = task || {}
     if (!wikiId || !sourceId) return
+    if (!this._canPersistWiki(wikiId)) return
     const registry = await this._loadSources(wikiId)
     const source = registry.sources.find(src => src.id === sourceId)
     if (!source) return
@@ -1887,6 +2565,7 @@ export class WikiService {
 
   _enqueueOcrTask(task) {
     if (!task?.wikiId || !task?.sourceId) return
+    if (!this._canPersistWiki(task.wikiId)) return
     const exists = this._ocrQueue.some(item => item.wikiId === task.wikiId && item.sourceId === task.sourceId)
     if (!exists) this._ocrQueue.push(task)
     this._drainOcrQueue()
@@ -1898,7 +2577,7 @@ export class WikiService {
     try {
       while (this._ocrQueue.length) {
         const task = this._ocrQueue.shift()
-        await this._executeOcrTask(task)
+        await this._trackWikiOperation(task.wikiId, () => this._executeOcrTask(task))
       }
     } finally {
       this._ocrQueueRunning = false
@@ -1906,6 +2585,7 @@ export class WikiService {
   }
 
   async _executeOcrTask({ wikiId, sourceId, providerId = '' }) {
+    if (!this._canPersistWiki(wikiId)) return
     const wikiDir = this._wikiDir(wikiId)
     const registry = await this._loadSources(wikiId)
     const source = registry.sources.find(src => src.id === sourceId)
@@ -2109,6 +2789,36 @@ export class WikiService {
   async _removeSourceKnowledgePages(id, source, remainingSources = []) {
     const sourceId = source?.id || ''
     if (!sourceId) return []
+    await this._ensurePageMetadata(id)
+    const pageRegistry = this._pageRegistryService(id)
+    const linkedRecords = await pageRegistry.recordsForSource(sourceId)
+    if (linkedRecords.length) {
+      const removed = []
+      for (const record of linkedRecords) {
+        const pagePath = String(record.pagePath || '')
+        if (!pagePath.startsWith('pages/')) continue
+        if (record.type === 'summary') {
+          await this._snapshotPage(this._wikiDir(id), pagePath, 'source_page_removed').catch(() => {})
+          await this._removeWikiPath(id, pagePath)
+          await pageRegistry.remove(pagePath)
+          removed.push(pagePath)
+          continue
+        }
+        const read = await this.readPage(id, pagePath)
+        if (!read.success) continue
+        const remainingSourceIds = (record.source_ids || []).filter(item => item !== sourceId)
+        await this._writePageUnlocked(id, {
+          pagePath,
+          title: record.title || '',
+          content: read.data.content || '',
+          sourceIds: remainingSourceIds,
+          status: remainingSourceIds.length ? 'stale' : 'unsupported',
+          reason: remainingSourceIds.length ? 'source_removed_page_stale' : 'source_removed_page_unsupported',
+        })
+      }
+      return removed
+    }
+
     const pagesResult = await this.listPages(id)
     const generatedPages = (pagesResult.data || [])
       .filter(page => String(page.path || '').startsWith('pages/'))
@@ -2270,11 +2980,7 @@ export class WikiService {
     if (!meta || typeof meta !== 'object') return meta
     const agent = this._normalizeAgentConfig(meta.agent || {})
     let changed = false
-    if (agent.default_write_policy !== 'direct') {
-      agent.default_write_policy = 'direct'
-      changed = true
-    }
-    if (!meta.agent || meta.agent.default_write_policy !== agent.default_write_policy) {
+    if (!meta.agent || JSON.stringify(meta.agent) !== JSON.stringify(agent)) {
       meta.agent = agent
       changed = true
     }
@@ -2301,6 +3007,13 @@ export class WikiService {
     } : {}
   }
 
+  _modelHasVision(providerId, modelId) {
+    const providers = this._db?.getSetting?.('providers') || []
+    const provider = Array.isArray(providers) ? providers.find(item => item.id === providerId) : null
+    const model = provider?.models?.find(item => item.id === modelId)
+    return !!model?.capabilities?.vision
+  }
+
   _defaultOcrProviderId() {
     const providers = this._db?.listOcrProviders?.() || []
     const provider = providers.find(item =>
@@ -2312,7 +3025,7 @@ export class WikiService {
     return provider?.id || ''
   }
 
-  _resolveWikiAgentModelConfig(id, runId = '') {
+  _resolveWikiAgentModelConfig(id, runId = '', overrideRef = '') {
     const providers = this._db?.getSetting?.('providers') || []
     const defaultModels = this._db?.getSetting?.('defaultModels') || {}
     if (!Array.isArray(providers) || !providers.length) {
@@ -2325,7 +3038,7 @@ export class WikiService {
       ...(meta?.agent || {}),
       ...(dbWiki?.agent_config || {}),
     }
-    const ref = agentConfig.model_ref || defaultModels.chat || defaultModels.agent || ''
+    const ref = overrideRef || agentConfig.model_ref || defaultModels.chat || defaultModels.agent || ''
     const parsed = parseModelRef(ref)
     if (!parsed.modelId) throw new Error('请先配置 WikiAgent 模型或全局聊天模型')
 
@@ -2345,6 +3058,7 @@ export class WikiService {
       apiKey: provider.apiKey,
       baseUrl: provider.baseUrl || '',
       model: model.id,
+      modelHasVision: !!model.capabilities?.vision,
       pricing: {
         costInput: Number(model.costInput) || 0,
         costOutput: Number(model.costOutput) || 0,
@@ -2357,6 +3071,7 @@ export class WikiService {
 
   _enqueueAgentMaintenance(wikiId, reason = 'source_changed') {
     if (!wikiId) return
+    if (!this._canPersistWiki(wikiId)) return
     const exists = this._agentQueue.some(item => item.wikiId === wikiId)
     if (!exists) this._agentQueue.push({ wikiId, reason })
     this._drainAgentQueue()
@@ -2378,15 +3093,16 @@ export class WikiService {
   async _executeAgentMaintenance({ wikiId, reason }) {
     try {
       const wiki = await this.getWiki(wikiId)
+      if (!wiki.success || !this._canPersistWiki(wikiId)) return
       const agent = this._normalizeAgentConfig(wiki.data?.agent || {})
-      if (agent.mode === 'disabled') {
+      if (agent.mode === 'disabled' || agent.auto_maintain === false) {
         await this._appendJob(wikiId, {
           id: `job_${Date.now().toString(36)}_wiki_agent_skipped`,
           type: 'wiki_agent',
           name: 'Run WikiAgent',
           status: 'skipped',
           progress: 0,
-          message: 'WikiAgent 已停用',
+          message: agent.mode === 'disabled' ? 'WikiAgent 已停用' : 'WikiAgent 自动维护已关闭',
           meta: { reason },
           created_at: nowIso(),
           updated_at: nowIso(),
@@ -2400,6 +3116,7 @@ export class WikiService {
         instruction: this._buildAgentMaintenanceInstruction(reason),
       })
     } catch (err) {
+      if (!this._canPersistWiki(wikiId)) return
       await this._appendJob(wikiId, {
         id: `job_${Date.now().toString(36)}_wiki_agent_skipped`,
         type: 'wiki_agent',
@@ -2423,9 +3140,10 @@ export class WikiService {
       'For each parser_status=complete source that is not yet represented, maintain at least one concise source summary page under pages/summaries/.',
       'If a summary page has frontmatter status: fallback, replace or upgrade it with a real human-readable summary instead of treating it as complete.',
       'Create pages/concepts entries only when the source contains durable reusable concepts, definitions, mechanisms, formulas, or domain terms.',
-      'Refresh index.md and overview.md as navigation pages when summaries, concepts, entities, questions, comparisons, or source coverage change.',
+      'You MUST refresh index.md and overview.md whenever summaries, concepts, entities, questions, comparisons, or source coverage change. A completed source upload always counts as a source coverage change.',
       'index.md must be a routing table with Markdown relative links and one-line descriptions so query agents can read it first and choose relevant pages without full-text search.',
       'Preserve human-readable source citations.',
+      'Handle images from every source format semantically, not by order. For each candidate image, first identify its visible meaning with wiki_vision_analyze when available; otherwise require a reliable original inline position, caption, or nearby source text found through its page, slide, sheet, or DOM location. Insert it only below the exact knowledge point it directly supports. Page, slide, sheet, DOM, file, and extraction order or filename alone are never sufficient evidence. Never dump images into a gallery or trailing image section. If confidence is low, omit the image.',
     ]
     if (text.startsWith('source_deleted:')) {
       const partsForDelete = text.split(':')
@@ -2440,7 +3158,14 @@ export class WikiService {
     return parts.join(' ')
   }
 
-  async _ensureSourceSummaryFallbacks(id) {
+  async _ensureSourceSummaryFallbacks(id, options = {}) {
+    const withLifecycle = data => ({
+      ...(data || {}),
+      ...(options.expectedLifecycleVersion === undefined ? {} : { expectedLifecycleVersion: options.expectedLifecycleVersion }),
+    })
+    const writePage = options.unlocked
+      ? (data => this._writePageUnlocked(id, withLifecycle(data)))
+      : (data => this.writePage(id, withLifecycle(data)))
     const registry = await this._loadSources(id)
     const sources = (registry.sources || []).filter(source =>
       source?.status === 'ingested' &&
@@ -2465,7 +3190,7 @@ export class WikiService {
       ].filter(Boolean).map(item => String(item).toLowerCase())
       const fallbackSummary = summaries.find(page => {
         const haystack = `${page.path}\n${page.content}`.toLowerCase()
-        return haystack.includes('status: fallback') &&
+        return (haystack.includes('status: fallback') || haystack.includes('fallback: true')) &&
           haystack.includes(`source_id: ${String(source.id || '').toLowerCase()}`)
       })
       if (fallbackSummary) {
@@ -2475,7 +3200,7 @@ export class WikiService {
         if (!hasCurrentHash) {
           const extractPreview = await this._readSourceExtractPreview(id, source, 3600)
           const content = this._fallbackSourceSummaryContent(source, extractPreview)
-          const written = await this.writePage(id, {
+          const written = await writePage({
             pagePath: fallbackSummary.path,
             title: `${source.title || source.id} Summary`,
             content,
@@ -2498,7 +3223,7 @@ export class WikiService {
       const pagePath = this._sourceSummaryPath(source)
       const extractPreview = await this._readSourceExtractPreview(id, source, 3600)
       const content = this._fallbackSourceSummaryContent(source, extractPreview)
-      const written = await this.writePage(id, {
+      const written = await writePage({
         pagePath,
         title: `${source.title || source.id} Summary`,
         content,
@@ -2510,7 +3235,63 @@ export class WikiService {
         created.push({ source_id: source.id, path: pagePath })
       }
     }
+    await this._refreshRootNavigationFallbacks(id, {
+      unlocked: !!options.unlocked,
+      expectedLifecycleVersion: options.expectedLifecycleVersion,
+    })
     return created
+  }
+
+  async _refreshRootNavigationFallbacks(id, options = {}) {
+    const pagesResult = await this.listPages(id)
+    const pages = (pagesResult.data || [])
+      .filter(page => String(page.path || '').startsWith('pages/'))
+      .sort((a, b) => String(a.title || a.path || '').localeCompare(String(b.title || b.path || ''), 'zh-CN'))
+    const sourcesRegistry = await this._loadSources(id)
+    const completeSources = (sourcesRegistry.sources || []).filter(source => source.status === 'ingested' && source.parser_status === 'complete')
+    const navigationLines = buildWikiNavigationLines(pages)
+    if (!navigationLines.length) return false
+    const withLifecycle = data => ({
+      ...data,
+      ...(options.expectedLifecycleVersion === undefined ? {} : { expectedLifecycleVersion: options.expectedLifecycleVersion }),
+    })
+    const writePage = options.unlocked
+      ? (data => this._writePageUnlocked(id, withLifecycle(data)))
+      : (data => this.writePage(id, withLifecycle(data)))
+    const wiki = await this.getWiki(id)
+    const wikiTitle = safeTitle(wiki.data?.name || 'Wiki')
+    const indexRead = await this.readPage(id, 'index.md')
+    const overviewRead = await this.readPage(id, 'overview.md')
+    const indexCurrent = indexRead.data?.content || this._indexTemplate(wikiTitle)
+    const overviewCurrent = overviewRead.data?.content || this._overviewTemplate(wikiTitle)
+    const indexContent = upsertWikiAutoNavigation(indexCurrent, {
+      heading: '知识导航',
+      navigationLines,
+    })
+    const overviewContent = upsertWikiAutoNavigation(overviewCurrent, {
+      heading: '知识覆盖',
+      intro: `当前已完成解析 ${completeSources.length} 个来源，共维护 ${pages.length} 个知识页面。`,
+      navigationLines,
+    })
+    const indexChanged = String(parseFrontmatter(indexCurrent).body || indexCurrent).trim() !== indexContent.trim()
+    const overviewChanged = String(parseFrontmatter(overviewCurrent).body || overviewCurrent).trim() !== overviewContent.trim()
+    const indexWritten = indexChanged
+      ? await writePage({
+          pagePath: 'index.md',
+          title: wikiTitle,
+          content: indexContent,
+          reason: 'sync_fallback_navigation',
+        })
+      : { success: true }
+    const overviewWritten = overviewChanged
+      ? await writePage({
+          pagePath: 'overview.md',
+          title: `${wikiTitle} Overview`,
+          content: overviewContent,
+          reason: 'sync_fallback_navigation',
+        })
+      : { success: true }
+    return !!(indexWritten.success && overviewWritten.success)
   }
 
   _sourceSummaryPath(source) {
@@ -2544,7 +3325,8 @@ export class WikiService {
       `source_title: ${JSON.stringify(title)}`,
       `source_uri: ${JSON.stringify(source.original_uri || '')}`,
       `source_hash: ${JSON.stringify(source.content_hash || '')}`,
-      'status: fallback',
+      'status: review_required',
+      'fallback: true',
       `updated_at: ${updatedAt}`,
       '---',
       '',
@@ -2582,11 +3364,14 @@ export class WikiService {
     return '`'.repeat(max + 1)
   }
 
-  async _setWikiAgentStatus(id, status) {
+  async _setWikiAgentStatus(id, status, expectedLifecycleVersion = undefined) {
+    if (!this._canPersistWiki(id)) return false
+    if (expectedLifecycleVersion !== undefined && !this._isWikiLifecycleCurrent(id, expectedLifecycleVersion)) return false
     const dir = this._wikiDir(id)
     const metaPath = path.join(dir, 'wiki.json')
     const meta = await readJson(metaPath, null)
-    if (!meta) return
+    if (!meta) return false
+    if (expectedLifecycleVersion !== undefined && !this._isWikiLifecycleCurrent(id, expectedLifecycleVersion)) return false
     meta.agent = this._normalizeAgentConfig({
       ...(meta.agent || {}),
       status: status || 'idle',
@@ -2605,14 +3390,29 @@ export class WikiService {
       item.updated_at = meta.updated_at
       await this._saveRegistry(registry)
     }
+    return true
   }
 
   _normalizeAgentConfig(agent = {}) {
+    const webResearch = agent.web_research && typeof agent.web_research === 'object' ? agent.web_research : {}
+    const semanticAudit = agent.semantic_audit && typeof agent.semantic_audit === 'object' ? agent.semantic_audit : {}
     return {
       ...agent,
       mode: ['supervised', 'disabled'].includes(agent.mode) ? agent.mode : 'supervised',
       status: agent.status || 'idle',
       default_write_policy: 'direct',
+      auto_maintain: agent.auto_maintain !== false,
+      web_research: {
+        ...webResearch,
+        mode: ['inherit', 'enabled', 'disabled'].includes(webResearch.mode) ? webResearch.mode : 'inherit',
+      },
+      semantic_audit: {
+        ...semanticAudit,
+        enabled: !!semanticAudit.enabled,
+        trigger: ['manual', 'after_maintenance'].includes(semanticAudit.trigger) ? semanticAudit.trigger : 'manual',
+        auto_fix: false,
+        model_ref: String(semanticAudit.model_ref || ''),
+      },
     }
   }
 
@@ -2664,6 +3464,7 @@ export class WikiService {
   }
 
   async _appendJob(id, job) {
+    if (!this._canPersistWiki(id)) return false
     const jobsPath = path.join(this._wikiDir(id), '.cache', 'jobs.json')
     const data = await readJson(jobsPath, { version: 1, jobs: [] })
     const jobs = Array.isArray(data.jobs) ? data.jobs : []
@@ -2674,6 +3475,7 @@ export class WikiService {
       wiki_id: id,
       message: job.message || '',
     })
+    return true
   }
 
   async _hashFile(filePath) {
@@ -2715,6 +3517,72 @@ export class WikiService {
         updated_at: stat.mtime.toISOString(),
       })
     }
+  }
+
+  async _ensurePageMetadata(id) {
+    const wikiDir = this._wikiDir(id)
+    if (this._pageMetadataReady.has(wikiDir)) return
+    if (this._pageMetadataPromises.has(wikiDir)) return this._pageMetadataPromises.get(wikiDir)
+    const run = this._ensurePageMetadataUnlocked(id, wikiDir)
+    this._pageMetadataPromises.set(wikiDir, run)
+    try {
+      await run
+    } finally {
+      if (this._pageMetadataPromises.get(wikiDir) === run) this._pageMetadataPromises.delete(wikiDir)
+    }
+  }
+
+  async _ensurePageMetadataUnlocked(id, wikiDir) {
+    const files = []
+    for (const rootFile of ['index.md', 'overview.md']) {
+      const abs = path.join(wikiDir, rootFile)
+      if (fs.existsSync(abs)) files.push({ abs, rel: rootFile })
+    }
+    const pages = []
+    await this._walkMarkdown(path.join(wikiDir, 'pages'), 'pages', pages)
+    for (const page of pages) files.push({ abs: path.join(wikiDir, page.path), rel: page.path })
+
+    const sources = await this._loadSources(id)
+    const validSourceIds = new Set((sources.sources || []).map(source => String(source.id || '')).filter(Boolean))
+    const registryService = this._pageRegistryService(id)
+    for (const file of files) {
+      const current = await fs.promises.readFile(file.abs, 'utf-8').catch(() => '')
+      if (!current) continue
+      const parsed = parseFrontmatter(current)
+      const meta = parsed.attributes || {}
+      const hasRequired = meta.id && meta.type && meta.title && meta.status && Array.isArray(meta.source_ids) && Number(meta.schema_version) === 1
+      if (hasRequired) {
+        await registryService.upsert(file.rel, {
+          id: String(meta.id),
+          type: String(meta.type),
+          title: String(meta.title),
+          status: String(meta.status),
+          source_ids: meta.source_ids.map(String),
+          schema_version: Number(meta.schema_version || 1),
+          updated_at: String(meta.updated_at || nowIso()),
+        }, current)
+        continue
+      }
+      const legacySources = [
+        ...(Array.isArray(meta.source_ids) ? meta.source_ids : []),
+        meta.source_id,
+      ].map(String).filter(sourceId => validSourceIds.has(sourceId))
+      const normalized = normalizeWikiPageContent({
+        relPath: file.rel,
+        title: String(meta.title || ''),
+        content: meta.status === 'fallback'
+          ? current.replace(/^status:\s*fallback\s*$/m, 'status: review_required\nfallback: true')
+          : current,
+        sourceIds: legacySources,
+        status: meta.status === 'fallback' ? 'review_required' : '',
+        existingContent: current,
+        now: nowIso(),
+      })
+      await this._snapshotPage(wikiDir, file.rel, 'page_metadata_migration').catch(() => {})
+      await fs.promises.writeFile(file.abs, normalized.content, 'utf-8')
+      await registryService.upsert(file.rel, normalized.metadata, normalized.content)
+    }
+    this._pageMetadataReady.add(wikiDir)
   }
 
   _schemaTemplate(title) {

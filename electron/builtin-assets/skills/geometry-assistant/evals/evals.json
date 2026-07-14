@@ -1,0 +1,23 @@
+{
+  "skill_name": "geometry-assistant",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "我发了一张三棱锥线面角题的截图。请先识别题目，再生成可交互的3D HTML，辅助线随解题步骤出现，最终文件保存到当前Agent输出目录。",
+      "expected_output": "使用视觉工具读取截图，构建并校验geometryData，通过内置脚本生成单文件HTML到真实Agent当日输出目录，并说明Three.js CDN联网要求。",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "这份Word里有一道两问的二面角题，帮我做成3D交互页面。第一问和第二问的辅助构造要分步骤显示。",
+      "expected_output": "使用document_read读取Word并按需导出图片，使用parts/stepIds/conditionIds表达多问结构，生成并检查HTML，不写入Skill目录。",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "帮我生成这个立体几何3D页面，但当前Agent没有开启命令执行权限。",
+      "expected_output": "明确说明需要开启exec_command和文件写入权限，可以先交付geometryData JSON，但不声称HTML已经生成。",
+      "files": []
+    }
+  ]
+}

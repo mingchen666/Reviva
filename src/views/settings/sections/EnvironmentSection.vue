@@ -410,9 +410,9 @@ onMounted(() => { checkAll() })
 
     <!-- Tip -->
     <div class="rounded-xl p-3" :class="isDark ? 'bg-d3/50 border border-bdr' : 'bg-l3/50 border border-bdrF'">
-      <div class="flex items-start gap-2">
-        <i class="ri-lightbulb-line text-amber-400 text-[12px] mt-[2px]" />
-        <p class="text-[10.5px] leading-relaxed flex-1" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">
+      <div class="flex items-center gap-2">
+        <i class="ri-lightbulb-line text-amber-400 text-[14px] mt-[2px]" />
+        <p class="text-[12px] leading-relaxed flex-1" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">
           安装新工具后需重新启动应用或重新检测才能识别。若已安装但仍显示未安装，请检查工具是否已加入系统 <span class="font-mono px-1 rounded" :class="isDark ? 'bg-d0 text-wt-aux' : 'bg-l2 text-lt-sub'">PATH</span> 环境变量。
         </p>
       </div>

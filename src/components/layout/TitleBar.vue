@@ -41,7 +41,7 @@ function close() {
     :class="isDark ? 'bg-d0 border-b border-bdr' : 'bg-l0 border-b border-bdrL'">
     <!-- Brand -->
     <div class="flex items-center gap-2 p-2">
-      <img class="h-10 w-10" :src="isDark ? './logo-dark.png' : './logo-light.png'" alt="Reviva" />
+      <img class="h-6 w-6" :src="isDark ? './logo-dark.png' : './logo-light.png'" alt="Reviva" />
       <span class="text-[14px] font-semibold tracking-wide" :class="isDark ? 'text-wt-main' : 'text-lt-main'">
         Reviva
       </span>

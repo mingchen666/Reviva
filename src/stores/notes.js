@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
+import { getWorkspaceStorageKey } from '@/utils/workspaceStorage'
 
 const dbFolders = () => window.electronAPI?.db?.noteFolders
 const dbNotes = () => window.electronAPI?.db?.notes
@@ -7,7 +8,7 @@ const NOTE_AI_SETTINGS_KEY = 'reviva:note-ai-settings'
 
 function loadPersistedAiSettings() {
   try {
-    const raw = localStorage.getItem(NOTE_AI_SETTINGS_KEY)
+    const raw = localStorage.getItem(getWorkspaceStorageKey(NOTE_AI_SETTINGS_KEY))
     return raw ? JSON.parse(raw) : null
   } catch {
     return null
@@ -16,7 +17,7 @@ function loadPersistedAiSettings() {
 
 function savePersistedAiSettings(settings) {
   try {
-    localStorage.setItem(NOTE_AI_SETTINGS_KEY, JSON.stringify(settings))
+    localStorage.setItem(getWorkspaceStorageKey(NOTE_AI_SETTINGS_KEY), JSON.stringify(settings))
   } catch {}
 }
 

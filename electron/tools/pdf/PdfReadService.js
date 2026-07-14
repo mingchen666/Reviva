@@ -118,6 +118,13 @@ export class PdfReadService {
       })
     }
 
+<<<<<<< HEAD
+=======
+    if (run?.id && !this._cache.isParseRunWritable(run.id)) {
+      return pdfError('PDF_OPERATION_CANCELLED', 'PDF 已移入回收站或被删除，本次解析结果未保存。')
+    }
+
+>>>>>>> dev
     await this._cache.mergeTextPages(doc, extracted.pages || [], {
       pageCount: extracted.pageCount || 0,
       encrypted: extracted.encrypted || false,

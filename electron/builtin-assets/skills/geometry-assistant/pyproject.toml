@@ -1,0 +1,48 @@
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.backends._legacy:_Backend"
+
+[project]
+name = "geometry-assistant"
+version = "0.1.0"
+description = "立体几何 3D 可视化辅导工具 — Interactive 3D geometry visualization for math education"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.8"
+authors = [
+    {name = "geometry-assistant contributors"},
+]
+keywords = [
+    "geometry",
+    "3d-visualization",
+    "three-js",
+    "math-education",
+    "solid-geometry",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Education",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Education",
+    "Topic :: Scientific/Engineering :: Visualization",
+]
+
+[project.scripts]
+geometry-assistant = "geometry_assistant.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/mindbeam-vc/geometry-assistant"
+Repository = "https://github.com/mindbeam-vc/geometry-assistant.git"
+
+[tool.setuptools]
+packages = ["geometry_assistant"]
+package-dir = {"" = "src"}
+
+[tool.setuptools.package-data]
+geometry_assistant = ["assets/*.html"]

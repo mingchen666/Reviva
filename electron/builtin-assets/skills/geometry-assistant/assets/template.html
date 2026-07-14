@@ -1,0 +1,2703 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>立体几何辅导</title>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/",
+"three/addons/lines/Line2.js": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/lines/Line2.js",
+"three/addons/lines/LineMaterial.js": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/lines/LineMaterial.js",
+"three/addons/lines/LineGeometry.js": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/lines/LineGeometry.js"
+  }
+}
+</script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+body{display:flex;flex-direction:column}
+#app{display:flex;flex:1;overflow:hidden}
+#viewport{flex:7;position:relative;overflow:hidden;background:#f0f0f0}
+#sidebar{flex:3;display:flex;flex-direction:column;border-left:1px solid #dee2e6;background:#f8f9fa;padding:16px;overflow-y:auto;min-width:260px;max-width:360px}
+#scene-container{width:100%;height:100%;position:relative}
+#toolbar{position:absolute;top:8px;left:50%;transform:translateX(-50%);z-index:10;display:flex;gap:2px;background:rgba(255,255,255,0.92);padding:4px 8px;border-radius:8px;box-shadow:0 2px 10px rgba(0,0,0,0.15);flex-wrap:nowrap;user-select:none}
+#toolbar .group{display:flex;gap:2px;padding:0 4px;border-right:1px solid #e9ecef}
+#toolbar .group:last-child{border-right:none}
+.tool-btn{width:32px;height:30px;border:none;background:transparent;border-radius:4px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;color:#495057;transition:all .12s}
+.tool-btn:hover{background:#e9ecef;color:#212529}
+.tool-btn.active{background:#339af0;color:#fff}
+#statusbar{height:36px;background:#e9ecef;display:flex;align-items:center;padding:0 16px;font-size:13px;color:#868e96;gap:14px;border-top:1px solid #dee2e6;box-shadow:none}
+#status-tool{color:#495057;font-weight:600;font-size:13px}
+#step-dots{display:inline-flex;align-items:center;gap:6px;padding:3px 8px;background:rgba(255,243,191,0.55);border-radius:12px}
+.step-dot{width:11px;height:11px;border-radius:50%;background:#dee2e6;border:2px solid #adb5bd;transition:all .2s;display:inline-block}
+.step-dot.done{background:#51cf66;border-color:#2b8a3e}
+.step-dot.current{background:#fcc419;border-color:#e67700;box-shadow:0 0 0 3px rgba(252,196,25,0.4);transform:scale(1.2)}
+#status-hint{color:#1971c2;font-size:13px;font-weight:600;background:rgba(255,255,255,0.95);padding:4px 12px;border-radius:14px;border:1px solid #fcc419;box-shadow:0 1px 2px rgba(0,0,0,0.05)}
+#status-snap{flex:1;text-align:center;color:#868e96}
+.sidebar-section{margin-bottom:20px}
+.sidebar-section h3{font-size:13px;font-weight:600;color:#495057;margin-bottom:8px;padding-bottom:4px;border-bottom:1px solid #dee2e6}
+#problem-text{font-size:14px;line-height:1.8;color:#343a40;white-space:pre-wrap}
+.math-sqrt{display:inline-flex;align-items:flex-start;gap:1px}.math-radicand{border-top:1px solid currentColor;padding:0 2px}.math-frac{display:inline-flex;flex-direction:column;align-items:center;vertical-align:middle;line-height:1}.math-frac-num{border-bottom:1px solid currentColor;padding:0 3px}.math-frac-den{padding:1px 3px 0}.math-inline sup{font-size:.72em;line-height:0}.math-inline sub{font-size:.72em;line-height:0}.vertex-label{font-size:18px;font-weight:800;color:#1f2937;background:rgba(255,255,255,0.9);padding:2px 7px;border-radius:5px;border:1px solid rgba(31,41,55,0.25);font-family:Arial,sans-serif;pointer-events:none;text-shadow:0 0 3px rgba(255,255,255,0.95);box-shadow:0 1px 3px rgba(0,0,0,0.12)}.vertex-label sub{font-size:12px}.math-label{font-weight:bold;background:rgba(255,255,255,0.82);padding:1px 5px;border-radius:3px;pointer-events:none}
+.part-tabs{display:flex;gap:6px;flex-wrap:wrap}.part-tab{border:1px solid #dee2e6;background:#fff;color:#495057;border-radius:6px;padding:5px 10px;font-size:13px;cursor:pointer}.part-tab.active{background:#339af0;border-color:#339af0;color:#fff;font-weight:700}
+.condition-item{display:flex;align-items:center;gap:8px;padding:5px 0;font-size:13px;color:#495057;border-bottom:1px solid #f1f3f5}
+.condition-item .color-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.condition-item .toggle-btn{width:24px;height:22px;flex:0 0 24px;border:1px solid #dee2e6;border-radius:4px;background:#fff;cursor:pointer;font-size:13px;line-height:1;display:inline-flex;align-items:center;justify-content:center;white-space:nowrap}.condition-item .toggle-btn.is-off{opacity:.45}
+.step-item{padding:8px 10px;border-radius:6px;cursor:pointer;transition:background .12s;margin-bottom:4px;border-left:3px solid transparent}
+.step-item:hover{background:#e9ecef}
+.step-item.active{background:#dbe4ff;border-left-color:#339af0}
+.step-item .step-title{font-size:13px;font-weight:500;color:#343a40}
+.step-item .step-theorem{font-size:12px;color:#6c757d;margin-top:6px;padding-left:18px;line-height:1.75}
+.step-theorem-line{display:block;margin-bottom:6px}
+.view-mode-btn{position:absolute;top:8px;right:8px;z-index:10;display:flex;gap:4px}
+.view-mode-btn button{padding:4px 10px;font-size:12px;border:1px solid #dee2e6;background:rgba(255,255,255,0.9);border-radius:4px;cursor:pointer;color:#495057}
+.view-mode-btn button.active{background:#339af0;color:#fff;border-color:#339af0}
+</style>
+</head>
+<body>
+<div id="app">
+<div id="viewport">
+<div id="scene-container"></div>
+<div class="view-mode-btn">
+<button class="active" data-mode="perspective">透视</button>
+<button data-mode="top">俯视</button>
+<button data-mode="front">正视</button></div>
+<div id="toolbar">
+<div class="group">
+<button class="tool-btn active" data-tool="select" title="选择">&#x2196;</button>
+<button class="tool-btn" data-tool="toggle-aux" title="隐藏/显示辅助元素">&#x1F441;</button>
+</div>
+<div class="group">
+<button class="tool-btn" data-tool="line-segment" title="线段">&#x2571;</button>
+<button class="tool-btn" data-tool="line-extend" title="延长线">&#x2192;</button>
+<button class="tool-btn" data-tool="angle-bisector" title="角平分线">&#x2220;</button>
+<button class="tool-btn" data-tool="line-perp" title="垂线">&#x22A5;</button>
+<button class="tool-btn" data-tool="line-para" title="平行线">&#x2225;</button>
+<button class="tool-btn" data-tool="midpoint" title="中点">M</button>
+</div>
+<div class="group">
+<button class="tool-btn" data-tool="circle-diameter" title="圆(直径)">&#x2300;</button>
+<button class="tool-btn" data-tool="circle-cp" title="圆(圆心+点)">&#x25CE;</button>
+<button class="tool-btn" data-tool="circle-3p" title="圆(三点)">&#x25EF;</button>
+</div>
+<div class="group">
+<button class="tool-btn" data-tool="face-3p" title="面(三点)">&#x25B3;</button>
+<button class="tool-btn" data-tool="face-4p" title="面(四点)">&#x25B1;</button>
+<button class="tool-btn" data-tool="face-lp" title="面(线+点)">&#x25AD;</button>
+</div>
+<div class="group">
+<button class="tool-btn" data-tool="annotate-text" title="文字标注">A</button>
+<button class="tool-btn" data-tool="annotate-length" title="长度标注">&#x21FF;</button>
+<button class="tool-btn" data-tool="annotate-angle" title="角度标注">&#x2220;</button>
+</div>
+<div class="group">
+<button class="tool-btn" data-tool="undo" title="撤销">&#x21A9;</button>
+<button class="tool-btn" data-tool="erase" title="擦除">&#x2715;</button>
+<button class="tool-btn" data-tool="clear" title="清空">&#x1F5D1;</button>
+</div>
+</div>
+</div>
+<div id="sidebar">
+<div class="sidebar-section"><h3>📐 题目</h3><div id="problem-text"></div></div>
+<div class="sidebar-section part-switcher"><h3>小问</h3><div id="part-tabs"></div></div>
+<div class="sidebar-section"><h3>📋 已知条件</h3><div id="conditions-list"></div></div>
+<div class="sidebar-section"><h3>📝 解题步骤</h3><div id="steps-list"></div></div>
+</div>
+</div>
+</div>
+<div id="statusbar">
+<span id="status-tool">选择</span>
+<span id="step-dots"></span>
+<span id="status-hint"></span>
+<span id="status-snap"></span>
+<span id="status-coords">拖拽旋转/滚轮缩放</span>
+</div>
+<script type="module">
+import * as THREE from "three";
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { CSS2DRenderer, CSS2DObject } from "three/addons/renderers/CSS2DRenderer.js";
+import { Line2 } from "three/addons/lines/Line2.js";
+import { LineMaterial } from "three/addons/lines/LineMaterial.js";
+import { LineGeometry } from "three/addons/lines/LineGeometry.js";
+let currentData;
+let currentPartIndex = 0;
+const container = document.getElementById("scene-container");
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0xf0f0f0);
+const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
+camera.position.set(6, 4, 8);
+const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+container.appendChild(renderer.domElement);
+const labelRenderer = new CSS2DRenderer();
+labelRenderer.domElement.style.position = "absolute";
+labelRenderer.domElement.style.top = "0";
+labelRenderer.domElement.style.pointerEvents = "none";
+container.appendChild(labelRenderer.domElement);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.1;
+controls.target.set(0, 0, 0);
+controls.addEventListener('change', updateHiddenLines);
+const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+scene.add(ambientLight);
+const dirLight = new THREE.DirectionalLight(0xffffff, 0.7);
+dirLight.position.set(5, 10, 7);
+scene.add(dirLight);
+const backLight = new THREE.DirectionalLight(0xffffff, 0.25);
+backLight.position.set(-5, 0, -5);
+scene.add(backLight);
+const gridHelper = new THREE.GridHelper(10, 10, 0x888888, 0xcccccc);
+gridHelper.position.y = -1.0;
+scene.add(gridHelper);
+
+function resize() {
+  const w = container.clientWidth;
+  const h = container.clientHeight;
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+  renderer.setSize(w, h);
+  labelRenderer.setSize(w, h);
+}
+window.addEventListener("resize", resize);
+resize();
+let sceneGeomGroup = null;
+const sceneEntities = { vertices: new Map(), edges: new Map(), faces: new Map(), circles: new Map(), conditions: new Map(), auxElements: [] };
+
+function animate() {
+  requestAnimationFrame(animate);
+  controls.update();
+  updateHiddenLines();
+  renderer.render(scene, camera);
+  labelRenderer.render(scene, camera);
+}
+animate();
+
+function focusCameraOnScene() {
+  // 仅基于 sceneEntities 几何体计算包围盒，GridHelper 排除在外
+  const box = new THREE.Box3();
+  sceneEntities.vertices.forEach((v) => { box.expandByPoint(v.pos); });
+  if (box.isEmpty()) return;
+  const center = box.getCenter(new THREE.Vector3());
+  const size = box.getSize(new THREE.Vector3());
+  const maxDim = Math.max(size.x, size.y, size.z);
+  const dist = (maxDim || 5) * 1.8;
+  camera.position.set(center.x + dist * 0.5, center.y + dist * 0.3, center.z + dist * 0.7);
+  controls.target.copy(center);
+  controls.update();
+}
+document.querySelectorAll(".view-mode-btn button").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".view-mode-btn button").forEach((b) => b.classList.remove("active"));
+    btn.classList.add("active");
+    const mode = btn.dataset.mode;
+    const center = controls.target;
+    const d = camera.position.distanceTo(center);
+    if (mode === "perspective") camera.position.set(center.x + 6, center.y + 4, center.z + 8);
+    else if (mode === "top") camera.position.set(center.x, center.y + d, center.z + 0.01);
+    else if (mode === "front") camera.position.set(center.x, center.y, center.z + d);
+    controls.update();
+  });
+});
+
+
+function appendFormattedMath(parent, text) {
+  const source = String(text ?? "");
+  const fraction = splitTopLevelFraction(source);
+  if (fraction) {
+    appendFormattedFraction(parent, fraction[0], fraction[1]);
+    return;
+  }
+  let i = 0;
+  function appendPlain(value) { if (value) parent.appendChild(document.createTextNode(value)); }
+  function appendSup(value) { const sup = document.createElement("sup"); sup.textContent = value; parent.appendChild(sup); }
+  function appendSub(value) { const sub = document.createElement("sub"); sub.textContent = value; parent.appendChild(sub); }
+  while (i < source.length) {
+    if (source[i] === "\n") { parent.appendChild(document.createElement("br")); i++; continue; }
+    if (source.startsWith("sqrt(", i)) {
+      let j = i + 5;
+      let depth = 1;
+      while (j < source.length && depth > 0) {
+        if (source[j] === "(") depth++;
+        else if (source[j] === ")") depth--;
+        if (depth > 0) j++;
+      }
+      const wrap = document.createElement("span");
+      wrap.className = "math-sqrt";
+      const radical = document.createElement("span");
+      radical.textContent = "\u221a";
+      const radicand = document.createElement("span");
+      radicand.className = "math-radicand";
+      appendFormattedMath(radicand, source.slice(i + 5, j));
+      wrap.appendChild(radical);
+      wrap.appendChild(radicand);
+      parent.appendChild(wrap);
+      i = Math.min(j + 1, source.length);
+      continue;
+    }
+    if (source[i] === "^") {
+      i++;
+      if (source[i] === "(") {
+        const j = source.indexOf(")", i + 1);
+        appendSup(j >= 0 ? source.slice(i + 1, j) : source.slice(i + 1));
+        i = j >= 0 ? j + 1 : source.length;
+      } else {
+        const m = source.slice(i).match(/^[A-Za-z0-9]+/);
+        appendSup(m ? m[0] : source[i] || "");
+        i += m ? m[0].length : 1;
+      }
+      continue;
+    }
+    const letterDigit = source.slice(i).match(/^([A-Za-z]+)(\d+)/);
+    if (letterDigit) {
+      appendPlain(letterDigit[1]);
+      appendSub(letterDigit[2]);
+      i += letterDigit[0].length;
+      continue;
+    }
+    appendPlain(source[i]);
+    i++;
+  }
+}
+
+function splitTopLevelFraction(source) {
+  const text = String(source ?? "").trim();
+  if (!text || /\s/.test(text)) return null;
+  let depth = 0;
+  let slashIndex = -1;
+  for (let i = 0; i < text.length; i++) {
+    if (text[i] === "(") depth++;
+    else if (text[i] === ")") depth--;
+    else if (text[i] === "/" && depth === 0) {
+      if (slashIndex >= 0) return null;
+      slashIndex = i;
+    }
+  }
+  if (slashIndex <= 0 || slashIndex >= text.length - 1) return null;
+  return [text.slice(0, slashIndex), text.slice(slashIndex + 1)];
+}
+
+function appendFormattedFraction(parent, numerator, denominator) {
+  const wrap = document.createElement("span");
+  wrap.className = "math-frac";
+  const num = document.createElement("span");
+  num.className = "math-frac-num";
+  appendFormattedMath(num, numerator);
+  const den = document.createElement("span");
+  den.className = "math-frac-den";
+  appendFormattedMath(den, denominator);
+  wrap.appendChild(num);
+  wrap.appendChild(den);
+  parent.appendChild(wrap);
+}
+
+function createMathSpan(text, className) {
+  const span = document.createElement("span");
+  span.className = className || "math-inline";
+  appendFormattedMath(span, text);
+  return span;
+}
+
+function renderMathBlock(element, text) {
+  element.textContent = "";
+  element.appendChild(createMathSpan(text, "math-inline"));
+}
+
+function createVertexLabel(text) {
+  const div = document.createElement("div");
+  div.className = "vertex-label";
+  appendFormattedMath(div, text);
+  return div;
+}
+
+function makeProblemCircle(center, radius, color) {
+  const line = makeCircle(center, radius, color || 0x339af0, false);
+  line.userData = { entityType: "circle" };
+  return line;
+}
+
+// ---------- Task 3: Geometry Builder ----------
+
+function buildGeometry(data) {
+  if (sceneGeomGroup) { scene.remove(sceneGeomGroup); }
+  const group = new THREE.Group();
+  sceneEntities.vertices.clear(); sceneEntities.edges.clear(); sceneEntities.faces.clear(); sceneEntities.circles.clear();
+  const vertMap = {};
+  data.solids.forEach((solid) => {
+    solid.vertices.forEach((v) => {
+      const sp = new THREE.Mesh(new THREE.SphereGeometry(0.0175, 12, 12), new THREE.MeshBasicMaterial({ color: 0x333333 }));
+      sp.position.set(v.pos[0], v.pos[2], v.pos[1]);
+      sp.userData = { entityType: "vertex", id: v.id, label: v.label };
+      if (v.axisEndpoint === true) sp.visible = false;
+      group.add(sp);
+      const div = createVertexLabel(v.label || "");
+      const lbl = new CSS2DObject(div);
+      lbl.position.set(v.pos[0], v.pos[2], v.pos[1] + 0.16);
+      if (v.axisEndpoint === true || !v.label) {
+        lbl.visible = false;
+        if (lbl.element) lbl.element.style.display = "none";
+      }
+      group.add(lbl);
+      const pos = new THREE.Vector3(v.pos[0], v.pos[2], v.pos[1]);
+      vertMap[v.id] = { mesh: sp, label: lbl, pos };
+      // isOriginal: 标记为题目中已有的原顶点（区别于交点 isIntersection: true）
+      // 用 A-Z 字母的题目顶点会被算作"已占 ID"，跳过阶段 1 分配
+      sceneEntities.vertices.set(v.id, { mesh: sp, label: lbl, pos, isOriginal: true, partIds: v.partIds || [], renderMode: v.renderMode || "auto", auxiliary: v.auxiliary === true, axisEndpoint: v.axisEndpoint === true });
+    });
+    solid.edges.forEach((e) => {
+      const v1 = vertMap[e.v1], v2 = vertMap[e.v2];
+      const geo = new LineGeometry();
+      geo.setPositions([v1.pos.x, v1.pos.y, v1.pos.z, v2.pos.x, v2.pos.y, v2.pos.z]);
+      const solidMat = new LineMaterial({ color: 0x222222, linewidth: 2, worldUnits: false, alphaToCoverage: true });
+      const dashedMat = new LineMaterial({ color: 0x222222, linewidth: 2, worldUnits: false, dashed: true, dashSize: 0.12, gapSize: 0.08, alphaToCoverage: true });
+      solidMat.resolution.set(container.clientWidth, container.clientHeight);
+      dashedMat.resolution.set(container.clientWidth, container.clientHeight);
+      const ln = new Line2(geo, e.dashed ? dashedMat : solidMat);
+      ln.computeLineDistances();
+      ln.userData = { entityType: "edge", id: e.id, v1: e.v1, v2: e.v2, dashedMat, solidMat };
+      group.add(ln);
+      const axisAdornment = e.renderMode === "axis" ? makeAxisArrow(v1.pos, v2.pos, e.color || "#339af0", e.axisLabel || "") : null;
+      if (axisAdornment) group.add(axisAdornment);
+      sceneEntities.edges.set(e.id, { line: ln, axisAdornment, _dashedMat: dashedMat, _solidMat: solidMat, renderMode: e.renderMode || "auto", auxiliary: e.auxiliary === true, explicitDashed: e.dashed === true, partIds: e.partIds || [] });
+    });
+    solid.faces.forEach((f) => {
+      const verts = f.vertices.map((id) => vertMap[id]).filter(Boolean).map((v) => v.pos);
+      if (verts.length < 3) return;
+      const pos = [];
+      for (let i = 1; i < verts.length - 1; i++) { pos.push(verts[0].x, verts[0].y, verts[0].z, verts[i].x, verts[i].y, verts[i].z, verts[i + 1].x, verts[i + 1].y, verts[i + 1].z); }
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
+      geo.computeVertexNormals();
+      const mat = new THREE.MeshPhongMaterial({ color: 0xffffff, transparent: true, opacity: 0.0, side: THREE.DoubleSide, depthWrite: false, visible: false });
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.userData = { entityType: "face", id: f.id, vertexIds: f.vertices };
+      group.add(mesh);
+      const faceVerts$ = f.vertices.map(id => vertMap[id]).filter(Boolean).map(v => v.mesh.position.clone());
+      mesh.visible = false;
+      // 缓存 vertexIds 以便后续高亮逻辑能根据 ID 找到该面的边和顶点
+      sceneEntities.faces.set(f.id, { mesh, vertices: faceVerts$, vertexIds: f.vertices.slice(), partIds: f.partIds || [], renderMode: f.renderMode || "auto", auxiliary: f.auxiliary === true });
+    });
+    (solid.circles || []).forEach((c) => {
+      const id = c.id || c.label || "circle";
+      const centerEnt = c.centerVertex ? vertMap[c.centerVertex] : null;
+      const center = centerEnt ? centerEnt.pos.clone() : (Array.isArray(c.center) ? new THREE.Vector3(c.center[0], c.center[2], c.center[1]) : null);
+      if (!center) return;
+      let radius = Number(c.radius);
+      const radiusVertex = c.radiusVertex || c.pointOnCircle || c.through;
+      if ((!Number.isFinite(radius) || radius <= 0) && radiusVertex && vertMap[radiusVertex]) {
+        radius = center.distanceTo(vertMap[radiusVertex].pos);
+      }
+      if (!Number.isFinite(radius) || radius <= 0) return;
+      const line = makeProblemCircle(center, radius, c.color || 0x339af0);
+      line.userData.id = id;
+      group.add(line);
+      sceneEntities.circles.set(id, { line, renderMode: c.renderMode || "auto", auxiliary: c.auxiliary === true, partIds: c.partIds || [] });
+    });
+  });
+  scene.add(group);
+  sceneGeomGroup = group;
+  return group;
+}
+
+function ghostEntities(visibleIds) {
+  const set = new Set(visibleIds || []);
+  function apply(map, opacityVisible, opacityHidden) {
+    map.forEach((obj, id) => {
+      const isVisible = set.has(id);
+      if (obj.mesh) { obj.mesh.material.transparent = true; obj.mesh.material.opacity = isVisible ? opacityVisible : opacityHidden; obj.mesh.material.needsUpdate = true; }
+      if (obj.line) { const m = obj.line.material; m.transparent = true; m.opacity = isVisible ? opacityVisible : opacityHidden; m.needsUpdate = true; }
+    });
+  }
+  apply(sceneEntities.vertices, 1, 0.12);
+  apply(sceneEntities.edges, 1, 0.12);
+  apply(sceneEntities.faces, 0.4, 0.06);
+}
+
+function resetOpacity() {
+  sceneEntities.vertices.forEach((v) => { v.mesh.material.transparent = false; v.mesh.material.opacity = 1; });
+  sceneEntities.edges.forEach((e) => { e._solidMat.transparent = false; e._solidMat.opacity = 1; e._dashedMat.transparent = false; e._dashedMat.opacity = 1; });
+  sceneEntities.faces.forEach((f) => { f.mesh.material.transparent = true; f.mesh.material.opacity = 0.0; });
+}
+
+function clearGeometry() {
+  if (sceneGeomGroup) { scene.remove(sceneGeomGroup); sceneGeomGroup = null; }
+  // 交点的 mesh/label 是直接加到 scene 的,不归 sceneGeomGroup 管,需要单独清
+  clearAllIntersectionPoints();
+  sceneEntities.vertices.clear(); sceneEntities.edges.clear(); sceneEntities.faces.clear(); sceneEntities.circles.clear();
+}
+
+// ---------- Task 4: Condition Renderer ----------
+
+function renderConditions(data) {
+  sceneEntities.conditions.forEach((entry) => { entry.annotations.forEach((a) => scene.remove(a)); });
+  sceneEntities.conditions.clear();
+  data.conditions.forEach((cond) => {
+    switch (cond.type) {
+      case "perpendicular": renderPerpendicular(cond); break;
+      case "parallel": renderParallel(cond); break;
+      case "length": renderLength(cond); break;
+      case "equal-length": renderEqualLength(cond); break;
+      case "angle": case "right-angle": renderAngle(cond); break;
+      case "midpoint": renderMidpoint(cond); break;
+      case "ratio": renderRatio(cond); break;
+      case "equal-angle": renderEqualAngle(cond); break;
+    }
+  });
+}
+
+// ---------- 边/面/顶点 健壮查找 ----------
+
+// 通过ID查找边。自动处理反向匹配：例如数据中边ID为"DA"，
+
+// 查询"AD"也能命中（只要是同一条无向边）。
+
+function ensureConditionEntry(id) {
+  if (!sceneEntities.conditions.has(id)) {
+    sceneEntities.conditions.set(id, { annotations: [], visible: false });
+  }
+  return sceneEntities.conditions.get(id);
+}
+function _findEdgeById(id) {
+  if (!id) return null;
+  let e = sceneEntities.edges.get(id);
+  if (e) return e;
+  if (id.length === 2) {
+    const rev = id[1] + id[0];
+    e = sceneEntities.edges.get(rev);
+    if (e) return e;
+  }
+  // 兜底：遍历所有边，比较其 userData.v1/v2 组合
+  const a = id[0], b = id[1];
+  for (const [eid, ent] of sceneEntities.edges) {
+    const ud = ent.line && ent.line.userData;
+    if (!ud) continue;
+    if ((ud.v1 === a && ud.v2 === b) || (ud.v1 === b && ud.v2 === a)) return ent;
+  }
+  return null;
+}
+
+function _findEdgeIdById(id) {
+  if (!id) return null;
+  if (sceneEntities.edges.has(id)) return id;
+  if (id.length === 2) {
+    const rev = id[1] + id[0];
+    if (sceneEntities.edges.has(rev)) return rev;
+  }
+  return null;
+}
+
+function getMidpoint(edgeId) {
+  const e = _findEdgeById(edgeId);
+  if (!e) return null;
+  const d = e.line.userData;
+  const p1 = getVertexPos(d.v1), p2 = getVertexPos(d.v2);
+  if (!p1 || !p2) return null;
+  return new THREE.Vector3((p1.x+p2.x)/2, (p1.y+p2.y)/2, (p1.z+p2.z)/2);
+}
+
+function getVertexPos(id) {
+  const v = sceneEntities.vertices.get(id);
+  return v ? v.mesh.position.clone() : null;
+}
+
+// ---------- Task 5.5: Auxiliary Line Intersection Detection ----------
+
+// 相交检测阈值（与 SnapEngine 阈值一致，略大以容忍浮点误差）
+const INTERSECT_EPSILON = 0.025;
+
+// 交点专用颜色（与原顶点 #333333 区分，红色）
+const INTERSECT_COLOR = 0xfa5252;
+
+// 从 LineMaterial/LineGeometry 边实体中提取两端点（Vector3）
+
+function _getLineSegmentEndpointsFromEdgeEntity(edgeEntity) {
+  const ln = edgeEntity && edgeEntity.line;
+  if (!ln || !ln.geometry) return null;
+  const g = ln.geometry;
+  if (g.attributes && g.attributes.instanceStart && g.attributes.instanceEnd) {
+    const a = g.attributes.instanceStart.array;
+    const b = g.attributes.instanceEnd.array;
+      const endOff = b.length >= 6 ? 3 : 0; return [new THREE.Vector3(a[0], a[1], a[2]), new THREE.Vector3(b[endOff], b[endOff+1], b[endOff+2])];
+  }
+  if (g.attributes && g.attributes.position) {
+    const p = g.attributes.position.array;
+    if (p.length < 6) return null;
+    return [new THREE.Vector3(p[0], p[1], p[2]), new THREE.Vector3(p[3], p[4], p[5])];
+  }
+  return null;
+}
+
+// 两条线段的最近点对距离：若 < epsilon 则视为相交，返回中点
+
+// 注: 该函数不依赖 r161+ 的 Line3 API
+
+// 使用 r160 既有的 closestPointToPoint 双向交替投影实现
+
+// 两线段最近点：用纯向量投影迭代，不依赖 Three.js Line3（避免内部 target 对象污染）
+function segmentSegmentClosest(a0, a1, b0, b1, epsilon) {
+  if (epsilon === undefined) epsilon = INTERSECT_EPSILON;
+  if (isNaN(a0.x+a0.y+a0.z) || isNaN(a1.x+a1.y+a1.z) || isNaN(b0.x+b0.y+b0.z) || isNaN(b1.x+b1.y+b1.z)) return null;
+  if (a0.distanceToSquared(a1) < 1e-15 || b0.distanceToSquared(b1) < 1e-15) return null;
+  const _sub = new THREE.Vector3(), _ab = new THREE.Vector3();
+  function project(pt, s0, s1) {
+    _ab.subVectors(s1, s0); _sub.subVectors(pt, s0);
+    const t = Math.max(0, Math.min(1, _sub.dot(_ab) / _ab.dot(_ab)));
+    return new THREE.Vector3().copy(s0).addScaledVector(_ab, t);
+  }
+  let p = project(a0, b0, b1);
+  let q = project(p, a0, a1);
+  for (let i = 0; i < 12; i++) {
+    const pp = p.clone();
+    p = project(q, b0, b1);
+    q = project(p, a0, a1);
+    if (pp.distanceToSquared(p) < 1e-16) break;
+    if (isNaN(p.x) || isNaN(q.x)) return null;
+  }
+  const dist = p.distanceTo(q);
+  if (dist > epsilon) return null;
+  if (dist < 1e-8) return p.clone();
+  return new THREE.Vector3().addVectors(p, q).multiplyScalar(0.5);
+}
+
+// 从一个辅助元素条目中提取所有参与相交检测的线段（圆、标注跳过）
+
+function extractAuxLineSegments(entry) {
+  const segs = [];
+  if (!entry || !entry.data) return segs;
+  const t = entry.type;
+  const d = entry.data;
+  function pushSeg(arr1, arr2) {
+    if (!arr1 || !arr2) return;
+    const p1 = Array.isArray(arr1) ? new THREE.Vector3().fromArray(arr1) : arr1;
+    const p2 = Array.isArray(arr2) ? new THREE.Vector3().fromArray(arr2) : arr2;
+    if (p1 && p2) segs.push({ p1, p2 });
+  }
+  if (t === 'line-segment') pushSeg(d.p1, d.p2);
+  else if (t === 'line-extend') {
+    // 用整条延长线（ext1-ext2）参与相交检测
+    pushSeg(d.ext1, d.ext2);
+  } else if (t === 'angle-bisector') {
+    // 角平分线：原段为 vertex->bisPt，长度有限，延长（双向）以覆盖更广的交点检测
+    if (d.vertex && d.bisPt) {
+      const v = Array.isArray(d.vertex) ? new THREE.Vector3().fromArray(d.vertex) : new THREE.Vector3(d.vertex.x, d.vertex.y, d.vertex.z);
+      const b = Array.isArray(d.bisPt) ? new THREE.Vector3().fromArray(d.bisPt) : new THREE.Vector3(d.bisPt.x, d.bisPt.y, d.bisPt.z);
+      const dir = new THREE.Vector3().subVectors(b, v);
+      const origLen = dir.length();
+      if (origLen > 1e-6) {
+        dir.normalize();
+        // 只向 bisector 正方向延长，反方向仅保留一小段（避免生成大量假交点）
+        const EXTEND = Math.max(4.0, origLen * 4.0);
+        // 只向 bisector 正方向适当延长，不反向延长避免假交点
+        segs.push({ p1: v.clone(), p2: b.clone().add(dir.clone().multiplyScalar(EXTEND)) });
+      } else {
+        pushSeg(d.vertex, d.bisPt);
+      }
+    } else {
+      pushSeg(d.vertex, d.bisPt);
+    }
+  }
+  else if (t === 'line-perp') pushSeg(d.p1, d.p2);
+  else if (t === 'line-para') pushSeg(d.p1, d.p2);
+  else if (t === 'face-3p') {
+    if (Array.isArray(d.pts)) {
+      for (let i = 0; i < d.pts.length; i++) pushSeg(d.pts[i], d.pts[(i + 1) % d.pts.length]);
+    }
+  } else if (t === 'face-4p') {
+    if (Array.isArray(d.pts)) {
+      for (let i = 0; i < d.pts.length; i++) pushSeg(d.pts[i], d.pts[(i + 1) % d.pts.length]);
+    }
+  } else if (t === 'face-lp') {
+    pushSeg(d.p1, d.p2); pushSeg(d.p2, d.p3); pushSeg(d.p3, d.p1);
+  }
+  // circle-* / annotate-* 不参与相交检测
+  return segs;
+}
+
+// 从已用 ID 集合中，按用户期望顺序选出下一个未占用的 ID
+
+// 顺序：A..Z，再 A1..Z1, A2..Z2, ..., A99..Z99（已占用则跳过）
+
+function nextAvailableIdFrom(usedSet) {
+  // 阶段 1：单字母 A-Z（occupied 的会被跳过）
+  for (let c = 65; c <= 90; c++) {  // A=65, Z=90
+    const letter = String.fromCharCode(c);
+    if (!usedSet.has(letter)) return letter;
+  }
+  // 阶段 2：A1..Z1, A2..Z2, ..., A99..Z99（已占用则跳过）
+  for (let i = 1; i <= 99; i++) {
+    for (let c = 65; c <= 90; c++) {  // A=65, Z=90
+      const id = String.fromCharCode(c) + i;
+      if (!usedSet.has(id)) return id;
+    }
+  }
+  return '?';
+}
+
+// 分配下一个可用 ID：单字母 A..Z，然后 A1..Z1, A2..Z2, ...（基于当前 sceneEntities.vertices 中所有 id）
+
+// 新交点不会与原顶点 / 已有交点重复（候选点去重 + nextAvailableIdFrom 双保险）
+
+// 向后兼容：保留 nextAvailableLetter 名称，内部委托给 nextAvailableIdFrom
+
+function nextAvailableLetter() {
+  const used = new Set();
+  sceneEntities.vertices.forEach((v, id) => used.add(id));
+  return nextAvailableIdFrom(used);
+}
+
+// 创建交点的小圆点（红色，区别于原顶点的 0x333333）
+
+function makeIntersectionSphere(point) {
+  const sp = new THREE.Mesh(
+    new THREE.SphereGeometry(0.025, 12, 12),
+    new THREE.MeshBasicMaterial({ color: INTERSECT_COLOR })
+  );
+  sp.position.copy(point);
+  return sp;
+}
+
+// 创建交点的字母标签（红色字体 + 浅色背景，数字下标比字母小一号）
+
+// 创建交点的字母标签（红色字体 + 浅色背景，数字下标比字母小一号）
+function makeIntersectionLabel(text, point) {
+  const div = document.createElement("div");
+  // 用 DOM API 构建标签，避免 innerHTML 在 CSS2DRenderer 中不更新的问题
+  const match = text.match(/^([A-Z]+)(\d+)$/);
+  if (match) {
+    const s1 = document.createElement("span");
+    s1.style.fontSize = "14px"; s1.textContent = match[1]; div.appendChild(s1);
+    const s2 = document.createElement("sub");
+    s2.style.fontSize = "10px"; s2.textContent = match[2]; div.appendChild(s2);
+  } else {
+    const s = document.createElement("span");
+    s.style.fontSize = "14px"; s.textContent = text; div.appendChild(s);
+  }
+  div.style.cssText = "font-weight:bold;color:#fa5252;background:rgba(255,255,255,0.85);padding:1px 5px;border-radius:3px;border:1px solid #fa5252;pointer-events:none;text-shadow:0 0 3px rgba(255,255,255,0.9);";
+  const lbl = new CSS2DObject(div);
+  lbl.position.copy(point);
+  lbl.position.y += 0.1;
+  return lbl;
+}
+function clearAllIntersectionPoints() {
+  const toRemove = [];
+  sceneEntities.vertices.forEach((v, id) => { if (v.isIntersection) toRemove.push(id); });
+  toRemove.forEach((id) => {
+    const v = sceneEntities.vertices.get(id);
+    if (v) {
+      if (v.mesh) scene.remove(v.mesh);
+      if (v.label) scene.remove(v.label);
+      sceneEntities.vertices.delete(id);
+    }
+  });
+}
+
+// 添加一个交点到 sceneEntities.vertices；如距离已有顶点（含原顶点或已有交点）太近则跳过
+
+function addIntersectionPoint(point) {
+  // 去重：与任意已有顶点距离 < 阈值 则跳过
+  let dup = false;
+  sceneEntities.vertices.forEach((v) => {
+    if (v.pos && v.pos.distanceTo(point) < INTERSECT_EPSILON) dup = true;
+  });
+  if (dup) return null;
+  const id = nextAvailableLetter();
+  return addIntersectionPointRaw(id, point);
+}
+
+// 用指定 id 创建一个交点（不做距离去重、不分配字母；用于稳定编号恢复）
+
+// 注意：调用方需自行保证 id 不与 sceneEntities.vertices 已有 id 冲突
+
+function addIntersectionPointRaw(id, point) {
+  const mesh = makeIntersectionSphere(point);
+  const label = makeIntersectionLabel(id, point);
+  scene.add(mesh);
+  scene.add(label);
+  sceneEntities.vertices.set(id, { mesh, label, pos: point.clone(), isIntersection: true });
+  return id;
+}
+
+// 重新计算所有交点：
+
+//   - 保留已有交点 id（按位置匹配恢复），保证编号稳定
+
+//   - 新发现的交点按 G, H, ..., Z, G1, H1, ..., Z1, G2, H2, ... 顺序分配新 id
+
+//   - id 不会与原顶点（题目中已存在的 A,B,C,...）重复；落在原顶点上的候选点会被丢弃
+
+function recomputeAllIntersections() {
+  // 1) 收集"重算前"的交点 id + 位置
+  const existingPoints = [];
+  sceneEntities.vertices.forEach((v, id) => {
+    if (v.isIntersection) {
+      existingPoints.push({ id, pos: v.pos.clone() });
+    }
+  });
+  // 2) 清理所有交点
+  clearAllIntersectionPoints();
+  if (!sceneEntities.auxElements || sceneEntities.auxElements.length === 0) return;
+  // 3) 收集所有辅助线段
+  const auxSegs = [];
+  sceneEntities.auxElements.forEach((entry, idx) => {
+    const segs = extractAuxLineSegments(entry);
+    segs.forEach((s) => auxSegs.push({ p1: s.p1, p2: s.p2, sourceIdx: idx, sourceType: entry.type }));
+  });
+  // 4) 收集所有候选交点位置（去重）
+  // 4-pre) 预先收集"非交点（原顶点）"位置：候选点落在原顶点上时不分配新编号
+  const nonIntersectPositions = [];
+  sceneEntities.vertices.forEach((v) => {
+    if (!v.isIntersection && v.pos) nonIntersectPositions.push(v.pos);
+  });
+  const candidates = []; // Vector3[]
+  const tryAddCandidate = (pt) => {
+    if (!pt) return;
+    if (isNaN(pt.x) || isNaN(pt.y) || isNaN(pt.z)) return;
+    for (let i = 0; i < candidates.length; i++) {
+      if (candidates[i].distanceTo(pt) < INTERSECT_EPSILON) return;
+    }
+    // 落在原顶点上的候选点直接丢弃，不分配新 ID
+    for (let i = 0; i < nonIntersectPositions.length; i++) {
+      if (nonIntersectPositions[i].distanceTo(pt) < INTERSECT_EPSILON) return;
+    }
+    // debug: log when candidate passes all filters
+    candidates.push(pt);
+  };
+  // 4a) 辅助线与原边求交
+  sceneEntities.edges.forEach((edge) => {
+    const pts = _getLineSegmentEndpointsFromEdgeEntity(edge);
+    if (!pts) return;
+    auxSegs.forEach((seg) => {
+      const pt = segmentSegmentClosest(seg.p1, seg.p2, pts[0], pts[1]);
+      if (pt) tryAddCandidate(pt);
+    });
+  });
+  // 4b) 辅助线两两求交
+  for (let i = 0; i < auxSegs.length; i++) {
+    for (let j = i + 1; j < auxSegs.length; j++) {
+      const segA = auxSegs[i], segB = auxSegs[j];
+      const pt = segmentSegmentClosest(segA.p1, segA.p2, segB.p1, segB.p2);
+      if (pt) tryAddCandidate(pt);
+    }
+  }
+  if (candidates.length === 0) return;
+  // 4c) 按空间位置排序（x → y → z），保证分配顺序与几何计算顺序解耦、
+  //     用户看到的是"自左向右/自下而上/自前向后"的字母顺序而非偶然顺序
+  candidates.sort((a, b) => {
+    if (a.x !== b.x) return a.x - b.x;
+    if (a.y !== b.y) return a.y - b.y;
+    return a.z - b.z;
+  });
+  // 5) 构造"已被占用"集合：原顶点（isOriginal）显式加入；交点 ID 在 5a 中按位置匹配后加入
+  //    用 isOriginal 显式判断比 !isIntersection 更稳健（防止交点被错误地当作原顶点遗漏）
+  const usedIds = new Set();
+  sceneEntities.vertices.forEach((v, id) => {
+    if (v.isOriginal) usedIds.add(id);
+  });
+  // 5a) 先把已有交点按"位置匹配"恢复原字母（保证编号稳定）
+  const matchedIdx = new Set();
+  existingPoints.forEach((existing) => {
+    let matchIdx = -1;
+    for (let i = 0; i < candidates.length; i++) {
+      if (matchedIdx.has(i)) continue;
+      if (candidates[i].distanceTo(existing.pos) < INTERSECT_EPSILON) {
+        matchIdx = i;
+        break;
+      }
+    }
+    if (matchIdx >= 0) {
+      // 若该字母已被原顶点占用，宁可放弃（极少出现）
+      if (!usedIds.has(existing.id)) {
+        addIntersectionPointRaw(existing.id, candidates[matchIdx]);
+        matchedIdx.add(matchIdx);
+        usedIds.add(existing.id);
+      }
+    }
+    // 没有匹配位置：说明该交点不再存在（旧辅助线已删除），无需重建
+  });
+  // 5b) 为剩余新候选点分配顺序 id（最终会由 5c 统一重新编号以保证严格顺序）
+  for (let i = 0; i < candidates.length; i++) {
+    if (matchedIdx.has(i)) continue;
+    const id = nextAvailableIdFrom(usedIds);
+    addIntersectionPointRaw(id, candidates[i]);
+    usedIds.add(id);
+  }
+  // 5c) 按空间位置重新编号所有交点，保证标签始终为 A,B,C,...,Z,A1,B1,... 顺序
+  {
+    const pts = [];
+    sceneEntities.vertices.forEach((v, id) => { if (v.isIntersection) pts.push({ id, pos: v.pos }); });
+    if (pts.length > 1) {
+      pts.sort((a, b) => { if (a.pos.x !== b.pos.x) return a.pos.x - b.pos.x; if (a.pos.y !== b.pos.y) return a.pos.y - b.pos.y; return a.pos.z - b.pos.z; });
+      const renumUsed = new Set();
+      sceneEntities.vertices.forEach((v, id) => { if (v.isOriginal) renumUsed.add(id); });
+      const renames = new Map();
+      pts.forEach((pt) => { const nid = nextAvailableIdFrom(renumUsed); renumUsed.add(nid); renames.set(pt.id, nid); });
+      // 需要 rename 才执行（避免不必要的 DOM 操作）
+      let needRename = false;
+      renames.forEach((nid, oid) => { if (oid !== nid) needRename = true; });
+      if (needRename) {
+        renames.forEach((nid, oid) => {
+          if (oid === nid) return;
+          const v = sceneEntities.vertices.get(oid);
+          if (!v) return;
+          sceneEntities.vertices.delete(oid);
+          sceneEntities.vertices.set(nid, v);
+          const m = nid.match(/^([A-Z]+)(\d+)$/);
+          // 用 DOM API 更新标签文字（兼容 CSS2DRenderer）
+          while (v.label.element.firstChild) v.label.element.removeChild(v.label.element.firstChild);
+          if (m) { const s1 = document.createElement("span"); s1.style.fontSize = "14px"; s1.textContent = m[1]; v.label.element.appendChild(s1); const s2 = document.createElement("sub"); s2.style.fontSize = "10px"; s2.textContent = m[2]; v.label.element.appendChild(s2); } else { const s = document.createElement("span"); s.style.fontSize = "14px"; s.textContent = nid; v.label.element.appendChild(s); }
+        });
+      }
+    }
+  }
+}
+
+// 新增延长线后：检查与其它延长线的交点，并自动延长其它延长线到交点
+function extendExtensionLinesToIntersections(newEntryIdx) {
+  const newEntry = sceneEntities.auxElements[newEntryIdx];
+  if (!newEntry || newEntry.type !== 'line-extend' || !newEntry.data) return;
+  const d = newEntry.data;
+  const np1 = Array.isArray(d.ext1) ? new THREE.Vector3().fromArray(d.ext1) : new THREE.Vector3(d.ext1.x, d.ext1.y, d.ext1.z);
+  const np2 = Array.isArray(d.ext2) ? new THREE.Vector3().fromArray(d.ext2) : new THREE.Vector3(d.ext2.x, d.ext2.y, d.ext2.z);
+  const nDir = new THREE.Vector3().subVectors(np2, np1);
+  if (nDir.lengthSq() < 1e-12) return;
+  nDir.normalize();
+  let changed = false;
+  for (let i = 0; i < sceneEntities.auxElements.length; i++) {
+    if (i === newEntryIdx) continue;
+    const entry = sceneEntities.auxElements[i];
+    if (entry.type !== 'line-extend' || !entry.data) continue;
+    const ed = entry.data;
+    const ep1 = Array.isArray(ed.ext1) ? new THREE.Vector3().fromArray(ed.ext1) : new THREE.Vector3(ed.ext1.x, ed.ext1.y, ed.ext1.z);
+    const ep2 = Array.isArray(ed.ext2) ? new THREE.Vector3().fromArray(ed.ext2) : new THREE.Vector3(ed.ext2.x, ed.ext2.y, ed.ext2.z);
+    const pt = segmentSegmentClosest(np1, np2, ep1, ep2);
+    if (!pt) continue;
+    const eDir = new THREE.Vector3().subVectors(ep2, ep1).normalize();
+    const dotCheck = new THREE.Vector3().subVectors(pt, ep2).dot(eDir);
+    if (dotCheck < -INTERSECT_EPSILON) continue;
+    ed.ext2 = pt.toArray();
+    try { scene.remove(entry.group); } catch(e) {}
+    const tool = toolManager.tools[entry.type];
+    if (tool && tool.rebuild) {
+      const newGrp = tool.rebuild(ed);
+      if (newGrp) {
+        entry.group = newGrp;
+        newGrp.visible = entry.visible !== false;
+        scene.add(newGrp);
+      }
+    }
+    changed = true;
+  }
+  return changed;
+}
+function normalizeColorValue(color, fallback) {
+  if (typeof color === "number") return color;
+  if (typeof color === "string") return new THREE.Color(color).getHex();
+  return fallback;
+}
+
+function makeAxisArrow(start, end, color, label) {
+  const dir = new THREE.Vector3().subVectors(end, start);
+  const len = dir.length();
+  if (len < 1e-6) return null;
+  dir.normalize();
+  const col = normalizeColorValue(color, 0x339af0);
+  const group = new THREE.Group();
+  const arrow = new THREE.ArrowHelper(dir, start, len, col, Math.min(0.16, len * 0.18), Math.min(0.08, len * 0.08));
+  group.add(arrow);
+  if (label) {
+    const labelPos = new THREE.Vector3().copy(end).addScaledVector(dir, 0.12);
+    const lbl = makeLabel(label, "#222222", labelPos);
+    group.add(lbl);
+  }
+  return group;
+}
+
+function getEdgeDirectionFromVertex(edgeId, vertexId) {
+  const edge = _findEdgeById(edgeId);
+  const vertex = getVertexPos(vertexId);
+  if (!edge || !vertex) return null;
+  const endpoints = _getLineSegmentEndpointsFromEdgeEntity(edge);
+  if (!endpoints) return null;
+  const d0 = endpoints[0].clone().sub(vertex);
+  const d1 = endpoints[1].clone().sub(vertex);
+  const dir = d0.lengthSq() > d1.lengthSq() ? d0 : d1;
+  if (dir.lengthSq() < 1e-10) return null;
+  return dir.normalize();
+}
+
+function makeRightAngleMarker(vertexId, sideAId, sideBId, color) {
+  const vertex = getVertexPos(vertexId);
+  const d1 = getEdgeDirectionFromVertex(sideAId, vertexId);
+  const d2 = getEdgeDirectionFromVertex(sideBId, vertexId);
+  if (!vertex || !d1 || !d2) return null;
+  const size = 0.13;
+  const p1 = vertex.clone().addScaledVector(d1, size);
+  const p2 = p1.clone().addScaledVector(d2, size);
+  const p3 = vertex.clone().addScaledVector(d2, size);
+  const geo = new THREE.BufferGeometry().setFromPoints([p1, p2, p3]);
+  const mat = new THREE.LineBasicMaterial({ color: normalizeColorValue(color, 0xff6b6b), depthTest: false });
+  const marker = new THREE.Line(geo, mat);
+  marker.renderOrder = 20;
+  return marker;
+}
+
+function getEdgeEndpointIds(edgeId) {
+  const edge = _findEdgeById(edgeId);
+  const data = edge && edge.line && edge.line.userData;
+  if (!data || !data.v1 || !data.v2) return null;
+  return [data.v1, data.v2];
+}
+
+function getCommonVertexForEdges(sideAId, sideBId) {
+  const a = getEdgeEndpointIds(sideAId);
+  const b = getEdgeEndpointIds(sideBId);
+  if (!a || !b) return null;
+  return a.find((id) => b.includes(id)) || null;
+}
+
+function getRightAngleDescriptor(cond) {
+  const targets = cond.targets || {};
+  if (targets.vertex && Array.isArray(targets.sides) && targets.sides.length >= 2) {
+    return { vertex: targets.vertex, sides: [targets.sides[0], targets.sides[1]] };
+  }
+  const sideA = targets.segment || targets.line || targets.lineA || targets.line1;
+  const sideB = targets.line2 || targets.lineB || targets.segment2;
+  if (sideA && sideB) {
+    const vertex = getCommonVertexForEdges(sideA, sideB);
+    if (vertex) return { vertex, sides: [sideA, sideB] };
+  }
+  return null;
+}
+
+function renderRightAngleCondition(cond) {
+  const rightAngle = getRightAngleDescriptor(cond);
+  if (!rightAngle) return false;
+  const marker = makeRightAngleMarker(rightAngle.vertex, rightAngle.sides[0], rightAngle.sides[1], cond.highlightColor || 0xff6b6b);
+  if (!marker) return false;
+  makeAnnotation(marker, cond.id);
+  return true;
+}
+
+function renderLinePlanePerpendicularMarker(cond) {
+  const targets = cond.targets || {};
+  const segment = targets.segment || targets.line;
+  const face = sceneEntities.faces.get(targets.face || targets.plane);
+  const edge = _findEdgeById(segment);
+  if (!edge || !face || !face.vertexIds || face.vertexIds.length < 2) return false;
+  const endpoints = _getLineSegmentEndpointsFromEdgeEntity(edge);
+  if (!endpoints) return false;
+  let footId = null;
+  for (const vid of face.vertexIds) {
+    const p = getVertexPos(vid);
+    if (p && (p.distanceTo(endpoints[0]) < 1e-6 || p.distanceTo(endpoints[1]) < 1e-6)) { footId = vid; break; }
+  }
+  if (!footId) return false;
+  const side = face.vertexIds.map((vid, i) => [vid, face.vertexIds[(i + 1) % face.vertexIds.length]])
+    .find(([a, b]) => a === footId || b === footId);
+  if (!side) return false;
+  const sideEdge = Array.from(sceneEntities.edges.entries()).find(([, ent]) => {
+    const ud = ent.line && ent.line.userData;
+    return ud && ((ud.v1 === side[0] && ud.v2 === side[1]) || (ud.v1 === side[1] && ud.v2 === side[0]));
+  });
+  if (!sideEdge) return false;
+  const marker = makeRightAngleMarker(footId, segment, sideEdge[0], cond.highlightColor || 0xff6b6b);
+  if (!marker) return false;
+  makeAnnotation(marker, cond.id);
+  return true;
+}
+
+function makeLabel(text, color, pos) {
+  const div = createMathSpan(text, "math-inline math-label");
+  div.style.color = color;
+  const lbl = new CSS2DObject(div);
+  lbl.position.copy(pos);
+  return lbl;
+}
+
+function setObjectTreeVisible(obj, visible) {
+  if (!obj) return;
+  obj.visible = visible;
+  obj.traverse((child) => {
+    child.visible = visible;
+    if (child.isCSS2DObject && child.element) child.element.style.display = visible ? "" : "none";
+  });
+}
+
+function makeAnnotation(obj, condId) {
+  obj.userData = { isAnnotation: true, conditionId: condId };
+  scene.add(obj);
+  const entry = sceneEntities.conditions.get(condId) || { annotations: [], visible: false };
+  entry.annotations.push(obj);
+  sceneEntities.conditions.set(condId, entry);
+}
+
+function renderPerpendicular(cond) {
+  if (!sceneEntities.conditions.has(cond.id)) {
+    sceneEntities.conditions.set(cond.id, { annotations: [], visible: false });
+  }
+  if (renderRightAngleCondition(cond)) return;
+  renderLinePlanePerpendicularMarker(cond);
+}
+function renderParallel(cond) { ensureConditionEntry(cond.id); }
+
+function renderLength(cond) {
+  annotateSegmentLength(cond.targets.segment, getConditionLengthLabel(cond), "#2b8a3e", cond.id);
+}
+
+function annotateSegmentLength(segmentId, labelText, color, condId) {
+  const text = String(labelText ?? "").trim();
+  if (!segmentId || !text) return;
+  const pos = getMidpoint(segmentId);
+  if (!pos) return;
+  pos.y += 0.08;
+  const lbl = makeLabel(text, color, pos);
+  makeAnnotation(lbl, condId);
+}
+
+function getConditionLengthLabel(cond) {
+  const exactLabel = cond.label ?? cond.displayValue ?? cond.valueText ?? cond.exactValue;
+  if (exactLabel !== undefined && exactLabel !== null && String(exactLabel).trim() !== "") return String(exactLabel);
+  if (cond.value !== undefined && cond.value !== null && String(cond.value).trim() !== "") return String(cond.value);
+  const targets = cond.targets || {};
+  const length = targets.segment ? getSegmentLength(targets.segment) : null;
+  return Number.isFinite(length) ? length.toFixed(2) : "";
+}
+
+function getSegmentLength(segmentId) {
+  const eid = _findEdgeIdById(segmentId);
+  const edge = eid ? sceneEntities.edges.get(eid) : null;
+  const data = edge && edge.line && edge.line.userData;
+  if (!data) return null;
+  const p1 = getVertexPos(data.v1);
+  const p2 = getVertexPos(data.v2);
+  return p1 && p2 ? p1.distanceTo(p2) : null;
+}
+
+function renderEqualLength(cond) {
+  if (!sceneEntities.conditions.has(cond.id)) {
+    sceneEntities.conditions.set(cond.id, { annotations: [], visible: false });
+  }
+  const targets = cond.targets || {};
+  const labelText = getConditionLengthLabel(cond);
+  (targets.segments || []).forEach((segmentId) => {
+    annotateSegmentLength(segmentId, labelText, "#2b8a3e", cond.id);
+  });
+}
+
+function renderAngle(cond) {
+  if (cond.type === "right-angle" && renderRightAngleCondition(cond)) return;
+  const v = cond.targets.vertex;
+  const sides = cond.targets.sides || [];
+  const pos = getVertexPos(v);
+  const p1 = getMidpoint(sides[0]); const p2 = getMidpoint(sides[1]);
+  if (!pos || !p1 || !p2) return;
+  const d1 = p1.clone().sub(pos).normalize();
+  const d2 = p2.clone().sub(pos).normalize();
+  const col = cond.highlightColor || 0xfcc419;
+  const radius = 0.2;
+  const ang = Math.acos(Math.max(-1, Math.min(1, d1.dot(d2))));
+  // 角平面的法向量与"第二基向量"，保证弧线在角平面内
+  const normal = new THREE.Vector3().crossVectors(d1, d2);
+  if (normal.lengthSq() < 1e-10) {
+    if (Math.abs(d1.x) < 0.9) normal.set(1, 0, 0); else normal.set(0, 1, 0);
+    normal.crossVectors(d1, normal);
+  }
+  normal.normalize();
+  const binormal = new THREE.Vector3().crossVectors(normal, d1).normalize();
+  const pts = [];
+  for (let i = 0; i <= 20; i++) {
+    const t = (i / 20) * ang;
+    pts.push(new THREE.Vector3()
+      .copy(pos)
+      .add(new THREE.Vector3().copy(d1).multiplyScalar(radius * Math.cos(t)))
+      .add(new THREE.Vector3().copy(binormal).multiplyScalar(radius * Math.sin(t)))
+    );
+  }
+  const geo = new THREE.BufferGeometry().setFromPoints(pts);
+  const mat = new THREE.LineBasicMaterial({ color: col });
+  const arc = new THREE.Line(geo, mat);
+  makeAnnotation(arc, cond.id);
+  if (cond.value) {
+    const halfT = ang / 2;
+    const labelDir = new THREE.Vector3()
+      .copy(d1).multiplyScalar(Math.cos(halfT))
+      .add(new THREE.Vector3().copy(binormal).multiplyScalar(Math.sin(halfT)))
+      .normalize();
+    const lp = new THREE.Vector3().copy(pos).add(labelDir.multiplyScalar(radius + 0.12));
+    const lbl = makeLabel(cond.value + "\u00b0", "#e67700", lp);
+    makeAnnotation(lbl, cond.id);
+  }
+}
+
+function renderMidpoint(cond) {
+  if (!sceneEntities.conditions.has(cond.id)) {
+    sceneEntities.conditions.set(cond.id, { annotations: [], visible: false });
+  }
+}
+
+function renderRatio(cond) { /* placeholder */ }
+
+function renderEqualAngle(cond) { /* placeholder */ }
+
+function toggleConditionVisibility(id, show) {
+  const entry = sceneEntities.conditions.get(id);
+  if (!entry) return;
+  entry.visible = show;
+  entry.annotations.forEach((a) => {
+    a.visible = show;
+    if (a.isCSS2DObject && a.element) {
+      a.element.style.display = show ? "" : "none";
+    } else {
+      a.visible = show;
+    }
+  });
+  applyHighlights();
+}
+
+// ---------- Condition highlight coloring ----------
+
+function applyHighlights() {
+  const activeIds = new Set();
+  // 收集所有可见条件的 conditionId
+  sceneEntities.conditions.forEach((entry, id) => {
+    if (entry.visible !== false) {
+      entry.annotations.forEach((a) => {
+        if (a.userData && a.userData.conditionId) activeIds.add(a.userData.conditionId);
+      });
+    }
+  });
+  // 1) 默认恢复原色（交点除外，保持红色）
+  sceneEntities.vertices.forEach((v) => { if (v.isIntersection) return; v.mesh.material.color.set(0x333333); });
+  sceneEntities.edges.forEach((e) => {
+    e._solidMat.color.set(0x222222);
+    e._dashedMat.color.set(0x222222);
+  });
+  sceneEntities.faces.forEach((f) => {
+    f.mesh.material.color.set(0xffffff);
+    f.mesh.material.opacity = 0.0;
+    f.mesh.material.transparent = true;
+    f.mesh.material.needsUpdate = true;
+    f.mesh.visible = false;
+  });
+  // 2) 高亮活跃条件的元素
+  if (currentData && currentData.conditions) {
+    currentData.conditions.forEach((cond) => {
+      const entry = sceneEntities.conditions.get(cond.id);
+      if (!entry || entry.visible === false) return;
+      const color = new THREE.Color(cond.highlightColor || '#ff6b6b');
+      const faceColor = softenHighlightColor(color);
+      const targets = cond.targets || {};
+      // ── 收集要高亮的 边ID ──
+      // 支持: segment / line / lineA / lineB / line1 / line2 / segments[] / segment1/segment2
+      const edgeIds = [];
+      if (targets.segment) edgeIds.push(targets.segment);
+      if (targets.line) edgeIds.push(targets.line);
+      if (targets.lineA) edgeIds.push(targets.lineA);
+      if (targets.lineB) edgeIds.push(targets.lineB);
+      if (targets.line1) edgeIds.push(targets.line1);
+      if (targets.line2) edgeIds.push(targets.line2);
+      if (Array.isArray(targets.segments)) edgeIds.push(...targets.segments);
+      if (targets.segment1) edgeIds.push(targets.segment1);
+      if (targets.segment2) edgeIds.push(targets.segment2);
+      const rightAngle = getRightAngleDescriptor(cond);
+      if (rightAngle) edgeIds.push(...rightAngle.sides);
+      // ── 收集要高亮的 顶点ID ──
+      const vertexIds = [];
+      if (targets.vertex) vertexIds.push(targets.vertex);
+      if (Array.isArray(targets.vertices)) vertexIds.push(...targets.vertices);
+      if (Array.isArray(targets.points)) vertexIds.push(...targets.points);
+      // ── 收集涉及的所有 面ID ──
+      const faceIds = collectConditionFaceIds(cond, targets);
+      // 面条件：自动把面包含的边全部加入；并把面的所有顶点加入高亮集合（Bug 1）
+      // 注意：必须用 face.vertexIds（顶点ID），不能直接用 face.vertices（那是 Vector3 数组，拼接后不是合法的边ID）
+      faceIds.forEach((fid) => {
+        const face = sceneEntities.faces.get(fid);
+        if (!face || !face.vertexIds) return;
+        const n = face.vertexIds.length;
+        for (let i = 0; i < n; i++) {
+          const a = face.vertexIds[i], b = face.vertexIds[(i + 1) % n];
+          const eid = _findEdgeIdById(a + b);
+          if (eid) edgeIds.push(eid);
+        }
+        // Bug 1：面涉及的所有顶点都要高亮
+        face.vertexIds.forEach((vid) => vertexIds.push(vid));
+      });
+      // Bug 2：当 targets 包含两个面时（faceA + faceB），自动计算公共顶点和公共边（交线）
+      if (targets.faceA && targets.faceB) {
+        const faceAEnt = sceneEntities.faces.get(targets.faceA);
+        const faceBEnt = sceneEntities.faces.get(targets.faceB);
+        if (faceAEnt && faceAEnt.vertexIds && faceBEnt && faceBEnt.vertexIds) {
+          const setA = new Set(faceAEnt.vertexIds);
+          const commonVerts = faceBEnt.vertexIds.filter((id) => setA.has(id));
+          // 公共顶点
+          commonVerts.forEach((vid) => vertexIds.push(vid));
+          // 公共边：每对公共顶点之间都尝试在 edges 中找到对应的边
+          for (let i = 0; i < commonVerts.length; i++) {
+            for (let j = i + 1; j < commonVerts.length; j++) {
+              const a = commonVerts[i], b = commonVerts[j];
+              const eid = _findEdgeIdById(a + b);
+              if (eid) edgeIds.push(eid);
+            }
+          }
+        }
+      }
+      // 边ID 去重
+      const seenE = new Set();
+      const uniqEdgeIds = edgeIds.filter((eid) => {
+        const real = _findEdgeIdById(eid);
+        if (!real) return false;
+        if (seenE.has(real)) return false;
+        seenE.add(real);
+        return true;
+      });
+      uniqEdgeIds.forEach((eid) => {
+        const edge = sceneEntities.edges.get(eid);
+        if (edge) {
+          edge._solidMat.color.copy(color);
+          edge._dashedMat.color.copy(color);
+        }
+      });
+      // 顶点ID 去重并高亮
+      const seenV = new Set();
+      vertexIds.forEach((vid) => {
+        if (seenV.has(vid)) return;
+        seenV.add(vid);
+        if (sceneEntities.vertices.has(vid)) {
+          sceneEntities.vertices.get(vid).mesh.material.color.copy(color);
+        }
+      });
+      // ── 面高亮（半透明色块）──
+      faceIds.forEach((fid, faceIndex) => {
+        const face = sceneEntities.faces.get(fid);
+        if (!face) return;
+        applyFaceHighlight(face, getFaceHighlightColor(faceIndex));
+      });
+    });
+  }
+}
+const SOFT_FACE_HIGHLIGHT_COLOR = new THREE.Color().setHSL(0.58, 0.82, 0.6);
+const FACE_HIGHLIGHT_HUES = [0.58, 0.36, 0.02, 0.76, 0.13, 0.50];
+const FACE_HIGHLIGHT_SATURATION = 0.82;
+const FACE_HIGHLIGHT_LIGHTNESS = 0.6;
+const FACE_HIGHLIGHT_EMISSIVE = 0.16;
+const SOFT_FACE_HIGHLIGHT_OPACITY = 0.46;
+
+function getFaceHighlightColor(index) {
+  return new THREE.Color().setHSL(
+    FACE_HIGHLIGHT_HUES[index % FACE_HIGHLIGHT_HUES.length],
+    FACE_HIGHLIGHT_SATURATION,
+    FACE_HIGHLIGHT_LIGHTNESS
+  );
+}
+
+function softenHighlightColor(color) {
+  return SOFT_FACE_HIGHLIGHT_COLOR.clone();
+}
+
+function collectConditionFaceIds(cond, targets) {
+  const ids = []
+    .concat(targets.face || [])
+    .concat(targets.faces || [])
+    .concat(targets.faceA || [])
+    .concat(targets.faceB || []);
+  const source = [cond && cond.text, cond && cond.title, cond && cond.theorem].filter(Boolean).join(" ");
+  const targetVertices = new Set();
+  if (Array.isArray(targets.vertices)) targets.vertices.forEach((id) => targetVertices.add(id));
+  if (Array.isArray(targets.points)) targets.points.forEach((id) => targetVertices.add(id));
+  sceneEntities.faces.forEach((face, id) => {
+    if (!face || !face.vertexIds) return;
+    if (source.includes(id)) ids.push(id);
+    if (targetVertices.size >= 3 && face.vertexIds.length === targetVertices.size && face.vertexIds.every((vid) => targetVertices.has(vid))) ids.push(id);
+  });
+  return Array.from(new Set(ids));
+}
+
+function collectReferencedFaceIdsFromText(text) {
+  const source = String(text ?? "");
+  const ids = [];
+  sceneEntities.faces.forEach((face, id) => {
+    if (source.includes(id)) ids.push(id);
+  });
+  return ids;
+}
+
+function applyFaceHighlight(face, color, opacity = 0.28) {
+  if (!face || !face.mesh) return;
+  face.mesh.material.color.copy(color);
+  if (face.mesh.material.emissive) face.mesh.material.emissive.copy(color).multiplyScalar(FACE_HIGHLIGHT_EMISSIVE);
+  face.mesh.material.opacity = opacity;
+  face.mesh.material.transparent = true;
+  face.mesh.material.side = THREE.DoubleSide;
+  face.mesh.material.depthWrite = false;
+  face.mesh.material.visible = true;
+  face.mesh.material.needsUpdate = true;
+  face.mesh.visible = true;
+}
+// ---------- Task 5: Step Manager ----------
+let currentStep = -1;
+
+function resetStepColors() {
+  sceneEntities.vertices.forEach((v) => { if (v.isIntersection) return; v.mesh.material.color.set(0x333333); });
+  sceneEntities.edges.forEach((e) => {
+    e._solidMat.color.set(0x222222);
+    e._dashedMat.color.set(0x222222);
+  });
+  sceneEntities.circles.forEach((c) => { if (c.line && c.line.material && c.line.material.color) c.line.material.color.set(0x339af0); });
+}
+currentStep = -1;
+let stepAnnotations = [];
+
+function applyStep(data, stepIndex) {
+  if (stepIndex < 0 || stepIndex >= data.solutionSteps.length) return;
+  const step = data.solutionSteps[stepIndex];
+  const raw = step.highlights || [];
+  // Bug 3：highlights 同时支持 顶点ID（如 "A"）和 边ID（如 "AD"）。
+  // 先把每个 id 分类到 hlVerts / hlEdges。
+  const hlVerts = new Set();
+  const hlEdges = new Set();
+  const hlFaces = new Set();
+  const hlCircles = new Set();
+  raw.forEach((id) => {
+    if (typeof id !== "string") return;
+    if (sceneEntities.vertices.has(id)) {
+      hlVerts.add(id);
+    } else if (sceneEntities.faces.has(id)) {
+      hlFaces.add(id);
+    } else if (sceneEntities.circles.has(id)) {
+      hlCircles.add(id);
+    } else {
+      const eid = _findEdgeIdById(id);
+      if (eid) hlEdges.add(eid);
+    }
+  });
+  collectReferencedFaceIdsFromText([step.title, step.theorem].filter(Boolean).join("\n")).forEach((id) => hlFaces.add(id));
+  // 保留"两端点都在高亮顶点集中 → 该边也高亮"的旧行为
+  sceneEntities.edges.forEach((e, id) => {
+    if (hlEdges.has(id)) return;
+    const ud = e.line.userData;
+    if (ud && hlVerts.has(ud.v1) && hlVerts.has(ud.v2)) hlEdges.add(id);
+  });
+  sceneEntities.vertices.forEach((v, id) => {
+    if (v.isIntersection) return; // 交点始终保持红色,不参与高亮变化
+    v.mesh.material.color.set(hlVerts.has(id) ? 0xff922b : 0x333333);
+  });
+  sceneEntities.edges.forEach((e, id) => {
+    const isHL = hlEdges.has(id);
+    e._solidMat.color.set(isHL ? 0xff922b : 0x222222);
+    e._dashedMat.color.set(isHL ? 0xff922b : 0x222222);
+  });
+  sceneEntities.circles.forEach((c, id) => {
+    if (c.line && c.line.material && c.line.material.color) c.line.material.color.set(hlCircles.has(id) ? 0xff922b : 0x339af0);
+  });
+  let highlightedFaceIndex = 0;
+  sceneEntities.faces.forEach((face, id) => {
+    if (hlFaces.has(id)) applyFaceHighlight(face, getFaceHighlightColor(highlightedFaceIndex++), SOFT_FACE_HIGHLIGHT_OPACITY);
+    else if (face.mesh && !isAuxiliaryEntity(face)) {
+      face.mesh.material.color.set(0xffffff);
+      face.mesh.material.opacity = 0.0;
+      face.mesh.material.transparent = true;
+      if (face.mesh.material.emissive) face.mesh.material.emissive.set(0x000000);
+      face.mesh.material.needsUpdate = true;
+      face.mesh.visible = false;
+    }
+  });
+  stepAnnotations.forEach((a) => scene.remove(a));
+  stepAnnotations = [];
+  (step.annotations || []).forEach((ann) => {
+    if (ann.type === "auxiliary-line") {
+      const p1 = getVertexPos(ann.points[0]), p2 = getVertexPos(ann.points[1]);
+      if (!p1 || !p2) return;
+      const pts = [p1, p2];
+      const geo = new THREE.BufferGeometry().setFromPoints(pts);
+      const mat = new THREE.LineDashedMaterial({ color: ann.color || 0xff6b6b, dashSize: 0.04, gapSize: 0.04 });
+      const ln = new THREE.Line(geo, mat);
+      ln.computeLineDistances();
+      scene.add(ln);
+      stepAnnotations.push(ln);
+    }
+  });
+  if (step.focusCamera) {
+    camera.position.set(step.focusCamera.pos[0], step.focusCamera.pos[1], step.focusCamera.pos[2]);
+    controls.target.set(step.focusCamera.target[0], step.focusCamera.target[1], step.focusCamera.target[2]);
+    controls.update();
+  }
+  updateProgressiveAuxVisibility(data, stepIndex);
+  currentStep = stepIndex;
+  updateStepUI(stepIndex);
+}
+
+function updateStepUI(idx) {
+  document.querySelectorAll(".step-item").forEach((el, i) => {
+    el.classList.toggle("active", i === idx);
+    const s = el.querySelector(".step-status");
+    if (s) s.textContent = i < idx ? "\u2714" : i === idx ? "\u25CF" : "\u25CB";
+  });
+}
+
+
+function isAuxiliaryEntity(entity) {
+  return !!entity && (entity.auxiliary === true || entity.renderMode === "auxiliary" || entity.renderMode === "axis");
+}
+
+function getStepRevealIds(data, stepIndex) {
+  const ids = new Set();
+  const steps = Array.isArray(data && data.solutionSteps) ? data.solutionSteps : [];
+  for (let i = 0; i <= stepIndex && i < steps.length; i++) {
+    (steps[i].highlights || []).forEach((id) => {
+      if (typeof id === "string") ids.add(id);
+    });
+  }
+  return ids;
+}
+
+function updateProgressiveAuxVisibility(data, stepIndex) {
+  const revealIds = getStepRevealIds(data, stepIndex);
+  const partId = data && data.activePart ? data.activePart.id : null;
+  function visibleForPart(entity) {
+    if (!entity || !Array.isArray(entity.partIds) || entity.partIds.length === 0 || !partId) return true;
+    return entity.partIds.includes(partId);
+  }
+  function shown(id, entity) {
+    return visibleForPart(entity) && (!isAuxiliaryEntity(entity) || revealIds.has(id));
+  }
+  sceneEntities.vertices.forEach((vertex, id) => {
+    const visible = shown(id, vertex);
+    if (vertex.mesh) vertex.mesh.visible = visible;
+    if (vertex.label) {
+      const labelVisible = visible && vertex.axisEndpoint !== true;
+      vertex.label.visible = labelVisible;
+      if (vertex.label.element) vertex.label.element.style.display = labelVisible ? "" : "none";
+    }
+  });
+  sceneEntities.edges.forEach((edge, id) => {
+    const visible = shown(id, edge);
+    if (edge.line) edge.line.visible = visible;
+    if (edge.axisAdornment) setObjectTreeVisible(edge.axisAdornment, visible);
+  });
+  sceneEntities.circles.forEach((circle, id) => {
+    const visible = shown(id, circle);
+    if (circle.line) circle.line.visible = visible;
+  });
+  sceneEntities.faces.forEach((face, id) => {
+    if (isAuxiliaryEntity(face) && !shown(id, face) && face.mesh) face.mesh.visible = false;
+  });
+}
+
+function getActivePartData(data) {
+  const parts = Array.isArray(data.parts) ? data.parts : [];
+  const part = parts[currentPartIndex] || null;
+  if (!part) return data;
+  const hasConditionFilter = Array.isArray(part.conditionIds);
+  const conditionIds = new Set(part.conditionIds || []);
+  const stepIds = new Set(part.stepIds || []);
+  return {
+    ...data,
+    activePart: part,
+    conditions: hasConditionFilter ? (data.conditions || []).filter((cond) => conditionIds.has(cond.id)) : (data.conditions || []),
+    solutionSteps: (data.solutionSteps || []).filter((step) => stepIds.has(step.id))
+  };
+}
+
+function syncPartVisibility(partData) {
+  const partId = partData && partData.activePart ? partData.activePart.id : null;
+  function visibleForPart(entity) {
+    if (!entity || !Array.isArray(entity.partIds) || entity.partIds.length === 0 || !partId) return true;
+    return entity.partIds.includes(partId);
+  }
+  sceneEntities.vertices.forEach((vertex) => {
+    const shown = visibleForPart(vertex);
+    if (vertex.mesh) vertex.mesh.visible = shown;
+    if (vertex.label) vertex.label.visible = shown;
+  });
+  sceneEntities.edges.forEach((edge) => {
+    const shown = visibleForPart(edge);
+    if (edge.line) edge.line.visible = shown;
+  });
+  sceneEntities.circles.forEach((circle) => {
+    const shown = visibleForPart(circle);
+    if (circle.line) circle.line.visible = shown;
+  });
+  sceneEntities.faces.forEach((face) => {
+    const shown = visibleForPart(face);
+    if (face.mesh) face.mesh.visible = shown && face.mesh.visible;
+  });
+}
+
+function renderPartTabs(data) {
+  const container = document.getElementById("part-tabs");
+  if (!container) return;
+  container.textContent = "";
+  const parts = Array.isArray(data.parts) ? data.parts : [];
+  if (parts.length <= 1) {
+    const section = container.closest(".part-switcher");
+    if (section) section.style.display = "none";
+    return;
+  }
+  const section = container.closest(".part-switcher");
+  if (section) section.style.display = "";
+  parts.forEach((part, index) => {
+    const button = document.createElement("button");
+    button.className = "part-tab" + (index === currentPartIndex ? " active" : "");
+    button.type = "button";
+    button.dataset.partIndex = String(index);
+    appendFormattedMath(button, part.title || ("第" + (index + 1) + "问"));
+    button.addEventListener("click", () => {
+      currentPartIndex = index;
+      renderPartTabs(data);
+      const activeData = getActivePartData(data);
+      syncPartVisibility(activeData);
+      updateProgressiveAuxVisibility(activeData, -1);
+      renderConditionsList(activeData);
+      currentStep = -1;
+      renderStepsList(activeData);
+      applyHighlights();
+      updateHiddenLines();
+    });
+    container.appendChild(button);
+  });
+}
+
+function updateConditionToggleButton(btn, isVisible) {
+  btn.textContent = "\uD83D\uDC41";
+  btn.title = isVisible ? "\u9690\u85cf" : "\u663e\u793a";
+  btn.setAttribute("aria-label", btn.title);
+  btn.classList.toggle("is-off", !isVisible);
+}
+function renderConditionsList(data) {
+  const container = document.getElementById("conditions-list");
+  container.textContent = "";
+  // 默认全部隐藏：避免所有条件的高亮累加造成"全亮"
+  const visibility = {};
+  data.conditions.forEach((cond) => {
+    visibility[cond.id] = false;
+    const item = document.createElement("div");
+    item.className = "condition-item";
+    const dot = document.createElement("span");
+    dot.className = "color-dot";
+    dot.style.background = cond.highlightColor || "#999";
+    const text = createMathSpan(cond.text, "cond-text math-inline");
+    const btn = document.createElement("button");
+    btn.className = "toggle-btn";
+    btn.dataset.cond = cond.id;
+    btn.style.cursor = "pointer";
+    updateConditionToggleButton(btn, visibility[cond.id]);
+    item.appendChild(dot);
+    item.appendChild(text);
+    item.appendChild(btn);
+    container.appendChild(item);
+  });
+  data.conditions.forEach((cond) => {
+    toggleConditionVisibility(cond.id, visibility[cond.id]);
+  });
+  container.onclick = function(e) {
+    const btn = e.target.closest(".toggle-btn");
+    if (!btn) return;
+    e.stopPropagation();
+    const id = btn.dataset.cond;
+    const willBeOn = !visibility[id];
+    data.conditions.forEach((cond) => {
+      const newVis = (cond.id === id) ? willBeOn : false;
+      visibility[cond.id] = newVis;
+      toggleConditionVisibility(cond.id, newVis);
+      const b = container.querySelector('.toggle-btn[data-cond="' + cond.id + '"]');
+      if (b) updateConditionToggleButton(b, newVis);
+    });
+    applyHighlights();
+  };
+}
+function splitTheoremSentences(text) {
+  const source = String(text || "").trim();
+  if (!source) return [];
+  const parts = source.match(/[^。；;？！!?]+[。；;？！!?]?/g) || [source];
+  return parts.map((part) => part.trim()).filter(Boolean);
+}
+
+function renderStepTheoremLines(container, theoremText) {
+  const lines = splitTheoremSentences(theoremText);
+  lines.forEach((line, index) => {
+    const row = document.createElement("span");
+    row.className = "step-theorem-line math-inline";
+    appendFormattedMath(row, line);
+    container.appendChild(row);
+  });
+}
+
+function renderStepRulesLines(container, step) {
+  const rules = step.rules || step.usedRules || step.basis || [];
+  if (!Array.isArray(rules) || rules.length === 0) return;
+  const row = document.createElement("span");
+  row.className = "step-theorem-line math-inline";
+  appendFormattedMath(row, rules.filter(Boolean).join("\uFF1B"));
+  container.appendChild(row);
+}
+
+function renderStepsList(data) {
+  const container = document.getElementById("steps-list");
+  container.textContent = "";
+  data.solutionSteps.forEach((step, i) => {
+    const item = document.createElement("div");
+    item.className = "step-item" + (i === currentStep ? " active" : "");
+    const header = document.createElement("div");
+    header.className = "step-header";
+    const status = document.createElement("span");
+    status.className = "step-status";
+    status.textContent = i < currentStep ? '[done]' : i === currentStep ? '[now]' : '[ ]';
+    const title = createMathSpan(step.title, "step-title math-inline");
+    header.appendChild(status);
+    header.appendChild(title);
+    item.appendChild(header);
+    if (step.theorem || step.rules || step.usedRules || step.basis) {
+      const theorem = document.createElement("div");
+      theorem.className = "step-theorem";
+      renderStepRulesLines(theorem, step);
+      if (step.theorem) renderStepTheoremLines(theorem, step.theorem);
+      item.appendChild(theorem);
+    }
+    item.addEventListener("click", () => applyStep(data, i));
+    container.appendChild(item);
+  });
+}
+
+function buildEdgeAdjacency(data) {
+  const adj = {};
+  data.solids.forEach(solid => {
+    solid.faces.forEach(face => {
+      for (let i = 0; i < face.vertices.length; i++) {
+        const v1 = face.vertices[i], v2 = face.vertices[(i+1)%face.vertices.length];
+        const edge = solid.edges.find(e => (e.v1===v1&&e.v2===v2)||(e.v1===v2&&e.v2===v1));
+        if (edge) { if (!adj[edge.id]) adj[edge.id] = []; if (!adj[edge.id].includes(face.id)) adj[edge.id].push(face.id); }
+      }
+    });
+  });
+  window._edgeAdjacency = adj;
+}
+
+
+function pointInsideFaceProjection(point, vertices, normal) {
+  const ax = Math.abs(normal.x), ay = Math.abs(normal.y), az = Math.abs(normal.z);
+  const drop = ax > ay && ax > az ? 'x' : (ay > az ? 'y' : 'z');
+  function project(v) {
+    if (drop === 'x') return [v.y, v.z];
+    if (drop === 'y') return [v.x, v.z];
+    return [v.x, v.y];
+  }
+  const p = project(point);
+  const pts = vertices.map(project);
+  let sign = 0;
+  for (let i = 0; i < pts.length; i++) {
+    const a = pts[i], b = pts[(i + 1) % pts.length];
+    const cross = (b[0] - a[0]) * (p[1] - a[1]) - (b[1] - a[1]) * (p[0] - a[0]);
+    if (Math.abs(cross) < 1e-7) continue;
+    const current = cross > 0 ? 1 : -1;
+    if (sign === 0) sign = current;
+    else if (sign !== current) return false;
+  }
+  return true;
+}
+
+
+function areAllAdjacentFacesBackFacing(faceIds, faceData, eyePos) {
+  if (!Array.isArray(faceIds) || faceIds.length < 2) return false;
+  let checked = 0;
+  for (const fid of faceIds) {
+    const fd = faceData.get(fid);
+    if (!fd) continue;
+    checked++;
+    if (fd.normal.dot(new THREE.Vector3().subVectors(eyePos, fd.center)) > 0) return false;
+  }
+  return checked >= 2;
+}
+function isPointOccludedByFaces(point, ownFaces, faceData, eyePos) {
+  const own = new Set(ownFaces || []);
+  const ray = new THREE.Vector3().subVectors(point, eyePos);
+  const maxDist = ray.length();
+  if (maxDist < 1e-7) return false;
+  ray.normalize();
+  for (const [fid, fd] of faceData) {
+    if (own.has(fid)) continue;
+    const denom = fd.normal.dot(ray);
+    if (Math.abs(denom) < 1e-7) continue;
+    const t = fd.normal.dot(new THREE.Vector3().subVectors(fd.center, eyePos)) / denom;
+    if (t <= 1e-5 || t >= maxDist - 1e-5) continue;
+    const hit = new THREE.Vector3().copy(eyePos).addScaledVector(ray, t);
+    if (pointInsideFaceProjection(hit, fd.vertices, fd.normal)) return true;
+  }
+  return false;
+}
+function getHiddenLineSolidCenter() {
+  const ids = new Set();
+  sceneEntities.faces.forEach((face) => {
+    if (isAuxiliaryEntity(face)) return;
+    (face.vertexIds || []).forEach((id) => {
+      const v = sceneEntities.vertices.get(id);
+      if (v && !isAuxiliaryEntity(v) && v.axisEndpoint !== true) ids.add(id);
+    });
+  });
+  if (ids.size === 0) {
+    sceneEntities.vertices.forEach((v, id) => {
+      if (!isAuxiliaryEntity(v) && v.axisEndpoint !== true) ids.add(id);
+    });
+  }
+  const center = new THREE.Vector3();
+  ids.forEach((id) => center.add(sceneEntities.vertices.get(id).pos));
+  if (ids.size > 0) center.divideScalar(ids.size);
+  return center;
+}
+
+function isEdgeOccludedByFaces(edge, ownFaces, faceData, eyePos) {
+  const endpoints = _getLineSegmentEndpointsFromEdgeEntity(edge);
+  if (!endpoints) return false;
+  if (ownFaces.length >= 2 && areAllAdjacentFacesBackFacing(ownFaces, faceData, eyePos)) return true;
+  let hiddenSamples = 0;
+  const sampleTs = [0.2, 0.35, 0.5, 0.65, 0.8];
+  for (const t of sampleTs) {
+    const sample = new THREE.Vector3().lerpVectors(endpoints[0], endpoints[1], t);
+    if (isPointOccludedByFaces(sample, ownFaces, faceData, eyePos)) hiddenSamples++;
+  }
+  return hiddenSamples >= 3;
+}
+function updateHiddenLines() {
+  if (!sceneGeomGroup) return;
+  const eyePos = camera.position;
+  const W=container.clientWidth, H=container.clientHeight;
+  const adj=window._edgeAdjacency||{};
+  const solidCenter = getHiddenLineSolidCenter();
+  // 构建面数据：法线 + 中心，确保法线朝外（远离质心）
+  const faceData = new Map();
+  sceneEntities.faces.forEach((face, fid) => {
+    if (!face.vertices || face.vertices.length < 3) return;
+    const verts = face.vertices.map(v => v.clone());
+    const v0=verts[0],v1=verts[1],v2=verts[2];
+    const e1=new THREE.Vector3().subVectors(v1,v0), e2=new THREE.Vector3().subVectors(v2,v0);
+    let normal=new THREE.Vector3().crossVectors(e1,e2).normalize();
+    const ctr=new THREE.Vector3(); verts.forEach(v=>ctr.add(v)); ctr.divideScalar(verts.length);
+    // 法线应远离质心（朝外）；若法线指向质心（与朝外方向相反）则翻转
+    if (normal.dot(new THREE.Vector3().subVectors(ctr, solidCenter)) < 0) normal.negate();
+    faceData.set(fid, { normal, center: ctr.clone(), vertices: verts });
+  });
+  // ── 背面剔除法（适用于凸多面体）──
+  // 判定规则：一条边被两个相邻面共享，
+  //   若两个面都背对眼睛（法线·视线 < 0）→ 边被遮挡，画虚线
+  //   若至少一个面朝向眼睛 → 边可见，画实线
+  sceneEntities.edges.forEach((edge,id)=>{
+    const ownFaces = adj[id] || [];
+    let hidden = false;
+    if (edge.explicitDashed) {
+      hidden = true;
+    } else if (edge.renderMode === "auxiliary") {
+      hidden = true;
+    } else if (edge.renderMode === "axis") {
+      hidden = false;
+    } else {
+      hidden = isEdgeOccludedByFaces(edge, ownFaces, faceData, eyePos);
+    }
+    const targetMat = hidden ? edge._dashedMat : edge._solidMat;
+    targetMat.resolution.set(W, H);
+    edge.line.material = targetMat;
+    edge.line.computeLineDistances();
+  });  if (window._hideDiag) {
+    let visibleCount = 0, hiddenCount = 0;
+    sceneEntities.edges.forEach((edge) => {
+      if (edge.line.material === edge._dashedMat) hiddenCount++;
+      else visibleCount++;
+    });
+    if (window._diagFrame === undefined) window._diagFrame = 0;
+    window._diagFrame++;
+    if (window._diagFrame % 60 === 1) {
+      console.log(`[hide-line] visible=${visibleCount} hidden=${hiddenCount} sceneEntities.edges.size=${sceneEntities.edges.size}`);
+    }
+  }
+  // --- 调试可视化：眼睛标记 + 面朝向 + 射线连线 + 箭头 ---
+  
+  // 眼睛位置标记（黄色球体）
+  const eyeMarker = new THREE.Mesh(
+    new THREE.SphereGeometry(0.18, 16, 16),
+    new THREE.MeshBasicMaterial({ color: 0xffcc00 })
+  );
+  eyeMarker.position.copy(eyePos);
+  
+  // 控制台输出（每60帧一次）
+  if (window._arrowFrame === undefined) window._arrowFrame = 0;
+  window._arrowFrame++;
+  if (window._arrowFrame % 60 === 1) {
+    console.log(`[eye] eyePos=(${eyePos.x.toFixed(2)}, ${eyePos.y.toFixed(2)}, ${eyePos.z.toFixed(2)})  target=(${controls.target.x.toFixed(2)}, ${controls.target.y.toFixed(2)}, ${controls.target.z.toFixed(2)})`);
+  }
+  // 显示每个面的朝向：从面心画法线箭头，朝向眼睛=绿色，背对眼睛=红色
+  faceData.forEach((fd, fid) => {
+    const isFront = fd.normal.dot(new THREE.Vector3().subVectors(eyePos, fd.center)) > 0;
+    const color = isFront ? 0x22cc22 : 0xff2222;
+    const normalLen = 0.6;
+    const normalDir = fd.normal.clone();
+    const arrow = new THREE.Group();
+    const mat = new THREE.MeshBasicMaterial({ color });
+    const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, normalLen, 8), mat);
+    shaft.position.y = normalLen / 2;
+    arrow.add(shaft);
+    const headLen = 0.12;
+    const head = new THREE.Mesh(new THREE.ConeGeometry(0.05, headLen, 12), mat);
+    head.position.y = normalLen + headLen / 2;
+    arrow.add(head);
+    arrow.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), normalDir);
+    arrow.position.copy(fd.center);
+      });
+  // 每条边：射线连线（中点→眼睛）+ 方向箭头
+  sceneEntities.edges.forEach((edge, id) => {
+    const pos = edge.line.geometry.attributes.position;
+    if (!pos || pos.count < 6) return;
+    const arr = pos.array;
+    const mid = new THREE.Vector3((arr[0]+arr[3])/2, (arr[1]+arr[4])/2, (arr[2]+arr[5])/2);
+    const dir = new THREE.Vector3().subVectors(eyePos, mid).normalize();
+    const isHidden = edge.line.material === edge._dashedMat;
+    const color = isHidden ? 0xff2222 : 0x22cc22;
+    // 射线连线：中点→眼睛
+    const rayGeo = new THREE.BufferGeometry().setFromPoints([mid.clone(), eyePos.clone()]);
+    const rayMat = new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.4 });
+    //     debugArrowsGroup.add(new THREE.Line(rayGeo, rayMat));
+    // 方向箭头
+    const shaftLen = 0.35;
+    const headLen = 0.08;
+    const arrow = new THREE.Group();
+    const mat = new THREE.MeshBasicMaterial({ color });
+    const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, shaftLen, 8), mat);
+    shaft.position.y = shaftLen / 2;
+    arrow.add(shaft);
+    const head = new THREE.Mesh(new THREE.ConeGeometry(0.04, headLen, 12), mat);
+    head.position.y = shaftLen + headLen / 2;
+    arrow.add(head);
+    arrow.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
+    arrow.position.copy(mid);
+      });
+}
+
+function pointInFace(pt, verts, normal) {
+  // For a convex polygon on a plane: project to 2D and check winding
+  // Use the dominant axis of the normal to pick projection plane
+  const ax = Math.abs(normal.x), ay = Math.abs(normal.y), az = Math.abs(normal.z);
+  let proj;
+  if (ax >= ay && ax >= az) {
+    proj = v => [v.y, v.z]; // project onto YZ
+  } else if (ay >= ax && ay >= az) {
+    proj = v => [v.x, v.z]; // project onto XZ
+  } else {
+    proj = v => [v.x, v.y]; // project onto XY
+  }
+  
+  const pt2 = proj(pt);
+  let sign = 0;
+  for (let i = 0; i < verts.length; i++) {
+    const a = proj(verts[i]);
+    const b = proj(verts[(i+1) % verts.length]);
+    const cross = (b[0]-a[0]) * (pt2[1]-a[1]) - (b[1]-a[1]) * (pt2[0]-a[0]);
+    if (i === 0) sign = cross > 0 ? 1 : -1;
+    else if ((cross > 0 ? 1 : -1) !== sign) return false;
+  }
+  return true;
+}
+
+// ---------- Init ----------
+
+function init(data) {
+  currentData = data;
+  currentPartIndex = 0;
+  renderMathBlock(document.getElementById("problem-text"), data.problemText || "");
+  clearGeometry();
+  buildGeometry(data);
+  buildEdgeAdjacency(data);
+  updateHiddenLines();
+  renderConditions(data);
+  renderPartTabs(data);
+  const activeData = getActivePartData(data);
+  syncPartVisibility(activeData);
+  updateProgressiveAuxVisibility(activeData, -1);
+  renderConditionsList(activeData);
+  currentStep = -1;
+  renderStepsList(activeData);
+  applyHighlights();
+  setTimeout(focusCameraOnScene, 100);
+}
+
+// ========== Task 6: SnapEngine ==========
+class SnapEngine {
+  constructor(camera, rendererEl) {
+    this.camera = camera; this.rendererEl = rendererEl;
+    this.threshold = 0.15; this.active = true;
+    this.snapPoint = null; this.snapType = null; this.snapTargetId = null;
+  }
+  getMouseRay(event) {
+    const rect = this.rendererEl.getBoundingClientRect();
+    const x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+    const y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+    const rc = new THREE.Raycaster();
+    rc.setFromCamera(new THREE.Vector2(x, y), this.camera);
+    this._lastRay = rc; return rc;
+  }
+  getMouse3DPoint(event) {
+    const ray = this.getMouseRay(event);
+    const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+    const pt = new THREE.Vector3();
+    if (ray.ray.intersectPlane(plane, pt)) return pt;
+    const dir = new THREE.Vector3();
+    this.camera.getWorldDirection(dir);
+    const fp = new THREE.Plane(dir, -this.camera.position.dot(dir));
+    ray.ray.intersectPlane(fp, pt); return pt;
+  }
+  snap(event) {
+    if (!this.active) return null;
+    const ray = this.getMouseRay(event);
+    let best = this.threshold, bestPt = null, bestT = null, bestId = null;
+    sceneEntities.vertices.forEach((v, id) => {
+      const d = ray.ray.distanceToPoint(v.pos);
+      if (d < best) { best = d; bestPt = v.pos.clone(); bestT = '\u7AEF\u70B9'; bestId = id; }
+    });
+    sceneEntities.edges.forEach((e, id) => {
+      const p = e.line.geometry.attributes.position.array;
+      const mid = new THREE.Vector3((p[0]+p[3])/2, (p[1]+p[4])/2, (p[2]+p[5])/2);
+      const d = ray.ray.distanceToPoint(mid);
+      if (d < best) { best = d; bestPt = mid.clone(); bestT = '\u4E2D\u70B9'; bestId = id; }
+    });
+    this.snapPoint = bestPt; this.snapType = bestT; this.snapTargetId = bestId; return bestPt;
+  }
+}
+
+// ========== Task 7: ToolManager ==========
+const toolManager = {
+  currentTool: 'select', tools: {},
+  snapEngine: new SnapEngine(camera, renderer.domElement),
+  pendingPoints: [], pendingEdges: [],
+  previewGroup: new THREE.Group(),
+  init() { scene.add(this.previewGroup); this._bindToolbarEvents(); this._bindCanvasEvents(); this._bindKeyboard(); },
+  register(name, h) { this.tools[name] = h; },
+  activate(name) {
+    if (this.currentTool === name) return;
+    const prev = this.tools[this.currentTool];
+    if (prev && prev.onDeactivate) prev.onDeactivate();
+    this.currentTool = name; this.pendingPoints = []; this.pendingEdges = []; this.clearPreview();
+    const tool = this.tools[name];
+    if (tool && tool.onActivate) tool.onActivate();
+    document.querySelectorAll('.tool-btn').forEach(b => b.classList.toggle('active', b.dataset.tool === name));
+    const labels = { select:'\u9009\u62E9','line-segment':'\u753B\u7EBF\u6BB5','line-extend':'\u753B\u5EF6\u957F\u7EBF','angle-bisector':'\u753B\u89D2\u5E73\u5206\u7EBF','line-perp':'\u753B\u5782\u7EBF','line-para':'\u753B\u5E73\u884C\u7EBF','circle-diameter':'\u753B\u5706(\u76F4\u5F84)','circle-cp':'\u753B\u5706(\u5706\u5FC3+\u70B9)','circle-3p':'\u753B\u5706(\u4E09\u70B9)','face-3p':'\u753B\u9762(\u4E09\u70B9)','face-4p':'\u753B\u9762(\u56DB\u70B9)','face-lp':'\u753B\u9762(\u7EBF+\u70B9)','annotate-text':'\u6587\u5B57\u6807\u6CE8','annotate-length':'\u957F\u5EA6\u6807\u6CE8','annotate-angle':'\u89D2\u5EA6\u6807\u6CE8','annotate-equal':'\u7B49\u957F\u6807\u8BB0','annotate-para':'\u5E73\u884C\u6807\u8BB0','annotate-perp':'\u5782\u76F4\u6807\u8BB0', erase:'\u64E6\u9664' };
+    document.getElementById('status-tool').textContent = labels[name] || name;
+    this.setStep(0);
+  },
+  _getToolHint(name) {
+    const hints = {
+      select:'\u70B9\u51FB\u9009\u62E9\u5143\u7D20','line-segment':'\u70B9\u51FB\u4E24\u70B9\u753B\u7EBF \u00B7 \u70B9\u51FB\u8D77\u70B9 \u00B7 \u70B9\u51FB\u7EC8\u70B9','line-extend':'\u753B\u5EF6\u957F\u7EBF \u00B7 \u70B9\u51FB\u7EBF\u6BB5 \u00B7 \u70B9\u51FB\u5EF6\u4F38\u65B9\u5411','angle-bisector':'\u753B\u89D2\u5E73\u5206\u7EBF \u00B7 \u70B9\u51FB\u9876\u70B9 \u00B7 \u70B9\u51FB\u4E00\u8FB9\u4E0A\u7684\u70B9 \u00B7 \u70B9\u51FB\u53E6\u4E00\u8FB9\u4E0A\u7684\u70B9','line-perp':'\u753B\u5782\u7EBF \u00B7 \u70B9\u51FB\u7EBF\u6BB5 \u00B7 \u70B9\u51FB\u7EBF\u6BB5\u4E0A\u7684\u70B9','line-para':'\u753B\u5E73\u884C\u7EBF \u00B7 \u70B9\u51FB\u7EBF\u6BB5 \u00B7 \u70B9\u51FB\u76EE\u6807\u70B9','circle-diameter':'\u753B\u5706(\u5706\u5FC3+\u534A\u5F84) \u00B7 \u70B9\u51FB\u5706\u5FC3 \u00B7 \u8F93\u5165/\u70B9\u51FB\u534A\u5F84\u7AEF\u70B9','circle-cp':'\u753B\u5706(\u5706\u5FC3+\u70B9) \u00B7 \u70B9\u51FB\u5706\u5FC3 \u00B7 \u70B9\u51FB\u5706\u4E0A\u70B9','circle-3p':'\u753B\u5706(\u4E09\u70B9) \u00B7 \u70B9\u51FB\u4E09\u4E2A\u70B9','face-3p':'\u753B\u9762(\u4E09\u70B9) \u00B7 \u70B9\u51FB\u4E09\u4E2A\u9876\u70B9','face-4p':'\u753B\u9762(\u56DB\u70B9) \u00B7 \u70B9\u51FB\u56DB\u4E2A\u9876\u70B9','face-lp':'\u753B\u9762(\u7EBF+\u70B9) \u00B7 \u70B9\u51FB\u7EBF\u6BB5 \u00B7 \u70B9\u51FB\u53E6\u4E00\u7EBF\u6BB5','annotate-text':'\u6DFB\u52A0\u6587\u5B57\u6807\u6CE8','annotate-length':'\u6807\u6CE8\u957F\u5EA6 \u00B7 \u70B9\u51FB\u7EBF\u6BB5 \u00B7 \u70B9\u51FB\u4F4D\u7F6E','annotate-angle':'\u6807\u6CE8\u89D2\u5EA6 \u00B7 \u70B9\u51FB\u9876\u70B9 \u00B7 \u70B9\u51FB\u4E24\u8FB9\u4E0A\u7684\u70B9','annotate-equal':'\u7B49\u957F\u6807\u8BB0 \u00B7 \u70B9\u51FB\u7EBF\u6BB5 \u00B7 \u70B9\u51FB\u4F4D\u7F6E','annotate-para':'\u5E73\u884C\u6807\u8BB0 \u00B7 \u70B9\u51FB\u7EBF\u6BB5 \u00B7 \u70B9\u51FB\u4F4D\u7F6E','annotate-perp':'\u5782\u76F4\u6807\u8BB0 \u00B7 \u70B9\u51FB\u7EBF\u6BB5 \u00B7 \u70B9\u51FB\u4F4D\u7F6E',undo:'\u64A4\u9500',erase:'\u64E6\u9664 \u00B7 \u70B9\u51FB\u8F85\u52A9\u5143\u7D20',clear:'\u6E05\u7A7A\u6240\u6709\u8F85\u52A9\u5143\u7D20'
+    };
+    return hints[name] || '';
+  },
+  _bindToolbarEvents() {
+    document.getElementById('toolbar').addEventListener('click', (e) => {
+      const btn = e.target.closest('.tool-btn'); if (!btn) return;
+      const t = btn.dataset.tool;
+      if (t === 'undo') { this._undo(); return; } if (t === 'erase') { this.activate('erase'); return; }
+      if (t === 'clear') { this._clearAll(); return; } if (t === 'toggle-aux') { this._toggleAux(); return; }
+      this.activate(t);
+    });
+  },
+  _bindCanvasEvents() {
+    const el = renderer.domElement;
+    this._dragStart = null;
+    el.addEventListener('mousedown', (e) => {
+      this._dragStart = new THREE.Vector2(e.clientX, e.clientY);
+    });
+    el.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (this._dragStart) {
+        const dx = e.clientX - this._dragStart.x;
+        const dy = e.clientY - this._dragStart.y;
+        if (dx * dx + dy * dy > 9) { this._dragStart = null; return; }
+      }
+      const tool = this.tools[this.currentTool];
+      if (!tool || !tool.onClick) return;
+      const snapPt = this.snapEngine.snap(e);
+      const pt = snapPt || this.snapEngine.getMouse3DPoint(e); if (!pt) return;
+      tool.onClick(pt, snapPt, this, e);
+    });
+    el.addEventListener('mousemove', (e) => {
+      const snapPt = this.snapEngine.snap(e);
+      const pt = snapPt || this.snapEngine.getMouse3DPoint(e);
+      const ss = document.getElementById('status-snap');
+      if (this.snapEngine.snapType) {
+        ss.textContent = '\u5438\u9644: ' + this.snapEngine.snapType + ' ' + (this.snapEngine.snapTargetId||'');
+        el.style.cursor = 'crosshair';
+      } else { ss.textContent = ''; el.style.cursor = 'default'; }
+      const tool = this.tools[this.currentTool];
+      if (tool && tool.onMouseMove) tool.onMouseMove(pt, snapPt, this);
+    });
+  },
+  _bindKeyboard() {
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        Object.keys(this.tools).forEach(k => {
+          const t = this.tools[k];
+          t.data = null; t.p1 = null; t.p2 = null; t.clickPt = null;
+          t.points = []; t.seg1 = null; t.seg2 = null;
+          t.line1 = null; t.line2 = null; t.center = null;
+          if (t._reset) t._reset();
+        });
+        this.pendingPoints = []; this.pendingEdges = [];
+        this.clearPreview();
+        document.getElementById('status-hint').textContent = '';
+      }
+    });
+  },
+  clearPreview() { while (this.previewGroup.children.length) this.previewGroup.remove(this.previewGroup.children[0]); },
+  addPreviewLine(p1, p2, color, dashed) {
+    const geo = new THREE.BufferGeometry().setFromPoints([p1, p2]);
+    const mat = dashed ? new THREE.LineDashedMaterial({color:color||0xff6b6b,dashSize:0.03,gapSize:0.03,depthTest:false}) : new THREE.LineBasicMaterial({color:color||0xff6b6b,depthTest:false});
+    const ln = new THREE.Line(geo, mat); if (dashed) ln.computeLineDistances();
+    this.previewGroup.add(ln); return ln;
+  },
+  addPreviewCircle(center, radius, color, dashed) {
+    const pts = [];
+    for (let i = 0; i <= 48; i++) { const theta = (i/48)*Math.PI*2; pts.push(new THREE.Vector3(center.x+radius*Math.cos(theta), center.y, center.z+radius*Math.sin(theta))); }
+    const geo = new THREE.BufferGeometry().setFromPoints(pts);
+    const mat = dashed ? new THREE.LineDashedMaterial({color:color||0xff6b6b,dashSize:0.03,gapSize:0.03,depthTest:false}) : new THREE.LineBasicMaterial({color:color||0xff6b6b,depthTest:false});
+    const ln = new THREE.Line(geo, mat); if (dashed) ln.computeLineDistances();
+    this.previewGroup.add(ln); return ln;
+  },
+  setStep(idx) {
+    this._currentStepIdx = idx;
+    const el = document.getElementById('status-hint');
+    const dotsEl = document.getElementById('step-dots');
+    if (!el) return;
+    const tool = this.tools[this.currentTool];
+    const steps = (tool && tool.steps) || [];
+    // 渲染步骤圆点：已完成=绿、当前=黄(放大+光晕)、待办=灰
+    if (dotsEl) {
+      dotsEl.innerHTML = '';
+      for (let i = 0; i < steps.length; i++) {
+        const dot = document.createElement('span');
+        dot.className = 'step-dot';
+        if (i < idx) dot.classList.add('done');
+        else if (i === idx) dot.classList.add('current');
+        dot.title = (steps[i] && steps[i].text) || '';
+        dotsEl.appendChild(dot);
+      }
+    }
+    // 渲染步骤文字（带 1/N 进度后缀）
+    if (steps.length > 0 && idx >= 0 && idx < steps.length) {
+      el.textContent = steps[idx].text + '  (' + (idx + 1) + '/' + steps.length + ')';
+      el.removeAttribute('style');
+    } else {
+      el.textContent = this._getToolHint(this.currentTool);
+      el.removeAttribute('style');
+    }
+  },
+  advanceStep() {
+    const next = (this._currentStepIdx || 0) + 1;
+    this.setStep(next);
+  },
+  resetStep() {
+    this.setStep(0);
+  },
+  successHint(text) {
+    const el = document.getElementById('status-hint');
+    if (!el) return;
+    el.textContent = text || '完成';
+    el.style.color = '#2b8a3e';
+    clearTimeout(this._hintTimer);
+    this._hintTimer = setTimeout(() => { this.resetStep(); }, 1500);
+  },
+  errorHint(text) {
+    const el = document.getElementById('status-hint');
+    if (!el) return;
+    el.textContent = text || '操作错误';
+    el.style.color = '#ff6b6b';
+    clearTimeout(this._hintTimer);
+    this._hintTimer = setTimeout(() => {
+      const tool = this.tools[this.currentTool];
+      if (tool && tool.steps && tool.steps[this._currentStepIdx || 0]) {
+        el.textContent = tool.steps[this._currentStepIdx || 0].text;
+      } else {
+        el.textContent = this._getToolHint(this.currentTool);
+      }
+      el.style.color = '#339af0';
+    }, 1500);
+  },
+  findEdgeByEvent(event) {
+    const raycaster = this.snapEngine.getMouseRay(event);
+    const camera = this.snapEngine.camera;
+    const baseThreshold = 0.3;
+    let bestDist = Infinity;
+    let bestId = null;
+    const _ptOnRay = new THREE.Vector3();
+    const _ptOnSeg = new THREE.Vector3();
+    sceneEntities.edges.forEach((e, id) => {
+      const pts = this._getEdgeEndpoints(e);
+      if (!pts) return;
+      const p1 = pts[0], p2 = pts[1];
+      const distSq = raycaster.ray.distanceSqToSegment(p1, p2, _ptOnRay, _ptOnSeg);
+      if (distSq < 0) return;
+      const dist = Math.sqrt(distSq);
+      const distToCam = camera.position.distanceTo(_ptOnSeg);
+      const threshold = Math.max(0.08, baseThreshold * (distToCam / 5.0));
+      if (dist < threshold && dist < bestDist) {
+        bestDist = dist;
+        bestId = id;
+      }
+    });
+    if (bestId !== null) {
+      return { edge: sceneEntities.edges.get(bestId), id: bestId };
+    }
+    return { edge: null, id: null };
+  },
+  _getEdgeEndpoints(edge) {
+    const g = edge.line.geometry;
+    if (g && g.attributes && g.attributes.instanceStart && g.attributes.instanceEnd) {
+      const a = g.attributes.instanceStart.array;
+      const b = g.attributes.instanceEnd.array;
+      const endOff = b.length >= 6 ? 3 : 0; return [new THREE.Vector3(a[0], a[1], a[2]), new THREE.Vector3(b[endOff], b[endOff+1], b[endOff+2])];
+    }
+    if (g && g.attributes && g.attributes.position) {
+      const p = g.attributes.position.array;
+      return [new THREE.Vector3(p[0], p[1], p[2]), new THREE.Vector3(p[3], p[4], p[5])];
+    }
+    return null;
+  },
+  _pushUndoState() {
+    const state = sceneEntities.auxElements.map(a => ({type:a.type,data:JSON.parse(JSON.stringify(a.data)),visible:a.visible}));
+    window._undoStack.push(state); window._redoStack = [];
+  },
+  _undo() {
+    if (window._undoStack.length <= 1) return;
+    const cur = sceneEntities.auxElements.map(a => ({type:a.type,data:JSON.parse(JSON.stringify(a.data)),visible:a.visible}));
+    window._redoStack.push(cur); this._restoreAux(window._undoStack.pop());
+  },
+  _clearAll() {
+    if (sceneEntities.auxElements.length === 0) return; this._pushUndoState();
+    sceneEntities.auxElements.forEach(a => { try { scene.remove(a.group); } catch(e) {} });
+    sceneEntities.auxElements = [];
+    // 清空后重新检测（应无交点）
+    recomputeAllIntersections();
+  },
+  _toggleAux() {
+    const allHidden = sceneEntities.auxElements.length > 0 && sceneEntities.auxElements.every(a => !a.visible);
+    const show = allHidden;
+    sceneEntities.auxElements.forEach(a => {
+      a.visible = show;
+      a.group.visible = show;
+      a.group.traverse(function(child) {
+        child.visible = show;
+        if (child.isCSS2DObject && child.element) {
+          child.element.style.display = show ? '' : 'none';
+        }
+      });
+    });
+    const btn = document.querySelector('[data-tool="toggle-aux"]');
+    if (btn) btn.textContent = show ? '\uD83D\uDC41' : '\uD83D\uDC41\u200D\uD83D\uDDE8';
+  },
+  _addAuxElement(type, data, group) {
+    const entry = { type, data, group, visible: true };
+    if (group) {
+      group.traverse(function(child) { child.visible = true; });
+    }
+    sceneEntities.auxElements.push(entry); scene.add(group); this._pushUndoState();
+    // 新增辅助线后：重新检测与原边/其他辅助线的交点并自动编号
+    recomputeAllIntersections();
+    return entry;
+  },
+  _removeAuxByEvent(event) {
+    const raycaster = this.snapEngine.getMouseRay(event);
+    const camera = this.snapEngine.camera;
+    const baseThreshold = 0.3;
+    let bestDist = Infinity;
+    let bestIdx = -1;
+    const _ptOnRay = new THREE.Vector3();
+    const _ptOnSeg = new THREE.Vector3();
+    for (let i = sceneEntities.auxElements.length - 1; i >= 0; i--) {
+      for (const ch of sceneEntities.auxElements[i].group.children) {
+        let p1 = null, p2 = null;
+        if (ch.isLine && ch.geometry && ch.geometry.attributes) {
+          const g = ch.geometry;
+          if (g.attributes.instanceStart && g.attributes.instanceEnd) {
+            const a = g.attributes.instanceStart.array;
+            const b = g.attributes.instanceEnd.array;
+      const endOff = b.length >= 6 ? 3 : 0; return [new THREE.Vector3(a[0], a[1], a[2]), new THREE.Vector3(b[endOff], b[endOff+1], b[endOff+2])];
+          } else if (g.attributes.position) {
+            const p = g.attributes.position.array;
+            p1 = new THREE.Vector3(p[0], p[1], p[2]); p2 = new THREE.Vector3(p[3], p[4], p[5]);
+          }
+        }
+        if (!p1 || !p2) {
+          if (ch.isCSS2DObject && ch.position) {
+            const dist = raycaster.ray.distanceToPoint(ch.position);
+            const distToCam = camera.position.distanceTo(ch.position);
+            const threshold = Math.max(0.08, baseThreshold * (distToCam / 5.0));
+            if (dist < threshold && dist < bestDist) { bestDist = dist; bestIdx = i; }
+          }
+          continue;
+        }
+        const distSq = raycaster.ray.distanceSqToSegment(p1, p2, _ptOnRay, _ptOnSeg);
+        if (distSq < 0) continue;
+        const dist = Math.sqrt(distSq);
+        const distToCam = camera.position.distanceTo(_ptOnSeg);
+        const threshold = Math.max(0.08, baseThreshold * (distToCam / 5.0));
+        if (dist < threshold && dist < bestDist) { bestDist = dist; bestIdx = i; }
+      }
+    }
+    if (bestIdx >= 0) {
+      this._pushUndoState();
+      try { scene.remove(sceneEntities.auxElements[bestIdx].group); } catch(e) {}
+      sceneEntities.auxElements.splice(bestIdx, 1);
+      // 删除辅助线后重新检测交点
+      recomputeAllIntersections();
+      return true;
+    }
+    return false;
+  },
+  _restoreAux(arr) {
+    sceneEntities.auxElements.forEach(a => { try { scene.remove(a.group); } catch(e) {} });
+    sceneEntities.auxElements = [];
+    for (const s of arr) {
+      const tool = this.tools[s.type];
+      if (tool && tool.rebuild) {
+        const grp = tool.rebuild(s.data);
+        if (grp) {
+          const entry = { type: s.type, data: s.data, group: grp, visible: s.visible !== false };
+          entry.group.visible = entry.visible; sceneEntities.auxElements.push(entry); scene.add(grp);
+        }
+      }
+    }
+    // 撤销/重做后重新检测交点
+    recomputeAllIntersections();
+  }
+};
+
+// ========== Helper functions ==========
+
+function makeGroup() { return new THREE.Group(); }
+
+function makeLine(p1, p2, color, dashed) {
+  const geo = new THREE.BufferGeometry().setFromPoints([p1, p2]);
+  const mat = dashed ? new THREE.LineDashedMaterial({color:color||0x339af0,dashSize:0.04,gapSize:0.04}) : new THREE.LineBasicMaterial({color:color||0x339af0});
+  const ln = new THREE.Line(geo, mat); if (dashed) ln.computeLineDistances(); return ln;
+}
+
+function makeCircle(center, radius, color, dashed) {
+  const pts = [];
+  for (let i = 0; i <= 64; i++) { const theta = (i/64)*Math.PI*2; pts.push(new THREE.Vector3(center.x+radius*Math.cos(theta), center.y, center.z+radius*Math.sin(theta))); }
+  const geo = new THREE.BufferGeometry().setFromPoints(pts);
+  const mat = dashed ? new THREE.LineDashedMaterial({color:color||0x339af0,dashSize:0.04,gapSize:0.04}) : new THREE.LineBasicMaterial({color:color||0x339af0});
+  const ln = new THREE.Line(geo, mat); if (dashed) ln.computeLineDistances(); return ln;
+}
+
+function makeFace(points, color) {
+  if (points.length < 3) return null;
+  const pos = [];
+  for (let i = 1; i < points.length-1; i++) {
+    pos.push(points[0].x,points[0].y,points[0].z, points[i].x,points[i].y,points[i].z, points[i+1].x,points[i+1].y,points[i+1].z);
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  geo.computeVertexNormals();
+  const mat = new THREE.MeshPhongMaterial({color:color||0x339af0,transparent:true,opacity:0.3,side:THREE.DoubleSide,depthWrite:false});
+  return new THREE.Mesh(geo, mat);
+}
+
+// ========== Task 8: Drawing Tools ==========
+toolManager.register('line-segment', {
+  data: null,
+  onClick(pt, snapPt, tm) {
+    if (!this.data) { this.data = { p1: pt.clone(), p2: null }; tm.advanceStep(); return; }
+    this.data.p2 = pt.clone();
+    const grp = makeGroup();
+    grp.add(makeLine(this.data.p1, this.data.p2, 0x339af0, false));
+    tm._addAuxElement('line-segment', {p1:this.data.p1.toArray(),p2:this.data.p2.toArray()}, grp);
+    this.data = null; tm.clearPreview(); tm.successHint('线段已绘制'); tm.resetStep();
+  },
+  onMouseMove(pt, snapPt, tm) { if (this.data && this.data.p1) { tm.clearPreview(); tm.addPreviewLine(this.data.p1, pt, 0xff6b6b, true); } },
+  rebuild(data) { const grp = makeGroup(); grp.add(makeLine(new THREE.Vector3().fromArray(data.p1), new THREE.Vector3().fromArray(data.p2), 0x339af0, false)); return grp; },
+  steps:[{text:'第1步：点击起点'},{text:'第2步：点击终点'}],
+  onDeactivate(){this.data=null;},
+});
+toolManager.register('line-extend', {
+  p1: null, p2: null,
+  onClick(pt, snapPt, tm) {
+    if (!this.p1) { this.p1 = pt.clone(); tm.advanceStep(); return; }
+    this.p2 = pt.clone();
+    const dir = new THREE.Vector3().subVectors(this.p2, this.p1).normalize();
+    const len = this.p1.distanceTo(this.p2);
+    const ext1 = this.p1.clone();
+    const ext2 = this.p2.clone().add(dir.clone().multiplyScalar(len));
+    const grp = makeGroup();
+    grp.add(makeLine(ext1, ext2, 0x339af0, false));
+    grp.add(makeLine(this.p1, this.p2, 0xff6b6b, false));
+    tm._addAuxElement('line-extend', {p1:this.p1.toArray(),p2:this.p2.toArray(),ext1:ext1.toArray(),ext2:ext2.toArray()}, grp);
+    this.p1 = null; this.p2 = null; tm.clearPreview(); tm.successHint('延长线已绘制'); tm.resetStep();
+  },
+  onMouseMove(pt, snapPt, tm) {
+    if (this.p1 && !this.p2) { tm.clearPreview(); const dir = new THREE.Vector3().subVectors(pt, this.p1).normalize(); const len = this.p1.distanceTo(pt); const ep2 = pt.clone().add(dir.clone().multiplyScalar(len)); tm.addPreviewLine(this.p1, ep2, 0x339af0, false); tm.addPreviewLine(this.p1, pt, 0xff6b6b, false); }
+  },
+  rebuild(data) { const grp = makeGroup(); grp.add(makeLine(new THREE.Vector3().fromArray(data.ext1), new THREE.Vector3().fromArray(data.ext2), 0x339af0, false)); grp.add(makeLine(new THREE.Vector3().fromArray(data.p1), new THREE.Vector3().fromArray(data.p2), 0xff6b6b, false)); return grp; },
+  steps:[{text:'第1步：点击起点'},{text:'第2步：点击终点'}],
+  onDeactivate(){this.p1=null;this.p2=null;},
+});
+toolManager.register('angle-bisector', {
+  points: [],
+  onClick(pt, snapPt, tm) {
+    this.points.push(pt.clone());
+    if (this.points.length === 3) {
+      const [v, s1, s2] = this.points;
+      const d1 = new THREE.Vector3().subVectors(s1, v).normalize();
+      const d2 = new THREE.Vector3().subVectors(s2, v).normalize();
+      const bisDir = d1.clone().add(d2).normalize();
+      const bisPt = v.clone().add(bisDir.multiplyScalar(v.distanceTo(s1)*1.2));
+      const grp = makeGroup();
+      grp.add(makeLine(v, bisPt, 0x339af0, false));
+      tm._addAuxElement('angle-bisector', {vertex:v.toArray(),side1:s1.toArray(),side2:s2.toArray(),bisPt:bisPt.toArray()}, grp);
+      this.points = []; tm.clearPreview(); tm.successHint('角平分线已绘制'); tm.resetStep();
+      return;
+    }
+    tm.advanceStep();
+  },
+  onMouseMove(pt, snapPt, tm) { tm.clearPreview(); if (this.points.length===1) tm.addPreviewLine(this.points[0], pt, 0xff6b6b, true); if (this.points.length===2) { tm.addPreviewLine(this.points[0], this.points[1], 0x339af0, false); tm.addPreviewLine(this.points[0], pt, 0xff6b6b, true); } },
+  rebuild(data) { const grp = makeGroup(); grp.add(makeLine(new THREE.Vector3().fromArray(data.vertex), new THREE.Vector3().fromArray(data.bisPt), 0x339af0, false)); return grp; },
+  steps:[{text:'第1步：点击顶点'},{text:'第2步：点击一边上的点'},{text:'第3步：点击另一边上的点'}],
+  onDeactivate(){this.points=[];},
+});
+toolManager.register('line-perp', {
+  clickPt: null,
+  onClick(pt, snapPt, tm, e) {
+    if (!this.clickPt) { this.clickPt = pt.clone(); tm.advanceStep(); return; }
+    const hit = tm.findEdgeByEvent(e);
+    if (!hit.edge) { tm.errorHint('未找到线段，请点击几何体上的一条线段'); return; }
+    const edgePts = tm._getEdgeEndpoints(hit.edge);
+    if (!edgePts) { tm.errorHint('线段数据异常'); return; }
+    const ep1 = edgePts[0], ep2 = edgePts[1];
+    const edgeDir = new THREE.Vector3().subVectors(ep2, ep1).normalize();
+    const edgeLen = ep1.distanceTo(ep2);
+    const foot = edgeDir.clone().multiplyScalar(new THREE.Vector3().subVectors(this.clickPt, ep1).dot(edgeDir)).add(ep1);
+    const perpDir = new THREE.Vector3().subVectors(this.clickPt, foot).normalize();
+    const dist = this.clickPt.distanceTo(foot);
+    const extendDist = Math.max(dist, 0.5) * 1.5;
+    const p1 = foot.clone();
+    const p2 = foot.clone().add(perpDir.clone().multiplyScalar(extendDist));
+    const grp = makeGroup();
+    grp.add(makeLine(p1, p2, 0x339af0, false));
+    const t = new THREE.Vector3().subVectors(foot, ep1).dot(edgeDir) / edgeLen;
+    let extData = null;
+    if (t < -0.001) {
+      extData = { extStart: ep1.toArray(), extEnd: foot.toArray() };
+      grp.add(makeLine(ep1, foot, 0x868e96, true));
+    } else if (t > 1.001) {
+      extData = { extStart: ep2.toArray(), extEnd: foot.toArray() };
+      grp.add(makeLine(ep2, foot, 0x868e96, true));
+    }
+    const sz = 0.12;
+    const ra = [
+      foot.clone().add(edgeDir.clone().multiplyScalar(sz)),
+      foot.clone().add(edgeDir.clone().multiplyScalar(sz)).add(perpDir.clone().multiplyScalar(sz)),
+      foot.clone().add(perpDir.clone().multiplyScalar(sz))
+    ];
+    const rGeo = new THREE.BufferGeometry().setFromPoints(ra);
+    grp.add(new THREE.Line(rGeo, new THREE.LineBasicMaterial({color:0xff6b6b})));
+    tm._addAuxElement('line-perp', {
+      through: this.clickPt.toArray(),
+      foot: foot.toArray(),
+      p1: p1.toArray(),
+      p2: p2.toArray(),
+      perpDir: perpDir.toArray(),
+      edgeDir: edgeDir.toArray(),
+      ext: extData,
+      refEdge: hit.id
+    }, grp);
+    this.clickPt = null; tm.clearPreview(); tm.successHint('垂线已绘制'); tm.resetStep();
+  },
+  onMouseMove(pt, snapPt, tm) { tm.clearPreview(); if (this.clickPt) tm.addPreviewLine(this.clickPt, pt, 0xff6b6b, true); },
+  rebuild(data) {
+    const grp = makeGroup();
+    grp.add(makeLine(new THREE.Vector3().fromArray(data.p1), new THREE.Vector3().fromArray(data.p2), 0x339af0, false));
+    if (data.ext) {
+      grp.add(makeLine(new THREE.Vector3().fromArray(data.ext.extStart), new THREE.Vector3().fromArray(data.ext.extEnd), 0x868e96, true));
+    }
+    const f2 = new THREE.Vector3().fromArray(data.foot);
+    const pd = new THREE.Vector3().fromArray(data.perpDir);
+    const ed = new THREE.Vector3().fromArray(data.edgeDir);
+    const sz2 = 0.12;
+    const ra2 = [
+      f2.clone().add(ed.clone().multiplyScalar(sz2)),
+      f2.clone().add(ed.clone().multiplyScalar(sz2)).add(pd.clone().multiplyScalar(sz2)),
+      f2.clone().add(pd.clone().multiplyScalar(sz2))
+    ];
+    grp.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(ra2), new THREE.LineBasicMaterial({color:0xff6b6b})));
+    return grp;
+  },
+  steps:[{text:'第1步：点击目标点'},{text:'第2步：点击线段'}],
+  onDeactivate(){this.clickPt=null;},
+});
+toolManager.register('line-para', {
+  clickPt: null,
+  onClick(pt, snapPt, tm, e) {
+    if (!this.clickPt) { this.clickPt = pt.clone(); tm.advanceStep(); return; }
+    const hit = tm.findEdgeByEvent(e);
+    if (!hit.edge) { tm.errorHint('未找到线段，请点击几何体上的一条线段'); return; }
+    const edgePts = tm._getEdgeEndpoints(hit.edge);
+    if (!edgePts) { tm.errorHint('线段数据异常'); return; }
+    const ep1 = edgePts[0], ep2 = edgePts[1];
+    const edgeDir = new THREE.Vector3().subVectors(ep2, ep1).normalize();
+    const len = ep1.distanceTo(ep2);
+    const pl1 = this.clickPt.clone().sub(edgeDir.clone().multiplyScalar(len*0.5));
+    const pl2 = this.clickPt.clone().add(edgeDir.clone().multiplyScalar(len*0.5));
+    const grp = makeGroup();
+    grp.add(makeLine(pl1, pl2, 0x339af0, false));
+    const mk0 = pl1.clone().add(pl2).multiplyScalar(0.5);
+    grp.add(makeLine(mk0, mk0.clone().add(new THREE.Vector3(0,0.12,0)), 0xff6b6b, false));
+    tm._addAuxElement('line-para', {pt:this.clickPt.toArray(),p1:pl1.toArray(),p2:pl2.toArray(),refEdge:hit.id}, grp);
+    this.clickPt = null; tm.clearPreview(); tm.successHint('平行线已绘制'); tm.resetStep();
+  },
+  onMouseMove(pt, snapPt, tm) { tm.clearPreview(); if (this.clickPt) tm.addPreviewLine(this.clickPt, pt, 0xff6b6b, true); },
+  rebuild(data) { const grp = makeGroup(); grp.add(makeLine(new THREE.Vector3().fromArray(data.p1), new THREE.Vector3().fromArray(data.p2), 0x339af0, false)); return grp; },
+  steps:[{text:'第1步：点击目标点'},{text:'第2步：点击线段'}],
+  onDeactivate(){this.clickPt=null;},
+});
+toolManager.register('midpoint', {
+  p1: null, p2: null,
+  onClick(pt, snapPt, tm) {
+    if (!this.p1) { this.p1 = pt.clone(); tm.advanceStep(); return; }
+    this.p2 = pt.clone();
+    const mid = new THREE.Vector3().addVectors(this.p1, this.p2).multiplyScalar(0.5);
+    const id = nextAvailableLetter();
+    const sp = new THREE.Mesh(new THREE.SphereGeometry(0.025, 12, 12), new THREE.MeshBasicMaterial({ color: 0x339af0 }));
+    sp.position.copy(mid);
+    const div = document.createElement("div");
+    div.textContent = id;
+    div.style.cssText = "font-size:14px;font-weight:bold;color:#1971c2;background:rgba(255,255,255,0.85);padding:1px 5px;border-radius:3px;border:1px solid #1971c2;pointer-events:none;";
+    const lbl = new CSS2DObject(div);
+    lbl.position.copy(mid);
+    lbl.position.y += 0.1;
+    const grp = makeGroup();
+    grp.add(sp);
+    grp.add(lbl);
+    // 检查两点间是否已有线段
+    let edgeFound = false;
+    sceneEntities.edges.forEach(function(e, eid) {
+      const ud = e.line.userData;
+      if (!ud) return;
+      if ((ud.v1 === id || ud.v2 === id)) return; // skip self
+    });
+    // 遍历检查两点间是否有边
+    const vIds = Array.from(sceneEntities.vertices.keys());
+    let v1Id = null, v2Id = null;
+    sceneEntities.vertices.forEach(function(v, vid) {
+      if (v.pos && v.pos.distanceTo(this.p1) < 0.01) v1Id = vid;
+      if (v.pos && v.pos.distanceTo(this.p2) < 0.01) v2Id = vid;
+    }.bind(this));
+    if (v1Id && v2Id) {
+      sceneEntities.edges.forEach(function(e, eid) {
+        const ud = e.line.userData;
+        if (!ud) return;
+        if ((ud.v1 === v1Id && ud.v2 === v2Id) || (ud.v1 === v2Id && ud.v2 === v1Id)) edgeFound = true;
+      });
+    }
+    if (!edgeFound) {
+      // 两点间无线段，画连接线
+      grp.add(makeLine(this.p1, this.p2, 0x339af0, false));
+    }
+    sceneEntities.vertices.set(id, { mesh: sp, label: lbl, pos: mid.clone(), isMidpoint: true });
+    tm._addAuxElement('midpoint', { p1: this.p1.toArray(), p2: this.p2.toArray(), mid: mid.toArray(), id: id, hasEdge: edgeFound }, grp);
+    this.p1 = null; this.p2 = null; tm.clearPreview(); tm.successHint('中点已创建: ' + id); tm.resetStep();
+  },
+  onMouseMove(pt, snapPt, tm) {
+    tm.clearPreview();
+    if (this.p1) { tm.addPreviewLine(this.p1, pt, 0xff6b6b, true); }
+  },
+  rebuild(data) {
+    const grp = makeGroup();
+    const mid = new THREE.Vector3().fromArray(data.mid);
+    const sp = new THREE.Mesh(new THREE.SphereGeometry(0.025, 12, 12), new THREE.MeshBasicMaterial({ color: 0x339af0 }));
+    sp.position.copy(mid);
+    const div = document.createElement("div");
+    div.textContent = data.id;
+    div.style.cssText = "font-size:14px;font-weight:bold;color:#1971c2;background:rgba(255,255,255,0.85);padding:1px 5px;border-radius:3px;border:1px solid #1971c2;pointer-events:none;";
+    const lbl = new CSS2DObject(div);
+    lbl.position.copy(mid);
+    lbl.position.y += 0.1;
+    grp.add(sp);
+    grp.add(lbl);
+    if (!data.hasEdge) {
+      grp.add(makeLine(new THREE.Vector3().fromArray(data.p1), new THREE.Vector3().fromArray(data.p2), 0x339af0, false));
+    }
+    return grp;
+  },
+  steps: [{ text: '第1步：点击第一个点' }, { text: '第2步：点击第二个点' }],
+  onDeactivate() { this.p1 = null; this.p2 = null; },
+});
+toolManager.register('circle-diameter', {
+  p1: null,
+  onClick(pt, snapPt, tm) { if (!this.p1) { this.p1 = pt.clone(); tm.advanceStep(); return; } const p2=pt.clone(); const center=new THREE.Vector3().addVectors(this.p1,p2).multiplyScalar(0.5); const r=this.p1.distanceTo(p2)*0.5; if(r<0.01){this.p1=null;tm.resetStep();return;} const grp=makeGroup(); grp.add(makeCircle(center,r,0x339af0,false)); tm._addAuxElement('circle-diameter',{center:center.toArray(),radius:r,p1:this.p1.toArray(),p2:p2.toArray()},grp); this.p1=null; tm.clearPreview(); tm.successHint('圆已创建（直径确定）'); tm.resetStep(); },
+  onMouseMove(pt, snapPt, tm) { tm.clearPreview(); if (this.p1) { const ctr=new THREE.Vector3().addVectors(this.p1,pt).multiplyScalar(0.5); tm.addPreviewCircle(ctr,this.p1.distanceTo(pt)*0.5,0xff6b6b,true); } },
+  rebuild(data) { const grp=makeGroup(); grp.add(makeCircle(new THREE.Vector3().fromArray(data.center),data.radius,0x339af0,false)); return grp; },
+  steps:[{text:'第1步：点击直径一端'},{text:'第2步：点击直径另一端'}],
+  onDeactivate(){this.p1=null;},
+});toolManager.register('circle-cp', {
+  center: null,
+  onClick(pt, snapPt, tm) { if (!this.center) { this.center = pt.clone(); tm.advanceStep(); return; } const r = this.center.distanceTo(pt); const grp = makeGroup(); grp.add(makeCircle(this.center, r, 0x339af0, false)); tm._addAuxElement('circle-cp', {center:this.center.toArray(),radius:r}, grp); this.center = null; tm.clearPreview(); tm.successHint('圆已创建（圆心+点）'); tm.resetStep(); },
+  onMouseMove(pt, snapPt, tm) { tm.clearPreview(); if (this.center) tm.addPreviewCircle(this.center, this.center.distanceTo(pt), 0xff6b6b, true); },
+  rebuild(data) { const grp = makeGroup(); grp.add(makeCircle(new THREE.Vector3().fromArray(data.center), data.radius, 0x339af0, false)); return grp; },
+  steps:[{text:'第1步：点击圆心'},{text:'第2步：点击圆上一点'}],
+  onDeactivate(){this.center=null;this.p1=null;this.points=[];},
+});
+toolManager.register('circle-3p', {
+  points: [],
+  onClick(pt, snapPt, tm) { this.points.push(pt.clone()); if (this.points.length===3) { const [a,b]=this.points; const ctr=new THREE.Vector3().addVectors(a,b).multiplyScalar(0.5); const r=ctr.distanceTo(a); const grp=makeGroup(); grp.add(makeCircle(ctr,r,0x339af0,false)); tm._addAuxElement('circle-3p',{center:ctr.toArray(),radius:r},grp); this.points=[]; tm.clearPreview(); tm.successHint('圆已创建（三点）'); tm.resetStep(); return; } tm.advanceStep(); },
+  onMouseMove(pt, snapPt, tm) { tm.clearPreview(); if (this.points.length>=1) { const ctr=this.points.length>=2?new THREE.Vector3().addVectors(this.points[0],this.points[1]).multiplyScalar(0.5):this.points[0]; tm.addPreviewCircle(ctr,ctr.distanceTo(pt),0xff6b6b,true); } },
+  rebuild(data) { const grp = makeGroup(); grp.add(makeCircle(new THREE.Vector3().fromArray(data.center), data.radius, 0x339af0, false)); return grp; },
+  steps:[{text:'第1步：点击第1个点'},{text:'第2步：点击第2个点'},{text:'第3步：点击第3个点'}],
+  onDeactivate(){this.center=null;this.p1=null;this.points=[];},
+});
+toolManager.register('face-3p', {
+  points: [],
+  onClick(pt, snapPt, tm) { this.points.push(pt.clone()); if (this.points.length===3) { const grp=makeGroup(); const face=makeFace(this.points,0x339af0); if (face) grp.add(face); for (let i=0;i<3;i++) grp.add(makeLine(this.points[i],this.points[(i+1)%3],0x339af0,false)); tm._addAuxElement('face-3p',{pts:this.points.map(p=>p.toArray())},grp); this.points=[]; tm.clearPreview(); tm.successHint('面已创建（三点）'); tm.resetStep(); return; } tm.advanceStep(); },
+  onMouseMove(pt, snapPt, tm) { tm.clearPreview(); if (this.points.length===1) tm.addPreviewLine(this.points[0],pt,0xff6b6b,true); if (this.points.length===2) { tm.addPreviewLine(this.points[0],this.points[1],0x339af0,false); tm.addPreviewLine(this.points[1],pt,0xff6b6b,true); tm.addPreviewLine(pt,this.points[0],0xff6b6b,true); } },
+  rebuild(data) { const grp=makeGroup(); const pts=data.pts.map(a=>new THREE.Vector3().fromArray(a)); const face=makeFace(pts,0x339af0); if(face) grp.add(face); for(let i=0;i<pts.length;i++) grp.add(makeLine(pts[i],pts[(i+1)%pts.length],0x339af0,false)); return grp; },
+  steps:[{text:'第1步：点击第1个顶点'},{text:'第2步：点击第2个顶点'},{text:'第3步：点击第3个顶点'}],
+  onDeactivate(){this.points=[];},
+});
+toolManager.register('face-4p', {
+  points: [],
+  onClick(pt, snapPt, tm) { this.points.push(pt.clone()); if (this.points.length===4) { const grp=makeGroup(); const face=makeFace(this.points,0x339af0); if (face) grp.add(face); for (let i=0;i<4;i++) grp.add(makeLine(this.points[i],this.points[(i+1)%4],0x339af0,false)); tm._addAuxElement('face-4p',{pts:this.points.map(p=>p.toArray())},grp); this.points=[]; tm.clearPreview(); tm.successHint('面已创建（四点）'); tm.resetStep(); return; } tm.advanceStep(); },
+  onMouseMove(pt, snapPt, tm) { tm.clearPreview(); const n=this.points.length; if (n>0&&n<4) { for(let i=0;i<n;i++) tm.addPreviewLine(this.points[i],this.points[(i+1)%n],0x339af0,false); tm.addPreviewLine(this.points[n-1],pt,0xff6b6b,true); if(n>1) tm.addPreviewLine(pt,this.points[0],0xff6b6b,true); } },
+  rebuild(data) { const grp=makeGroup(); const pts=data.pts.map(a=>new THREE.Vector3().fromArray(a)); const face=makeFace(pts,0x339af0); if(face) grp.add(face); for(let i=0;i<pts.length;i++) grp.add(makeLine(pts[i],pts[(i+1)%pts.length],0x339af0,false)); return grp; },
+  steps:[{text:'第1步：点击第1个顶点'},{text:'第2步：点击第2个顶点'},{text:'第3步：点击第3个顶点'},{text:'第4步：点击第4个顶点'}],
+  onDeactivate(){this.points=[];},
+});
+toolManager.register('face-lp', {
+  p1: null, p2: null,
+  onClick(pt, snapPt, tm) { if (!this.p1) { this.p1=pt.clone(); tm.advanceStep(); return; } if (!this.p2) { this.p2=pt.clone(); tm.advanceStep(); return; } const pts=[this.p1,this.p2,pt]; const grp=makeGroup(); const face=makeFace(pts,0x339af0); if(face) grp.add(face); for(let i=0;i<3;i++) grp.add(makeLine(pts[i],pts[(i+1)%3],0x339af0,false)); tm._addAuxElement('face-lp',{p1:this.p1.toArray(),p2:this.p2.toArray(),p3:pt.toArray()},grp); this.p1=null; this.p2=null; tm.clearPreview(); tm.successHint('面已创建（线+点）'); tm.resetStep(); },
+  onMouseMove(pt, snapPt, tm) { tm.clearPreview(); if(this.p1&&!this.p2) tm.addPreviewLine(this.p1,pt,0xff6b6b,true); if(this.p1&&this.p2) { tm.addPreviewLine(this.p1,this.p2,0x339af0,false); tm.addPreviewLine(this.p2,pt,0xff6b6b,true); tm.addPreviewLine(pt,this.p1,0xff6b6b,true); } },
+  rebuild(data) { const grp=makeGroup(); const pts=[new THREE.Vector3().fromArray(data.p1),new THREE.Vector3().fromArray(data.p2),new THREE.Vector3().fromArray(data.p3)]; const face=makeFace(pts,0x339af0); if(face) grp.add(face); for(let i=0;i<3;i++) grp.add(makeLine(pts[i],pts[(i+1)%3],0x339af0,false)); return grp; },
+  steps:[{text:'第1步：点击线段起点'},{text:'第2步：点击线段终点'},{text:'第3步：点击第三个点'}],
+  onDeactivate(){this.p1=null;this.p2=null;},
+});
+
+// ========== Task 9: Annotation Tools ==========
+toolManager.register('annotate-text', {
+  clickPt: null,
+  onClick(pt, snapPt, tm) {
+    if (!this.clickPt) { this.clickPt = pt.clone(); tm.advanceStep(); return; }
+    const text = prompt('\u8BF7\u8F93\u5165\u6587\u5B57\u6807\u6CE8:', 'A');
+    if (!text) { this.clickPt = null; tm.errorHint('未输入文字，已取消'); return; }
+    const div = document.createElement('div');
+    div.textContent = text;
+    div.style.cssText = 'font-size:15px;font-weight:bold;color:#e64980;background:rgba(255,255,255,0.8);padding:2px 6px;border-radius:4px;border:1px solid #e64980;';
+    const lbl = new CSS2DObject(div);
+    lbl.position.copy(pt);
+    const grp = makeGroup();
+    grp.add(lbl);
+    tm._addAuxElement('annotate-text', {text, pos:pt.toArray()}, grp);
+    this.clickPt = null; tm.clearPreview(); tm.successHint('文字标注已添加'); tm.resetStep();
+  },
+  onMouseMove(pt, snapPt, tm) { tm.clearPreview(); if (this.clickPt) tm.addPreviewCircle(pt, 0.06, 0xe64980, false); },
+  rebuild(data) { const grp=makeGroup(); const div=document.createElement('div'); div.textContent=data.text; div.style.cssText='font-size:15px;font-weight:bold;color:#e64980;background:rgba(255,255,255,0.8);padding:2px 6px;border-radius:4px;border:1px solid #e64980;'; const lbl=new CSS2DObject(div); lbl.position.fromArray(data.pos); grp.add(lbl); return grp; },
+  steps:[{text:'第1步：点击标注位置'},{text:'第2步：输入文字'}],
+  onDeactivate(){this.clickPt=null;},
+});
+toolManager.register('annotate-length', {
+  p1: null,
+  onClick(pt, snapPt, tm) { if (!this.p1) { this.p1=pt.clone(); tm.advanceStep(); return; } const d=this.p1.distanceTo(pt).toFixed(2); const mid=new THREE.Vector3().addVectors(this.p1,pt).multiplyScalar(0.5); mid.y+=0.2; const div=document.createElement('div'); div.textContent=d; div.style.cssText='font-size:14px;font-weight:bold;color:#2b8a3e;background:rgba(255,255,255,0.8);padding:1px 5px;border-radius:3px;border:1px solid #2b8a3e;'; const lbl=new CSS2DObject(div); lbl.position.copy(mid); const grp=makeGroup(); grp.add(makeLine(this.p1,pt,0x2b8a3e,false)); grp.add(lbl); tm._addAuxElement('annotate-length',{p1:this.p1.toArray(),p2:pt.toArray(),dist:parseFloat(d)},grp); this.p1=null; tm.clearPreview(); tm.successHint('长度标注已添加'); tm.resetStep(); },
+  onMouseMove(pt, snapPt, tm) { tm.clearPreview(); if (this.p1) tm.addPreviewLine(this.p1, pt, 0x2b8a3e, false); },
+  rebuild(data) { const grp=makeGroup(); const p1=new THREE.Vector3().fromArray(data.p1),p2=new THREE.Vector3().fromArray(data.p2); grp.add(makeLine(p1,p2,0x2b8a3e,false)); const mid=new THREE.Vector3().addVectors(p1,p2).multiplyScalar(0.5);mid.y+=0.2;const div=document.createElement('div');div.textContent=String(data.dist);div.style.cssText='font-size:14px;font-weight:bold;color:#2b8a3e;background:rgba(255,255,255,0.8);padding:1px 5px;border-radius:3px;border:1px solid #2b8a3e;';const lbl=new CSS2DObject(div);lbl.position.copy(mid);grp.add(lbl);return grp; },
+  steps:[{text:'第1步：点击线段起点'},{text:'第2步：点击线段终点'}],
+  onDeactivate(){this.p1=null;},
+});
+toolManager.register('annotate-angle', {
+  points: [],
+  onClick(pt, snapPt, tm) { this.points.push(pt.clone()); if (this.points.length===3) { const [v,s1,s2]=this.points; const d1=new THREE.Vector3().subVectors(s1,v).normalize(); const d2=new THREE.Vector3().subVectors(s2,v).normalize(); const angle=Math.acos(Math.max(-1,Math.min(1,d1.dot(d2)))); const deg=(angle*180/Math.PI).toFixed(1); const r=0.25; const _n=new THREE.Vector3().crossVectors(d1,d2); if(_n.lengthSq()<1e-10){if(Math.abs(d1.x)<0.9)_n.set(1,0,0);else _n.set(0,1,0);_n.crossVectors(d1,_n);} _n.normalize(); const _b=new THREE.Vector3().crossVectors(_n,d1).normalize(); const arcPts=[]; for(let j=0;j<=20;j++){const t=(j/20)*angle; arcPts.push(new THREE.Vector3().copy(v).add(new THREE.Vector3().copy(d1).multiplyScalar(r*Math.cos(t))).add(new THREE.Vector3().copy(_b).multiplyScalar(r*Math.sin(t))));} const grp=makeGroup(); grp.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(arcPts),new THREE.LineBasicMaterial({color:0xfcc419}))); const halfT=angle/2; const lp=new THREE.Vector3().copy(v).add(new THREE.Vector3().copy(d1).multiplyScalar((r+0.1)*Math.cos(halfT))).add(new THREE.Vector3().copy(_b).multiplyScalar((r+0.1)*Math.sin(halfT))); const div=document.createElement('div');div.textContent=deg+'\u00B0';div.style.cssText='font-size:13px;font-weight:bold;color:#e67700;background:rgba(255,255,255,0.8);padding:1px 4px;border-radius:3px;';const lbl=new CSS2DObject(div);lbl.position.copy(lp);grp.add(lbl); tm._addAuxElement('annotate-angle',{vertex:v.toArray(),s1:s1.toArray(),s2:s2.toArray(),angle:parseFloat(deg)},grp); this.points=[]; tm.clearPreview(); tm.successHint('角度标注已添加'); tm.resetStep(); return; } tm.advanceStep(); },
+  onMouseMove(pt, snapPt, tm) { tm.clearPreview(); if(this.points.length===1) tm.addPreviewLine(this.points[0],pt,0xfcc419,true); if(this.points.length===2){tm.addPreviewLine(this.points[0],this.points[1],0xfcc419,false);tm.addPreviewLine(this.points[0],pt,0xff6b6b,true);} },
+  rebuild(data) { const grp=makeGroup(); const v=new THREE.Vector3().fromArray(data.vertex),s1=new THREE.Vector3().fromArray(data.s1),s2=new THREE.Vector3().fromArray(data.s2); const d1=new THREE.Vector3().subVectors(s1,v).normalize(),d2=new THREE.Vector3().subVectors(s2,v).normalize(); const angle=Math.acos(Math.max(-1,Math.min(1,d1.dot(d2)))); const r=0.25; const _n=new THREE.Vector3().crossVectors(d1,d2); if(_n.lengthSq()<1e-10){if(Math.abs(d1.x)<0.9)_n.set(1,0,0);else _n.set(0,1,0);_n.crossVectors(d1,_n);} _n.normalize(); const _b=new THREE.Vector3().crossVectors(_n,d1).normalize(); const arcPts=[]; for(let j=0;j<=20;j++){const t=(j/20)*angle; arcPts.push(new THREE.Vector3().copy(v).add(new THREE.Vector3().copy(d1).multiplyScalar(r*Math.cos(t))).add(new THREE.Vector3().copy(_b).multiplyScalar(r*Math.sin(t))));} grp.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(arcPts),new THREE.LineBasicMaterial({color:0xfcc419}))); const halfT=angle/2; const lp=new THREE.Vector3().copy(v).add(new THREE.Vector3().copy(d1).multiplyScalar((r+0.1)*Math.cos(halfT))).add(new THREE.Vector3().copy(_b).multiplyScalar((r+0.1)*Math.sin(halfT))); const div=document.createElement('div');div.textContent=data.angle+'\u00B0';div.style.cssText='font-size:13px;font-weight:bold;color:#e67700;background:rgba(255,255,255,0.8);padding:1px 4px;border-radius:3px;';const lbl=new CSS2DObject(div);lbl.position.copy(lp);grp.add(lbl); return grp; },
+  steps:[{text:'第1步：点击顶点'},{text:'第2步：点击一边上的点'},{text:'第3步：点击另一边上的点'}],
+  onDeactivate(){this.points=[];},
+});
+toolManager.register('annotate-equal', {
+  seg1: null, seg2: null,
+  onClick(pt, snapPt, tm) { if(!this.seg1){this.seg1={mid:pt.clone()};tm.advanceStep();return;} this.seg2={mid:pt.clone()}; const sz=0.08;const grp=makeGroup(); [this.seg1.mid,this.seg2.mid].forEach(pos=>{grp.add(makeLine(pos.clone().add(new THREE.Vector3(0,0,sz)),pos.clone().sub(new THREE.Vector3(0,0,sz)),0x51cf66,false));}); tm._addAuxElement('annotate-equal',{m1:this.seg1.mid.toArray(),m2:this.seg2.mid.toArray()},grp); this.seg1=null;this.seg2=null;tm.clearPreview(); tm.successHint('等长标记已添加'); tm.resetStep(); },
+  onMouseMove(pt, snapPt, tm) { tm.clearPreview(); if(this.seg1) tm.addPreviewCircle(pt,0.06,0x51cf66,false); },
+  rebuild(data) { const grp=makeGroup();const sz=0.08;[data.m1,data.m2].forEach(arr=>{const pos=new THREE.Vector3().fromArray(arr);grp.add(makeLine(pos.clone().add(new THREE.Vector3(0,0,sz)),pos.clone().sub(new THREE.Vector3(0,0,sz)),0x51cf66,false));});return grp; },
+  steps:[{text:'第1步：点击第一条线段'},{text:'第2步：点击第二条线段'}],
+  onDeactivate(){},});
+toolManager.register('annotate-para', {
+  line1:null,line2:null,
+  onClick(pt, snapPt, tm, e) { const hit=tm.findEdgeByEvent(e); if(!hit.edge){tm.errorHint('未找到线段，请点击几何体上的一条线段');return;} if(!this.line1){this.line1=hit;tm.advanceStep();return;} this.line2=hit;if(this.line1.id===this.line2.id){tm.errorHint('请选择不同的线段');return;}const grp=makeGroup(); [this.line1,this.line2].forEach(ln=>{const pts=tm._getEdgeEndpoints(ln.edge);if(!pts)return;const mid=new THREE.Vector3().addVectors(pts[0],pts[1]).multiplyScalar(0.5);mid.y+=0.15;const div=document.createElement('div');div.textContent='>';div.style.cssText='font-size:18px;font-weight:bold;color:#339af0;text-shadow:0 0 3px white;';const lbl=new CSS2DObject(div);lbl.position.copy(mid);grp.add(lbl);}); tm._addAuxElement('annotate-para',{},grp); tm.successHint('平行标记已添加'); this.line1=null;this.line2=null;tm.clearPreview();tm.resetStep(); },
+  onMouseMove(){}, onDeactivate(){this.line1=null;this.line2=null;}, onCancel(){this.line1=null;this.line2=null;}, rebuild(){return new THREE.Group();},
+  steps:[{text:'第1步：点击第一条线段'},{text:'第2步：点击第二条线段'}]
+});
+toolManager.register('annotate-perp', {
+  line1:null,line2:null,
+  onClick(pt, snapPt, tm, e) { const hit=tm.findEdgeByEvent(e); if(!hit.edge){tm.errorHint('未找到线段，请点击几何体上的一条线段');return;} if(!this.line1){this.line1=hit;tm.advanceStep();return;} this.line2=hit;if(this.line1.id===this.line2.id){tm.errorHint('请选择不同的线段');return;}const grp=makeGroup();const col=0xff6b6b; [this.line1,this.line2].forEach(ln=>{const pts=tm._getEdgeEndpoints(ln.edge);if(!pts)return;const mid=new THREE.Vector3().addVectors(pts[0],pts[1]).multiplyScalar(0.5);mid.y+=0.1;const sz=0.1;const ra=[mid.clone().add(new THREE.Vector3(sz,0,0)),mid.clone().add(new THREE.Vector3(sz,0,sz)),mid.clone().add(new THREE.Vector3(0,0,sz))];grp.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(ra),new THREE.LineBasicMaterial({color:col})));}); tm._addAuxElement('annotate-perp',{},grp); tm.successHint('垂直标记已添加'); this.line1=null;this.line2=null;tm.clearPreview();tm.resetStep(); },
+  onMouseMove(){}, onDeactivate(){this.line1=null;this.line2=null;}, onCancel(){this.line1=null;this.line2=null;}, rebuild(){return new THREE.Group();},
+  steps:[{text:'第1步：点击第一条线段'},{text:'第2步：点击第二条线段'}]
+});
+
+// ========== Task 10: Erase & Management ==========
+toolManager.register('erase', {
+  onClick(pt, snapPt, tm, e) { tm._removeAuxByEvent(e); }
+});
+
+// ========== Debug Helpers (browser console) ==========
+
+// 用法：在浏览器控制台调用 window.__debugVertices() 查看 sceneEntities.vertices 全量分布
+
+//       或 window.__debugRecompute() 触发一次重算并打 before/after 快照
+window.__debugVertices = function () {
+  const result = { original: [], intersections: [], other: [], allIds: [] };
+  sceneEntities.vertices.forEach((v, id) => {
+    result.allIds.push(id);
+    if (v.isOriginal) {
+      result.original.push({ id, pos: v.pos ? v.pos.toArray() : null });
+    } else if (v.isIntersection) {
+      result.intersections.push({ id, pos: v.pos ? v.pos.toArray() : null });
+    } else {
+      result.other.push({ id, hasMesh: !!v.mesh, hasLabel: !!v.label, pos: v.pos ? v.pos.toArray() : null });
+    }
+  });
+  console.log('[__debugVertices] original:', result.original);
+  console.log('[__debugVertices] intersections:', result.intersections);
+  console.log('[__debugVertices] other (neither original nor intersection):', result.other);
+  console.log('[__debugVertices] allIds:', result.allIds);
+  return result;
+};
+window.__debugRecompute = function () {
+  console.log('[__debugRecompute] before, vertices:', Array.from(sceneEntities.vertices.keys()));
+  recomputeAllIntersections();
+  console.log('[__debugRecompute] after, vertices:', Array.from(sceneEntities.vertices.keys()));
+  return window.__debugVertices();
+};
+window._undoStack = []; window._redoStack = [];
+const _origInit = init;
+init = function(data) {
+  _origInit(data);
+  window._undoStack = [sceneEntities.auxElements.map(a => ({type:a.type,data:JSON.parse(JSON.stringify(a.data)),visible:a.visible}))];
+  toolManager.init();
+  document.getElementById('status-tool').textContent = '\u9009\u62E9';
+};
+const fallbackGeometryData = {
+  problemText: "题目数据加载失败，请刷新页面或检查 src/problems/current.json。",
+  solids: [],
+  conditions: [],
+  solutionSteps: []
+};
+
+async function loadCurrentProblem() {
+  const statusHint = document.getElementById("status-hint");
+  if (statusHint) statusHint.textContent = "正在加载题目数据...";
+  try {
+    const response = await fetch("problems/current.json", { cache: "no-store" });
+    if (!response.ok) throw new Error("HTTP " + response.status);
+    const data = await response.json();
+    init(data);
+    if (statusHint) statusHint.textContent = "图形已生成";
+  } catch (error) {
+    console.error("Failed to load problem data", error);
+    init(fallbackGeometryData);
+    if (statusHint) statusHint.textContent = "图形加载失败，已显示空白模板";
+  }
+}
+
+loadCurrentProblem();
+
+</script>
+</body>
+</html>

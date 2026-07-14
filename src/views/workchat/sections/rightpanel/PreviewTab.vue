@@ -1,9 +1,16 @@
 <script setup>
 import md from '@/utils/markdown'
 import { normalizeFilePath, toFileUrl } from '@/utils/fileUrl'
+<<<<<<< HEAD
 import { computed, ref, watch } from 'vue'
 import HtmlPreviewModal from './HtmlPreviewModal.vue'
 import { buildHtmlPreviewContent } from './htmlPreview'
+=======
+import { computed, defineAsyncComponent, ref, watch } from 'vue'
+import { buildHtmlPreviewContent } from './htmlPreview'
+
+const HtmlPreviewModal = defineAsyncComponent(() => import('./HtmlPreviewModal.vue'))
+>>>>>>> dev
 
 const props = defineProps({ previewFile: Object, isDark: Boolean })
 
@@ -34,6 +41,10 @@ const isLoading = computed(() => normalizedPath.value && !hasContent.value && !h
 const isText = computed(() => hasContent.value && !isImage.value && !isAudio.value && !isVideo.value && !isHtml.value)
 const hasFile = computed(() => !!normalizedPath.value)
 const showHtmlPreviewModal = ref(false)
+<<<<<<< HEAD
+=======
+const htmlPreviewModalMounted = ref(false)
+>>>>>>> dev
 
 const htmlPreviewContent = computed(() => {
   const raw = props.previewFile?.content
@@ -60,6 +71,10 @@ function copyPath() {
 
 function openHtmlPreview() {
   if (!isHtml.value || !hasContent.value) return
+<<<<<<< HEAD
+=======
+  htmlPreviewModalMounted.value = true
+>>>>>>> dev
   showHtmlPreviewModal.value = true
 }
 
@@ -199,6 +214,10 @@ function closePreview() {
     </div>
 
     <HtmlPreviewModal
+<<<<<<< HEAD
+=======
+      v-if="htmlPreviewModalMounted"
+>>>>>>> dev
       v-model="showHtmlPreviewModal"
       :content="previewFile?.content || ''"
       :file-path="normalizedPath"

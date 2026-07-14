@@ -29,10 +29,14 @@
 <p>
   <img src="https://img.shields.io/badge/status-beta-FFB020" alt="Status Beta" />
   <img src="https://img.shields.io/badge/version-0.1.1--beta-4A6CFF" alt="Version 0.1.1-beta" />
+<<<<<<< HEAD
   <img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS(即将)%20-2E2E3A" alt="Platform" />
+=======
+  <img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20-2E2E3A" alt="Platform" />
+>>>>>>> dev
   <img src="https://img.shields.io/badge/Electron-30-47848F?logo=electron&logoColor=white" alt="Electron 30" />
   <img src="https://img.shields.io/badge/Vue-3-42B883?logo=vuedotjs&logoColor=white" alt="Vue 3" />
-  <img src="https://img.shields.io/badge/SQLite-local--first-003B57?logo=sqlite&logoColor=white" alt="SQLite Local First" />
+  <img src="https://img.shields.io/badge/SQLite-Local--First-003B57?logo=sqlite&logoColor=white" alt="Local First" />
 </p>
 
 <p>
@@ -266,13 +270,21 @@ Reviva 支持多种模型服务商和 OpenAI-compatible 接口。你可以根据
 
 ## 未来计划
 
+<<<<<<< HEAD
 - [ ] 支持检查自动更新
 - [ ] 音视频文件解析处理
 - [ ] wiki支持链接和音视频解析
 - [ ] 支持response api格式
+=======
+- [x] 支持检查自动更新
+- [x] 支持Url导入爬取
+- [ ] 音视频文件解析处理
+- [ ] wiki支持链接和音视频解析
+- [x] 支持response api格式
+>>>>>>> dev
 - [ ] 自定义skill
 - [ ] 更丰富的内置 Agent 和 Skills
-- [ ] 更完善的导入导出与备份能力
+- [x] 更完善的导入导出与备份能力
 - [ ] Agent 记忆与长期学习能力
 - [ ] Agent 自主学习成长闭环（长期积累用户偏好、学习画像、薄弱点，所有成长结果可审计、可撤销、可评测）
 - [ ] 更多......
@@ -293,8 +305,8 @@ AI 生成内容可能存在错误、遗漏或不适合直接使用的情况。�
     <td align="center"><b>用户交流群</b></td>
   </tr>
   <tr>
-    <td align="center"><img src="docs/images/my.jpg" alt="微信" width="200" /></td>
-    <td align="center"><img src="docs/images/wx-group.jpg" alt="交流群" width="200" /></td>
+    <td align="center"><img src="docs/images/my.jpg" alt="微信"  /></td>
+    <td align="center"><img src="docs/images/wx-group.jpg" alt="交流群"  /></td>
   </tr>
 </table>
 
@@ -302,7 +314,7 @@ AI 生成内容可能存在错误、遗漏或不适合直接使用的情况。�
 
 Reviva 的开发消耗了大量心血，如果觉得好用，欢迎请作者喝杯咖啡：
 
-<img src="docs/images/sponsor.png" alt="赞赏" width="300" />
+<img src="docs/images/sponsor.png" alt="赞赏" width="400" />
 
 ## 其他项目
 

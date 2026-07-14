@@ -14,6 +14,8 @@ export const useWikiStore = defineStore('wiki', () => {
   const jobs = ref([])
   const ocrProviders = ref([])
   const ocrJobs = ref([])
+  const lintReport = ref(null)
+  const semanticAudit = ref(null)
   const loading = ref(false)
   const error = ref('')
 
@@ -35,6 +37,8 @@ export const useWikiStore = defineStore('wiki', () => {
     currentPage.value = null
     jobs.value = []
     ocrJobs.value = []
+    lintReport.value = null
+    semanticAudit.value = null
   }
 
   async function loadWikis() {
@@ -89,12 +93,14 @@ export const useWikiStore = defineStore('wiki', () => {
     error.value = ''
     try {
       currentWikiId.value = id
-      const [wikiResult, pagesResult, sourcesResult, jobsResult, ocrJobsResult] = await Promise.all([
+      const [wikiResult, pagesResult, sourcesResult, jobsResult, ocrJobsResult, lintResult, semanticAuditResult] = await Promise.all([
         api().get(id),
         api().listPages(id),
         api().listSources(id),
         api().getJobs(id),
         api().listOcrJobs?.(id),
+        api().getLintReport?.(id),
+        api().getSemanticAudit?.(id),
       ])
       if (!wikiResult?.success) throw new Error(wikiResult?.error || 'Failed to open wiki')
       currentWiki.value = wikiResult.data
@@ -102,6 +108,8 @@ export const useWikiStore = defineStore('wiki', () => {
       sources.value = sourcesResult?.success ? (sourcesResult.data || []) : []
       jobs.value = jobsResult?.success ? (jobsResult.data || []) : []
       ocrJobs.value = ocrJobsResult?.success ? (ocrJobsResult.data || []) : []
+      lintReport.value = lintResult?.success ? (lintResult.data || null) : null
+      semanticAudit.value = semanticAuditResult?.success ? (semanticAuditResult.data || null) : null
       const firstPage = pages.value.find(p => p.path === currentPagePath.value) || pages.value[0]
       if (firstPage) {
         await readPage(firstPage.path)
@@ -228,6 +236,22 @@ export const useWikiStore = defineStore('wiki', () => {
     return result.data
   }
 
+  async function runLint() {
+    if (!api()?.runLint || !currentWikiId.value) throw new Error('No wiki selected')
+    const result = await api().runLint(currentWikiId.value)
+    if (!result?.success) throw new Error(result?.error || 'Wiki lint failed')
+    lintReport.value = result.data || null
+    return lintReport.value
+  }
+
+  async function runSemanticAudit() {
+    if (!api()?.runSemanticAudit || !currentWikiId.value) throw new Error('No wiki selected')
+    const result = await api().runSemanticAudit(currentWikiId.value)
+    if (!result?.success) throw new Error(result?.error || 'Semantic audit failed')
+    semanticAudit.value = result.data || null
+    return semanticAudit.value
+  }
+
   async function refreshCurrentWiki() {
     if (!currentWikiId.value) return loadWikis()
     await openWiki(currentWikiId.value)
@@ -245,6 +269,8 @@ export const useWikiStore = defineStore('wiki', () => {
     jobs,
     ocrProviders,
     ocrJobs,
+    lintReport,
+    semanticAudit,
     loading,
     error,
     currentWikiSummary,
@@ -266,6 +292,8 @@ export const useWikiStore = defineStore('wiki', () => {
     updateAgentConfig,
     draftWithAgent,
     wikiTool,
+    runLint,
+    runSemanticAudit,
     refreshCurrentWiki,
   }
 }, {

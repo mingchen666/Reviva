@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, defineAsyncComponent, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAppStore } from '@/stores/app'
 import { useSettingsStore } from '@/stores/settings'
@@ -11,10 +11,19 @@ import MsTreeItem from '@/components/MsTreeItem/MsTreeItem.vue'
 import DocTreeItem from './sections/DocTreeItem.vue'
 import DocGridCard from './sections/DocGridCard.vue'
 import DocListRow from './sections/DocListRow.vue'
+<<<<<<< HEAD
 import DocPreview from './sections/DocPreview.vue'
 import UploadModal from './sections/UploadModal.vue'
 import MoveModal from './sections/MoveModal.vue'
 import PdfProcessingSettingsModal from './sections/PdfProcessingSettingsModal.vue'
+=======
+
+const DocPreview = defineAsyncComponent(() => import('./sections/DocPreview.vue'))
+const UploadModal = defineAsyncComponent(() => import('./sections/UploadModal.vue'))
+const MoveModal = defineAsyncComponent(() => import('./sections/MoveModal.vue'))
+const PdfProcessingSettingsModal = defineAsyncComponent(() => import('./sections/PdfProcessingSettingsModal.vue'))
+const WebImportHistoryDrawer = defineAsyncComponent(() => import('./sections/WebImportHistoryDrawer.vue'))
+>>>>>>> dev
 
 const router = useRouter()
 const appStore = useAppStore()
@@ -44,9 +53,14 @@ const renameError = ref('')
 const confirmDelete = ref(null)
 const contextMenu = ref(null)
 const showUploadModal = ref(false)
+const showWebImportHistory = ref(false)
 const showMoveModal = ref(false)
 const moveTarget = ref(null)
 const showProcessingSettingsModal = ref(false)
+<<<<<<< HEAD
+=======
+const processingSettingsInitialTab = ref('pdf')
+>>>>>>> dev
 const showPdfUploadPrompt = ref(false)
 const pendingPdfUploads = ref([])
 const pdfUploadEngine = ref('auto')
@@ -70,6 +84,18 @@ const pdfEnvironment = ref(null)
 const installingPdfLocalParser = ref(false)
 const pdfLocalParserInstallResult = ref(null)
 const manualParsingPdfPaths = ref(new Set())
+<<<<<<< HEAD
+=======
+const webImportSettings = ref(null)
+const webImportProviders = ref([])
+const webImportJobs = ref([])
+const webImportSubmitting = ref(false)
+const webImportJobsLoading = ref(false)
+const webImportJobsHasMore = ref(false)
+const WEB_IMPORT_PAGE_SIZE = 10
+let webJobUpdatedHandler = null
+let webImportJobsRequestId = 0
+>>>>>>> dev
 
 function normalizeProcessingSettings(value = {}) {
   return {
@@ -89,6 +115,81 @@ async function loadProcessingSettings() {
   }
 }
 
+<<<<<<< HEAD
+=======
+async function loadWebImportSettings() {
+  try {
+    const result = await api()?.webImport?.getSettings?.()
+    if (result?.success) {
+      webImportSettings.value = result.data
+      webImportProviders.value = result.providers || []
+    }
+  } catch (e) { console.warn('[Docs] load web import settings failed:', e) }
+}
+
+async function saveWebImportSettings(patch, close) {
+  const result = await api()?.webImport?.saveSettings?.(patch)
+  if (result?.success) {
+    webImportSettings.value = result.data
+    webImportProviders.value = result.providers || webImportProviders.value
+    close?.()
+  }
+}
+
+function openWebImportSettings() {
+  showUploadModal.value = false
+  processingSettingsInitialTab.value = 'web'
+  showProcessingSettingsModal.value = true
+}
+
+async function loadWebImportJobs({ reset = true } = {}) {
+  if (webImportJobsLoading.value && !reset) return
+  const requestId = reset ? ++webImportJobsRequestId : webImportJobsRequestId
+  const targetRef = currentPath.value
+  webImportJobsLoading.value = true
+  try {
+    const offset = reset ? 0 : webImportJobs.value.length
+    const result = await api()?.webImport?.listJobs?.({
+      targetType: 'docs',
+      targetRef,
+      limit: WEB_IMPORT_PAGE_SIZE + 1,
+      offset,
+    })
+    if (requestId !== webImportJobsRequestId || targetRef !== currentPath.value) return
+    const page = result?.success ? (result.data || []) : []
+    const records = page.slice(0, WEB_IMPORT_PAGE_SIZE)
+    webImportJobsHasMore.value = page.length > WEB_IMPORT_PAGE_SIZE
+    if (reset) {
+      webImportJobs.value = records
+    } else {
+      const existingIds = new Set(webImportJobs.value.map(item => item.id))
+      webImportJobs.value.push(...records.filter(item => !existingIds.has(item.id)))
+    }
+  } catch (error) {
+    console.warn('[Docs] load web import jobs failed:', error)
+    if (reset && requestId === webImportJobsRequestId) {
+      webImportJobs.value = []
+      webImportJobsHasMore.value = false
+    }
+  } finally {
+    if (requestId === webImportJobsRequestId) webImportJobsLoading.value = false
+  }
+}
+
+async function retryWebImportJob(id) { await api()?.webImport?.retryJob?.(id); await loadWebImportJobs({ reset: true }) }
+async function deleteWebImportJob(id) { await api()?.webImport?.deleteJob?.(id); await loadWebImportJobs({ reset: true }) }
+async function clearWebImportJobs() { await api()?.webImport?.clearFinishedJobs?.({ targetType: 'docs', targetRef: currentPath.value }); await loadWebImportJobs({ reset: true }) }
+
+function openWebImportResult(job) {
+  const relPath = job?.result_paths?.[0]
+  if (!relPath) return
+  const fullPath = getAbsolutePath(relPath)
+  handleSelectFile({ name: relPath.split('/').pop(), path: fullPath, ext: relPath.split('.').pop().toLowerCase() })
+  showUploadModal.value = false
+  showWebImportHistory.value = false
+}
+
+>>>>>>> dev
 async function loadOcrProviders() {
   try {
     const result = await (api()?.wiki?.listOcrProviders?.() || api()?.listOcrProviders?.())
@@ -811,7 +912,15 @@ function previewItem(item) {
 }
 
 // ─── Upload submit ───
-async function handleUploadSubmit({ type, files }) {
+async function handleUploadSubmit({ type, files, url, includeHtml }) {
+  if (type === 'url') {
+    webImportSubmitting.value = true
+    try {
+      await api()?.webImport?.createJob?.({ targetType: 'docs', targetRef: currentPath.value, url, includeHtml })
+      await loadWebImportJobs({ reset: true })
+    } finally { webImportSubmitting.value = false }
+    return
+  }
   if (type !== 'local' || !files?.length) return
   const targetDir = getAbsolutePath(currentPath.value)
   const copiedPdfPaths = []
@@ -1014,12 +1123,26 @@ function handleTreeFileContextMenu(e, file) {
 // ─── Init ───
 onMounted(() => {
   loadProcessingSettings()
+<<<<<<< HEAD
   loadOcrProviders()
   loadPdfEnvironment()
+=======
+  webJobUpdatedHandler = api()?.webImport?.onJobUpdated?.((job) => {
+    if (job?.target_type !== 'docs' || job.target_ref !== currentPath.value) return
+    const index = webImportJobs.value.findIndex(item => item.id === job.id)
+    if (index >= 0) webImportJobs.value[index] = job
+    else webImportJobs.value.unshift(job)
+    if (['succeeded', 'partial'].includes(job.status)) { loadDirectory(currentPath.value); loadFolderTree() }
+  })
+>>>>>>> dev
   if (isReady.value) {
     loadDirectory('')
     loadFolderTree()
   }
+})
+
+onBeforeUnmount(() => {
+  api()?.webImport?.removeJobUpdatedListener?.(webJobUpdatedHandler)
 })
 
 watch(
@@ -1041,13 +1164,36 @@ watch(showProcessingSettingsModal, (visible) => {
     loadProcessingSettings()
     loadOcrProviders()
     loadPdfEnvironment()
+<<<<<<< HEAD
   }
 })
 
+=======
+    loadWebImportSettings()
+  }
+})
+
+watch(showUploadModal, visible => {
+  if (visible) { loadWebImportSettings(); loadWebImportJobs({ reset: true }) }
+})
+
+watch(showWebImportHistory, visible => {
+  if (visible) loadWebImportJobs({ reset: true })
+})
+
+watch(currentPath, () => {
+  if (showUploadModal.value || showWebImportHistory.value) loadWebImportJobs({ reset: true })
+})
+
+>>>>>>> dev
 watch(showPdfUploadPrompt, (visible) => {
   if (visible) {
     loadProcessingSettings()
     loadOcrProviders()
+<<<<<<< HEAD
+=======
+    loadPdfEnvironment()
+>>>>>>> dev
   }
 })
 </script>
@@ -1305,7 +1451,7 @@ watch(showPdfUploadPrompt, (visible) => {
               </div>
               <button
                 @click="showCreateFolderModal = true"
-                class="ctx-pill cursor-pointer"
+                class="ctx-pill doc-toolbar-action cursor-pointer"
                 :class="
                   isDark
                     ? 'text-brand-400 bg-brand-400/8 border border-brand-400/20 hover:bg-brand-400/15'
@@ -1316,6 +1462,7 @@ watch(showPdfUploadPrompt, (visible) => {
               </button>
               <button
                 @click="showProcessingSettingsModal = true"
+<<<<<<< HEAD
                 class="ctx-pill cursor-pointer"
                 :class="
                   isDark
@@ -1328,11 +1475,40 @@ watch(showPdfUploadPrompt, (visible) => {
               <button
                 @click="uploadFiles"
                 class="ctx-pill cursor-pointer"
+=======
+                class="ctx-pill doc-toolbar-action cursor-pointer"
+>>>>>>> dev
                 :class="
                   isDark
                     ? 'text-wt-aux bg-d3 border border-bdr hover:text-wt-sub'
                     : 'text-lt-aux bg-l3 border border-bdrF hover:text-lt-sub'
                 ">
+<<<<<<< HEAD
+=======
+                <i class="ri-settings-3-line text-[14px]" />
+                解析设置
+              </button>
+              <button
+                @click="showWebImportHistory = true"
+                class="ctx-pill doc-toolbar-action cursor-pointer relative"
+                :class="
+                  isDark
+                    ? 'text-wt-aux bg-d3 border border-bdr hover:text-wt-sub'
+                    : 'text-lt-aux bg-l3 border border-bdrF hover:text-lt-sub'
+                ">
+                <i class="ri-history-line text-[14px]" />
+                导入记录
+                <span v-if="webImportJobs.some(job => ['pending','running'].includes(job.status))" class="w-1.5 h-1.5 rounded-full bg-brand-400" />
+              </button>
+              <button
+                @click="uploadFiles"
+                class="ctx-pill doc-toolbar-action cursor-pointer"
+                :class="
+                  isDark
+                    ? 'text-wt-aux bg-d3 border border-bdr hover:text-wt-sub'
+                    : 'text-lt-aux bg-l3 border border-bdrF hover:text-lt-sub'
+                ">
+>>>>>>> dev
                 <i class="ri-upload-2-line text-[14px]" />
                 上传
               </button>
@@ -1688,6 +1864,10 @@ watch(showPdfUploadPrompt, (visible) => {
     </MsModal>
 
     <PdfProcessingSettingsModal
+<<<<<<< HEAD
+=======
+      v-if="showProcessingSettingsModal"
+>>>>>>> dev
       v-model:show="showProcessingSettingsModal"
       :is-dark="isDark"
       :settings="processingSettings"
@@ -1698,7 +1878,15 @@ watch(showPdfUploadPrompt, (visible) => {
       :pdf-environment-status-text="pdfEnvironmentStatusText"
       :installing-pdf-local-parser="installingPdfLocalParser"
       :pdf-local-parser-install-result="pdfLocalParserInstallResult"
+<<<<<<< HEAD
       @save="saveProcessingSettings"
+=======
+      :initial-tab="processingSettingsInitialTab"
+      :web-settings="webImportSettings"
+      :web-providers="webImportProviders"
+      @save="saveProcessingSettings"
+      @save-web-settings="saveWebImportSettings"
+>>>>>>> dev
       @install-local-parser="installPdfLocalParser"
       @open-ocr-settings="openOcrSettings" />
 
@@ -1787,13 +1975,38 @@ watch(showPdfUploadPrompt, (visible) => {
 
     <!-- ═══ Upload Modal ═══ -->
     <UploadModal
+      v-if="showUploadModal"
       v-model:show="showUploadModal"
       :is-dark="isDark"
       :current-path="currentPath"
+      :web-settings="webImportSettings"
+      :web-providers="webImportProviders"
+      :web-jobs="webImportJobs"
+      :web-submitting="webImportSubmitting"
+      @open-web-settings="openWebImportSettings"
+      @retry-web-job="retryWebImportJob"
+      @delete-web-job="deleteWebImportJob"
+      @clear-web-jobs="clearWebImportJobs"
+      @open-web-result="openWebImportResult"
       @submit="handleUploadSubmit" />
+
+    <WebImportHistoryDrawer
+      v-if="showWebImportHistory"
+      v-model:show="showWebImportHistory"
+      :is-dark="isDark"
+      :jobs="webImportJobs"
+      :loading="webImportJobsLoading"
+      :has-more="webImportJobsHasMore"
+      :current-path="currentPath"
+      @retry="retryWebImportJob"
+      @delete="deleteWebImportJob"
+      @clear="clearWebImportJobs"
+      @load-more="loadWebImportJobs({ reset: false })"
+      @open="openWebImportResult" />
 
     <!-- ═══ Move Modal ═══ -->
     <MoveModal
+      v-if="showMoveModal"
       v-model:show="showMoveModal"
       :is-dark="isDark"
       :item="moveTarget"
@@ -1824,5 +2037,20 @@ watch(showPdfUploadPrompt, (visible) => {
   align-items: center;
   gap: 4px;
   transition: all 0.15s;
+}
+.doc-toolbar-action {
+  height: 30px;
+  padding-top: 0;
+  padding-bottom: 0;
+  line-height: 1;
+}
+.doc-toolbar-action > i {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 14px;
 }
 </style>

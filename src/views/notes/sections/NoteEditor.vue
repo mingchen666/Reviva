@@ -13,6 +13,7 @@ import AiConfigModal from './AiConfigModal.vue'
 import AiResultCard from './AiResultCard.vue'
 import { useNoteHistory } from '@/composables/useNoteHistory'
 import { runNoteAiTask, NOTE_AI_PROMPTS, NOTE_AI_COMMANDS } from '@/composables/useNoteAi'
+import { getWorkspaceStorageKey } from '@/utils/workspaceStorage'
 
 const notesStore = useNotesStore()
 const appStore = useAppStore()
@@ -32,7 +33,7 @@ const isResizing = ref(false)
 const splitContainerRef = ref(null)
 function loadSplitRatio() {
   try {
-    const v = parseFloat(localStorage.getItem(SPLIT_RATIO_KEY) || '')
+    const v = parseFloat(localStorage.getItem(getWorkspaceStorageKey(SPLIT_RATIO_KEY)) || '')
     if (Number.isFinite(v) && v >= 0.2 && v <= 0.8) return v
   } catch {}
   return 0.5
@@ -752,13 +753,13 @@ function onSplitResizeEnd() {
   window.removeEventListener('mouseup', onSplitResizeEnd)
   document.body.style.cursor = ''
   document.body.style.userSelect = ''
-  try { localStorage.setItem(SPLIT_RATIO_KEY, String(splitRatio.value)) } catch {}
+  try { localStorage.setItem(getWorkspaceStorageKey(SPLIT_RATIO_KEY), String(splitRatio.value)) } catch {}
   if (aiResultShow.value) scheduleAiResultPositionUpdate()
 }
 
 function onSplitResizeReset() {
   splitRatio.value = 0.5
-  try { localStorage.setItem(SPLIT_RATIO_KEY, '0.5') } catch {}
+  try { localStorage.setItem(getWorkspaceStorageKey(SPLIT_RATIO_KEY), '0.5') } catch {}
   if (aiResultShow.value) scheduleAiResultPositionUpdate()
 }
 

@@ -1,7 +1,8 @@
 <script setup>
 import md from '@/utils/markdown'
 import { toFileUrl } from '@/utils/fileUrl'
-import { computed } from 'vue'
+import { parseMarkdownFrontMatter } from '@/utils/markdownFrontMatter'
+import { computed, ref, watch } from 'vue'
 
 const props = defineProps({
   file: { type: Object, default: null },
@@ -14,11 +15,56 @@ const api = () => window.electronAPI
 
 const ext = computed(() => (props.file?.ext || props.file?.name?.split('.').pop() || '').toLowerCase())
 const fileUrl = computed(() => toFileUrl(props.file?.path))
+const htmlView = ref('preview')
+const htmlSource = computed(() => ext.value === 'html' || ext.value === 'htm' ? String(props.file?.content || '') : '')
+
+watch(() => props.file?.path, () => { htmlView.value = 'preview' })
+
+function externalHttpUrl(value) {
+  try {
+    const url = new URL(String(value || ''))
+    return ['http:', 'https:'].includes(url.protocol) ? url.toString() : ''
+  } catch { return '' }
+}
+
+const markdownDocument = computed(() => {
+  if (!props.file || typeof props.file.content !== 'string' || !['md', 'markdown'].includes(ext.value)) return { attributes: {}, body: '' }
+  return parseMarkdownFrontMatter(props.file.content)
+})
+
+const webSourceMeta = computed(() => {
+  const attributes = markdownDocument.value.attributes || {}
+  const sourceUrl = externalHttpUrl(attributes.source_url)
+  const finalUrl = externalHttpUrl(attributes.final_url)
+  if (!sourceUrl && !attributes.provider && !attributes.fetched_at) return null
+  return {
+    title: String(attributes.title || ''),
+    sourceUrl,
+    finalUrl: finalUrl && finalUrl !== sourceUrl ? finalUrl : '',
+    provider: String(attributes.provider || ''),
+    description: String(attributes.description || ''),
+    fetchedAt: String(attributes.fetched_at || ''),
+  }
+})
+
+const webProviderLabel = computed(() => ({
+  jina: 'Jina Reader',
+  firecrawl: 'Firecrawl',
+  tavily: 'Tavily Extract',
+})[webSourceMeta.value?.provider] || webSourceMeta.value?.provider || '网页解析')
+
+const webFetchedAtLabel = computed(() => {
+  const value = webSourceMeta.value?.fetchedAt
+  if (!value) return ''
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value
+  return new Intl.DateTimeFormat('zh-CN', {
+    year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit',
+  }).format(date)
+})
 
 const renderedMarkdown = computed(() => {
-  if (!props.file || typeof props.file.content !== 'string') return ''
-  if (['md', 'markdown'].includes(ext.value)) return md.render(props.file.content)
-  return ''
+  return markdownDocument.value.body ? md.render(markdownDocument.value.body) : ''
 })
 
 const fileIconAndColor = computed(() => {
@@ -82,6 +128,10 @@ function copyPath() {
 function showInFolder() {
   if (props.file?.path) api()?.showItemInFolder?.(props.file.path)
 }
+function openWebSource(url) {
+  const safeUrl = externalHttpUrl(url)
+  if (safeUrl) api()?.openExternal?.(safeUrl)
+}
 </script>
 
 <template>
@@ -104,35 +154,35 @@ function showInFolder() {
       </div>
       <div class="flex items-center gap-1 shrink-0">
         <button @click="emit('chat', file)"
-          class="h-7 px-2.5 rounded-lg text-[10.5px] font-medium flex items-center gap-1 transition-colors"
+          class="h-7 px-2.5 rounded-lg text-[14px] font-medium flex items-center gap-1 transition-colors"
           :class="isDark ? 'bg-brand-400/12 text-brand-400 hover:bg-brand-400/20' : 'bg-brand-50 text-brand-500 hover:bg-brand-100'">
-          <i class="ri-chat-1-line text-[11px]" />对话
+          <i class="ri-chat-1-line text-[14px]" />对话
         </button>
         <div class="w-px h-4 mx-1" :class="isDark ? 'bg-d4' : 'bg-bdrL'" />
         <button @click="openExternally"
           class="h-7 w-7 rounded-lg flex items-center justify-center transition-colors"
           :class="isDark ? 'text-wt-aux hover:text-wt-sub hover:bg-white/5' : 'text-lt-aux hover:text-lt-sub hover:bg-l4'"
           title="用系统应用打开">
-          <i class="ri-external-link-line text-[12px]" />
+          <i class="ri-external-link-line text-[14px]" />
         </button>
         <button @click="copyPath"
           class="h-7 w-7 rounded-lg flex items-center justify-center transition-colors"
           :class="isDark ? 'text-wt-aux hover:text-wt-sub hover:bg-white/5' : 'text-lt-aux hover:text-lt-sub hover:bg-l4'"
           title="复制路径">
-          <i class="ri-clipboard-line text-[12px]" />
+          <i class="ri-clipboard-line text-[14px]" />
         </button>
         <button @click="showInFolder"
           class="h-7 w-7 rounded-lg flex items-center justify-center transition-colors"
           :class="isDark ? 'text-wt-aux hover:text-wt-sub hover:bg-white/5' : 'text-lt-aux hover:text-lt-sub hover:bg-l4'"
           title="在资源管理器中显示">
-          <i class="ri-folder-open-line text-[12px]" />
+          <i class="ri-folder-open-line text-[14px]" />
         </button>
         <div class="w-px h-4 mx-1" :class="isDark ? 'bg-d4' : 'bg-bdrL'" />
         <button @click="emit('close')"
           class="h-7 w-7 rounded-lg flex items-center justify-center transition-colors"
           :class="isDark ? 'text-wt-aux hover:text-red-400 hover:bg-red-400/8' : 'text-lt-aux hover:text-red-500 hover:bg-red-50'"
           title="关闭预览">
-          <i class="ri-close-line text-[13px]" />
+          <i class="ri-close-line text-[16px]" />
         </button>
       </div>
     </div>
@@ -178,7 +228,11 @@ function showInFolder() {
               PDF
             </span>
           </div>
+<<<<<<< HEAD
           <div v-if="pdfRecommendationText" class="mt-4 text-[12px] leading-relaxed" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">
+=======
+          <div v-if="pdfRecommendationText" class="mt-4 text-[14px] leading-relaxed" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">
+>>>>>>> dev
             {{ pdfRecommendationText }}
           </div>
           <div class="mt-4 grid grid-cols-3 gap-2">
@@ -224,9 +278,60 @@ function showInFolder() {
       </div>
 
       <!-- Markdown -->
+<<<<<<< HEAD
       <div v-else-if="renderedMarkdown" class="p-6">
         <div class="max-w-4xl mx-auto rounded-xl p-6 markdown-content" :class="[isDark ? 'markdown-content--dark bg-d3' : 'markdown-content--light bg-l3']"
           v-html="renderedMarkdown" />
+=======
+      <div v-else-if="renderedMarkdown || webSourceMeta" class="p-6">
+        <div class="max-w-4xl mx-auto">
+          <section v-if="webSourceMeta" class="web-source-card mb-4" :class="isDark ? 'web-source-card--dark' : 'web-source-card--light'">
+            <div class="flex items-start gap-3">
+              <div class="web-source-icon" :class="isDark ? 'bg-brand-400/12 text-brand-300' : 'bg-brand-50 text-brand-600'">
+                <i class="ri-global-line text-[16px]" />
+              </div>
+              <div class="min-w-0 flex-1">
+                <div class="flex items-center gap-2 flex-wrap">
+                  <span class="text-[14px] font-semibold" :class="isDark ? 'text-wt-main' : 'text-lt-main'">{{ webSourceMeta.title || '网页来源' }}</span>
+                  <span class="web-source-provider" :class="isDark ? 'bg-white/5 text-wt-dim' : 'bg-l4 text-lt-aux'">{{ webProviderLabel }}</span>
+                  <span v-if="webFetchedAtLabel" class="text-[12px] ml-auto shrink-0" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">{{ webFetchedAtLabel }}</span>
+                </div>
+                <button v-if="webSourceMeta.sourceUrl" type="button" class="web-source-link mt-2" :title="webSourceMeta.sourceUrl" @click="openWebSource(webSourceMeta.sourceUrl)">
+                  <i class="ri-link text-[13px] shrink-0" /><span class="truncate">{{ webSourceMeta.sourceUrl }}</span><i class="ri-external-link-line text-[12px] shrink-0" />
+                </button>
+                <p v-if="webSourceMeta.description" class="text-[13px] leading-5 mt-2" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">{{ webSourceMeta.description }}</p>
+                <details v-if="webSourceMeta.finalUrl" class="web-source-details mt-2">
+                  <summary :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">查看最终跳转地址</summary>
+                  <button type="button" class="web-source-link mt-1.5" :title="webSourceMeta.finalUrl" @click="openWebSource(webSourceMeta.finalUrl)">
+                    <i class="ri-route-line text-[13px] shrink-0" /><span class="truncate">{{ webSourceMeta.finalUrl }}</span><i class="ri-external-link-line text-[12px] shrink-0" />
+                  </button>
+                </details>
+              </div>
+            </div>
+          </section>
+          <div v-if="renderedMarkdown" class="rounded-xl p-6 markdown-content" :class="[isDark ? 'markdown-content--dark bg-d3' : 'markdown-content--light bg-l3']"
+            v-html="renderedMarkdown" />
+        </div>
+      </div>
+
+      <!-- Sanitized HTML -->
+      <div v-else-if="htmlSource" class="h-full min-h-0 flex flex-col p-4 gap-3">
+        <div class="flex items-center justify-between gap-3 shrink-0">
+          <div class="inline-flex rounded-lg p-0.5" :class="isDark ? 'bg-d4' : 'bg-l4'">
+            <button class="h-7 px-3 rounded-md text-[11px]" :class="htmlView === 'preview' ? (isDark ? 'bg-d2 text-wt-main' : 'bg-white text-lt-main shadow-sm') : (isDark ? 'text-wt-dim' : 'text-lt-aux')" @click="htmlView = 'preview'">页面预览</button>
+            <button class="h-7 px-3 rounded-md text-[11px]" :class="htmlView === 'source' ? (isDark ? 'bg-d2 text-wt-main' : 'bg-white text-lt-main shadow-sm') : (isDark ? 'text-wt-dim' : 'text-lt-aux')" @click="htmlView = 'source'">查看源码</button>
+          </div>
+          <span class="text-[10px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">安全沙箱 · 禁止脚本、表单与弹窗</span>
+        </div>
+        <iframe
+          v-if="htmlView === 'preview'"
+          :srcdoc="htmlSource"
+          sandbox=""
+          referrerpolicy="no-referrer"
+          class="w-full flex-1 min-h-[420px] rounded-xl border bg-white"
+          :class="isDark ? 'border-d4' : 'border-bdrL'" />
+        <pre v-else class="flex-1 min-h-[420px] overflow-auto rounded-xl border p-4 text-[12px] font-mono whitespace-pre-wrap break-all" :class="isDark ? 'border-d4 bg-d3 text-wt-sub' : 'border-bdrL bg-l3 text-lt-sub'">{{ htmlSource }}</pre>
+>>>>>>> dev
       </div>
 
       <!-- Plain text / code -->
@@ -264,4 +369,12 @@ function showInFolder() {
 @keyframes pulse { 0%, 100% { opacity: 1 } 50% { opacity: .5 } }
 .pulse { animation: pulse 1.5s ease-in-out infinite }
 .ctx-pill { font-size: 11px; border-radius: 6px; padding: 3px 8px; display: inline-flex; align-items: center; gap: 4px; transition: all .15s }
+.web-source-card { padding: 16px; border: 1px solid transparent; border-radius: 12px; }
+.web-source-card--light { background: rgba(255,255,255,.72); border-color: rgba(15,23,42,.08); }
+.web-source-card--dark { background: rgba(255,255,255,.035); border-color: rgba(255,255,255,.08); }
+.web-source-icon { width: 34px; height: 34px; flex: 0 0 34px; border-radius: 9px; display: inline-flex; align-items: center; justify-content: center; }
+.web-source-provider { display: inline-flex; align-items: center; height: 22px; padding: 0 7px; border-radius: 6px; font-size: 11px; font-weight: 600; }
+.web-source-link { width: 100%; min-width: 0; display: flex; align-items: center; gap: 6px; color: #818cf8; font-size: 12.5px; line-height: 20px; text-align: left; }
+.web-source-link:hover { color: #6366f1; }
+.web-source-details summary { width: fit-content; cursor: pointer; font-size: 12px; line-height: 20px; user-select: none; }
 </style>

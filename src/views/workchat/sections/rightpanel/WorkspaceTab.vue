@@ -17,32 +17,30 @@ const emit = defineEmits(['view-artifact', 'delete-artifact', 'tool-action', 'se
 
 const artifacts = ref([])
 const tasks = ref([])
+const refreshingResults = ref(false)
+let refreshRequestId = 0
 const TASK_TOOLS = ['mindmap', 'graph', 'flashcard', 'quiz', 'chart', 'podcast', 'research', 'ppt']
 const msg = useMessage()
 const mbox = useMessageBox()
 const recycleBin = useRecycleBinStore()
 
-async function loadArtifacts() {
-  if (!window.electronAPI?.db?.artifacts?.listByGroup) return
+async function refreshResults() {
+  const requestId = ++refreshRequestId
+  const groupId = props.groupId
+  refreshingResults.value = true
   try {
-    artifacts.value = await window.electronAPI.db.artifacts.listByGroup(props.groupId)
+    const [nextArtifacts, nextTasks] = await Promise.all([
+      window.electronAPI?.db?.artifacts?.listByGroup?.(groupId) || Promise.resolve([]),
+      window.electronAPI?.db?.tasks?.listByGroup?.(groupId, TASK_TOOLS) || Promise.resolve([]),
+    ])
+    if (requestId !== refreshRequestId || groupId !== props.groupId) return
+    artifacts.value = Array.isArray(nextArtifacts) ? nextArtifacts : []
+    tasks.value = Array.isArray(nextTasks) ? nextTasks : []
   } catch (e) {
-    console.error('[WorkspaceTab] loadArtifacts error:', e)
+    if (requestId === refreshRequestId) console.error('[WorkspaceTab] refreshResults error:', e)
+  } finally {
+    if (requestId === refreshRequestId) refreshingResults.value = false
   }
-}
-
-async function loadTasks() {
-  if (!window.electronAPI?.db?.tasks?.listByGroup) return
-  try {
-    tasks.value = await window.electronAPI.db.tasks.listByGroup(props.groupId, TASK_TOOLS)
-  } catch (e) {
-    console.error('[WorkspaceTab] loadTasks error:', e)
-  }
-}
-
-function refreshResults() {
-  loadArtifacts()
-  loadTasks()
 }
 
 function taskArtifactIds(t) {
@@ -74,12 +72,11 @@ function onTaskProgress(d) {
   if (idx >= 0) {
     tasks.value[idx] = { ...tasks.value[idx], progress: d.progress, result: d.message, status: 'running' }
   } else {
-    loadTasks()
+    refreshResults()
   }
 }
 
 function onTaskCompleted(d) {
-  refreshResults()
   window.dispatchEvent(new CustomEvent('reviva:artifacts-created', { detail: d || {} }))
 }
 
@@ -88,15 +85,13 @@ function onTaskFailed(d) {
   if (idx >= 0) {
     tasks.value[idx] = { ...tasks.value[idx], status: 'failed', error: d.error, progress: 0 }
   } else {
-    loadTasks()
+    refreshResults()
   }
 }
 
 function onLegacyWindowEvent(e) {
   if (!e?.detail?.groupId || e.detail.groupId === props.groupId) {
-    loadArtifacts()
-  } else {
-    loadArtifacts() // still reload — group filter is on read side
+    refreshResults()
   }
 }
 
@@ -113,6 +108,7 @@ onMounted(() => {
 watch(() => props.groupId, refreshResults)
 
 onBeforeUnmount(() => {
+  refreshRequestId += 1
   window.electronAPI?.genTasks?.removeListeners?.()
   window.removeEventListener('reviva:gen-task-created', refreshResults)
   window.removeEventListener('reviva:artifacts-created', onLegacyWindowEvent)
@@ -122,7 +118,7 @@ onBeforeUnmount(() => {
 async function cancelTask(t) {
   if (!window.electronAPI?.genTasks?.cancel) return
   await window.electronAPI.genTasks.cancel(t.id)
-  loadTasks()
+  refreshResults()
 }
 
 async function dismissTask(t) {
@@ -137,7 +133,7 @@ async function dismissTask(t) {
   })
   if (!confirmed) return
   await window.electronAPI.db.tasks.delete(t.id)
-  loadTasks()
+  refreshResults()
 }
 
 async function renameArtifact(a) {
@@ -153,7 +149,6 @@ async function renameArtifact(a) {
   const nextTitle = title?.trim()
   if (!nextTitle || nextTitle === a.title) return
   await window.electronAPI.db.artifacts.update(a.id, { title: nextTitle })
-  await loadArtifacts()
   window.dispatchEvent(new CustomEvent('reviva:artifacts-updated', { detail: { artifactId: a.id } }))
   msg.success('已重命名')
 }
@@ -194,9 +189,13 @@ async function deleteTaskResults(t) {
     cancelText: '取消',
   })
   if (!confirmed) return
+  let fullTask = t
+  try {
+    fullTask = await window.electronAPI?.db?.tasks?.get?.(t.id) || t
+  } catch { /* keep the available summary snapshot as a safe fallback */ }
   const results = []
   for (const artifact of linked) {
-    results.push(await recycleBin.trashArtifact(artifact.id, { title: t.name, task: taskSnapshot(t) }))
+    results.push(await recycleBin.trashArtifact(artifact.id, { title: t.name, task: taskSnapshot(fullTask) }))
   }
   const failed = results.filter((r) => !r.success)
   if (failed.length) {
@@ -209,6 +208,21 @@ async function deleteTaskResults(t) {
   }
   refreshResults()
   msg.success('已移入回收站')
+}
+
+async function viewArtifactDetail(payload) {
+  const summary = payload?.artifact || payload
+  if (!summary?.id) return
+  try {
+    const fullArtifact = await window.electronAPI?.db?.artifacts?.get?.(summary.id)
+    if (!fullArtifact) throw new Error('生成结果不存在或已被删除')
+    emit('view-artifact', payload?.artifact
+      ? { ...payload, artifact: fullArtifact }
+      : fullArtifact)
+  } catch (error) {
+    console.error('[WorkspaceTab] load artifact detail error:', error)
+    msg.error(error.message || '加载生成结果失败')
+  }
 }
 </script>
 
@@ -224,7 +238,9 @@ async function deleteTaskResults(t) {
         :is-dark="isDark"
         :artifacts="artifacts"
         :tasks="tasks"
-        @view-artifact="(a) => emit('view-artifact', a)"
+        :refreshing="refreshingResults"
+        @refresh="refreshResults"
+        @view-artifact="viewArtifactDetail"
         @delete-artifact="(a) => emit('delete-artifact', a)"
         @rename-artifact="renameArtifact"
         @rename-task="renameTask"
