@@ -1,6 +1,10 @@
 <script setup>
 <<<<<<< HEAD
+<<<<<<< HEAD
 import { ref, computed } from 'vue'
+=======
+import { ref, computed, watch, toRaw } from 'vue'
+>>>>>>> dev
 =======
 import { ref, computed, watch, toRaw } from 'vue'
 >>>>>>> dev
@@ -18,12 +22,15 @@ const props = defineProps({
   installingPdfLocalParser: { type: Boolean, default: false },
   pdfLocalParserInstallResult: { type: Object, default: null },
 <<<<<<< HEAD
+<<<<<<< HEAD
 })
 
 const emit = defineEmits(['update:show', 'save', 'open-ocr-settings', 'install-local-parser'])
 const activeTab = ref('pdf')
 const openSelectKey = ref('')
 =======
+=======
+>>>>>>> dev
   initialTab: { type: String, default: 'pdf' },
   webSettings: { type: Object, default: null },
   webProviders: { type: Array, default: () => [] },
@@ -40,6 +47,9 @@ function cloneWebSettings(value) {
   if (!value) return null
   return structuredClone(toRaw(value))
 }
+<<<<<<< HEAD
+>>>>>>> dev
+=======
 >>>>>>> dev
 
 const model = computed(() => props.settings)
@@ -49,7 +59,10 @@ const show = computed({
 })
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
+=======
+>>>>>>> dev
 watch(() => props.show, visible => {
   if (!visible) { webDraft.value = null; return }
   activeTab.value = ['pdf', 'web', 'media'].includes(props.initialTab) ? props.initialTab : 'pdf'
@@ -118,6 +131,9 @@ function saveCurrent(close) {
   else emit('save', close)
 }
 
+<<<<<<< HEAD
+>>>>>>> dev
+=======
 >>>>>>> dev
 const pdfEngineOptions = [
   {
@@ -357,7 +373,11 @@ function toneClasses(tone) {
     <div class="space-y-4">
       <div
 <<<<<<< HEAD
+<<<<<<< HEAD
         class="grid grid-cols-2 rounded-lg border p-0.5"
+=======
+        class="grid grid-cols-3 rounded-lg border p-0.5"
+>>>>>>> dev
 =======
         class="grid grid-cols-3 rounded-lg border p-0.5"
 >>>>>>> dev
@@ -373,7 +393,10 @@ function toneClasses(tone) {
         </button>
         <button
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
+=======
+>>>>>>> dev
           @click="activeTab = 'web'"
           class="h-8 rounded-md text-[11px] font-medium transition-colors flex items-center justify-center gap-1.5"
           :class="activeTab === 'web'
@@ -383,6 +406,9 @@ function toneClasses(tone) {
           网页解析
         </button>
         <button
+<<<<<<< HEAD
+>>>>>>> dev
+=======
 >>>>>>> dev
           @click="activeTab = 'media'"
           class="h-8 rounded-md text-[11px] font-medium transition-colors flex items-center justify-center gap-1.5"
@@ -641,7 +667,10 @@ function toneClasses(tone) {
       </div>
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
+=======
+>>>>>>> dev
       <div v-else-if="activeTab === 'web'" class="space-y-4">
         <div class="rounded-xl border p-3.5" :class="isDark ? 'border-brand-400/16 bg-brand-400/6' : 'border-brand-100 bg-brand-50/70'">
           <div class="flex items-start gap-2.5">
@@ -710,6 +739,9 @@ function toneClasses(tone) {
         <div v-else class="py-8 text-center text-[11px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">请选择一个网页解析引擎。</div>
       </div>
 
+<<<<<<< HEAD
+>>>>>>> dev
+=======
 >>>>>>> dev
       <div v-else class="space-y-4">
         <div
@@ -766,7 +798,11 @@ function toneClasses(tone) {
       </button>
       <button
 <<<<<<< HEAD
+<<<<<<< HEAD
         @click="emit('save', close)"
+=======
+        @click="saveCurrent(close)"
+>>>>>>> dev
 =======
         @click="saveCurrent(close)"
 >>>>>>> dev
@@ -787,7 +823,10 @@ function toneClasses(tone) {
 }
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
+=======
+>>>>>>> dev
 .web-provider-select { position: relative; }
 .web-provider-trigger { width: 100%; min-height: 48px; padding: 9px 11px; border: 1px solid transparent; border-radius: 11px; display: flex; align-items: center; gap: 10px; transition: all 160ms ease; }
 .web-provider-trigger--light { background: #fff; border-color: rgba(15,23,42,.1); box-shadow: 0 2px 10px rgba(15,23,42,.04); }
@@ -830,6 +869,9 @@ function toneClasses(tone) {
 .web-timeout-option--light:hover, .web-timeout-option--light.web-timeout-option--selected { background: rgba(238,242,255,.95); color: #4338ca; }
 .web-timeout-option--dark:hover, .web-timeout-option--dark.web-timeout-option--selected { background: rgba(129,140,248,.12); color: #a5b4fc; }
 
+<<<<<<< HEAD
+>>>>>>> dev
+=======
 >>>>>>> dev
 .compact-select {
   position: relative;

@@ -2,6 +2,7 @@
 import path from 'node:path'
 import fs from 'node:fs'
 <<<<<<< HEAD
+<<<<<<< HEAD
 import crypto from 'node:crypto'
 import { createRequire } from 'node:module'
 
@@ -129,6 +130,8 @@ function dynamicUpdate(db, table, id, data, jsonFields = [], boolFields = []) {
   }
 }
 =======
+=======
+>>>>>>> dev
 import { DatabaseContext, getDatabaseDriver } from './db/DatabaseContext.js'
 import { SettingsRepository } from './db/repositories/SettingsRepository.js'
 import { MemoryRepository } from './db/repositories/MemoryRepository.js'
@@ -151,6 +154,9 @@ import {
   DB_FILE_NAME,
   WORKSPACE_META_DIR,
 } from './db/helpers.js'
+<<<<<<< HEAD
+>>>>>>> dev
+=======
 >>>>>>> dev
 
 export class DatabaseService {
@@ -323,6 +329,7 @@ export class DatabaseService {
 
   // ─── Agents ───
 
+<<<<<<< HEAD
 <<<<<<< HEAD
   _normalizeAgentField(field, value) {
     if (AGENT_JSON_FIELDS.includes(field)) {
@@ -634,6 +641,8 @@ export class DatabaseService {
   }
 
 =======
+=======
+>>>>>>> dev
   _normalizeAgentField(field, value) { return this._agentRepository._normalizeAgentField(field, value) }
   _normalizeBuiltinAgentTemplate(data = {}) { return this._agentRepository._normalizeBuiltinAgentTemplate(data) }
   _builtinAgentTemplatePayload(template) { return this._agentRepository._builtinAgentTemplatePayload(template) }
@@ -652,6 +661,9 @@ export class DatabaseService {
   updateAgent(id, data) { return this._agentRepository.updateAgent(id, data) }
   deleteAgent(id) { return this._agentRepository.deleteAgent(id) }
   isEnglishNameUnique(englishName, excludeId = '') { return this._agentRepository.isEnglishNameUnique(englishName, excludeId) }
+<<<<<<< HEAD
+>>>>>>> dev
+=======
 >>>>>>> dev
   // ─── Custom Skills ───
 
@@ -702,6 +714,7 @@ export class DatabaseService {
   _parsePdfDocument(row) { return this._pdfRepository._parsePdfDocument(row) }
   _parsePdfParseRun(row) { return this._pdfRepository._parsePdfParseRun(row) }
   _parsePdfSourceLink(row) { return this._pdfRepository._parsePdfSourceLink(row) }
+<<<<<<< HEAD
 
   listWikis() { return this._wikiRepository.listWikis() }
   getWiki(id) { return this._wikiRepository.getWiki(id) }
@@ -748,11 +761,45 @@ export class DatabaseService {
       metrics: parseJSON(row.metrics_json) || {},
     }
   }
+=======
 
-  listWikis() {
-    return this._db.prepare('SELECT * FROM wikis ORDER BY updated_at DESC, created_at DESC').all().map(r => this._parseWiki(r))
-  }
+  listWikis() { return this._wikiRepository.listWikis() }
+  getWiki(id) { return this._wikiRepository.getWiki(id) }
+  createWiki(data) { return this._wikiRepository.createWiki(data) }
+  upsertWiki(data) { return this._wikiRepository.upsertWiki(data) }
+  updateWiki(id, data) { return this._wikiRepository.updateWiki(id, data) }
+  deleteWiki(id) { return this._wikiRepository.deleteWiki(id) }
+  deleteWikiSource(wikiId, sourceId) { return this._wikiRepository.deleteWikiSource(wikiId, sourceId) }
+  listWikiSources(wikiId) { return this._wikiRepository.listWikiSources(wikiId) }
+  getWikiSource(id) { return this._wikiRepository.getWikiSource(id) }
+  upsertWikiSource(data) { return this._wikiRepository.upsertWikiSource(data) }
+  updateWikiSource(id, data) { return this._wikiRepository.updateWikiSource(id, data) }
+  listWikiJobs(wikiId) { return this._wikiRepository.listWikiJobs(wikiId) }
 
+  // ─── Web Import Jobs ───
+
+  // ─── Web Import Jobs ───
+
+  _parseWebImportJob(row) { return this._webImportRepository._parseWebImportJob(row) }
+  _validateWebImportJobFields(fields, options = {}) { return this._webImportRepository._validateWebImportJobFields(fields, options) }
+  createWebImportJob(data = {}) { return this._webImportRepository.createWebImportJob(data) }
+  getWebImportJob(id) { return this._webImportRepository.getWebImportJob(id) }
+  listWebImportJobs(options = {}) { return this._webImportRepository.listWebImportJobs(options) }
+  updateWebImportJob(id, patch = {}) { return this._webImportRepository.updateWebImportJob(id, patch) }
+  deleteWebImportJob(id) { return this._webImportRepository.deleteWebImportJob(id) }
+  clearFinishedWebImportJobs(options = {}) { return this._webImportRepository.clearFinishedWebImportJobs(options) }
+  listPendingWebImportJobs() { return this._webImportRepository.listPendingWebImportJobs() }
+  markRunningWebImportJobsInterrupted() { return this._webImportRepository.markRunningWebImportJobsInterrupted() }
+>>>>>>> dev
+
+  createWikiJob(data) { return this._wikiRepository.createWikiJob(data) }
+  listOcrProviders() { return this._wikiRepository.listOcrProviders() }
+  getOcrProvider(id) { return this._wikiRepository.getOcrProvider(id) }
+  createOcrProvider(data = {}) { return this._wikiRepository.createOcrProvider(data) }
+  updateOcrProvider(id, data = {}) { return this._wikiRepository.updateOcrProvider(id, data) }
+  deleteOcrProvider(id) { return this._wikiRepository.deleteOcrProvider(id) }
+
+<<<<<<< HEAD
   getWiki(id) {
     return this._parseWiki(this._db.prepare('SELECT * FROM wikis WHERE id = ?').get(id))
   }
@@ -1055,6 +1102,8 @@ export class DatabaseService {
   updateOcrProvider(id, data = {}) { return this._wikiRepository.updateOcrProvider(id, data) }
   deleteOcrProvider(id) { return this._wikiRepository.deleteOcrProvider(id) }
 
+=======
+>>>>>>> dev
   getPdfDocument(id) { return this._pdfRepository.getPdfDocument(id) }
   upsertPdfDocument(data = {}) { return this._pdfRepository.upsertPdfDocument(data) }
   updatePdfDocument(id, data = {}) { return this._pdfRepository.updatePdfDocument(id, data) }
@@ -1081,6 +1130,9 @@ export class DatabaseService {
   createWikiOcrJob(data = {}) { return this._wikiRepository.createWikiOcrJob(data) }
   upsertWikiOcrJob(data = {}) { return this._wikiRepository.upsertWikiOcrJob(data) }
   updateWikiOcrJob(id, data = {}) { return this._wikiRepository.updateWikiOcrJob(id, data) }
+<<<<<<< HEAD
+>>>>>>> dev
+=======
 >>>>>>> dev
 
   // ─── Outputs ───
@@ -1167,6 +1219,7 @@ export class DatabaseService {
 
   _ensureCreationCenterSubAgentSeeds() { return this._legacyMigrationManager._ensureCreationCenterSubAgentSeeds() }
 
+<<<<<<< HEAD
 <<<<<<< HEAD
   _getDateRangeFilter(range) {
     const now = new Date()
@@ -2427,10 +2480,15 @@ export class DatabaseService {
     this._db.transaction(() => { for (const a of agents) insert.run(a) })()
   }
 =======
+=======
+>>>>>>> dev
   _ensureCreationCenterAgentPrompts() { return this._legacyMigrationManager._ensureCreationCenterAgentPrompts() }
   _runVersionedMigrations() { return this._versionedMigrationManager._runVersionedMigrations() }
   _migrateTables() { return this._legacyMigrationManager._migrateTables() }
   _createTables() { return this._schemaManager._createTables() }
   _seedBuiltinData() { return this._seedManager._seedBuiltinData() }
+<<<<<<< HEAD
+>>>>>>> dev
+=======
 >>>>>>> dev
 }

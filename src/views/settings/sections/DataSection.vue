@@ -20,6 +20,10 @@ const backupLoadingMode = ref('')
 const backupResult = ref(null)
 const backupError = ref('')
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+const configLoadingMode = ref('')
+>>>>>>> dev
 =======
 const configLoadingMode = ref('')
 >>>>>>> dev
@@ -194,6 +198,7 @@ async function revealBackup() {
   const filePath = backupResult.value?.path
   if (!filePath || !window.electronAPI?.showItemInFolder) return
   await window.electronAPI.showItemInFolder(filePath)
+<<<<<<< HEAD
 }
 
 async function createBackup(mode) {
@@ -226,6 +231,8 @@ async function revealBackup() {
   const filePath = backupResult.value?.path
   if (!filePath || !window.electronAPI?.showItemInFolder) return
   await window.electronAPI.showItemInFolder(filePath)
+=======
+>>>>>>> dev
 }
 
 async function resetSettings() {
@@ -386,6 +393,7 @@ onMounted(() => {
       <div v-if="backupError" class="mt-3 pt-3 flex items-center gap-2 text-[10px]" :class="isDark ? 'text-red-400 border-t border-d4' : 'text-red-500 border-t border-bdrF'">
         <i class="ri-error-warning-line text-[11px]" />
         <span>{{ backupError }}</span>
+<<<<<<< HEAD
       </div>
     </div>
 
@@ -441,6 +449,8 @@ onMounted(() => {
       <div v-if="backupError" class="mt-3 pt-3 flex items-center gap-2 text-[10px]" :class="isDark ? 'text-red-400 border-t border-d4' : 'text-red-500 border-t border-bdrF'">
         <i class="ri-error-warning-line text-[11px]" />
         <span>{{ backupError }}</span>
+=======
+>>>>>>> dev
       </div>
     </div>
 

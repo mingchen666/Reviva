@@ -6,6 +6,10 @@ import { getSystemEnv } from '../systemEnv.js'
 import { extractOfficeImages } from '../tools/officecli/OfficeImageExtractor.js'
 import { detectPdfTextMode } from '../tools/pdf/PdfNeedOcrDetector.js'
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+import { PdfImageExtractor } from '../tools/pdf/PdfImageExtractor.js'
+>>>>>>> dev
 =======
 import { PdfImageExtractor } from '../tools/pdf/PdfImageExtractor.js'
 >>>>>>> dev

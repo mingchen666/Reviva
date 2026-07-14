@@ -166,7 +166,10 @@ export class PdfOcrService {
         throw error
       }
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
+=======
+>>>>>>> dev
       if (run?.id && !this._cache?.isParseRunWritable?.(run.id)) {
         await this._cache?.removeOcrProfile?.(doc, ocrProfileKey)
         return {
@@ -175,6 +178,9 @@ export class PdfOcrService {
           message: 'PDF 已移入回收站或被删除，本次 OCR 结果未保存。',
         }
       }
+<<<<<<< HEAD
+>>>>>>> dev
+=======
 >>>>>>> dev
       const manifest = await this._cache.writeOcrResult(doc, ocrProfileKey, result, {
         provider,
@@ -187,6 +193,12 @@ export class PdfOcrService {
     } catch (err) {
       const code = err.code || 'PDF_OCR_FAILED'
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+      if (code === 'PDF_SOURCE_INACTIVE' || code === 'PDF_OPERATION_CANCELLED') {
+        await this._cache?.removeOcrProfile?.(doc, ocrProfileKey)
+      }
+>>>>>>> dev
 =======
       if (code === 'PDF_SOURCE_INACTIVE' || code === 'PDF_OPERATION_CANCELLED') {
         await this._cache?.removeOcrProfile?.(doc, ocrProfileKey)

@@ -1,5 +1,9 @@
 import { spawn } from 'node:child_process'
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+import crypto from 'node:crypto'
+>>>>>>> dev
 =======
 import crypto from 'node:crypto'
 >>>>>>> dev
@@ -234,8 +238,13 @@ export class PdfImageExtractor {
   }
 
 <<<<<<< HEAD
+<<<<<<< HEAD
   async _extract(doc, { startPage = 1, maxPages = 5, maxImages = 50 } = {}) {
     const outputDir = path.join(doc.cacheRoot, 'assets', 'embedded')
+=======
+  async _extract(doc, { startPage = 1, maxPages = 5, maxImages = 50, outputDir: requestedOutputDir = '' } = {}) {
+    const outputDir = requestedOutputDir || path.join(doc.cacheRoot, 'assets', 'embedded')
+>>>>>>> dev
 =======
   async _extract(doc, { startPage = 1, maxPages = 5, maxImages = 50, outputDir: requestedOutputDir = '' } = {}) {
     const outputDir = requestedOutputDir || path.join(doc.cacheRoot, 'assets', 'embedded')
@@ -289,7 +298,10 @@ export class PdfImageExtractor {
   }
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
+=======
+>>>>>>> dev
   async extractToDirectory(filePath, {
     outputDir = '',
     outputRelDir = '',
@@ -361,6 +373,9 @@ export class PdfImageExtractor {
     return { success: true, assets, errors, pageCount, truncated: truncated || rawImages.length >= limit }
   }
 
+<<<<<<< HEAD
+>>>>>>> dev
+=======
 >>>>>>> dev
   async listEmbeddedImages(cache, doc, { startPage = 1, maxPages = 5, maxImages = 50 } = {}) {
     const current = await cache.readEmbeddedImagesIndex(doc)

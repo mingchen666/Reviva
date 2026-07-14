@@ -201,7 +201,11 @@ watch(editContent, () => {
       </div>
       <div v-if="!isEditing"
 <<<<<<< HEAD
+<<<<<<< HEAD
         class="flex items-center justify-end gap-0 mt-1 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+=======
+        class="flex items-center justify-end gap-0 mt-1 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto group-focus-within:opacity-100 group-focus-within:pointer-events-auto transition-opacity duration-150">
+>>>>>>> dev
 =======
         class="flex items-center justify-end gap-0 mt-1 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto group-focus-within:opacity-100 group-focus-within:pointer-events-auto transition-opacity duration-150">
 >>>>>>> dev

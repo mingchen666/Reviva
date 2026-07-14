@@ -159,7 +159,10 @@ function manifestMatchesDoc(manifest, doc) {
 }
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
+=======
+>>>>>>> dev
 function sourceLinkFor(doc, sourceInfo = {}) {
   const owner = sourceInfo?.owner && typeof sourceInfo.owner === 'object' ? sourceInfo.owner : {}
   const ownerLocator = String(
@@ -189,6 +192,9 @@ function sourceLinkFor(doc, sourceInfo = {}) {
   }
 }
 
+<<<<<<< HEAD
+>>>>>>> dev
+=======
 >>>>>>> dev
 export class PdfCache {
   constructor({ workDirService = null, dbService = null } = {}) {
@@ -218,7 +224,10 @@ export class PdfCache {
     const relCachePath = `context/pdf/${id}`
     const cacheRoot = resolvedCache.cacheRoot
 <<<<<<< HEAD
+<<<<<<< HEAD
     await fs.promises.mkdir(cacheRoot, { recursive: true })
+=======
+>>>>>>> dev
 =======
 >>>>>>> dev
 
@@ -237,7 +246,10 @@ export class PdfCache {
     }
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
+=======
+>>>>>>> dev
     const latestStat = await fs.promises.stat(realPath)
     if (Number(latestStat.size || 0) !== Number(stat.size || 0) || !sameMtime(latestStat.mtimeMs, stat.mtimeMs)) {
       const error = new Error('PDF source changed while it was being registered.')
@@ -248,6 +260,9 @@ export class PdfCache {
     this._upsertDocument(doc, sourceInfo)
     this._assertDocumentWritable(doc)
     await fs.promises.mkdir(cacheRoot, { recursive: true })
+<<<<<<< HEAD
+>>>>>>> dev
+=======
 >>>>>>> dev
     const existingManifest = await this.readManifest(cacheRoot)
     await this._writeManifest(doc, {
@@ -255,7 +270,10 @@ export class PdfCache {
       sourceInfo: existingManifest?.sourceInfo || sourceInfo,
     })
 <<<<<<< HEAD
+<<<<<<< HEAD
     this._upsertDocument(doc, sourceInfo)
+=======
+>>>>>>> dev
 =======
 >>>>>>> dev
     return doc
@@ -311,6 +329,10 @@ export class PdfCache {
 
   async _writeManifest(doc, extra = {}) {
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+    this._assertDocumentWritable(doc)
+>>>>>>> dev
 =======
     this._assertDocumentWritable(doc)
 >>>>>>> dev
@@ -338,6 +360,10 @@ export class PdfCache {
 
   async writeOverview(doc, overview) {
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+    this._assertDocumentWritable(doc)
+>>>>>>> dev
 =======
     this._assertDocumentWritable(doc)
 >>>>>>> dev
@@ -368,6 +394,10 @@ export class PdfCache {
 
   async writeTextPages(doc, payload) {
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+    this._assertDocumentWritable(doc)
+>>>>>>> dev
 =======
     this._assertDocumentWritable(doc)
 >>>>>>> dev
@@ -420,6 +450,10 @@ export class PdfCache {
 
   async writeOcrResult(doc, ocrProfileKey, result, { provider, ranges = [], requestedRanges = [], fullDocumentFallback = false } = {}) {
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+    this._assertDocumentWritable(doc)
+>>>>>>> dev
 =======
     this._assertDocumentWritable(doc)
 >>>>>>> dev
@@ -566,6 +600,10 @@ export class PdfCache {
 
   async writeEmbeddedImagesIndex(doc, images = [], extra = {}) {
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+    this._assertDocumentWritable(doc)
+>>>>>>> dev
 =======
     this._assertDocumentWritable(doc)
 >>>>>>> dev
@@ -596,7 +634,10 @@ export class PdfCache {
       last_accessed_at: new Date().toISOString(),
     })
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
+=======
+>>>>>>> dev
     const link = sourceLinkFor(doc, sourceInfo)
     if (link && this._db?.upsertPdfSourceLink) this._db.upsertPdfSourceLink(link)
   }
@@ -634,6 +675,9 @@ export class PdfCache {
     if (profileRoot !== root && profileRoot.startsWith(root + path.sep)) {
       await fs.promises.rm(profileRoot, { recursive: true, force: true })
     }
+<<<<<<< HEAD
+>>>>>>> dev
+=======
 >>>>>>> dev
   }
 

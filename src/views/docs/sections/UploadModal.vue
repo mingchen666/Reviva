@@ -303,6 +303,7 @@ function openWebSettings() {
         :class="isDark ? 'text-wt-aux hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub'">取消</button>
       <button @click="handleSubmit"
 <<<<<<< HEAD
+<<<<<<< HEAD
         :disabled="tab !== 'local' || pickedFiles.length === 0"
         class="px-4 py-2 rounded-lg text-[13px] font-medium transition-all flex items-center gap-1"
         :class="(tab === 'local' && pickedFiles.length > 0)
@@ -310,6 +311,15 @@ function openWebSettings() {
           : (isDark ? 'bg-d0 text-wt-dim cursor-not-allowed' : 'bg-l4 text-lt-aux cursor-not-allowed')">
         <i class="ri-upload-2-line text-[13px]" />
         <span>{{ tab === 'local' && pickedFiles.length > 0 ? `上传 ${pickedFiles.length} 个文件` : '上传' }}</span>
+=======
+        :disabled="tab === 'local' ? pickedFiles.length === 0 : !canSubmitUrl"
+        class="px-4 py-2 rounded-lg text-[13px] font-medium transition-all flex items-center gap-1"
+        :class="((tab === 'local' && pickedFiles.length > 0) || (tab === 'url' && canSubmitUrl))
+          ? (isDark ? 'bg-brand-400 text-d0 hover:bg-brand-500' : 'bg-brand-500 text-white hover:bg-brand-600')
+          : (isDark ? 'bg-d0 text-wt-dim cursor-not-allowed' : 'bg-l4 text-lt-aux cursor-not-allowed')">
+        <i class="ri-upload-2-line text-[13px]" />
+        <span>{{ tab === 'local' ? (pickedFiles.length > 0 ? `上传 ${pickedFiles.length} 个文件` : '上传') : (webSubmitting ? '创建任务中' : '导入网页') }}</span>
+>>>>>>> dev
 =======
         :disabled="tab === 'local' ? pickedFiles.length === 0 : !canSubmitUrl"
         class="px-4 py-2 rounded-lg text-[13px] font-medium transition-all flex items-center gap-1"

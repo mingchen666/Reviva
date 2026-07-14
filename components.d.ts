@@ -17,7 +17,10 @@ declare module 'vue' {
     ChartsPreview: typeof import('./src/components/preview/ChartsPreview.vue')['default']
     CommandPalette: typeof import('./src/components/CommandPalette.vue')['default']
 <<<<<<< HEAD
+<<<<<<< HEAD
     copy: typeof import('./src/components/SvgIcon copy.vue')['default']
+=======
+>>>>>>> dev
 =======
 >>>>>>> dev
     CreationConfigModal: typeof import('./src/components/CreationConfigModal.vue')['default']

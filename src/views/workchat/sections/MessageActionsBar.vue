@@ -95,17 +95,23 @@ const costDisplay = computed(() => {
       </button>
       <slot name="copy-btn" />
 <<<<<<< HEAD
+<<<<<<< HEAD
       <button v-if="isAssistant && isCompleted" @click="$emit('copy-raw')" title="复制MD"
         class="h-6 px-1.5 rounded-md flex items-center gap-0.5 text-[11px] transition-colors"
         :class="isDark ? 'text-wt-dim hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub'">
         <i class="ri-markdown-line text-[12px]" />
 =======
+=======
+>>>>>>> dev
       <button v-if="isAssistant && isCompleted" @click="$emit('copy-raw')" title="复制 Markdown"
         aria-label="复制 Markdown"
         class="h-7 px-1.5 rounded-md flex items-center gap-0.5 text-[12px] transition-colors"
         :class="copied ? (isDark ? 'text-brand-400 bg-brand-400/8' : 'text-brand-500 bg-brand-50') : (isDark ? 'text-white/65 hover:text-white hover:bg-white/6' : 'text-lt-aux hover:text-lt-main hover:bg-l4')">
         <i :class="copied ? 'ri-check-line' : 'ri-markdown-line'" class="text-[14px]" />
         <span v-if="copied">已复制</span>
+<<<<<<< HEAD
+>>>>>>> dev
+=======
 >>>>>>> dev
       </button>
       <button v-if="isAssistant && isCompleted" @click="$emit('retry')" title="重试"

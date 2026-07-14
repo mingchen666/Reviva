@@ -4,7 +4,11 @@
   "author": "Reviva",
   "license": "AGPL-3.0",
   "description": "Reviva",
+<<<<<<< HEAD
   "version": "0.1.1-beta",
+=======
+  "version": "0.2.0-beta",
+>>>>>>> dev
   "type": "module",
   "scripts": {
     "dev": "vite",

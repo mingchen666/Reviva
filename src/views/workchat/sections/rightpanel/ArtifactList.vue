@@ -435,8 +435,11 @@ function menuCanRename() {
         生成结果
       </span>
 <<<<<<< HEAD
+<<<<<<< HEAD
       <span class="text-[11px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">{{ resultEntries.length }}</span>
 =======
+=======
+>>>>>>> dev
       <div class="flex items-center gap-1.5">
         <span class="text-[11px] flex items-center gap-1" :class="isSearching ? 'text-brand-400' : (isDark ? 'text-wt-dim' : 'text-lt-aux')"
           role="status" aria-live="polite">
@@ -455,6 +458,9 @@ function menuCanRename() {
           <i class="ri-refresh-line text-[13px]" :class="refreshing ? 'animate-spin' : ''" />
         </button>
       </div>
+<<<<<<< HEAD
+>>>>>>> dev
+=======
 >>>>>>> dev
     </div>
 
@@ -611,8 +617,13 @@ function menuCanRename() {
 
     <div v-else class="flex-1 min-h-0 py-4 text-center" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">
 <<<<<<< HEAD
+<<<<<<< HEAD
       <i class="ri-inbox-line text-[20px] mb-1" />
       <p class="text-[12px]">生成结果会显示在这里</p>
+=======
+      <i :class="normalizedSearch ? 'ri-search-eye-line' : 'ri-inbox-line'" class="text-[20px] mb-1" />
+      <p class="text-[12px]">{{ normalizedSearch ? '未找到相关生成结果' : '生成结果会显示在这里' }}</p>
+>>>>>>> dev
 =======
       <i :class="normalizedSearch ? 'ri-search-eye-line' : 'ri-inbox-line'" class="text-[20px] mb-1" />
       <p class="text-[12px]">{{ normalizedSearch ? '未找到相关生成结果' : '生成结果会显示在这里' }}</p>

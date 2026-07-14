@@ -12,17 +12,23 @@ import DocTreeItem from './sections/DocTreeItem.vue'
 import DocGridCard from './sections/DocGridCard.vue'
 import DocListRow from './sections/DocListRow.vue'
 <<<<<<< HEAD
+<<<<<<< HEAD
 import DocPreview from './sections/DocPreview.vue'
 import UploadModal from './sections/UploadModal.vue'
 import MoveModal from './sections/MoveModal.vue'
 import PdfProcessingSettingsModal from './sections/PdfProcessingSettingsModal.vue'
 =======
+=======
+>>>>>>> dev
 
 const DocPreview = defineAsyncComponent(() => import('./sections/DocPreview.vue'))
 const UploadModal = defineAsyncComponent(() => import('./sections/UploadModal.vue'))
 const MoveModal = defineAsyncComponent(() => import('./sections/MoveModal.vue'))
 const PdfProcessingSettingsModal = defineAsyncComponent(() => import('./sections/PdfProcessingSettingsModal.vue'))
 const WebImportHistoryDrawer = defineAsyncComponent(() => import('./sections/WebImportHistoryDrawer.vue'))
+<<<<<<< HEAD
+>>>>>>> dev
+=======
 >>>>>>> dev
 
 const router = useRouter()
@@ -58,6 +64,10 @@ const showMoveModal = ref(false)
 const moveTarget = ref(null)
 const showProcessingSettingsModal = ref(false)
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+const processingSettingsInitialTab = ref('pdf')
+>>>>>>> dev
 =======
 const processingSettingsInitialTab = ref('pdf')
 >>>>>>> dev
@@ -85,7 +95,10 @@ const installingPdfLocalParser = ref(false)
 const pdfLocalParserInstallResult = ref(null)
 const manualParsingPdfPaths = ref(new Set())
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
+=======
+>>>>>>> dev
 const webImportSettings = ref(null)
 const webImportProviders = ref([])
 const webImportJobs = ref([])
@@ -95,6 +108,9 @@ const webImportJobsHasMore = ref(false)
 const WEB_IMPORT_PAGE_SIZE = 10
 let webJobUpdatedHandler = null
 let webImportJobsRequestId = 0
+<<<<<<< HEAD
+>>>>>>> dev
+=======
 >>>>>>> dev
 
 function normalizeProcessingSettings(value = {}) {
@@ -116,7 +132,10 @@ async function loadProcessingSettings() {
 }
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
+=======
+>>>>>>> dev
 async function loadWebImportSettings() {
   try {
     const result = await api()?.webImport?.getSettings?.()
@@ -189,6 +208,9 @@ function openWebImportResult(job) {
   showWebImportHistory.value = false
 }
 
+<<<<<<< HEAD
+>>>>>>> dev
+=======
 >>>>>>> dev
 async function loadOcrProviders() {
   try {
@@ -1124,9 +1146,12 @@ function handleTreeFileContextMenu(e, file) {
 onMounted(() => {
   loadProcessingSettings()
 <<<<<<< HEAD
+<<<<<<< HEAD
   loadOcrProviders()
   loadPdfEnvironment()
 =======
+=======
+>>>>>>> dev
   webJobUpdatedHandler = api()?.webImport?.onJobUpdated?.((job) => {
     if (job?.target_type !== 'docs' || job.target_ref !== currentPath.value) return
     const index = webImportJobs.value.findIndex(item => item.id === job.id)
@@ -1134,6 +1159,9 @@ onMounted(() => {
     else webImportJobs.value.unshift(job)
     if (['succeeded', 'partial'].includes(job.status)) { loadDirectory(currentPath.value); loadFolderTree() }
   })
+<<<<<<< HEAD
+>>>>>>> dev
+=======
 >>>>>>> dev
   if (isReady.value) {
     loadDirectory('')
@@ -1165,10 +1193,13 @@ watch(showProcessingSettingsModal, (visible) => {
     loadOcrProviders()
     loadPdfEnvironment()
 <<<<<<< HEAD
+<<<<<<< HEAD
   }
 })
 
 =======
+=======
+>>>>>>> dev
     loadWebImportSettings()
   }
 })
@@ -1185,12 +1216,19 @@ watch(currentPath, () => {
   if (showUploadModal.value || showWebImportHistory.value) loadWebImportJobs({ reset: true })
 })
 
+<<<<<<< HEAD
+>>>>>>> dev
+=======
 >>>>>>> dev
 watch(showPdfUploadPrompt, (visible) => {
   if (visible) {
     loadProcessingSettings()
     loadOcrProviders()
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+    loadPdfEnvironment()
+>>>>>>> dev
 =======
     loadPdfEnvironment()
 >>>>>>> dev
@@ -1463,7 +1501,11 @@ watch(showPdfUploadPrompt, (visible) => {
               <button
                 @click="showProcessingSettingsModal = true"
 <<<<<<< HEAD
+<<<<<<< HEAD
                 class="ctx-pill cursor-pointer"
+=======
+                class="ctx-pill doc-toolbar-action cursor-pointer"
+>>>>>>> dev
                 :class="
                   isDark
                     ? 'text-wt-aux bg-d3 border border-bdr hover:text-wt-sub'
@@ -1473,6 +1515,7 @@ watch(showPdfUploadPrompt, (visible) => {
                 解析设置
               </button>
               <button
+<<<<<<< HEAD
                 @click="uploadFiles"
                 class="ctx-pill cursor-pointer"
 =======
@@ -1489,6 +1532,8 @@ watch(showPdfUploadPrompt, (visible) => {
                 解析设置
               </button>
               <button
+=======
+>>>>>>> dev
                 @click="showWebImportHistory = true"
                 class="ctx-pill doc-toolbar-action cursor-pointer relative"
                 :class="
@@ -1508,6 +1553,9 @@ watch(showPdfUploadPrompt, (visible) => {
                     ? 'text-wt-aux bg-d3 border border-bdr hover:text-wt-sub'
                     : 'text-lt-aux bg-l3 border border-bdrF hover:text-lt-sub'
                 ">
+<<<<<<< HEAD
+>>>>>>> dev
+=======
 >>>>>>> dev
                 <i class="ri-upload-2-line text-[14px]" />
                 上传
@@ -1865,6 +1913,10 @@ watch(showPdfUploadPrompt, (visible) => {
 
     <PdfProcessingSettingsModal
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+      v-if="showProcessingSettingsModal"
+>>>>>>> dev
 =======
       v-if="showProcessingSettingsModal"
 >>>>>>> dev
@@ -1879,13 +1931,19 @@ watch(showPdfUploadPrompt, (visible) => {
       :installing-pdf-local-parser="installingPdfLocalParser"
       :pdf-local-parser-install-result="pdfLocalParserInstallResult"
 <<<<<<< HEAD
+<<<<<<< HEAD
       @save="saveProcessingSettings"
 =======
+=======
+>>>>>>> dev
       :initial-tab="processingSettingsInitialTab"
       :web-settings="webImportSettings"
       :web-providers="webImportProviders"
       @save="saveProcessingSettings"
       @save-web-settings="saveWebImportSettings"
+<<<<<<< HEAD
+>>>>>>> dev
+=======
 >>>>>>> dev
       @install-local-parser="installPdfLocalParser"
       @open-ocr-settings="openOcrSettings" />

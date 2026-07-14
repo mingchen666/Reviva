@@ -233,7 +233,11 @@ onBeforeUnmount(closeDropdown)
 
     <div class="px-3 py-2 shrink-0" :class="isDark ? 'border-t border-d4' : 'border-t border-bdrL'">
 <<<<<<< HEAD
+<<<<<<< HEAD
       <button @click="handleCreateGroup()"
+=======
+      <button @click="handleCreateGroup"
+>>>>>>> dev
 =======
       <button @click="handleCreateGroup"
 >>>>>>> dev
