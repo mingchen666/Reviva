@@ -10,8 +10,8 @@ function normalizeArch(arch) {
   if (typeof arch === 'string') return arch
   // electron-builder passes builder-util Arch enum numbers in many versions.
   const byEnum = {
-    0: 'x64',
-    1: 'ia32',
+    0: 'ia32',
+    1: 'x64',
     2: 'armv7l',
     3: 'arm64',
     4: 'universal',
@@ -33,14 +33,15 @@ module.exports = async function afterPackOfficeCli(context) {
 
   const arch = normalizeArch(context.arch)
   const binaryName = ARCH_BINARY[arch]
-  if (!binaryName) return
+  if (!binaryName) {
+    throw new Error(`[afterPack] No bundled officecli binary is configured for Windows arch: ${arch || context.arch}`)
+  }
 
   const projectDir = context.packager?.projectDir || process.cwd()
   const sourceDir = path.join(projectDir, 'electron', 'builtin-assets', 'bin', 'officecli')
   const source = path.join(sourceDir, binaryName)
   if (!fs.existsSync(source)) {
-    console.warn(`[afterPack] ${binaryName} not found, bundled officecli will be skipped.`)
-    return
+    throw new Error(`[afterPack] Required bundled officecli binary not found: ${source}`)
   }
 
   const targetDir = path.join(resourcesDirFor(context), 'builtin-assets', 'bin', 'officecli')
@@ -51,6 +52,7 @@ module.exports = async function afterPackOfficeCli(context) {
     if (name !== binaryName) fs.rmSync(path.join(targetDir, name), { force: true })
   }
 
-  fs.copyFileSync(source, path.join(targetDir, binaryName))
+  const target = path.join(targetDir, binaryName)
+  fs.copyFileSync(source, target)
   console.log(`[afterPack] Bundled ${binaryName} for ${arch}.`)
 }

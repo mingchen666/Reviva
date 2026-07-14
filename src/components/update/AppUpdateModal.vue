@@ -99,7 +99,7 @@ function openFallback() {
 </script>
 
 <template>
-  <MsModal :show="show" :width="420" :show-footer="true" :closable="true" @update:show="setShow">
+  <MsModal :show="show" :width="520" :show-footer="true" :closable="true" @update:show="setShow">
     <template #header>
       <div class="flex items-center gap-2.5">
         <div
