@@ -49,7 +49,7 @@ function refreshState() {
     return
   }
   hasSelection.value = selectionText(el).length > 0
-  canEdit.value = !el.disabled && !el.readOnly
+  canEdit.value = !el.disabled && !el.readOnly && (!el.isContentEditable || el.contentEditable !== 'false')
 }
 
 async function copySelection() {
@@ -74,10 +74,10 @@ async function pasteClipboard() {
   if (!el || !canEdit.value) return
   el.focus()
   try {
-    const before = el.value
+    const before = typeof el.value === 'string' ? el.value : selectionText(el)
     const pastedByCommand = document.execCommand?.('paste')
     await nextTick()
-    if (pastedByCommand && el.value !== before) {
+    if (pastedByCommand && (typeof el.value !== 'string' || el.value !== before)) {
       close()
       return
     }
@@ -94,12 +94,26 @@ function selectAllText() {
   const el = targetEl.value
   if (!el) return
   el.focus()
-  el.select()
+  if (el.isContentEditable) {
+    const selection = window.getSelection?.()
+    const range = document.createRange()
+    range.selectNodeContents(el)
+    selection?.removeAllRanges()
+    selection?.addRange(range)
+  } else el.select()
   refreshState()
   close()
 }
 
 function replaceSelection(el, text) {
+  if (el.isContentEditable) {
+    el.focus()
+    try {
+      document.execCommand?.('insertText', false, text)
+    } catch (_) {}
+    el.dispatchEvent(new Event('input', { bubbles: true }))
+    return
+  }
   const start = Number.isFinite(el.selectionStart) ? el.selectionStart : el.value.length
   const end = Number.isFinite(el.selectionEnd) ? el.selectionEnd : start
   if (typeof el.setRangeText === 'function') {
@@ -114,7 +128,14 @@ function replaceSelection(el, text) {
 }
 
 function selectionText(el) {
-  if (!el || typeof el.value !== 'string') return ''
+  if (!el) return ''
+  if (el.isContentEditable) {
+    const selection = window.getSelection?.()
+    if (!selection || selection.rangeCount === 0 || selection.isCollapsed) return ''
+    const range = selection.getRangeAt(0)
+    return el.contains(range.commonAncestorContainer) ? range.toString() : ''
+  }
+  if (typeof el.value !== 'string') return ''
   const start = Number.isFinite(el.selectionStart) ? el.selectionStart : 0
   const end = Number.isFinite(el.selectionEnd) ? el.selectionEnd : 0
   if (start === end) return ''
@@ -151,7 +172,7 @@ function resolveEditable(target) {
   const el = target?.tagName ? target : target?.value
   if (!el) return null
   const tag = String(el.tagName || '').toLowerCase()
-  return tag === 'textarea' || (tag === 'input' && isTextInput(el)) ? el : null
+  return el.isContentEditable || tag === 'textarea' || (tag === 'input' && isTextInput(el)) ? el : null
 }
 
 function isTextInput(el) {

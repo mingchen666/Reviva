@@ -74,6 +74,12 @@ async function fetchJsonWithTimeout(url, timeoutMs = DEFAULT_TIMEOUT_MS) {
 }
 
 async function readSource(source) {
+  if (source.type === 'github' && source.url) {
+    const payload = await fetchJsonWithTimeout(source.url, source.timeoutMs)
+    const releases = Array.isArray(payload) ? payload : [payload]
+    const release = releases.find(item => item && !item.draft && item.tag_name)
+    return normalizeUpdateInfo(release, source)
+  }
   if (source.type === 'manifest' && source.url) {
     const payload = await fetchJsonWithTimeout(source.url, source.timeoutMs)
     return normalizeUpdateInfo(payload, source)

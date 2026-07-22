@@ -27,6 +27,8 @@ const form = ref({
     fileRead: false,
     fileWrite: false,
     fileRename: false,
+    noteRead: true,
+    noteWrite: true,
     kbSearch: true,
   },
   tools: ['kb_search'],
@@ -38,7 +40,16 @@ const form = ref({
 if (isEdit.value) {
   const existing = agentsStore.agents.find(a => a.id === route.params.id)
   if (existing) {
-    form.value = { ...form.value, ...existing, maxIterations: existing.maxIter ?? existing.maxIterations ?? form.value.maxIterations }
+    const existingPermissions = existing.permissions || {}
+    form.value = {
+      ...form.value,
+      ...existing,
+      permissions: {
+        ...form.value.permissions,
+        ...existingPermissions,
+      },
+      maxIterations: existing.maxIter ?? existing.maxIterations ?? form.value.maxIterations,
+    }
   }
 }
 
@@ -170,7 +181,7 @@ function save() {
       <section class="rounded-xl p-5" :class="isDark ? 'bg-d2 border border-bdr' : 'bg-l2 border border-bdrF'">
         <h3 class="text-[14px] font-semibold mb-4" :class="isDark ? 'text-wt-main' : 'text-lt-main'">权限配置</h3>
         <div class="space-y-3">
-          <div v-for="(label, key) in { fileRead: '文件读取权限', fileWrite: '文件写入权限', fileRename: '文件重命名权限', kbSearch: '知识库检索权限' }" :key="key" class="flex items-center justify-between py-2">
+          <div v-for="(label, key) in { fileRead: '文件读取权限', fileWrite: '文件写入权限', fileRename: '文件重命名权限', noteRead: '笔记读取权限', noteWrite: '笔记写入权限', kbSearch: '知识库检索权限' }" :key="key" class="flex items-center justify-between py-2">
             <div>
               <span class="text-[13px]" :class="isDark ? 'text-wt-main' : 'text-lt-main'">{{ label }}</span>
               <span v-if="key === 'kbSearch'" class="text-[10px] ml-2" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">默认开启</span>

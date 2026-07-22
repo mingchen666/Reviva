@@ -21,14 +21,16 @@ export class DocsWebImportWriter {
     throw new WebImportError(WEB_IMPORT_ERROR_CODES.WRITE_FAILED, '无法生成不冲突的文档名称。')
   }
 
-  async write({ targetRef = '', document, includeHtml = false } = {}) {
+  async write({ targetRef = '', document, fileName = '', includeHtml = false } = {}) {
     const docsRoot = this._workDir?.getDocsPath?.()
     if (!docsRoot) throw new WebImportError(WEB_IMPORT_ERROR_CODES.TARGET_MISSING, '文档工作区尚未初始化。')
-    const targetDir = this._workDir.resolveAndValidate(path.join(docsRoot, String(targetRef || '')), 'docs')
+    const requestedTarget = String(targetRef || '')
+    const targetDir = this._workDir.resolveAndValidate(path.isAbsolute(requestedTarget) ? requestedTarget : path.join(docsRoot, requestedTarget), 'docs')
     let stat
     try { stat = await fs.promises.stat(targetDir) } catch {}
     if (!stat?.isDirectory()) throw new WebImportError(WEB_IMPORT_ERROR_CODES.TARGET_MISSING, '目标文档目录已不存在。')
-    const names = await this._availableBase(targetDir, document.title, includeHtml)
+    const requestedBase = String(fileName || '').replace(/\.md$/i, '').trim()
+    const names = await this._availableBase(targetDir, requestedBase || document.title, includeHtml)
     const markdownTemp = `${names.markdownPath}.tmp-${process.pid}-${Date.now()}`
     try {
       await fs.promises.writeFile(markdownTemp, webImportMarkdown(document), 'utf8')

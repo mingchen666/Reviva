@@ -16,7 +16,7 @@ def load_module():
     return module
 
 
-def test_help_exposes_asr_backend_options():
+def test_help_exposes_metadata_and_comment_options_only():
     result = subprocess.run(
         [sys.executable, str(SCRIPT), "--help"],
         check=True,
@@ -24,51 +24,43 @@ def test_help_exposes_asr_backend_options():
         capture_output=True,
     )
 
-    assert "--asr-backend" in result.stdout
-    assert "--asr-model" in result.stdout
-    assert "--asr-device" in result.stdout
-    assert "--asr-compute-type" in result.stdout
-    assert "--qwen-python" in result.stdout
-    assert "--download-subtitles" in result.stdout
+    assert "--out" in result.stdout
+    assert "--comments" in result.stdout
+    assert "--transcribe" not in result.stdout
+    assert "--download-audio" not in result.stdout
+    assert "--download-subtitles" not in result.stdout
 
 
-def test_resolve_asr_backend_auto_prefers_faster_whisper(monkeypatch):
+def test_extract_bvid_accepts_url_or_id():
     module = load_module()
 
-    available = {"faster_whisper": True, "funasr": True, "whisper": True}
-
-    def fake_find_spec(name):
-        return object() if available.get(name) else None
-
-    monkeypatch.setattr(module.importlib.util, "find_spec", fake_find_spec)
-    monkeypatch.setattr(module, "qwen_available", lambda: False)
-
-    assert module.resolve_asr_backend("auto", "en") == "faster-whisper"
-    assert module.resolve_asr_backend("funasr") == "funasr"
+    assert module.extract_bvid("BV1abcDEF123") == "BV1abcDEF123"
+    assert (
+        module.extract_bvid("https://www.bilibili.com/video/BV1abcDEF123/?p=2")
+        == "BV1abcDEF123"
+    )
 
 
-def test_resolve_asr_backend_auto_prefers_qwen_for_chinese(monkeypatch):
+def test_write_source_md_records_metadata_and_parts(tmp_path):
     module = load_module()
-
-    monkeypatch.setattr(module, "qwen_available", lambda: True)
-
-    assert module.resolve_asr_backend("auto", "zh") == "qwen3-asr"
-    assert module.resolve_asr_backend("auto", "Chinese") == "qwen3-asr"
-
-
-def test_write_bilibili_subtitle_outputs(tmp_path):
-    module = load_module()
-    payload = {
-        "body": [
-            {"from": 0.0, "to": 1.2, "content": "第一句"},
-            {"from": 1.2, "to": 3.4, "content": "第二句"},
-        ]
+    view = {
+        "data": {
+            "title": "测试视频",
+            "bvid": "BV1abcDEF123",
+            "aid": 123,
+            "owner": {"name": "UP"},
+            "pubdate": 1767225600,
+            "duration": 62,
+            "videos": 1,
+            "desc": "简介",
+            "pages": [{"page": 1, "cid": 456, "duration": 62, "part": "正片"}],
+        }
     }
 
-    outputs = module.write_bilibili_subtitle_outputs(payload, tmp_path, "p01_123", "zh-CN")
+    module.write_source_md(view, tmp_path)
 
-    assert Path(outputs["json"]).exists()
-    assert Path(outputs["txt"]).read_text(encoding="utf-8") == "第一句\n第二句\n"
-    srt = Path(outputs["srt"]).read_text(encoding="utf-8")
-    assert "00:00:00,000 --> 00:00:01,200" in srt
-    assert "00:00:01,200 --> 00:00:03,400" in srt
+    text = (tmp_path / "source.md").read_text(encoding="utf-8")
+    assert "# 测试视频" in text
+    assert "BV1abcDEF123" in text
+    assert "cid=456" in text
+    assert "简介" in text

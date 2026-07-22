@@ -189,7 +189,7 @@ onMounted(loadMemories)
         </button>
       </div>
       
-      <!-- 🔽 优化后的搜索框 🔽 -->
+      <!-- 优化后的搜索框  -->
       <div class="flex-1 min-w-[180px]">
         <div class="flex items-center gap-2 rounded-lg px-2 h-8 transition-colors" 
              :class="[
@@ -209,7 +209,7 @@ onMounted(loadMemories)
           </button>
         </div>
       </div>
-      <!-- 🔼 优化后的搜索框 🔼 -->
+      <!--  优化后的搜索框  -->
 
     </div>
 

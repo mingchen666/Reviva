@@ -44,7 +44,7 @@ export class WebImportJobService {
     const formats = targetType === 'wiki' ? ['markdown'] : (data.includeHtml ? ['markdown', 'html'] : ['markdown'])
     const job = this._db.createWebImportJob({
       targetType, targetRef, requestedUrl: String(data.url || '').trim(),
-      provider: settings.selectedProvider, formats,
+      provider: settings.selectedProvider, formats, fileName: String(data.fileName || '').trim(),
     })
     this._enqueue(job.id)
     this._drain()
@@ -64,6 +64,7 @@ export class WebImportJobService {
       requestedUrl: original.requested_url,
       provider: this._webImport.getStoredSettings().selectedProvider || original.provider,
       formats: original.formats,
+      fileName: original.file_name,
       retryOf: original.id,
     })
     this._enqueue(job.id)
@@ -131,7 +132,7 @@ export class WebImportJobService {
       this._stage(job.id, 'writing')
       let result
       if (job.target_type === 'docs') {
-        result = await this._docsWriter.write({ targetRef: job.target_ref, document, includeHtml: job.formats.includes('html') })
+        result = await this._docsWriter.write({ targetRef: job.target_ref, document, fileName: job.file_name, includeHtml: job.formats.includes('html') })
       } else {
         result = await this._wiki.registerWebImportDocument(job.target_ref, document, { requestedUrl: job.requested_url })
         if (result?.success === false) throw new WebImportError(WEB_IMPORT_ERROR_CODES.WRITE_FAILED, result.error || '写入 Wiki 来源失败。')

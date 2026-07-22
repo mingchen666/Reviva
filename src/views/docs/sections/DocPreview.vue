@@ -1,87 +1,116 @@
-<script setup>
-import md from '@/utils/markdown'
+﻿<script setup>
 import { toFileUrl } from '@/utils/fileUrl'
-import { parseMarkdownFrontMatter } from '@/utils/markdownFrontMatter'
-import { computed, ref, watch } from 'vue'
+import { computed, defineAsyncComponent, onBeforeUnmount, ref, watch } from 'vue'
+import TextPreview from './preview/TextPreview.vue'
+import UnsupportedPreview from './preview/UnsupportedPreview.vue'
+
+const HtmlPreview = defineAsyncComponent(() => import('./preview/HtmlPreview.vue'))
+const MarkdownPreview = defineAsyncComponent(() => import('./preview/MarkdownPreview.vue'))
+const PdfPreview = defineAsyncComponent(() => import('./preview/PdfPreview.vue'))
+const MediaPreview = defineAsyncComponent(() => import('./preview/MediaPreview.vue'))
 
 const props = defineProps({
   file: { type: Object, default: null },
   isDark: { type: Boolean, default: false },
 })
 
-const emit = defineEmits(['close', 'chat'])
+const emit = defineEmits(['close', 'chat', 'media-details'])
 
 const api = () => window.electronAPI
 
 const ext = computed(() => (props.file?.ext || props.file?.name?.split('.').pop() || '').toLowerCase())
 const fileUrl = computed(() => toFileUrl(props.file?.path))
-const htmlView = ref('preview')
 const htmlSource = computed(() => ext.value === 'html' || ext.value === 'htm' ? String(props.file?.content || '') : '')
+const showLoading = ref(false)
+const MINIMUM_LOADING_DURATION = 350
+let loadingTimer = null
+let minimumLoadingElapsed = false
 
-watch(() => props.file?.path, () => { htmlView.value = 'preview' })
+const previewStateKey = computed(() => {
+  const path = props.file?.path || 'preview'
+  if (showLoading.value) return `${path}:loading`
+  if (props.file?.error) return `${path}:error`
+  return `${path}:content`
+})
 
-function externalHttpUrl(value) {
-  try {
-    const url = new URL(String(value || ''))
-    return ['http:', 'https:'].includes(url.protocol) ? url.toString() : ''
-  } catch { return '' }
+function clearLoadingTimer() {
+  if (loadingTimer) clearTimeout(loadingTimer)
+  loadingTimer = null
 }
 
-const markdownDocument = computed(() => {
-  if (!props.file || typeof props.file.content !== 'string' || !['md', 'markdown'].includes(ext.value)) return { attributes: {}, body: '' }
-  return parseMarkdownFrontMatter(props.file.content)
-})
+function startLoadingIndicator() {
+  clearLoadingTimer()
+  minimumLoadingElapsed = false
+  showLoading.value = true
+  loadingTimer = setTimeout(() => {
+    loadingTimer = null
+    minimumLoadingElapsed = true
+    if (!props.file?.loading) showLoading.value = false
+  }, MINIMUM_LOADING_DURATION)
+}
 
-const webSourceMeta = computed(() => {
-  const attributes = markdownDocument.value.attributes || {}
-  const sourceUrl = externalHttpUrl(attributes.source_url)
-  const finalUrl = externalHttpUrl(attributes.final_url)
-  if (!sourceUrl && !attributes.provider && !attributes.fetched_at) return null
-  return {
-    title: String(attributes.title || ''),
-    sourceUrl,
-    finalUrl: finalUrl && finalUrl !== sourceUrl ? finalUrl : '',
-    provider: String(attributes.provider || ''),
-    description: String(attributes.description || ''),
-    fetchedAt: String(attributes.fetched_at || ''),
-  }
-})
+watch(
+  () => props.file?.path,
+  startLoadingIndicator,
+  { immediate: true },
+)
 
-const webProviderLabel = computed(() => ({
-  jina: 'Jina Reader',
-  firecrawl: 'Firecrawl',
-  tavily: 'Tavily Extract',
-})[webSourceMeta.value?.provider] || webSourceMeta.value?.provider || '网页解析')
+watch(
+  () => props.file?.loading,
+  (loading) => {
+    if (loading) {
+      if (!showLoading.value) startLoadingIndicator()
+      return
+    }
+    if (minimumLoadingElapsed) showLoading.value = false
+  },
+)
 
-const webFetchedAtLabel = computed(() => {
-  const value = webSourceMeta.value?.fetchedAt
-  if (!value) return ''
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return value
-  return new Intl.DateTimeFormat('zh-CN', {
-    year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit',
-  }).format(date)
-})
+onBeforeUnmount(clearLoadingTimer)
 
-const renderedMarkdown = computed(() => {
-  return markdownDocument.value.body ? md.render(markdownDocument.value.body) : ''
-})
 
 const fileIconAndColor = computed(() => {
   const map = {
+    // 文档
     pdf: ['ri-file-pdf-2-fill', 'red'],
     md: ['ri-markdown-fill', 'brand'], markdown: ['ri-markdown-fill', 'brand'],
     docx: ['ri-file-word-2-fill', 'blue'], doc: ['ri-file-word-2-fill', 'blue'],
     xlsx: ['ri-file-excel-2-fill', 'emerald'], xls: ['ri-file-excel-2-fill', 'emerald'],
     pptx: ['ri-file-ppt-2-fill', 'orange'], ppt: ['ri-file-ppt-2-fill', 'orange'],
+    txt: ['ri-file-text-fill', 'gray'], csv: ['ri-file-text-fill', 'emerald'],
+    json: ['ri-braces-line', 'yellow'],
+    // 代码
+    js: ['ri-javascript-fill', 'yellow'],
+    ts: ['ri-code-s-slash-line', 'blue'],
+    py: ['ri-code-s-slash-line', 'emerald'],
+    html: ['ri-html5-fill', 'orange'], css: ['ri-css3-fill', 'blue'],
+    // 图片
     png: ['ri-image-fill', 'purple'], jpg: ['ri-image-fill', 'purple'],
     jpeg: ['ri-image-fill', 'purple'], gif: ['ri-image-fill', 'purple'],
-    json: ['ri-braces-line', 'yellow'], js: ['ri-javascript-fill', 'yellow'],
-    ts: ['ri-code-s-slash-line', 'blue'], py: ['ri-code-s-slash-line', 'emerald'],
-    html: ['ri-html5-fill', 'orange'], css: ['ri-css3-fill', 'blue'],
-    txt: ['ri-file-text-fill', 'gray'], csv: ['ri-file-text-fill', 'emerald'],
-    mp4: ['ri-movie-fill', 'violet'], mp3: ['ri-music-fill', 'pink'],
+    webp: ['ri-image-fill', 'purple'], svg: ['ri-image-fill', 'purple'],
+    ico: ['ri-image-fill', 'purple'], avif: ['ri-image-fill', 'purple'],
+    // 🎬 视频（violet）
+    mp4: ['ri-movie-fill', 'violet'],
+    avi: ['ri-movie-fill', 'violet'],
+    mkv: ['ri-movie-fill', 'violet'],
+    mov: ['ri-movie-fill', 'violet'],
+    webm: ['ri-movie-fill', 'violet'],
+    flv: ['ri-movie-fill', 'violet'],
+    wmv: ['ri-movie-fill', 'violet'],
+    // 🎵 音频（pink）
+    mp3: ['ri-music-fill', 'pink'],
+    wav: ['ri-music-fill', 'pink'],
+    flac: ['ri-music-fill', 'pink'],
+    aac: ['ri-music-fill', 'pink'],
+    ogg: ['ri-music-fill', 'pink'],
+    wma: ['ri-music-fill', 'pink'],
+    m4a: ['ri-music-fill', 'pink'],
+    // 压缩包
     zip: ['ri-file-zip-fill', 'gray'],
+    rar: ['ri-file-zip-fill', 'gray'],
+    '7z': ['ri-file-zip-fill', 'gray'],
+    tar: ['ri-file-zip-fill', 'gray'],
+    gz: ['ri-file-zip-fill', 'gray'],
   }
   const [icon, color] = map[ext.value] || ['ri-file-3-line', 'gray']
   return {
@@ -93,11 +122,23 @@ const fileIconAndColor = computed(() => {
 
 const typeLabel = computed(() => {
   const map = {
-    pdf: 'PDF', md: 'Markdown', markdown: 'Markdown', docx: 'Word', doc: 'Word',
-    txt: 'Text', xlsx: 'Excel', xls: 'Excel', pptx: 'PPT',
+    pdf: 'PDF', md: 'Markdown', markdown: 'Markdown',
+    docx: 'Word', doc: 'Word', txt: 'Text',
+    xlsx: 'Excel', xls: 'Excel', pptx: 'PPT', ppt: 'PPT',
+    csv: 'CSV', json: 'JSON',
+    js: 'JS', ts: 'TS', py: 'Python', html: 'HTML', css: 'CSS',
+    // 图片
     png: 'Image', jpg: 'Image', jpeg: 'Image', gif: 'Image',
-    json: 'JSON', js: 'JS', ts: 'TS', py: 'Python', html: 'HTML', css: 'CSS',
-    mp4: 'Video', mp3: 'Audio', zip: 'Archive', csv: 'CSV',
+    webp: 'Image', svg: 'SVG', ico: 'Icon', avif: 'Image',
+    // 🎬 视频
+    mp4: 'Video', avi: 'Video', mkv: 'Video',
+    mov: 'Video', webm: 'Video', flv: 'Video', wmv: 'Video',
+    // 🎵 音频
+    mp3: 'Audio', wav: 'Audio', flac: 'Audio',
+    aac: 'Audio', ogg: 'Audio', wma: 'Audio', m4a: 'Audio',
+    // 压缩包
+    zip: 'Archive', rar: 'Archive', '7z': 'Archive',
+    tar: 'Archive', gz: 'Archive',
   }
   return map[ext.value] || ext.value.toUpperCase()
 })
@@ -128,10 +169,6 @@ function copyPath() {
 function showInFolder() {
   if (props.file?.path) api()?.showItemInFolder?.(props.file.path)
 }
-function openWebSource(url) {
-  const safeUrl = externalHttpUrl(url)
-  if (safeUrl) api()?.openExternal?.(safeUrl)
-}
 </script>
 
 <template>
@@ -140,7 +177,7 @@ function openWebSource(url) {
     <div class="h-12 flex items-center gap-3 px-5 shrink-0"
       :class="isDark ? 'border-b border-d4' : 'border-b border-bdrL'">
       <div class="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" :class="fileIconAndColor.bg">
-        <i :class="[fileIconAndColor.icon, fileIconAndColor.color]" class="text-[16px]" />
+        <i :class="[fileIconAndColor.icon, fileIconAndColor.color]" class="text-[18px]" />
       </div>
       <div class="flex-1 min-w-0">
         <div class="flex items-center gap-1.5">
@@ -153,211 +190,117 @@ function openWebSource(url) {
         <div class="text-[10px] truncate font-mono" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">{{ file.path }}</div>
       </div>
       <div class="flex items-center gap-1 shrink-0">
+        <button v-if="file.mediaType === 'audio' || file.mediaType === 'video'" @click="emit('media-details', file)"
+          class="h-7 px-2.5 rounded-lg text-[11px] font-medium flex items-center gap-1 transition-colors"
+          :class="isDark ? 'bg-violet-400/10 text-violet-300 hover:bg-violet-400/16' : 'bg-violet-50 text-violet-600 hover:bg-violet-100'">
+          <i class="ri-file-list-3-line text-[13px]" />解析详情
+        </button>
         <button @click="emit('chat', file)"
           class="h-7 px-2.5 rounded-lg text-[14px] font-medium flex items-center gap-1 transition-colors"
           :class="isDark ? 'bg-brand-400/12 text-brand-400 hover:bg-brand-400/20' : 'bg-brand-50 text-brand-500 hover:bg-brand-100'">
-          <i class="ri-chat-1-line text-[14px]" />对话
+          <i class="ri-chat-ai-4-line text-[14px]" />对话
         </button>
         <div class="w-px h-4 mx-1" :class="isDark ? 'bg-d4' : 'bg-bdrL'" />
         <button @click="openExternally"
           class="h-7 w-7 rounded-lg flex items-center justify-center transition-colors"
           :class="isDark ? 'text-wt-aux hover:text-wt-sub hover:bg-white/5' : 'text-lt-aux hover:text-lt-sub hover:bg-l4'"
           title="用系统应用打开">
-          <i class="ri-external-link-line text-[14px]" />
+          <i class="ri-external-link-line text-[16px]" />
         </button>
         <button @click="copyPath"
           class="h-7 w-7 rounded-lg flex items-center justify-center transition-colors"
           :class="isDark ? 'text-wt-aux hover:text-wt-sub hover:bg-white/5' : 'text-lt-aux hover:text-lt-sub hover:bg-l4'"
           title="复制路径">
-          <i class="ri-clipboard-line text-[14px]" />
+          <i class="ri-clipboard-line text-[16px]" />
         </button>
         <button @click="showInFolder"
           class="h-7 w-7 rounded-lg flex items-center justify-center transition-colors"
           :class="isDark ? 'text-wt-aux hover:text-wt-sub hover:bg-white/5' : 'text-lt-aux hover:text-lt-sub hover:bg-l4'"
           title="在资源管理器中显示">
-          <i class="ri-folder-open-line text-[14px]" />
+          <i class="ri-folder-open-line text-[16px]" />
         </button>
         <div class="w-px h-4 mx-1" :class="isDark ? 'bg-d4' : 'bg-bdrL'" />
         <button @click="emit('close')"
           class="h-7 w-7 rounded-lg flex items-center justify-center transition-colors"
           :class="isDark ? 'text-wt-aux hover:text-red-400 hover:bg-red-400/8' : 'text-lt-aux hover:text-red-500 hover:bg-red-50'"
           title="关闭预览">
-          <i class="ri-close-line text-[16px]" />
+          <i class="ri-close-line text-[20px]" />
         </button>
       </div>
     </div>
 
     <!-- Body -->
-    <div class="flex-1 overflow-y-auto">
-
-      <!-- Loading -->
-      <div v-if="file.loading" class="flex items-center justify-center py-16">
-        <div class="text-center">
-          <i class="ri-loader-4-line text-[24px] pulse" :class="isDark ? 'text-brand-400' : 'text-brand-500'" />
-          <p class="text-[11px] mt-2" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">加载中...</p>
-        </div>
-      </div>
-
-      <!-- Error -->
-      <div v-else-if="file.error" class="p-6">
-        <div class="rounded-xl p-6 text-center max-w-md mx-auto"
-          :class="isDark ? 'bg-red-400/6 border border-red-400/20' : 'bg-red-50 border border-red-200'">
-          <i class="ri-error-warning-line text-[28px]" :class="isDark ? 'text-red-400' : 'text-red-500'" />
-          <p class="text-[13px] font-medium mt-2" :class="isDark ? 'text-red-400' : 'text-red-500'">文件读取失败</p>
-          <p class="text-[11px] mt-1 break-all" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">{{ file.error }}</p>
-          <button @click="openExternally"
-            class="mt-4 h-8 px-4 rounded-lg text-[11px] font-medium transition-colors"
-            :class="isDark ? 'bg-brand-400/12 text-brand-400 hover:bg-brand-400/20' : 'bg-brand-50 text-brand-500 hover:bg-brand-100'">
-            <i class="ri-external-link-line text-[11px] mr-1" />用系统应用打开
-          </button>
-        </div>
-      </div>
-
-      <!-- Image -->
-      <div v-else-if="file.pdfStatus" class="p-6">
-        <div class="max-w-3xl mx-auto rounded-xl border p-5"
-          :class="isDark ? 'bg-d3 border-bdr' : 'bg-l3 border-bdrF'">
-          <div class="flex items-start justify-between gap-4">
+    <div class="flex-1 min-h-0 overflow-hidden" :aria-busy="showLoading">
+      <Transition name="preview-content" mode="out-in">
+        <div :key="previewStateKey" class="h-full overflow-y-auto">
+          <!-- Loading -->
+          <div v-if="showLoading" class="preview-loading-shell text-center px-6" role="status" aria-live="polite">
             <div>
-              <div class="text-[13px] font-semibold" :class="isDark ? 'text-wt-main' : 'text-lt-main'">{{ pdfStatusLabel }}</div>
-              <div class="text-[11px] mt-1" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">
-                {{ file.pdfStatus.pageCount || 0 }} 页 · 文本覆盖率 {{ Math.round((file.pdfStatus.textCoverageRatio || 0) * 100) }}%
-              </div>
-            </div>
-            <span class="ctx-pill shrink-0" :class="isDark ? 'bg-red-400/8 text-red-400 border border-red-400/20' : 'bg-red-50 text-red-500 border border-red-100'">
-              PDF
-            </span>
-          </div>
-          <div v-if="pdfRecommendationText" class="mt-4 text-[14px] leading-relaxed" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">
-            {{ pdfRecommendationText }}
-          </div>
-          <div class="mt-4 grid grid-cols-3 gap-2">
-            <div class="rounded-lg px-3 py-2" :class="isDark ? 'bg-d4/50' : 'bg-l4/60'">
-              <div class="text-[10px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">候选 OCR 页</div>
-              <div class="text-[13px] font-semibold mt-0.5" :class="isDark ? 'text-wt-main' : 'text-lt-main'">{{ file.pdfStatus.ocrCandidateCount || 0 }}</div>
-            </div>
-            <div class="rounded-lg px-3 py-2" :class="isDark ? 'bg-d4/50' : 'bg-l4/60'">
-              <div class="text-[10px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">已扫描页</div>
-              <div class="text-[13px] font-semibold mt-0.5" :class="isDark ? 'text-wt-main' : 'text-lt-main'">{{ file.pdfStatus.scannedPages || 0 }}</div>
-            </div>
-            <div class="rounded-lg px-3 py-2" :class="isDark ? 'bg-d4/50' : 'bg-l4/60'">
-              <div class="text-[10px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">缓存</div>
-              <div class="text-[13px] font-semibold mt-0.5" :class="isDark ? 'text-wt-main' : 'text-lt-main'">{{ file.pdfStatus.cacheHit ? '命中' : '已更新' }}</div>
-            </div>
-          </div>
-          <div v-if="file.pdfStatus.content" class="mt-5">
-            <div class="text-[11px] mb-2" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">文本预览</div>
-            <pre class="text-[12px] leading-relaxed whitespace-pre-wrap max-h-[360px] overflow-auto rounded-lg p-3"
-              :class="isDark ? 'bg-d4 text-wt-sub' : 'bg-l4 text-lt-sub'">{{ file.pdfStatus.content }}</pre>
-          </div>
-        </div>
-      </div>
-
-      <!-- Image -->
-      <div v-else-if="file.mediaType === 'image'" class="flex items-center justify-center p-6">
-        <img :src="fileUrl" class="max-w-full rounded-xl shadow-lg" style="max-height:70vh" />
-      </div>
-
-      <!-- Audio -->
-      <div v-else-if="file.mediaType === 'audio'" class="flex flex-col items-center gap-4 py-10 px-6">
-        <div class="w-20 h-20 rounded-2xl flex items-center justify-center"
-          :class="isDark ? 'bg-pink-400/8' : 'bg-pink-50'">
-          <i class="ri-music-fill text-[36px]" :class="isDark ? 'text-pink-400' : 'text-pink-500'" />
-        </div>
-        <p class="text-[13px] font-medium" :class="isDark ? 'text-wt-main' : 'text-lt-main'">{{ file.name }}</p>
-        <audio controls :src="fileUrl" class="w-full max-w-md" />
-      </div>
-
-      <!-- Video -->
-      <div v-else-if="file.mediaType === 'video'" class="p-6 flex justify-center">
-        <video controls :src="fileUrl" class="w-full max-w-3xl rounded-xl shadow-lg" style="max-height:70vh" />
-      </div>
-
-      <!-- Markdown -->
-      <div v-else-if="renderedMarkdown || webSourceMeta" class="p-6">
-        <div class="max-w-4xl mx-auto">
-          <section v-if="webSourceMeta" class="web-source-card mb-4" :class="isDark ? 'web-source-card--dark' : 'web-source-card--light'">
-            <div class="flex items-start gap-3">
-              <div class="web-source-icon" :class="isDark ? 'bg-brand-400/12 text-brand-300' : 'bg-brand-50 text-brand-600'">
-                <i class="ri-global-line text-[16px]" />
-              </div>
-              <div class="min-w-0 flex-1">
-                <div class="flex items-center gap-2 flex-wrap">
-                  <span class="text-[14px] font-semibold" :class="isDark ? 'text-wt-main' : 'text-lt-main'">{{ webSourceMeta.title || '网页来源' }}</span>
-                  <span class="web-source-provider" :class="isDark ? 'bg-white/5 text-wt-dim' : 'bg-l4 text-lt-aux'">{{ webProviderLabel }}</span>
-                  <span v-if="webFetchedAtLabel" class="text-[12px] ml-auto shrink-0" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">{{ webFetchedAtLabel }}</span>
+              <div class="preview-loading-mark mx-auto">
+                <i
+                  class="ri-loader-4-line preview-loading-spinner text-[44px]"
+                  :class="isDark ? 'text-brand-400' : 'text-brand-500'" />
+                <div
+                  class="absolute -right-1 -bottom-1 w-6 h-6 rounded-lg flex items-center justify-center border"
+                  :class="[
+                    fileIconAndColor.bg,
+                    isDark ? 'border-d4 shadow-[0_2px_8px_rgba(0,0,0,.28)]' : 'border-white shadow-sm',
+                  ]">
+                  <i :class="[fileIconAndColor.icon, fileIconAndColor.color]" class="text-[12px]" />
                 </div>
-                <button v-if="webSourceMeta.sourceUrl" type="button" class="web-source-link mt-2" :title="webSourceMeta.sourceUrl" @click="openWebSource(webSourceMeta.sourceUrl)">
-                  <i class="ri-link text-[13px] shrink-0" /><span class="truncate">{{ webSourceMeta.sourceUrl }}</span><i class="ri-external-link-line text-[12px] shrink-0" />
-                </button>
-                <p v-if="webSourceMeta.description" class="text-[13px] leading-5 mt-2" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">{{ webSourceMeta.description }}</p>
-                <details v-if="webSourceMeta.finalUrl" class="web-source-details mt-2">
-                  <summary :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">查看最终跳转地址</summary>
-                  <button type="button" class="web-source-link mt-1.5" :title="webSourceMeta.finalUrl" @click="openWebSource(webSourceMeta.finalUrl)">
-                    <i class="ri-route-line text-[13px] shrink-0" /><span class="truncate">{{ webSourceMeta.finalUrl }}</span><i class="ri-external-link-line text-[12px] shrink-0" />
-                  </button>
-                </details>
               </div>
+              <p class="text-[12px] font-medium mt-3" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">
+                正在加载「{{ file.name }}」
+              </p>
+              <p class="text-[10.5px] mt-1" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">正在准备文档预览</p>
             </div>
-          </section>
-          <div v-if="renderedMarkdown" class="rounded-xl p-6 markdown-content" :class="[isDark ? 'markdown-content--dark bg-d3' : 'markdown-content--light bg-l3']"
-            v-html="renderedMarkdown" />
-        </div>
-      </div>
-
-      <!-- Sanitized HTML -->
-      <div v-else-if="htmlSource" class="h-full min-h-0 flex flex-col p-4 gap-3">
-        <div class="flex items-center justify-between gap-3 shrink-0">
-          <div class="inline-flex rounded-lg p-0.5" :class="isDark ? 'bg-d4' : 'bg-l4'">
-            <button class="h-7 px-3 rounded-md text-[11px]" :class="htmlView === 'preview' ? (isDark ? 'bg-d2 text-wt-main' : 'bg-white text-lt-main shadow-sm') : (isDark ? 'text-wt-dim' : 'text-lt-aux')" @click="htmlView = 'preview'">页面预览</button>
-            <button class="h-7 px-3 rounded-md text-[11px]" :class="htmlView === 'source' ? (isDark ? 'bg-d2 text-wt-main' : 'bg-white text-lt-main shadow-sm') : (isDark ? 'text-wt-dim' : 'text-lt-aux')" @click="htmlView = 'source'">查看源码</button>
           </div>
-          <span class="text-[10px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">安全沙箱 · 禁止脚本、表单与弹窗</span>
-        </div>
-        <iframe
-          v-if="htmlView === 'preview'"
-          :srcdoc="htmlSource"
-          sandbox=""
-          referrerpolicy="no-referrer"
-          class="w-full flex-1 min-h-[420px] rounded-xl border bg-white"
-          :class="isDark ? 'border-d4' : 'border-bdrL'" />
-        <pre v-else class="flex-1 min-h-[420px] overflow-auto rounded-xl border p-4 text-[12px] font-mono whitespace-pre-wrap break-all" :class="isDark ? 'border-d4 bg-d3 text-wt-sub' : 'border-bdrL bg-l3 text-lt-sub'">{{ htmlSource }}</pre>
-      </div>
 
-      <!-- Plain text / code -->
-      <div v-else-if="typeof file.content === 'string'" class="p-6">
-        <div class="max-w-4xl mx-auto rounded-xl overflow-hidden border"
-          :class="isDark ? 'bg-d3 border-bdr' : 'bg-l3 border-bdrF'">
-          <div class="px-4 py-2 flex items-center gap-2 border-b"
-            :class="isDark ? 'border-bdr bg-d4/30' : 'border-bdrF bg-l4/30'">
-            <i :class="[fileIconAndColor.icon, fileIconAndColor.color]" class="text-[13px]" />
-            <span class="text-[10px] font-mono uppercase tracking-wider" :class="isDark ? 'text-wt-aux' : 'text-lt-aux'">{{ typeLabel }}</span>
+          <!-- Error -->
+          <div v-else-if="file.error" class="p-6">
+            <div class="rounded-xl p-6 text-center max-w-md mx-auto"
+              :class="isDark ? 'bg-red-400/6 border border-red-400/20' : 'bg-red-50 border border-red-200'">
+              <i class="ri-error-warning-line text-[28px]" :class="isDark ? 'text-red-400' : 'text-red-500'" />
+              <p class="text-[13px] font-medium mt-2" :class="isDark ? 'text-red-400' : 'text-red-500'">文件读取失败</p>
+              <p class="text-[11px] mt-1 break-all" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">{{ file.error }}</p>
+              <button @click="openExternally"
+                class="mt-4 h-8 px-4 rounded-lg text-[11px] font-medium transition-colors"
+                :class="isDark ? 'bg-brand-400/12 text-brand-400 hover:bg-brand-400/20' : 'bg-brand-50 text-brand-500 hover:bg-brand-100'">
+                <i class="ri-external-link-line text-[11px] mr-1" />用系统应用打开
+              </button>
+            </div>
           </div>
-          <pre class="p-4 text-[12px] font-mono whitespace-pre-wrap break-all leading-relaxed overflow-x-auto"
-            :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">{{ file.content }}</pre>
-        </div>
-      </div>
 
-      <!-- Unsupported -->
-      <div v-else-if="file.unsupported" class="flex flex-col items-center justify-center py-16 gap-3">
-        <div class="w-16 h-16 rounded-2xl flex items-center justify-center" :class="fileIconAndColor.bg">
-          <i :class="[fileIconAndColor.icon, fileIconAndColor.color]" class="text-[32px]" />
+          <!-- PDF -->
+          <PdfPreview v-else-if="file.pdfStatus" :file="file" :is-dark="isDark" />
+
+          <!-- Media -->
+          <MediaPreview v-else-if="file.mediaType || file.remoteMediaReference" :file="file" :file-url="fileUrl" :is-dark="isDark" @details="emit('media-details', $event)" />
+          <!-- Markdown -->
+          <MarkdownPreview v-else-if="ext === 'md' || ext === 'markdown'" :content="String(file.content || '')" :is-dark="isDark" />
+          <!-- Sanitized HTML -->
+          <HtmlPreview v-else-if="htmlSource" :source="htmlSource" :file-path="file.path" :is-dark="isDark" />
+
+          <!-- Plain text / code -->
+          <TextPreview v-else-if="typeof file.content === 'string'" :content="file.content" :is-dark="isDark" :icon="fileIconAndColor.icon" :icon-color="fileIconAndColor.color" :type-label="typeLabel" />
+
+          <!-- Unsupported -->
+          <UnsupportedPreview v-else-if="file.unsupported" :file="file" :is-dark="isDark" :icon="fileIconAndColor.icon" :icon-color="fileIconAndColor.color" :icon-bg="fileIconAndColor.bg" :type-label="typeLabel" @open-externally="openExternally" />
         </div>
-        <p class="text-[13px] font-medium" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">此文件类型暂不支持预览</p>
-        <p class="text-[11px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">{{ typeLabel }} 文件 · {{ file.name }}</p>
-        <button @click="openExternally"
-          class="mt-2 h-8 px-4 rounded-lg text-[11px] font-medium transition-colors"
-          :class="isDark ? 'bg-brand-400/12 text-brand-400 hover:bg-brand-400/20' : 'bg-brand-50 text-brand-500 hover:bg-brand-100'">
-          <i class="ri-external-link-line text-[11px] mr-1" />用系统应用打开
-        </button>
-      </div>
+      </Transition>
     </div>
   </div>
 </template>
 
 <style scoped lang="scss">
-@keyframes pulse { 0%, 100% { opacity: 1 } 50% { opacity: .5 } }
-.pulse { animation: pulse 1.5s ease-in-out infinite }
+@keyframes preview-spin { to { transform: rotate(360deg) } }
+.preview-loading-shell { height: 100%; min-height: 280px; display: flex; align-items: center; justify-content: center; }
+.preview-loading-mark { position: relative; width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; }
+.preview-loading-spinner { display: block; line-height: 1; animation: preview-spin .72s linear infinite; will-change: transform; }
+.preview-content-enter-active { transition: opacity 180ms cubic-bezier(.25, 1, .5, 1); }
+.preview-content-leave-active { transition: opacity 120ms cubic-bezier(.25, 1, .5, 1); }
+.preview-content-enter-from,
+.preview-content-leave-to { opacity: 0; }
 .ctx-pill { font-size: 11px; border-radius: 6px; padding: 3px 8px; display: inline-flex; align-items: center; gap: 4px; transition: all .15s }
 .web-source-card { padding: 16px; border: 1px solid transparent; border-radius: 12px; }
 .web-source-card--light { background: rgba(255,255,255,.72); border-color: rgba(15,23,42,.08); }
@@ -367,4 +310,14 @@ function openWebSource(url) {
 .web-source-link { width: 100%; min-width: 0; display: flex; align-items: center; gap: 6px; color: #818cf8; font-size: 12.5px; line-height: 20px; text-align: left; }
 .web-source-link:hover { color: #6366f1; }
 .web-source-details summary { width: fit-content; cursor: pointer; font-size: 12px; line-height: 20px; user-select: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .preview-loading-spinner { animation: none; }
+  .preview-content-enter-active,
+  .preview-content-leave-active { transition: none; }
+}
 </style>
+
+
+
+

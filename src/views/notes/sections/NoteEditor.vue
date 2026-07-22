@@ -791,9 +791,9 @@ onBeforeUnmount(() => {
           class="h-8 px-1 border-0 border-b-1 text-[16px] font-semibold tracking-tight outline-none flex-1 min-w-0 bg-transparent"
           :class="isDark ? 'text-wt-main placeholder:text-wt-dim caret-brand-400' : 'text-lt-main placeholder:text-lt-aux caret-brand-500'" />
         <span v-if="currentFolderName"
-          class="flex items-center gap-1 px-2 py-0.5 rounded text-[10.5px] font-medium max-w-[160px] shrink-0"
+          class="flex items-center gap-1 px-2 py-0.5 rounded text-[12px] font-medium max-w-[160px] shrink-0"
           :class="isDark ? 'text-amber-400/90 bg-amber-400/10' : 'text-amber-600 bg-amber-50'">
-          <i class="ri-folder-3-line text-[10px] opacity-70 shrink-0" />
+          <i class="ri-folder-3-line text-[12px] opacity-70 shrink-0" />
           <span class="truncate">{{ currentFolderName }}</span>
         </span>
       </div>

@@ -136,7 +136,7 @@ function formatSize(bytes) {
       <button @click.stop="emit('chat', item)"
         class="h-6 px-2 rounded-md text-[14px] font-medium flex items-center gap-1 transition-colors"
         :class="isDark ? 'bg-d0 text-wt-aux hover:text-wt-sub' : 'bg-white text-lt-aux hover:text-lt-sub'">
-        <i class="ri-chat-1-line text-[14px]" />
+        <i class="ri-chat-ai-4-line text-[14px]" />
       </button>
     </div>
   </div>
@@ -151,7 +151,7 @@ function formatSize(bytes) {
       selected ? (isDark ? 'ring-1 ring-brand-400/40' : 'ring-1 ring-brand-200') : '',
     ]">
     <!-- Card body -->
-    <div class="flex-1 flex flex-col items-center justify-center px-3 pt-4 pb-2">
+    <div class="flex-1 flex flex-col items-center justify-center px-3 pt-3 pb-2">
       <!-- Type label badge top-right -->
       <span class="absolute top-2 right-2 ctx-pill !text-[9px] !py-0.5 !px-1.5"
         :class="isDark ? 'text-wt-dim bg-d0/80 border border-bdr' : 'text-lt-aux bg-white/80 border border-bdrF'">
@@ -163,7 +163,7 @@ function formatSize(bytes) {
         <i :class="[fileTheme.icon, fileTheme.iconColor]" class="text-[28px]" />
       </div>
       <!-- Name -->
-      <span class="text-[12px] font-medium text-center truncate w-full px-1"
+      <span :title="item.name" class="text-[12px] font-medium text-center truncate w-full px-1"
         :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">{{ item.name }}</span>
       <!-- Meta -->
       <span class="text-[14px] mt-0.5" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">
@@ -186,7 +186,7 @@ function formatSize(bytes) {
       <button @click.stop="emit('chat', item)"
         class="h-6 px-2 rounded-md text-[14px] font-medium flex items-center gap-1 transition-colors"
         :class="isDark ? 'bg-d0 text-wt-aux hover:text-wt-sub' : 'bg-white text-lt-aux hover:text-lt-sub'">
-        <i class="ri-chat-1-line text-[14px]" />
+        <i class="ri-chat-ai-4-line text-[14px]" />
       </button>
     </div>
   </div>

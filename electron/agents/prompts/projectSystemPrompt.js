@@ -164,6 +164,18 @@ ${visionRule}
 - 只有在 document_read 的通用参数无法表达精确需求，且底层工具可用时，才直接调用 pdf_read 或 office_read。`
 }
 
+function buildMediaReadSection({ hasMediaContext = false } = {}) {
+  const base = `## 音视频读取工具
+
+- 遇到音频或视频必须使用 media_read 读取已登记、已授权 mediaId 的解析结果；不要用 read_file、document_read、exec_command 等文件工具直接读取媒体二进制。media_read 不能发起解析、下载或创建文件。`
+  if (!hasMediaContext) return base
+  return `${base}
+- 先读 metadata，再按任务选择：事实/主题用 search，指定或连续片段用 transcript，完整总结先 chapters 再分页 transcript，画面问题用 frames。
+- 根据问题复杂度调整 limit、maxChars、时间范围和 contextSegments；search 命中不足时按 recommendedTranscriptRange 补读，搜索失败最多改写一到两次。
+- 证据充分即停止；节省 token 不能丢失关键上下文。完整总结必须说明实际覆盖程度，不能少量抽样后声称看完。
+- 保留返回的时间戳；timelineAvailable=false 时不得编造时间轴或章节。`
+}
+
 function buildCloudKnowledgeSection(cloudContext = {}) {
   const kbCount = Array.isArray(cloudContext?.defaultKbIds) ? cloudContext.defaultKbIds.length : 0
   const docCount = Array.isArray(cloudContext?.defaultDocIds) ? cloudContext.defaultDocIds.length : 0
@@ -244,7 +256,8 @@ function buildFilePathMappingSection(workRoot, ctxPaths = []) {
     if (item.isDirectory || item.type === 'folder' || item.type === 'local_folder') {
       return `- 📁 ${name} → ${accessPath}`
     }
-    return `- 📄 ${name} → ${accessPath}`
+    const mediaSuffix = item?.mediaId ? ` (mediaId: ${item.mediaId})` : ''
+    return `- 📄 ${name} → ${accessPath}${mediaSuffix}`
   })
 
   return `## 文件路径映射
@@ -270,6 +283,7 @@ export function buildProjectSystemPrompt({
   const today = new Date().toISOString().slice(0, 10)
   const agentDirName = explicitAgentDirName || agentEnglishName || '_shared'
   const memoryDirName = agentMemoryDirName || agentDirName
+  const hasMediaContext = (ctxPaths || []).some(item => item?.mediaId || item?.media_id || item?.meta?.mediaId || item?.metadata?.mediaId)
 
   return [
     buildIdentitySection(),
@@ -278,6 +292,7 @@ export function buildProjectSystemPrompt({
     buildOutputRulesSection(agentDirName, today),
     buildBehaviorSection(),
     buildDocumentReadSection({ modelHasVision, visionAvailable }),
+    buildMediaReadSection({ hasMediaContext }),
     buildCloudKnowledgeSection(cloudContext),
     buildLocalToolsetsSection(agentDirName, today),
     buildAnswerStyleSection(answerStyle),

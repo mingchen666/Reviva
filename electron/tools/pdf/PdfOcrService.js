@@ -48,11 +48,25 @@ function hasOcrContent(result = {}) {
 }
 
 function isUsableProvider(provider, supported) {
+  const enabled = provider?.enabled === undefined
+    || provider?.enabled === true
+    || provider?.enabled === 1
+    || provider?.enabled === '1'
+    || provider?.enabled === 'true'
   return !!provider
-    && !!provider.enabled
+    && enabled
     && !!String(provider.base_url || '').trim()
     && !!String(provider.api_key_ref || '').trim()
     && supported.has(String(provider.type || '').toLowerCase())
+}
+
+export function selectOcrProvider(providers = [], providerId = 'auto') {
+  const supported = new Set(['mineru', 'paddleocr'])
+  const usable = providers.filter(item => isUsableProvider(item, supported))
+  if (providerId && providerId !== 'auto') {
+    return usable.find(item => item.id === providerId) || null
+  }
+  return usable[0] || null
 }
 
 export class PdfOcrService {
@@ -66,9 +80,7 @@ export class PdfOcrService {
   selectProvider(providerId = '', { fallbackToAuto = false } = {}) {
     const supported = new Set(['mineru', 'paddleocr'])
     const providers = this._db?.listOcrProviders?.() || []
-    const autoProvider = () => providers.find(item => isUsableProvider(item, supported) && String(item.type || '').toLowerCase() === 'mineru')
-      || providers.find(item => isUsableProvider(item, supported) && String(item.type || '').toLowerCase() === 'paddleocr')
-      || null
+    const autoProvider = () => selectOcrProvider(providers, 'auto')
     if (providerId && providerId !== 'auto') {
       const provider = this._db?.getOcrProvider?.(providerId)
       if (!isUsableProvider(provider, supported) && fallbackToAuto) {

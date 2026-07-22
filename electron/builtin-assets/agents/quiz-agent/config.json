@@ -20,5 +20,8 @@
   "tools": ["web_search_tavily"],
   "skills": ["quiz-generator"],
   "sub_agents": [],
-  "permissions": {}
+  "permissions": {
+    "noteRead": true,
+    "noteWrite": true
+  }
 }

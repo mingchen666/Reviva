@@ -1,5 +1,9 @@
 import { parseJSON } from '../../helpers.js'
 import { BaseRepository } from '../../repositories/BaseRepository.js'
+import { createMediaTables } from '../../../media/persistence/MediaSchema.js'
+import { createModelProviderTables } from '../../schema/ModelProviderSchema.js'
+import { ModelProviderRepository } from '../../repositories/ModelProviderRepository.js'
+import { createSpeechProviderTables } from '../../schema/SpeechProviderSchema.js'
 
 export class VersionedMigrationManager extends BaseRepository {
   _ensureSchemaMigrationsTable() {
@@ -149,6 +153,58 @@ export class VersionedMigrationManager extends BaseRepository {
               ON web_import_jobs(target_type, target_ref, created_at DESC);
             CREATE INDEX IF NOT EXISTS idx_web_import_jobs_status
               ON web_import_jobs(status, updated_at);
+          `)
+        },
+      },
+      {
+        version: 4,
+        name: 'create_media_ingestion_tables',
+        up: db => {
+          createMediaTables(db)
+        },
+      },
+      {
+        version: 5,
+        name: 'add_web_import_file_name',
+        up: db => {
+          const columns = new Set(db.prepare('PRAGMA table_info(web_import_jobs)').all().map(item => item.name))
+          if (!columns.has('file_name')) db.exec("ALTER TABLE web_import_jobs ADD COLUMN file_name TEXT DEFAULT ''")
+        },
+      },
+      {
+        version: 6,
+        name: 'migrate_llm_providers_to_profiles',
+        up: db => {
+          createModelProviderTables(db)
+          const legacy = db.prepare("SELECT value FROM settings WHERE key = 'providers'").get()
+          new ModelProviderRepository({ db }).migrateLegacyProviders(legacy?.value)
+        },
+      },
+      {
+        version: 7,
+        name: 'create_speech_provider_profiles',
+        up: db => {
+          createSpeechProviderTables(db)
+        },
+      },
+      {
+        version: 8,
+        name: 'create_quick_inputs',
+        up: db => {
+          db.exec(`
+            CREATE TABLE IF NOT EXISTS quick_inputs (
+              id TEXT PRIMARY KEY,
+              title TEXT NOT NULL COLLATE NOCASE,
+              type TEXT NOT NULL CHECK (type IN ('command', 'context', 'format')),
+              content TEXT NOT NULL,
+              description TEXT DEFAULT '',
+              enabled INTEGER NOT NULL DEFAULT 1,
+              sort_order INTEGER NOT NULL DEFAULT 0,
+              created_at TEXT DEFAULT (datetime('now')),
+              updated_at TEXT DEFAULT (datetime('now'))
+            );
+            CREATE UNIQUE INDEX IF NOT EXISTS uq_quick_inputs_title ON quick_inputs(title COLLATE NOCASE);
+            CREATE INDEX IF NOT EXISTS idx_quick_inputs_enabled_sort ON quick_inputs(enabled, sort_order, updated_at DESC);
           `)
         },
       },

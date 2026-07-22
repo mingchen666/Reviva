@@ -113,7 +113,7 @@ onBeforeUnmount(() => {
   <Teleport to="body">
     <div v-if="props.image" class="markdown-image-preview" @click="close">
       <button class="markdown-image-preview__close" type="button" title="Close" @click.stop="close">
-        <i class="ri-close-line" />
+        <i class="ri-close-line text-[20px]"  />
       </button>
       <div class="markdown-image-preview__stage" @click.stop @wheel="onWheel">
         <img
@@ -247,7 +247,7 @@ onBeforeUnmount(() => {
 }
 
 .markdown-image-preview__toolbar i {
-  font-size: 17px;
+  font-size: 18px;
 }
 
 .markdown-image-preview__zoom {

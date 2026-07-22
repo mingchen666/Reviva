@@ -20,5 +20,8 @@
   "tools": ["web_search_tavily", "file_list", "file_write", "file_read", "exec_command"],
   "skills": ["concept-explainer", "note-skill", "learning-visualization-skill", "network-protocol-viz", "edu-solid-geometry", "edu-analytic-geometry"],
   "sub_agents": [],
-  "permissions": {}
+  "permissions": {
+    "noteRead": true,
+    "noteWrite": true
+  }
 }

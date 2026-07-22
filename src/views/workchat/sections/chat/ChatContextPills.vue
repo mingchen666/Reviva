@@ -105,9 +105,9 @@ onBeforeUnmount(() => resizeObserver?.disconnect())
         class="ctx-pill cursor-pointer group"
         :title="contextLabel(item)"
         :class="contextPillClass(item)">
-        <i :class="contextIcon(item)" class="text-[10px] shrink-0" />
+        <i :class="contextIcon(item)" class="text-[11px] shrink-0" />
         <span class="ctx-pill-label truncate">{{ contextLabel(item) }}</span>
-        <i class="ri-close-line ml-0.5 text-[10px] opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+        <i class="ri-close-line ml-0.5 text-[12px] opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
       </button>
       <button
         v-if="hiddenCount > 0"
@@ -144,22 +144,18 @@ onBeforeUnmount(() => resizeObserver?.disconnect())
 
     <div
       v-if="showClearConfirm"
-      class="mt-1.5 rounded-xl px-2.5 py-2 flex items-center gap-2 text-[11px] shadow-sm animate-fade-in"
+      class="mt-1.5 rounded-lg px-2.5 py-1 flex items-center gap-2 text-[11px] shadow-sm animate-fade-in"
       :class="isDark ? 'bg-red-500/10 border border-red-400/25 text-red-100 shadow-black/20' : 'bg-red-50 border border-red-200 text-red-700 shadow-red-100/80'">
-      <span
-        class="h-6 w-6 rounded-lg flex items-center justify-center shrink-0"
-        :class="isDark ? 'bg-red-400/15 text-red-200' : 'bg-red-100 text-red-600'">
-        <i class="ri-alert-line text-[12px]" />
-      </span>
+        <i class="ri-alert-line text-[12px]" :class="isDark ? 'text-red-200' : 'text-red-600'"/>
       <span class="min-w-0 flex-1" :class="isDark ? 'text-red-100/90' : 'text-red-700'">清空所有已选上下文？</span>
       <button
         @click="confirmClear"
-        class="h-7 px-3 rounded-lg text-[11px] font-semibold transition-colors bg-red-500 text-white hover:bg-red-600 active:bg-red-700">
+        class="h-6 px-3 rounded-lg text-[11.5px] font-semibold transition-colors bg-red-500 text-white hover:bg-red-600 active:bg-red-700">
         清空
       </button>
       <button
         @click="showClearConfirm = false"
-        class="h-7 px-3 rounded-lg text-[11px] font-medium transition-colors"
+        class="h-6 px-3 rounded-lg text-[11.5px] font-medium transition-colors"
         :class="isDark ? 'text-wt-sub hover:text-wt-main bg-white/6 hover:bg-white/10' : 'text-lt-sub hover:text-lt-main bg-white hover:bg-red-100/70 border border-red-200/70'">
         取消
       </button>

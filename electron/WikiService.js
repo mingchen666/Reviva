@@ -31,6 +31,18 @@ function nowIso() {
   return new Date().toISOString()
 }
 
+function mediaTimestamp(ms) {
+  if (ms === null || ms === undefined || !Number.isFinite(Number(ms))) return ''
+  const totalSeconds = Math.max(0, Math.floor(Number(ms) / 1000))
+  const seconds = totalSeconds % 60
+  const totalMinutes = Math.floor(totalSeconds / 60)
+  const minutes = totalMinutes % 60
+  const hours = Math.floor(totalMinutes / 60)
+  return hours > 0
+    ? `${hours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
+    : `${minutes}:${String(seconds).padStart(2, '0')}`
+}
+
 function safeSegment(value, fallback = '') {
   const raw = String(value || '').trim().toLowerCase()
   const ascii = raw
@@ -108,10 +120,11 @@ function isPathInside(parent, child) {
 }
 
 export class WikiService {
-  constructor(workDirService, dbService = null, agentService = null) {
+  constructor(workDirService, dbService = null, agentService = null, mediaModule = null) {
     this._workDir = workDirService
     this._db = dbService
     this._agentService = agentService
+    this._mediaModule = mediaModule
     this._wikiAgent = new WikiAgentService({
       workDirService,
       wikiService: this,
@@ -143,6 +156,7 @@ export class WikiService {
     ipcMain.handle('wiki:readPage', (_, id, pagePath) => this.readPage(id, pagePath))
     ipcMain.handle('wiki:listSources', (_, id) => this.listSources(id))
     ipcMain.handle('wiki:addSource', (_, id, data) => this.addSource(id, data))
+    ipcMain.handle('wiki:addMediaSource', (_, id, mediaId, options) => this.addMediaSource(id, mediaId, options))
     ipcMain.handle('wiki:addNoteSource', (_, id, noteId) => this.addNoteSource(id, noteId))
     ipcMain.handle('wiki:reparseSource', (_, id, sourceId) => this.reparseSource(id, sourceId))
     ipcMain.handle('wiki:deleteSource', (_, id, sourceId) => this.deleteSource(id, sourceId))
@@ -567,6 +581,24 @@ export class WikiService {
       const originalPath = this._workDir.resolveAndValidate(filePath, 'docs')
       const stat = await fs.promises.stat(originalPath)
       if (!stat.isFile()) throw new Error('Only files can be added as sources')
+      const lowerPath = String(originalPath).toLowerCase()
+      const mediaExtensions = new Set(['.mp3', '.m4a', '.aac', '.wav', '.flac', '.ogg', '.opus', '.mp4', '.mov', '.mkv', '.webm', '.m4v', '.avi'])
+      if (lowerPath.endsWith('.media.md') || mediaExtensions.has(path.extname(lowerPath))) {
+        let mediaId = ''
+        if (lowerPath.endsWith('.media.md')) {
+          const reference = await fs.promises.readFile(originalPath, 'utf-8')
+          mediaId = reference.match(/^mediaId:\s*([a-z0-9_]+)\s*$/im)?.[1] || ''
+        } else {
+          const link = this._mediaModule?.repositories?.media?.findActiveMediaSourceLink?.({
+            ownerType: 'docs_file',
+            ownerId: '',
+            ownerLocator: originalPath,
+          })
+          mediaId = link?.media_id || ''
+        }
+        if (!mediaId) throw new Error('远程媒体引用缺少有效的 mediaId')
+        return await this.addMediaSource(id, mediaId, { referencePath: originalPath, title: data.title || '' })
+      }
 
       const registry = await this._loadSources(id)
       const contentHash = await this._hashFile(originalPath)
@@ -632,12 +664,202 @@ export class WikiService {
     }
   }
 
+  async _readMediaForWiki(mediaId) {
+    const query = this._mediaModule?.query
+    if (!query) throw new Error('媒体读取服务尚未初始化')
+    const metadata = query.query({ mediaId, mode: 'metadata' }, { trustedInternal: true })
+    if (!metadata?.success || !metadata.run) throw new Error('该媒体尚未完成解析，请先生成可读转录')
+
+    const segments = []
+    let transcriptCursor = null
+    let timelineAvailable = true
+    for (let page = 0; page < 2000; page++) {
+      const result = query.query({
+        mediaId,
+        mode: 'transcript',
+        cursor: transcriptCursor,
+        limit: 500,
+        maxChars: 30000,
+      }, { trustedInternal: true })
+      if (!result?.success) throw new Error(result?.message || '媒体转录读取失败')
+      segments.push(...(result.segments || []))
+      timelineAvailable = timelineAvailable && result.timelineAvailable !== false
+      transcriptCursor = result.nextCursor || null
+      if (!transcriptCursor) break
+      if (page === 1999) throw new Error('媒体转录内容过长，无法完整导入 Wiki')
+    }
+
+    const chapters = []
+    let chapterCursor = null
+    for (let page = 0; page < 100; page++) {
+      const result = query.query({ mediaId, mode: 'chapters', cursor: chapterCursor, limit: 200 }, { trustedInternal: true })
+      if (!result?.success) break
+      chapters.push(...(result.chapters || []))
+      chapterCursor = result.nextCursor || null
+      if (!chapterCursor) break
+    }
+    return { metadata, segments, chapters, timelineAvailable }
+  }
+
+  _mediaExtractMarkdown(source, payload) {
+    const media = payload.metadata.media || {}
+    const run = payload.metadata.run || {}
+    const lines = [
+      '---',
+      `source_id: ${source.id}`,
+      'source_type: media',
+      `media_id: ${JSON.stringify(media.id || '')}`,
+      `media_type: ${JSON.stringify(media.mediaType || '')}`,
+      `title: ${JSON.stringify(source.title || '')}`,
+      `duration_ms: ${Number(media.durationMs) || 0}`,
+      `run_id: ${JSON.stringify(run.id || '')}`,
+      `timeline_available: ${payload.timelineAvailable ? 'true' : 'false'}`,
+      `content_hash: ${JSON.stringify(source.content_hash || '')}`,
+      '---',
+      '',
+      `# ${source.title || '媒体转录'}`,
+      '',
+      `- Media ID: \`${media.id || ''}\``,
+      `- Type: ${media.mediaType || 'media'}`,
+      `- Duration: ${mediaTimestamp(media.durationMs) || '未知'}`,
+      `- Timeline: ${payload.timelineAvailable ? 'available' : 'unavailable'}`,
+      '',
+    ]
+    if (payload.chapters.length) {
+      lines.push('## Source Chapters', '')
+      for (const chapter of payload.chapters) {
+        const range = [mediaTimestamp(chapter.startMs), mediaTimestamp(chapter.endMs)].filter(Boolean).join('–')
+        lines.push(`### ${range ? `[${range}] ` : ''}${chapter.title || '未命名章节'}`, '')
+        if (chapter.summary) lines.push(chapter.summary, '')
+      }
+    }
+    lines.push('## Transcript', '')
+    for (const segment of payload.segments) {
+      const text = String(segment.text || '').trim()
+      if (!text) continue
+      if (payload.timelineAvailable && segment.startMs !== null && segment.endMs !== null) {
+        lines.push(`- [${mediaTimestamp(segment.startMs)}–${mediaTimestamp(segment.endMs)}] ${text}`)
+      } else {
+        lines.push(text, '')
+      }
+    }
+    lines.push('')
+    return lines.join('\n')
+  }
+
+  _upsertMediaSourceLink(wikiId, source, mediaId) {
+    const repository = this._mediaModule?.repositories?.media
+    if (!repository?.upsertMediaSourceLink) return null
+    return repository.upsertMediaSourceLink({
+      mediaId,
+      ownerType: 'wiki_source',
+      ownerId: wikiId,
+      ownerLocator: source.id,
+    })
+  }
+
+  _removeMediaSourceLink(wikiId, source) {
+    if (source?.type !== 'media') return false
+    const repository = this._mediaModule?.repositories?.media
+    const link = repository?.findActiveMediaSourceLink?.({
+      ownerType: 'wiki_source',
+      ownerId: wikiId,
+      ownerLocator: source.id,
+    })
+    if (!link) return false
+    repository.deleteMediaSourceLink(link.id)
+    return true
+  }
+
+  async addMediaSource(id, mediaId, options = {}) {
+    try {
+      const normalizedMediaId = String(mediaId || '').trim()
+      if (!normalizedMediaId) throw new Error('mediaId 不能为空')
+      const payload = await this._readMediaForWiki(normalizedMediaId)
+      const registry = await this._loadSources(id)
+      const existing = registry.sources.find(source => source.type === 'media' && (
+        source.meta?.media?.media_id === normalizedMediaId || source.original_uri === `media:${normalizedMediaId}`
+      ))
+      const media = payload.metadata.media || {}
+      const run = payload.metadata.run || {}
+      const contentHash = `sha256:${crypto.createHash('sha256').update(`${normalizedMediaId}:${run.id || ''}`).digest('hex')}`
+      if (existing && existing.content_hash === contentHash && options.refresh !== true) {
+        this._upsertMediaSourceLink(id, existing, normalizedMediaId)
+        return { success: true, data: existing, duplicate: true }
+      }
+
+      const createdAt = existing?.created_at || nowIso()
+      const sourceId = options.sourceId || existing?.id || `src_media_${safeSegment(normalizedMediaId, Date.now().toString(36))}`
+      const relPath = `sources/extracts/${sourceId}.md`
+      let referencePath = String(options.referencePath || existing?.original_path || '')
+      if (referencePath) referencePath = this._workDir.resolveAndValidate(referencePath, 'docs')
+      const source = existing || { id: sourceId, created_at: createdAt }
+      Object.assign(source, {
+        type: 'media',
+        title: safeTitle(options.title || media.title || media.fileName || '媒体转录'),
+        original_uri: `media:${normalizedMediaId}`,
+        original_path: referencePath,
+        content_hash: contentHash,
+        status: 'ingested',
+        extract_path: relPath,
+        parser_status: 'complete',
+        parser_message: payload.timelineAvailable ? '媒体时间轴已导入' : '已导入纯文本转录；来源没有时间戳',
+        meta: {
+          ...(source.meta || {}),
+          media: {
+            media_id: normalizedMediaId,
+            media_type: media.mediaType || '',
+            duration_ms: Number(media.durationMs) || 0,
+            run_id: run.id || '',
+            timeline_available: payload.timelineAvailable,
+            segment_count: payload.segments.length,
+            chapter_count: payload.chapters.length,
+          },
+        },
+        updated_at: nowIso(),
+      })
+      const markdown = this._mediaExtractMarkdown(source, payload)
+      source.size = Buffer.byteLength(markdown, 'utf-8')
+      const extractPath = path.join(this._wikiDir(id), relPath)
+      await fs.promises.mkdir(path.dirname(extractPath), { recursive: true })
+      await fs.promises.writeFile(extractPath, markdown, 'utf-8')
+      if (!existing) registry.sources.push(source)
+      await this._saveSources(id, registry)
+      this._upsertMediaSourceLink(id, source, normalizedMediaId)
+      await this._refreshWikiSourceCount(id)
+      await this._appendLog(id, `media_source | ${source.id} | ${normalizedMediaId}`)
+      await this._appendJob(id, {
+        id: `job_${Date.now().toString(36)}_media_source`,
+        type: options.refresh ? 'source_reparse' : 'source_ingest',
+        name: `${options.refresh ? 'Refresh' : 'Register'} ${source.title}`,
+        source_id: source.id,
+        status: 'completed',
+        progress: 100,
+        message: source.parser_message,
+        meta: { media_id: normalizedMediaId, run_id: run.id || '' },
+        created_at: createdAt,
+        updated_at: nowIso(),
+      })
+      await this._ensureSourceSummaryFallbacks(id)
+      this._enqueueAgentMaintenance(id, options.refresh ? 'media_source_refreshed' : 'media_source_ingested')
+      return { success: true, data: source, duplicate: false }
+    } catch (err) {
+      return { success: false, error: err.message }
+    }
+  }
+
   async reparseSource(id, sourceId) {
     try {
       if (!sourceId) throw new Error('Source id is required')
       const registry = await this._loadSources(id)
       const source = registry.sources.find(src => src.id === sourceId)
       if (!source) throw new Error('Source not found')
+      if (source.type === 'media') return await this.addMediaSource(id, source.meta?.media?.media_id || '', {
+        sourceId: source.id,
+        referencePath: source.original_path || '',
+        title: source.title || '',
+        refresh: true,
+      })
       if (source.type === 'note') {
         return { success: false, error: 'Note sources are refreshed by adding the note source again' }
       }
@@ -702,6 +924,7 @@ export class WikiService {
       await this._removeSourceArtifacts(id, source)
       const removedPages = await this._removeSourceKnowledgePages(id, source, registry.sources)
       await this._removeSourceJobsCache(id, sourceId)
+      this._removeMediaSourceLink(id, source)
       this._db?.deleteWikiSource?.(id, sourceId)
       await this._refreshWikiSourceCount(id)
       await this.listPages(id).catch(() => {})
@@ -1130,6 +1353,8 @@ export class WikiService {
       await this._waitForWikiMutations(safeId)
       await this._waitForActiveWikiOperations(safeId)
 
+      const sourceRegistry = await this._loadSources(safeId).catch(() => ({ sources: [] }))
+
       const registry = await this._loadRegistry()
       registry.wikis = (registry.wikis || []).filter(item => item.id !== safeId)
       await this._saveRegistry(registry)
@@ -1138,6 +1363,7 @@ export class WikiService {
       if (fs.existsSync(target)) {
         await fs.promises.rm(target, { recursive: true, force: true })
       }
+      for (const source of sourceRegistry.sources || []) this._removeMediaSourceLink(safeId, source)
       this._db?.deleteWiki?.(safeId)
       this._clearWikiRuntimeCaches(safeId, dir)
       return { success: true, data: { id: safeId } }

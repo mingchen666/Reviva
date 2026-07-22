@@ -9,6 +9,7 @@ import { useUserStore } from '@/stores/user'
 import { BASE_URL } from '@/apis/http'
 import { parseModelRef } from '@/utils/modelRef'
 import { notifyAgentTaskDone, notifyAgentTaskFailed } from '@/services/taskNotifications'
+import { isSuccessfulTitleCompletion, selectTitleSourceMessages } from './titleGenerationPolicy'
 
 function normalizeApiFormat(providerId, apiFormat = '') {
   const value = String(apiFormat || '').trim().toLowerCase()
@@ -55,6 +56,67 @@ function _isImageContextItem(item) {
   return /\.(png|jpe?g|webp|gif|bmp)$/i.test(name)
 }
 
+const MEDIA_FILE_RE = /\.(mp3|m4a|aac|wav|flac|ogg|opus|mp4|mov|mkv|webm|m4v|avi)$/i
+
+function _isMediaContextItem(item) {
+  if (!item || item.isDirectory) return false
+  if (item.mediaId || item.media_id) return true
+  return MEDIA_FILE_RE.test(String(item.name || item.path || '')) || /\.media\.md$/i.test(String(item.name || item.path || ''))
+}
+
+async function _prepareMediaContextItems(ctxItems, { conversationId = '', messageId = '' } = {}) {
+  const items = (ctxItems || []).map(item => ({ ...item }))
+  const mediaApi = window.electronAPI?.media
+  if (!mediaApi) return items
+
+  for (const [index, item] of items.entries()) {
+    if (!_isMediaContextItem(item)) continue
+    const owner = {
+      type: 'message',
+      id: messageId || conversationId,
+      locator: item.id || item.path || `${messageId || 'message'}:${index}`,
+    }
+    try {
+      let mediaId = item.mediaId || item.media_id || ''
+      let mediaType = item.mediaType || ''
+      let contentAvailability = item.mediaContentAvailability || ''
+      if (!mediaId && /\.media\.md$/i.test(String(item.name || item.path || '')) && item.path) {
+        const resolved = await mediaApi.resolveOwner?.({ type: 'docs_file', id: '', locator: item.path })
+        if (resolved?.success && resolved.found) {
+          mediaId = resolved.source?.id || ''
+          mediaType = resolved.source?.mediaType || mediaType
+          contentAvailability = resolved.source?.contentAvailability || contentAvailability
+        }
+      }
+      if (mediaId) {
+        await mediaApi.attachOwner?.(mediaId, owner)
+      } else if (item.path) {
+        const registered = await mediaApi.register?.({
+          path: item.path,
+          sourceType: item.source === 'docs' ? 'document_upload' : 'attachment',
+          title: item.name || '',
+          owner,
+        })
+        if (!registered?.success) throw new Error(registered?.message || '媒体登记失败')
+        mediaId = registered.source?.id || ''
+        mediaType = registered.source?.media_type || registered.source?.mediaType || mediaType
+        contentAvailability = registered.source?.content_availability || registered.source?.contentAvailability || contentAvailability
+      }
+      if (mediaId) {
+        item.mediaId = mediaId
+        item.mediaType = mediaType
+        item.mediaContentAvailability = contentAvailability
+        const original = (ctxItems || []).find(candidate => candidate === ctxItems[index] || candidate?.id === item.id)
+        if (original && typeof original === 'object') Object.assign(original, { mediaId, mediaType, mediaContentAvailability: contentAvailability })
+      }
+    } catch (error) {
+      item.mediaRegistrationError = error?.code || error?.message || 'MEDIA_REGISTER_FAILED'
+      console.warn('[AgentRuntime] Failed to prepare media attachment:', item.name || item.path, error?.message || error)
+    }
+  }
+  return items
+}
+
 function _hasCloudKnowledgeContext(ctxItems) {
   return (ctxItems || []).some(i =>
     (i?.type === 'cloud_kb' && i.kbId) ||
@@ -77,6 +139,9 @@ function _toCtxMeta(ctxItems) {
     name: i.name,
     kbId: i.kbId || '',
     docId: i.docId || '',
+    mediaId: i.mediaId || i.media_id || '',
+    mediaType: i.mediaType || i.media_type || '',
+    mediaContentAvailability: i.mediaContentAvailability || i.media_content_availability || '',
     icon: i.icon || '',
     color: i.color || '',
     path: i.path || '',
@@ -90,7 +155,8 @@ function _toCtxMeta(ctxItems) {
 }
 
 function _toCtxPaths(ctxItems) {
-  return (ctxItems || []).filter(i => i.path || i.dataUrl).map(i => ({
+  return (ctxItems || []).filter(i => i.path || i.dataUrl || i.mediaId || i.media_id).map(i => ({
+    id: i.id || '',
     path: i.path || '',
     originalPath: i.originalPath || '',
     dataUrl: i.dataUrl || '',
@@ -101,6 +167,7 @@ function _toCtxPaths(ctxItems) {
     type: i.type || (i.isDirectory ? 'folder' : 'file'),
     source: i.source || '',
     isDirectory: !!i.isDirectory,
+    mediaId: i.mediaId || i.media_id || '',
   }))
 }
 
@@ -331,9 +398,12 @@ function _toAgentPlainMessage(m) {
   const ctxItems = m.role === 'user'
     ? (m.meta?.ctx?.length ? m.meta.ctx : (m.meta?.attachments || []))
     : []
+  const resolvedContent = m.role === 'user' && typeof m.meta?.resolvedContent === 'string'
+    ? m.meta.resolvedContent
+    : m.content || ''
   const base = {
     role: m.role,
-    content: _appendContinuityContext(m, m.content || ''),
+    content: _appendContinuityContext(m, resolvedContent),
     ...(ctxItems.length ? { attachments: _toCtxPaths(ctxItems) } : {}),
     ...(replayableToolCalls.length ? { toolCalls: replayableToolCalls } : {}),
     ...(m.meta?.toolResult ? { toolCallId: m.meta.toolCallId, toolResult: true } : {}),
@@ -343,6 +413,7 @@ function _toAgentPlainMessage(m) {
   if (ctxItems.length) {
     const ctxRefs = ctxItems.map(i => {
       if (i.type === 'image') return `📷 ${i.name}`
+      if (i.mediaId || i.media_id) return `🎬 ${i.name}（mediaId: ${i.mediaId || i.media_id}）`
       if (i.type === 'folder' || i.type === 'local_folder') return `📁 ${i.name}`
       if (i.type === 'kb') return `📚 ${i.name}`
       if (i.type === 'cloud_kb') return `📚 云端知识库检索范围:${i.name}（使用 kb_search，不是本地文件）`
@@ -375,6 +446,8 @@ export class AgentRuntime {
     this._currentConvId = null
     this._listenersRegistered = false
     this._runStartTime = null
+    this._titleAttemptedRuns = new Set()
+    this._titleGenerationInFlight = new Set()
   }
 
   // ── IPC Listener Registration ────────────────────────────────
@@ -487,8 +560,8 @@ export class AgentRuntime {
         errorCode: data.stopReason === 'recursion_limit' ? 'RECURSION_LIMIT' : undefined,
         errorMessage: data.stopReason === 'recursion_limit' ? '迭代次数已达上限，任务中途停止' : undefined,
       })
-      await this._autoGenerateTitle(convId, content)
       if (status === 'completed') {
+        if (isSuccessfulTitleCompletion(status, content)) void this._autoGenerateTitle(convId, data.runId)
         void notifyAgentTaskDone({
           convStore: this.convStore,
           settingsStore: this.settingsStore,
@@ -588,16 +661,30 @@ export class AgentRuntime {
    * Renderer only sends: agent prompt + messages + ctxPaths
    * Main process handles: project system prompt injection, context staging, output dir, skills/memory
    */
-  async startChat({ convId, userText, agentId, ctxItems, wikiContext }) {
+  async startChat({ convId, userText, resolvedContent, inputDocument, agentId, ctxItems, wikiContext }) {
     // 1. Add user message — ctx items stored as both meta.ctx (for message building) and meta.attachments (for UI rendering)
-    const ctxMeta = _toCtxMeta(ctxItems)
-    await this.convStore.addMessage(convId, {
+    let runtimeCtxItems = (ctxItems || []).map(item => ({ ...item }))
+    let ctxMeta = _toCtxMeta(runtimeCtxItems)
+    const userMessage = await this.convStore.addMessage(convId, {
       role: 'user',
       content: userText,
       meta: {
         agentId: agentId || null,
+        ...(Array.isArray(inputDocument) && inputDocument.some(segment => segment?.type && segment.type !== 'text') ? { inputDocument, resolvedContent } : {}),
         ctx: ctxMeta,
         attachments: ctxMeta, // For ChatMessage.vue FileCard/Image rendering
+        wikiContext: wikiContext || null,
+      },
+    })
+    runtimeCtxItems = await _prepareMediaContextItems(runtimeCtxItems, { conversationId: convId, messageId: userMessage?.id || '' })
+    ctxMeta = _toCtxMeta(runtimeCtxItems)
+    await this.convStore.updateMessage(convId, userMessage.id, {
+      meta: {
+        ...(userMessage.meta || {}),
+        agentId: agentId || null,
+        ...(Array.isArray(inputDocument) && inputDocument.some(segment => segment?.type && segment.type !== 'text') ? { inputDocument, resolvedContent } : {}),
+        ctx: ctxMeta,
+        attachments: ctxMeta,
         wikiContext: wikiContext || null,
       },
     })
@@ -641,7 +728,7 @@ export class AgentRuntime {
       })
       return
     }
-    if ((ctxItems || []).some(_isImageContextItem) && !modelObj?.capabilities?.vision) {
+    if (runtimeCtxItems.some(_isImageContextItem) && !modelObj?.capabilities?.vision) {
       this.convStore.finalizeStreamingMsg({
         convId,
         msgId: placeholder.id,
@@ -691,6 +778,7 @@ export class AgentRuntime {
       await window.electronAPI.agent.startRun(toPlain({
         runId,
         conversationId: convId,
+        userMessageId: userMessage.id,
         agentId: agentId || '',
         agentEnglishName: _resolveAgentEnglishName(agent),
         msgId: placeholder.id,
@@ -713,14 +801,14 @@ export class AgentRuntime {
         useSameModel: agent?.useSameModel ?? true,
         toolCallLimit: _resolveNonNegativeLimit(agent?.toolCallLimit, this.settingsStore?.toolCallLimit, 0),
         modelCallLimit: _resolveNonNegativeLimit(agent?.modelCallLimit, this.settingsStore?.modelCallLimit, 0),
-        toolIds: _buildRuntimeToolIds(agent, ctxItems, wikiContext),
+        toolIds: _buildRuntimeToolIds(agent, runtimeCtxItems, wikiContext),
         subAgents: subAgentConfigs,
         permissions: agent?.permissions || {},
         skills: agent?.skills || [],
         toolProviderConfigs,
-        cloudContext: _buildCloudContext(ctxItems),
+        cloudContext: _buildCloudContext(runtimeCtxItems),
         wikiContext: wikiContext || {},
-        ctxPaths: _toCtxPaths(ctxItems),
+        ctxPaths: _toCtxPaths(runtimeCtxItems),
         answerStyle: this.settingsStore?.answerStyle || 'default',
       }))
     } catch (err) {
@@ -943,14 +1031,19 @@ export class AgentRuntime {
 
   // ── Internal ─────────────────────────────────────────────────
 
-  async _autoGenerateTitle(convId, assistantContent) {
+  async _autoGenerateTitle(convId, runId = '') {
     if (!convId) return
     const conv = this.convStore.conversations.find(c => c.id === convId)
     if (!conv || conv.title !== '新对话') return
+    if (this._titleGenerationInFlight.has(convId)) return
 
     const msgs = this.convStore.messages[convId] || []
-    const userMsg = msgs.find(m => m.role === 'user')
-    if (!userMsg) return
+    const source = selectTitleSourceMessages(msgs)
+    if (!source) return
+    const { userMessage, assistantMessage } = source
+
+    const attemptKey = String(runId || `${convId}:${assistantMessage.id || ''}`)
+    if (this._titleAttemptedRuns.has(attemptKey)) return
 
     const modelRef = this.settingsStore.defaultModels?.title || this.settingsStore.defaultModels?.chat || ''
     const providerMatch = this._findProviderForModel(modelRef)
@@ -959,23 +1052,33 @@ export class AgentRuntime {
     const { providerId, provider } = providerMatch
     const model = parseModelRef(modelRef).modelId || modelRef
 
+    this._titleAttemptedRuns.add(attemptKey)
+    this._titleGenerationInFlight.add(convId)
+    if (this._titleAttemptedRuns.size > 1000) {
+      const oldest = this._titleAttemptedRuns.values().next().value
+      this._titleAttemptedRuns.delete(oldest)
+    }
+
     try {
       const result = await window.electronAPI?.agent?.generateTitle?.({
-        userMessage: userMsg.content || '',
-        assistantContent: assistantContent || '',
+        userMessage: userMessage.content || '',
+        assistantContent: assistantMessage.content || '',
         providerId,
         apiFormat: this._providerApiFormat(provider),
         apiKey: provider.apiKey,
         baseUrl: provider.baseUrl,
         model,
       })
-      const title = String(result?.title || '').trim().replace(/["""。！？,.!?]/g, '').slice(0, 15)
-      if (title && title !== '新对话') {
+      const title = String(result?.title || '').trim().replace(/["“”。！？,.!?]/g, '').slice(0, 15)
+      const latestConv = this.convStore.conversations.find(c => c.id === convId)
+      if (title && title !== '新对话' && latestConv?.title === '新对话') {
         await this.convStore.updateConv(convId, { title })
         this.convStore.titleAnimation = { convId, newTitle: title }
       }
     } catch (e) {
       console.warn('[AgentRuntime] title generation failed:', e.message)
+    } finally {
+      this._titleGenerationInFlight.delete(convId)
     }
   }
 

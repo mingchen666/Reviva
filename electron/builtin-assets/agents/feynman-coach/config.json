@@ -20,5 +20,8 @@
   "tools": ["web_search_tavily"],
   "skills": ["feynman-learning-coach"],
   "sub_agents": [],
-  "permissions": {}
+  "permissions": {
+    "noteRead": true,
+    "noteWrite": true
+  }
 }

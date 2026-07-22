@@ -5,6 +5,8 @@ import path from 'node:path'
 const DEFAULT_TIMEOUT_MS = 10 * 60 * 1000
 const DEFAULT_MAX_BUFFER = 16 * 1024 * 1024
 const DEFAULT_MINERU_HOST = 'https://mineru.net'
+const DEFAULT_PADDLE_JOBS_URL = 'https://paddleocr.aistudio-app.com/api/v2/ocr/jobs'
+const DEFAULT_PADDLE_MODEL = 'PaddleOCR-VL-1.6'
 const IMAGE_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.webp', '.gif', '.bmp', '.tif', '.tiff'])
 
 function parseJson(value) {
@@ -72,9 +74,43 @@ function apiKey(provider, config) {
   return provider?.api_key_ref || config.apiKey || config.api_key || config.token || ''
 }
 
-function fileTypeFromPath(inputPath) {
+function mimeTypeFromPath(inputPath) {
   const ext = path.extname(inputPath || '').toLowerCase()
-  return IMAGE_EXTENSIONS.has(ext) ? 1 : 0
+  if (ext === '.pdf') return 'application/pdf'
+  if (ext === '.png') return 'image/png'
+  if (ext === '.jpg' || ext === '.jpeg') return 'image/jpeg'
+  if (ext === '.webp') return 'image/webp'
+  if (ext === '.gif') return 'image/gif'
+  if (ext === '.bmp') return 'image/bmp'
+  if (ext === '.tif' || ext === '.tiff') return 'image/tiff'
+  return 'application/octet-stream'
+}
+
+function normalizePaddleJobsUrl(value) {
+  const raw = String(value || '').trim()
+  const base = raw || DEFAULT_PADDLE_JOBS_URL
+  if (/\/layout-parsing\/?$/i.test(base)) return base.replace(/\/layout-parsing\/?$/i, '/jobs').replace(/\/+$/, '')
+  if (/\/jobs\/?$/i.test(base)) return base.replace(/\/+$/, '')
+  if (/\/ocr\/?$/i.test(base)) return `${base.replace(/\/+$/, '')}/jobs`
+  return base.replace(/\/+$/, '')
+}
+
+function paddleOptionalPayload(config) {
+  const nested = asObject(config.optionalPayload || config.optional_payload)
+  return {
+    useDocOrientationClassify: boolValue(
+      firstValue(nested.useDocOrientationClassify, config.useDocOrientationClassify),
+      false,
+    ),
+    useDocUnwarping: boolValue(
+      firstValue(nested.useDocUnwarping, config.useDocUnwarping),
+      false,
+    ),
+    useChartRecognition: boolValue(
+      firstValue(nested.useChartRecognition, config.useChartRecognition),
+      false,
+    ),
+  }
 }
 
 function usageMetrics(payload) {
@@ -214,18 +250,6 @@ function ensureSuccessPayload(response, payload, rawText, label) {
   }
 }
 
-function stripMarkdownImagesFromPaddleResult(item) {
-  const markdown = asObject(item?.markdown)
-  if (!markdown.images) return item
-  return {
-    ...item,
-    markdown: {
-      ...markdown,
-      images: Object.fromEntries(Object.keys(markdown.images || {}).map(key => [key, '[image omitted]'])),
-    },
-  }
-}
-
 function firstPageFromRanges(value) {
   const text = String(value || '').trim()
   const match = text.match(/\d+/)
@@ -362,67 +386,116 @@ export class OcrProviderRunner {
     return this._normalize({ payload, rawText, provider })
   }
 
-  async _runPaddleOcr({ provider, config, inputPath, source }) {
-    const url = provider.base_url || config.url || config.endpoint
-    if (!url) throw new Error('PaddleOCR provider URL is required')
+  async _runPaddleOcr({ provider, config, inputPath }) {
+    const url = normalizePaddleJobsUrl(provider.base_url || config.url || config.endpoint)
     const key = apiKey(provider, config)
     if (!key) throw new Error('PaddleOCR provider API token is required')
 
+    const timeoutMs = Number(firstValue(config.timeoutMs, config.timeout_ms, DEFAULT_TIMEOUT_MS))
+    const pollIntervalMs = Math.max(Number(firstValue(config.pollIntervalMs, config.poll_interval_ms, 5000)), 0)
+    const maxPolls = Math.max(Number(firstValue(config.maxPolls, config.max_polls, 120)), 1)
+    const model = String(config.model || config.modelId || config.model_id || DEFAULT_PADDLE_MODEL).trim() || DEFAULT_PADDLE_MODEL
     const buffer = await fs.promises.readFile(inputPath)
-    const payload = {
-      fileType: numberValue(firstValue(config.fileType, config.file_type), fileTypeFromPath(inputPath)),
-      useDocOrientationClassify: boolValue(config.useDocOrientationClassify, false),
-      useDocUnwarping: boolValue(config.useDocUnwarping, false),
-      useChartRecognition: boolValue(config.useChartRecognition, false),
-      prettifyMarkdown: boolValue(config.prettifyMarkdown, true),
-      visualize: boolValue(config.visualize, false),
-      ...(asObject(config.body)),
-      ...(asObject(config.payload)),
-      file: buffer.toString('base64'),
+    const form = new FormData()
+    form.append('file', new Blob([buffer], { type: mimeTypeFromPath(inputPath) }), path.basename(inputPath))
+    form.append('model', model)
+    form.append('optionalPayload', JSON.stringify(paddleOptionalPayload(config)))
+
+    const submitHeaders = { ...(config.headers || {}) }
+    for (const header of Object.keys(submitHeaders)) {
+      if (header.toLowerCase() === 'content-type') delete submitHeaders[header]
     }
-    const response = await fetchWithTimeout(url, {
+    const raw = { submit: null, statuses: [], result: null }
+    const submitResponse = await fetchWithTimeout(url, {
       method: 'POST',
       headers: {
-        ...(config.headers || {}),
-        Authorization: `token ${key}`,
-        'Content-Type': 'application/json',
+        ...submitHeaders,
+        Authorization: `bearer ${key}`,
+        Accept: 'application/json',
       },
-      body: JSON.stringify(payload),
-    }, Number(config.timeoutMs || config.timeout_ms || DEFAULT_TIMEOUT_MS))
+      body: form,
+    }, timeoutMs)
+    const { rawText: submitRawText, payload: submitPayload } = await readResponsePayload(submitResponse)
+    ensureSuccessPayload(submitResponse, submitPayload, submitRawText, 'PaddleOCR job submission')
+    raw.submit = submitPayload
+    const submitData = asObject(submitPayload.data)
+    const jobId = String(firstValue(submitData.jobId, submitData.job_id, submitPayload.jobId, submitPayload.job_id) || '').trim()
+    if (!jobId) throw new Error('PaddleOCR job submission did not return jobId')
 
-    const { rawText, payload: responsePayload } = await readResponsePayload(response)
-    ensureSuccessPayload(response, responsePayload, rawText, 'PaddleOCR provider')
-    if (responsePayload.errorCode !== undefined && Number(responsePayload.errorCode) !== 0) {
-      throw new Error(`PaddleOCR provider failed: ${responsePayload.errorMsg || responsePayload.errorCode}`)
-    }
-
-    const result = asObject(responsePayload.result)
-    const layoutResults = firstArray(result.layoutParsingResults)
-    const pages = layoutResults.map((item, index) => {
-      const markdown = paddleMarkdownPayload(item)
-      return {
-        page: Number(markdown.page || index + 1),
-        text: String(markdown.text || '').trim(),
-        blocks: markdown.blocks,
-        images: markdown.images,
-        confidence: 0,
+    let lastState = 'pending'
+    let completed = null
+    for (let attempt = 0; attempt < maxPolls; attempt += 1) {
+      if (pollIntervalMs > 0) await sleep(pollIntervalMs)
+      const statusResponse = await fetchWithTimeout(`${url}/${encodeURIComponent(jobId)}`, {
+        method: 'GET',
+        headers: {
+          ...(config.headers || {}),
+          Authorization: `bearer ${key}`,
+          Accept: 'application/json',
+        },
+      }, timeoutMs)
+      const { rawText: statusRawText, payload: statusPayload } = await readResponsePayload(statusResponse)
+      ensureSuccessPayload(statusResponse, statusPayload, statusRawText, 'PaddleOCR job status')
+      raw.statuses.push(statusPayload)
+      const statusData = asObject(statusPayload.data)
+      lastState = String(statusData.state || statusPayload.state || '').trim().toLowerCase() || 'unknown'
+      if (lastState === 'done') {
+        completed = statusData
+        break
       }
-    })
+      if (lastState === 'failed') {
+        throw new Error(`PaddleOCR job failed: ${statusData.errorMsg || statusPayload.errorMsg || 'unknown error'}`)
+      }
+    }
+    if (!completed) throw new Error(`PaddleOCR job timed out (last state: ${lastState})`)
+
+    const jsonUrl = String(completed.resultUrl?.jsonUrl || completed.result_url?.jsonUrl || '').trim()
+    if (!jsonUrl) throw new Error('PaddleOCR job completed without resultUrl.jsonUrl')
+    const resultResponse = await fetchWithTimeout(jsonUrl, { method: 'GET' }, timeoutMs)
+    const { rawText: jsonlText, payload: resultPayload } = await readResponsePayload(resultResponse)
+    ensureSuccessPayload(resultResponse, resultPayload, jsonlText, 'PaddleOCR result download')
+    raw.result = { jsonUrl, records: [] }
+
+    const pages = []
+    const lines = jsonlText.split(/\r?\n/).map(line => line.trim()).filter(Boolean)
+    for (const [lineIndex, line] of lines.entries()) {
+      let linePayload
+      try {
+        linePayload = JSON.parse(line)
+      } catch {
+        throw new Error(`PaddleOCR result JSONL line ${lineIndex + 1} is invalid`)
+      }
+      raw.result.records.push(linePayload)
+      const lineResult = asObject(linePayload.result || linePayload.data?.result)
+      const layoutResults = firstArray(lineResult.layoutParsingResults)
+      for (const item of layoutResults) {
+        const markdown = paddleMarkdownPayload(item)
+        pages.push({
+          page: Number(markdown.page || pages.length + 1),
+          text: String(markdown.text || '').trim(),
+          blocks: markdown.blocks,
+          images: markdown.images,
+          confidence: 0,
+        })
+      }
+    }
+    const hasReadablePage = pages.some(page => (
+      page.text
+      || page.blocks.length
+      || Object.keys(page.images || {}).length
+    ))
+    if (!hasReadablePage) throw new Error('PaddleOCR job returned no readable Markdown pages')
 
     return this._buildResult({
       provider,
-      payload: {
-        ...responsePayload,
-        result: {
-          ...result,
-          layoutParsingResults: layoutResults.map(stripMarkdownImagesFromPaddleResult),
-        },
-      },
-      rawText,
+      payload: raw,
+      rawText: jsonlText,
       pages,
       extraMetrics: {
         provider_id: provider.id,
         provider_type: provider.type,
+        model,
+        job_id: jobId,
         page_count: pages.length,
         chars: pages.map(page => page.text).join('\n\n').length,
       },

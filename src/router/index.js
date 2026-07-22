@@ -155,6 +155,12 @@ const router = createRouter({
           meta: { title: '模型服务' },
         },
         {
+          path: 'speech-models',
+          name: 'SettingsSpeechModels',
+          component: () => import('@/views/settings/sections/SpeechModelsSection.vue'),
+          meta: { title: '语音模型配置' },
+        },
+        {
           path: 'directory',
           name: 'SettingsDirectory',
           component: () => import('@/views/settings/sections/DirectorySection.vue'),
@@ -209,10 +215,22 @@ const router = createRouter({
           meta: { title: '快捷键' },
         },
         {
+          path: 'quick-inputs',
+          name: 'SettingsQuickInputs',
+          component: () => import('@/views/settings/sections/QuickInputsSection.vue'),
+          meta: { title: '快捷输入' },
+        },
+        {
           path: 'notifications',
           name: 'SettingsNotifications',
           component: () => import('@/views/settings/sections/NotificationsSection.vue'),
           meta: { title: '通知与启动' },
+        },
+        {
+          path: 'local-gateway',
+          name: 'SettingsLocalGateway',
+          component: () => import('@/views/settings/sections/LocalGatewaySection.vue'),
+          meta: { title: '本地开放服务' },
         },
         {
           path: 'data',

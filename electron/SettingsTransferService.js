@@ -1,7 +1,15 @@
 export const SETTINGS_TRANSFER_FORMAT = 'reviva-settings'
 export const SETTINGS_TRANSFER_VERSION = 1
 
-const EXCLUDED_SETTING_KEYS = new Set(['workdir_root'])
+const EXCLUDED_SETTING_KEYS = new Set([
+  'workdir_root',
+  'mediaSpeechSettings',
+  'mediaSpeechDefaultProviderId',
+  'defaultSttModelRef',
+  'defaultTtsModelRef',
+  'mediaBilibiliCookieValue',
+  'mediaBilibiliCookieStatus',
+])
 const UNSAFE_SETTING_KEYS = new Set(['__proto__', 'prototype', 'constructor'])
 const BOOLEAN_SETTING_KEYS = new Set([
   'animations', 'reducedMotion', 'proxyAuth', 'loopGuard', 'pathRedact',

@@ -5,6 +5,7 @@ import { ToolMessage, HumanMessage, AIMessage, SystemMessage } from '@langchain/
 const IMAGE_EXTS = new Set(['.png', '.jpg', '.jpeg', '.webp', '.gif', '.bmp'])
 const OFFICE_FILE_EXTS = new Set(['.docx', '.xlsx', '.pptx'])
 const PDF_FILE_EXTS = new Set(['.pdf'])
+const MEDIA_FILE_EXTS = new Set(['.mp3', '.m4a', '.aac', '.wav', '.flac', '.ogg', '.opus', '.mp4', '.mov', '.mkv', '.webm', '.m4v', '.avi'])
 const IMAGE_MIME = {
   '.png': 'image/png',
   '.jpg': 'image/jpeg',
@@ -125,6 +126,12 @@ export function _isOfficeContextItem(item) {
 export function _isPdfContextItem(item) {
   if (!item?.path && !item?.name) return false
   return PDF_FILE_EXTS.has(path.extname(item.name || item.path || '').toLowerCase())
+}
+
+export function _isMediaContextItem(item) {
+  if (item?.mediaId || item?.media_id) return true
+  if (!item?.path && !item?.name) return false
+  return MEDIA_FILE_EXTS.has(path.extname(item.name || item.path || '').toLowerCase())
 }
 
 export function _appendTextContent(content, text) {
@@ -405,6 +412,8 @@ export function enrichMessagesWithCtx(messages, ctxPaths, workRoot) {
       const isImage = _isImageContextItem(item)
       const isOffice = _isOfficeContextItem(item)
       const isPdf = _isPdfContextItem(item)
+      const isMedia = _isMediaContextItem(item)
+      const mediaId = item.mediaId || item.media_id || ''
 
       let virtualPath
       if (item.accessPath) virtualPath = item.accessPath
@@ -421,7 +430,7 @@ export function enrichMessagesWithCtx(messages, ctxPaths, workRoot) {
       }
 
       let content = null
-      if (!isDir && item.path && !isImage && !isOffice && !isPdf) {
+      if (!isDir && item.path && !isImage && !isOffice && !isPdf && !isMedia) {
         try {
           const stat = fs.statSync(item.path)
           if (stat.size <= MAX_INLINE_SIZE) {
@@ -430,7 +439,7 @@ export function enrichMessagesWithCtx(messages, ctxPaths, workRoot) {
         } catch { /* skip unreadable files */ }
       }
 
-      enrichData.push({ name, virtualPath, isDir, isImage, isOffice, isPdf, content })
+      enrichData.push({ name, virtualPath, isDir, isImage, isOffice, isPdf, isMedia, mediaId, content })
     }
 
     if (!enrichData.length) return ''
@@ -439,6 +448,8 @@ export function enrichMessagesWithCtx(messages, ctxPaths, workRoot) {
     const attachLines = enrichData.map(d => {
       if (d.isDir) return `  📁 ${d.name} — 路径: ${d.virtualPath} (这是文件夹；只有任务需要查看目录内容时才使用 ls("${d.virtualPath}"))`
       if (d.isImage) return `  📷 ${d.name} — 路径: ${d.virtualPath} (图片附件；需要理解图片内容时使用 vision_analyze，不要交给 document_read)`
+      if (d.isMedia && d.mediaId) return `  🎬 ${d.name} — 路径: ${d.virtualPath} — mediaId: ${d.mediaId} (已登记媒体；先用 media_read(mediaId="${d.mediaId}", mode="metadata")，不要用 read_file/document_read 读取二进制)`
+      if (d.isMedia) return `  🎬 ${d.name} — 路径: ${d.virtualPath} (媒体附件尚无 mediaId，不能调用 media_read；不要用 read_file/document_read 读取二进制)`
       if (d.isOffice) return `  📄 ${d.name} — 路径: ${d.virtualPath} (Office 文档；先用 document_read(path="${d.virtualPath}", mode="overview") 读取结构，禁止用 read_file/file_read 直接读取)`
       if (d.isPdf) return `  📄 ${d.name} — 路径: ${d.virtualPath} (PDF 文档；先用 document_read(path="${d.virtualPath}", mode="overview") 读取概览，禁止用 read_file/file_read 直接读取)`
       if (d.content) return `  📄 ${d.name} — 路径: ${d.virtualPath} (内容已嵌入下方; 如需重读用 read_file("${d.virtualPath}"))`

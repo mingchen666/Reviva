@@ -20,7 +20,7 @@ const props = defineProps({
   isDark: { type: Boolean, default: false },
 })
 
-const emit = defineEmits(['configure-ocr', 'reparse-source', 'run-ocr', 'delete-source', 'run-lint', 'run-semantic-audit'])
+const emit = defineEmits(['configure-ocr', 'reparse-source', 'run-ocr', 'delete-source', 'open-media', 'run-lint', 'run-semantic-audit'])
 
 const lintSummary = computed(() => props.lintReport?.summary || { error: 0, warning: 0, info: 0 })
 const semanticAuditEnabled = computed(() => !!props.agent?.semantic_audit?.enabled)
@@ -147,6 +147,7 @@ const statusText = computed(() => {
         :is-dark="isDark"
         @reparse="emit('reparse-source', $event)"
         @run-ocr="emit('run-ocr', $event)"
+        @open-media="emit('open-media', $event)"
         @delete="emit('delete-source', $event)"
       />
     </div>

@@ -1,12 +1,13 @@
 <script setup>
 import { computed } from 'vue'
+import MediaStatusBadge from '@/components/media/MediaStatusBadge.vue'
 
 const props = defineProps({
   file: Object,
   isDark: Boolean,
 })
 
-const emit = defineEmits(['preview'])
+const emit = defineEmits(['preview', 'media-detail'])
 
 const ext = computed(() => (props.file.name || '').split('.').pop().toLowerCase())
 
@@ -32,8 +33,8 @@ const fileCategory = computed(() => {
   const e = ext.value
   if (['pdf'].includes(e)) return 'pdf'
   if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg'].includes(e)) return 'image'
-  if (['mp3', 'wav', 'ogg', 'flac', 'aac'].includes(e)) return 'audio'
-  if (['mp4', 'webm', 'avi', 'mov'].includes(e)) return 'video'
+  if (['mp3', 'm4a', 'wav', 'ogg', 'opus', 'flac', 'aac'].includes(e)) return 'audio'
+  if (['mp4', 'webm', 'avi', 'mov', 'mkv', 'm4v'].includes(e)) return 'video'
   if (['js', 'ts', 'py', 'java', 'go', 'rs', 'c', 'cpp', 'h', 'css', 'html', 'vue', 'jsx', 'tsx'].includes(e)) return 'code'
   if (['md', 'markdown', 'txt', 'json', 'yaml', 'yml', 'toml', 'xml', 'csv'].includes(e)) return 'text'
   return 'other'
@@ -109,10 +110,15 @@ function formatSize(bytes) {
       <div class="flex items-center gap-2 mt-0.5">
         <span class="text-[10px] px-1 py-0.5 rounded" :class="isDark ? 'bg-d4 text-wt-dim' : 'bg-l4 text-lt-aux'">{{ typeLabel }}</span>
         <span v-if="file.size" class="text-[10px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">{{ formatSize(file.size) }}</span>
+        <MediaStatusBadge v-if="file.mediaId && (fileCategory === 'audio' || fileCategory === 'video')" :media-id="file.mediaId" compact />
       </div>
     </div>
     <!-- Hover actions -->
     <div class="self-center opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
+      <button v-if="fileCategory === 'audio' || fileCategory === 'video'" @click.stop="emit('media-detail')" class="h-5 w-5 rounded flex items-center justify-center transition-colors"
+        :class="isDark ? 'text-violet-300 hover:bg-violet-400/10' : 'text-violet-600 hover:bg-violet-50'" title="媒体解析详情">
+        <i class="ri-file-list-3-line text-[12px]" />
+      </button>
       <button @click.stop="openExternally" class="h-5 w-5 rounded flex items-center justify-center transition-colors"
         :class="isDark ? 'text-wt-aux hover:text-wt-sub hover:bg-white/5' : 'text-lt-aux hover:text-lt-sub hover:bg-l4'" title="打开">
         <i class="ri-external-link-line text-[12px]" />

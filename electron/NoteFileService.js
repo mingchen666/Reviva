@@ -21,6 +21,13 @@ function isSamePath(a, b) {
   return path.resolve(a) === path.resolve(b)
 }
 
+function noteServiceError(code, message, details = {}) {
+  const error = new Error(message)
+  error.code = code
+  error.details = details
+  return error
+}
+
 async function moveFile(oldPath, newPath) {
   if (!oldPath || !fs.existsSync(oldPath)) return false
   if (isSamePath(oldPath, newPath)) return true
@@ -86,8 +93,118 @@ export class NoteFileService {
     return toPosixPath(path.join('notes', ...segments))
   }
 
+  normalizeFolderPath(folderPath = '') {
+    const raw = String(folderPath || '').trim()
+    if (!raw) return []
+    const normalized = raw.replace(/\\/g, '/')
+    if (normalized.startsWith('/') || /^[a-zA-Z]:\//.test(normalized) || normalized.startsWith('//')) {
+      throw noteServiceError('INVALID_FOLDER_PATH', '笔记目录必须是相对 notes 根目录的路径。', { folderPath: raw })
+    }
+
+    const segments = normalized.split('/').filter(Boolean).map(segment => segment.trim())
+    if (!segments.length || segments.some(segment => (
+      !segment
+      || segment === '.'
+      || segment === '..'
+      || /[\x00-\x1F<>:"|?*]/.test(segment)
+      || /[. ]$/.test(segment)
+      || segment.length > 80
+    ))) {
+      throw noteServiceError('INVALID_FOLDER_PATH', '笔记目录包含无效路径段。', { folderPath: raw })
+    }
+    return segments
+  }
+
+  getFolderDescriptor(folderId = '') {
+    if (!folderId) return { id: '', parent_id: '', name: '', path: '', chain: [] }
+    const folder = this._db.getNoteFolder(folderId)
+    if (!folder) throw noteServiceError('NOT_FOUND', `笔记目录不存在：${folderId}`, { folderId })
+    const chain = this.getFolderChain(folderId)
+    if (!chain.length || chain[chain.length - 1]?.id !== folderId) {
+      throw noteServiceError('NOT_FOUND', `笔记目录链不完整：${folderId}`, { folderId })
+    }
+    let currentPath = ''
+    const chainResult = chain.map(item => {
+      currentPath = currentPath ? `${currentPath}/${item.name}` : item.name
+      return { id: item.id, parent_id: item.parent_id || '', name: item.name, path: currentPath }
+    })
+    return { ...folder, path: currentPath, chain: chainResult }
+  }
+
+  listDirectFolders(parentId = '') {
+    return this._db.listNoteFolders().filter(folder => (folder.parent_id || '') === (parentId || ''))
+  }
+
+  listDirectNotes(folderId = '') {
+    return this._db.listNotes().filter(note => (note.folder_id || '') === (folderId || ''))
+  }
+
+  findChildFolder(parentId, name) {
+    const target = String(name || '').trim().toLocaleLowerCase()
+    return this.listDirectFolders(parentId).find(folder => String(folder.name || '').trim().toLocaleLowerCase() === target) || null
+  }
+
+  async resolveFolderPath(folderPath = '', { createMissing = false } = {}) {
+    const segments = this.normalizeFolderPath(folderPath)
+    let parentId = ''
+    let resolvedPath = ''
+
+    for (const segment of segments) {
+      let folder = this.findChildFolder(parentId, segment)
+      if (!folder) {
+        if (!createMissing) {
+          throw noteServiceError('FOLDER_NOT_FOUND', `笔记目录不存在：${resolvedPath ? `${resolvedPath}/` : ''}${segment}`, {
+            folderPath: String(folderPath || ''),
+            missingSegment: segment,
+            resolvedPath,
+          })
+        }
+        folder = await this.createNoteFolder({ parent_id: parentId, name: segment })
+      }
+      parentId = folder.id
+      resolvedPath = resolvedPath ? `${resolvedPath}/${folder.name}` : folder.name
+    }
+
+    return this.getFolderDescriptor(parentId)
+  }
+
+  async createFolderPath(folderPath) {
+    const segments = this.normalizeFolderPath(folderPath)
+    if (!segments.length) throw noteServiceError('INVALID_FOLDER_PATH', '不能创建 notes 根目录。', { folderPath })
+    const name = segments.pop()
+    const parent = await this.resolveFolderPath(segments.join('/'), { createMissing: true })
+    return this.createChildFolder(parent.id, name)
+  }
+
+  async createChildFolder(parentId = '', name = '') {
+    const parent = this.getFolderDescriptor(parentId)
+    const segments = this.normalizeFolderPath(name)
+    if (segments.length !== 1) {
+      throw noteServiceError('INVALID_FOLDER_PATH', '子目录名称必须是单个有效路径段。', { parentId, name })
+    }
+    const folderName = segments[0]
+    const existing = this.findChildFolder(parent.id, folderName)
+    if (existing) {
+      throw noteServiceError('DUPLICATE_FOLDER', `同一目录下已存在文件夹：${folderName}`, {
+        parentId: parent.id,
+        name: folderName,
+        folderId: existing.id,
+      })
+    }
+    const folder = await this.createNoteFolder({ parent_id: parent.id, name: folderName })
+    return this.getFolderDescriptor(folder.id)
+  }
+
+  async listFolderContents(folderId = '') {
+    const folder = this.getFolderDescriptor(folderId)
+    const folders = this.listDirectFolders(folder.id).map(item => this.getFolderDescriptor(item.id))
+    const notes = []
+    for (const item of this.listDirectNotes(folder.id)) notes.push(await this.ensureNoteFile(item))
+    return { folder, folders, notes }
+  }
+
   listSiblingNotes(folderId, excludeId = '') {
-    return this._db.listNotes(folderId || '').filter(note => note.id !== excludeId)
+    return this.listDirectNotes(folderId).filter(note => note.id !== excludeId)
   }
 
   collectPhysicalNames(relativeDir, currentPath = '') {
@@ -153,7 +270,12 @@ export class NoteFileService {
       const parentDir = this.getFolderRelativeDir(data.parent_id || '')
       const folderName = sanitizePathSegment(data.name, '未命名文件夹')
       const targetDir = this.resolveNotePath(toPosixPath(path.join(parentDir, folderName)))
-      if (targetDir && fs.existsSync(targetDir)) throw new Error(`Note folder already exists: ${targetDir}`)
+      if (targetDir && fs.existsSync(targetDir)) {
+        throw noteServiceError('DUPLICATE_FOLDER', `笔记目录已存在：${data.name || folderName}`, {
+          parentId: data.parent_id || '',
+          name: data.name || folderName,
+        })
+      }
     }
 
     const folder = this._db.createNoteFolder(data)
@@ -371,6 +493,27 @@ export class NoteFileService {
 
     this._db.deleteNote(id)
     return { success: true, data: record }
+  }
+
+  async trashNoteFolder(folderId) {
+    const records = []
+    const trashRecursive = async (id) => {
+      const folder = this._db.getNoteFolder(id)
+      if (!folder) return
+      for (const child of this._db.listNoteFolders(id)) await trashRecursive(child.id)
+      for (const note of this._db.listNotes(id)) {
+        const result = await this.trashNote(note.id)
+        if (result?.data) records.push(result.data)
+      }
+      records.push(this._db.createTrashItem({
+        original_path: '', trash_path: '', original_name: folder.name,
+        is_directory: 1, size: 0, file_type: 'folder', category: 'note',
+        item_type: 'note_folder', item_id: id, payload_json: JSON.stringify({ folder }),
+      }))
+      this._db.deleteNoteFolder(id)
+    }
+    await trashRecursive(folderId)
+    return { success: true, data: records, count: records.length }
   }
 
   async restoreNote(record) {

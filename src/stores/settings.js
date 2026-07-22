@@ -562,6 +562,7 @@ export const useSettingsStore = defineStore('settings', () => {
   const reducedMotion = ref(false)
   const answerStyle = ref('default')
   const conflictStrategy = ref('ask')
+  const quickInputEnabled = ref(false)
 
   // ─── Network ───
   const proxyMode = ref('system')
@@ -717,7 +718,7 @@ export const useSettingsStore = defineStore('settings', () => {
   async function savePreference(key, value) {
     const refsMap = {
       themeMode, accentColor, customAccentHex, fontSize,
-      langPref, animations, reducedMotion, answerStyle, conflictStrategy,
+      langPref, animations, reducedMotion, answerStyle, conflictStrategy, quickInputEnabled,
       proxyMode, proxyType, proxyHost, proxyPort, proxyAuth, proxyUser, proxyPass, wikiWebResearchSettings,
       maxIter, maxTaskMin, searchLimit, fileOpLimit, toolCallLimit, modelCallLimit, loopGuard, auditDays, pathRedact, allowFileDelete, deleteScope, allowExecCommand, commandWhitelist, commandBlacklist,
       notifyTaskDone, notifyTaskFailed, notifySound, notifySoundType, notifyDND,
@@ -785,6 +786,7 @@ export const useSettingsStore = defineStore('settings', () => {
       reducedMotion.value = all.reducedMotion ?? false
       answerStyle.value = _sanitizeAnswerStyle(all.answerStyle ?? 'default')
       conflictStrategy.value = all.conflictStrategy ?? 'ask'
+      quickInputEnabled.value = all.quickInputEnabled === true
 
       // Network
       proxyMode.value = all.proxyMode ?? 'system'
@@ -1105,7 +1107,7 @@ export const useSettingsStore = defineStore('settings', () => {
     cleanupFailedWorkspaceMigration,
     // Preferences
     themeMode, accentColor, customAccentHex, fontSize, langPref,
-    animations, reducedMotion, answerStyle, conflictStrategy,
+    animations, reducedMotion, answerStyle, conflictStrategy, quickInputEnabled,
     ACCENT_PRESETS,
     // Network
     proxyMode, proxyType, proxyHost, proxyPort, proxyAuth, proxyUser, proxyPass, wikiWebResearchSettings,

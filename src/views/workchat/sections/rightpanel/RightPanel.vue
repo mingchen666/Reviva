@@ -17,7 +17,7 @@ const props = defineProps({
   groupId: { type: String, default: 'default' },
 })
 
-const emit = defineEmits(['close', 'preview-file', 'tool-action', 'select-skill'])
+const emit = defineEmits(['close', 'preview-file', 'open-media', 'tool-action', 'select-skill'])
 
 const activeTab = ref('workspace')
 const viewingArtifact = ref(null)
@@ -130,6 +130,7 @@ async function deleteArtifact(a) {
       :preview-file="previewFile"
       :is-dark="isDark"
       @preview-file="(f) => emit('preview-file', f)"
+      @open-media="(f) => emit('open-media', f)"
       @close="
         activeTab = 'workspace';
         emit('preview-file', null)

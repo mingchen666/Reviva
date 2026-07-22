@@ -15,6 +15,9 @@ try {
 
 const BACKUP_FORMAT_VERSION = 1
 const BACKUP_EXT = '.zip'
+const RESTORE_STATE_DIR = 'backup-restore'
+const RESTORE_PENDING_FILE = 'pending.json'
+const RESTORE_RESULT_FILE = 'result.json'
 
 const BACKUP_MODES = {
   database: {
@@ -66,6 +69,20 @@ function hashBuffer(buffer) {
   return crypto.createHash('sha256').update(buffer).digest('hex')
 }
 
+function checkSqliteIntegrity(dbPath) {
+  if (!BetterSqlite3) return { ok: false, error: 'better-sqlite3 unavailable' }
+  let db = null
+  try {
+    db = new BetterSqlite3(path.resolve(dbPath), { readonly: true, fileMustExist: true })
+    const result = db.pragma('integrity_check', { simple: true })
+    return result === 'ok' ? { ok: true } : { ok: false, error: String(result || 'integrity_check failed') }
+  } catch (error) {
+    return { ok: false, error: error.message }
+  } finally {
+    try { db?.close() } catch { /* noop */ }
+  }
+}
+
 async function pathExists(filePath) {
   try {
     await fs.promises.access(filePath)
@@ -80,6 +97,122 @@ async function removeDirSafe(dirPath) {
   const tmpRoot = path.resolve(os.tmpdir())
   if (!isWithin(tmpRoot, resolved)) return
   await fs.promises.rm(resolved, { recursive: true, force: true })
+}
+
+async function writeJsonAtomic(filePath, value) {
+  await fs.promises.mkdir(path.dirname(filePath), { recursive: true })
+  const tempPath = `${filePath}.tmp-${process.pid}-${Date.now()}`
+  await fs.promises.writeFile(tempPath, JSON.stringify(value, null, 2), 'utf-8')
+  await fs.promises.rename(tempPath, filePath).catch(async error => {
+    await fs.promises.rm(filePath, { force: true })
+    await fs.promises.rename(tempPath, filePath).catch(() => { throw error })
+  })
+}
+
+function safeArchivePath(value) {
+  const normalized = slashPath(value).replace(/^\.\//, '')
+  if (!normalized || normalized.startsWith('/') || /^[a-z]:\//i.test(normalized)) return ''
+  const parts = normalized.split('/')
+  if (parts.some(part => !part || part === '.' || part === '..')) return ''
+  return normalized
+}
+
+function restoreStatePaths(stateRoot) {
+  const root = path.join(path.resolve(stateRoot), RESTORE_STATE_DIR)
+  return {
+    root,
+    pending: path.join(root, RESTORE_PENDING_FILE),
+    result: path.join(root, RESTORE_RESULT_FILE),
+  }
+}
+
+async function copyRestoredFile(sourcePath, targetPath) {
+  await fs.promises.mkdir(path.dirname(targetPath), { recursive: true })
+  const tempPath = `${targetPath}.restore-new-${process.pid}-${Date.now()}`
+  await fs.promises.copyFile(sourcePath, tempPath)
+  await fs.promises.rename(tempPath, targetPath).catch(async error => {
+    await fs.promises.rm(targetPath, { force: true })
+    await fs.promises.rename(tempPath, targetPath).catch(() => { throw error })
+  })
+}
+
+export async function applyPendingBackupRestore({ stateRoot } = {}) {
+  if (!stateRoot) return null
+  const paths = restoreStatePaths(stateRoot)
+  if (!(await pathExists(paths.pending))) return null
+  let pending = null
+  try {
+    pending = JSON.parse(await fs.promises.readFile(paths.pending, 'utf-8'))
+    if (!pending?.stagingDir || !pending?.targetRoot) throw new Error('恢复任务信息不完整')
+    const stagingDir = path.resolve(String(pending.stagingDir))
+    const targetRoot = path.resolve(String(pending.targetRoot))
+    if (!isWithin(paths.root, stagingDir)) throw new Error('恢复暂存目录无效')
+    if (!targetRoot || targetRoot === path.parse(targetRoot).root) throw new Error('恢复目标目录无效')
+    const manifest = pending.manifest || {}
+    for (const file of manifest.files || []) {
+      const archivePath = safeArchivePath(file.path)
+      if (!archivePath) throw new Error(`恢复清单包含非法路径: ${file.path || ''}`)
+      const stagedPath = path.join(stagingDir, archivePath)
+      if (!isWithin(stagingDir, stagedPath) || !(await pathExists(stagedPath))) throw new Error(`恢复暂存文件缺失: ${archivePath}`)
+      const buffer = await fs.promises.readFile(stagedPath)
+      if (Number(file.size) !== buffer.length || String(file.sha256 || '') !== hashBuffer(buffer)) {
+        throw new Error(`恢复暂存文件校验失败: ${archivePath}`)
+      }
+    }
+    const stagedDbIntegrity = checkSqliteIntegrity(path.join(stagingDir, 'database', 'reviva.db'))
+    if (!stagedDbIntegrity.ok) throw new Error(`恢复数据库校验失败: ${stagedDbIntegrity.error}`)
+    for (const file of manifest.files || []) {
+      const archivePath = safeArchivePath(file.path)
+      if (!archivePath?.startsWith('workspace/')) continue
+      const relative = archivePath.slice('workspace/'.length)
+      if (!relative || relative.toLowerCase() === '.reviva/config.json') continue
+      const sourcePath = path.join(stagingDir, archivePath)
+      const targetPath = path.join(targetRoot, relative)
+      if (!isWithin(targetRoot, targetPath)) throw new Error(`恢复文件路径越界: ${archivePath}`)
+      await copyRestoredFile(sourcePath, targetPath)
+    }
+
+    const stagedDb = path.join(stagingDir, 'database', 'reviva.db')
+    const targetDb = path.join(targetRoot, '.reviva', 'reviva.db')
+    if (!(await pathExists(stagedDb))) throw new Error('恢复包缺少数据库快照')
+    await fs.promises.mkdir(path.dirname(targetDb), { recursive: true })
+    const previousDb = `${targetDb}.restore-previous-${pending.id}`
+    await fs.promises.rm(`${targetDb}-wal`, { force: true })
+    await fs.promises.rm(`${targetDb}-shm`, { force: true })
+    await fs.promises.rm(previousDb, { force: true })
+    if (await pathExists(targetDb)) await fs.promises.rename(targetDb, previousDb)
+    try {
+      await copyRestoredFile(stagedDb, targetDb)
+    } catch (error) {
+      if (await pathExists(previousDb)) await fs.promises.rename(previousDb, targetDb)
+      throw error
+    }
+    await fs.promises.rm(previousDb, { force: true })
+
+    const result = {
+      success: true,
+      restoredAt: new Date().toISOString(),
+      mode: manifest.mode || '',
+      sourceFileName: pending.sourceFileName || '',
+      safetyBackupPath: pending.safetyBackupPath || '',
+    }
+    await writeJsonAtomic(paths.result, result)
+    await fs.promises.rm(paths.pending, { force: true })
+    await fs.promises.rm(stagingDir, { recursive: true, force: true })
+    return result
+  } catch (error) {
+    const result = {
+      success: false,
+      restoredAt: new Date().toISOString(),
+      error: error?.message || '恢复失败',
+      sourceFileName: pending?.sourceFileName || '',
+      safetyBackupPath: pending?.safetyBackupPath || '',
+      stagingDir: pending?.stagingDir || '',
+    }
+    await writeJsonAtomic(paths.result, result).catch(() => {})
+    await fs.promises.rm(paths.pending, { force: true }).catch(() => {})
+    return result
+  }
 }
 
 function shouldSkipWorkspaceEntry(relPath, stat, outputPath, absPath = '') {
@@ -98,6 +231,25 @@ function shouldSkipWorkspaceEntry(relPath, stat, outputPath, absPath = '') {
   if (lower === '.reviva/reviva.db' || lower.startsWith('.reviva/reviva.db-')) return true
   if (stat?.isFile?.() && /\.(tmp|temp|log)$/i.test(base)) return true
   return false
+}
+
+function isCompactMediaArtifact(relPath) {
+  const lower = slashPath(relPath).toLowerCase()
+  if (!lower.startsWith('context/media/')) return false
+  if (/^context\/media\/[^/]+\/current\.json$/.test(lower)) return true
+  const runFile = lower.match(/^context\/media\/[^/]+\/runs\/[^/]+\/(.+)$/)
+  if (!runFile) return false
+  const insideRun = runFile[1]
+  if (insideRun === 'manifest.json') return true
+  return [
+    'analysis/metadata.json',
+    'analysis/transcript.json',
+    'analysis/segments.json',
+    'analysis/chapters.json',
+    'analysis/subtitle.srt',
+    'analysis/subtitle.vtt',
+    'index/timeline_index.json',
+  ].includes(insideRun)
 }
 
 async function walkFiles(rootPath, relRoot = '') {
@@ -159,6 +311,45 @@ function sanitizeCompactDatabase(dbPath) {
     `)
     execIfTable('wiki_jobs', `DELETE FROM wiki_jobs;`)
     execIfTable('wiki_ocr_jobs', `DELETE FROM wiki_ocr_jobs;`)
+    execIfTable('settings', `DELETE FROM settings WHERE key IN ('workdir_root', 'mediaSpeechSettings', 'mediaSpeechDefaultProviderId', 'defaultSttModelRef', 'defaultTtsModelRef');`)
+    execIfTable('stt_provider_profiles', `DELETE FROM stt_provider_profiles;`)
+    execIfTable('tts_provider_profiles', `DELETE FROM tts_provider_profiles;`)
+    execIfTable('media_frames', `DELETE FROM media_frames;`)
+    execIfTable('media_artifacts', `
+      DELETE FROM media_artifacts
+      WHERE type NOT IN ('metadata', 'transcript', 'subtitle_srt', 'subtitle_vtt', 'segments', 'chapters', 'timeline_index');
+    `)
+    execIfTable('media_source_locations', `
+      UPDATE media_source_locations
+      SET availability = 'missing', updated_at = datetime('now')
+      WHERE location_type IN ('workspace_file', 'attachment_cache', 'download_cache');
+      UPDATE media_source_locations
+      SET locator = '[redacted]', normalized_locator = '[redacted]', locator_ref = '',
+          availability = 'expired', expires_at = '', auth_ref = '', updated_at = datetime('now')
+      WHERE location_type = 'public_media_url';
+      UPDATE media_source_locations
+      SET auth_ref = '', updated_at = datetime('now')
+      WHERE auth_ref <> '';
+    `)
+    execIfTable('media_sources', `
+      UPDATE media_sources
+      SET content_availability = CASE
+        WHEN EXISTS (
+          SELECT 1 FROM media_artifacts a
+          WHERE a.run_id = media_sources.current_run_id
+            AND a.type IN ('transcript', 'segments')
+            AND a.status IN ('ready', 'partial')
+        ) THEN 'transcript_ready'
+        WHEN EXISTS (
+          SELECT 1 FROM media_artifacts a
+          WHERE a.run_id = media_sources.current_run_id
+            AND a.type = 'metadata'
+            AND a.status IN ('ready', 'partial')
+        ) THEN 'metadata_only'
+        ELSE 'none'
+      END,
+      updated_at = datetime('now');
+    `)
     db.pragma('wal_checkpoint(TRUNCATE)')
     db.exec('VACUUM')
     return { sanitized: true }
@@ -168,10 +359,11 @@ function sanitizeCompactDatabase(dbPath) {
 }
 
 export class BackupService {
-  constructor(dbService, workDirService, { appVersion = '' } = {}) {
+  constructor(dbService, workDirService, { appVersion = '', restoreStateRoot = '' } = {}) {
     this._dbService = dbService
     this._workDirService = workDirService
     this._appVersion = appVersion
+    this._restoreStateRoot = restoreStateRoot
   }
 
   getDefaultFileName(mode) {
@@ -237,6 +429,12 @@ export class BackupService {
         await this._addWorkspaceRoot(zip, workRoot, relRoot, resolvedOutput, manifest)
       }
       if (relRoots.length) manifest.includes.push(...relRoots.map(p => slashPath(`workspace/${p}`)))
+      if (backupMode === 'compact') {
+        const mediaFileCount = await this._addCompactMediaArtifacts(zip, workRoot, resolvedOutput, manifest)
+        if (mediaFileCount > 0) manifest.includes.push('workspace/context/media (transcript core)')
+        const mediaReferenceCount = await this._addCompactMediaReferences(zip, workRoot, resolvedOutput, manifest)
+        if (mediaReferenceCount > 0) manifest.includes.push('workspace/docs (*.media.md references)')
+      }
 
       manifest.excludes = this._excludesForMode(backupMode)
       zip.file('manifest.json', JSON.stringify(manifest, null, 2))
@@ -267,6 +465,123 @@ export class BackupService {
     }
   }
 
+  async validateBackup(packagePath, { extractTo = '' } = {}) {
+    const resolvedPackage = path.resolve(String(packagePath || ''))
+    if (!(await pathExists(resolvedPackage))) throw new Error('备份文件不存在')
+    const { default: JSZip } = await import('jszip')
+    const zip = await JSZip.loadAsync(await fs.promises.readFile(resolvedPackage), { checkCRC32: true })
+    const manifestEntry = zip.file('manifest.json')
+    if (!manifestEntry) throw new Error('不是有效的 Reviva 备份包：缺少 manifest.json')
+    let manifest = null
+    try { manifest = JSON.parse(await manifestEntry.async('string')) }
+    catch { throw new Error('备份清单格式损坏') }
+    if (manifest?.app !== 'Reviva' || Number(manifest?.formatVersion) !== BACKUP_FORMAT_VERSION) {
+      throw new Error(`不支持的备份格式版本：${manifest?.formatVersion ?? '未知'}`)
+    }
+    if (!BACKUP_MODES[manifest.mode]) throw new Error('备份模式无效')
+    if (!Array.isArray(manifest.files) || manifest.files.length > 200000) throw new Error('备份文件清单无效或过大')
+    if (manifest.database?.path && safeArchivePath(manifest.database.path) !== 'database/reviva.db') throw new Error('备份数据库路径无效')
+    const expected = new Map()
+    for (const file of manifest.files) {
+      const archivePath = safeArchivePath(file?.path)
+      if (!archivePath || (!archivePath.startsWith('workspace/') && archivePath !== 'database/reviva.db')) {
+        throw new Error(`备份包含非法路径：${file?.path || ''}`)
+      }
+      if (expected.has(archivePath)) throw new Error(`备份清单包含重复文件：${archivePath}`)
+      expected.set(archivePath, file)
+    }
+    if (!expected.has('database/reviva.db')) throw new Error('备份清单缺少数据库快照')
+    for (const entry of Object.values(zip.files)) {
+      if (entry.dir) continue
+      const archivePath = safeArchivePath(entry.name)
+      if (!archivePath) throw new Error(`备份包含非法 ZIP 条目：${entry.name}`)
+      if (archivePath !== 'manifest.json' && !expected.has(archivePath)) throw new Error(`备份包含未登记文件：${archivePath}`)
+    }
+
+    const extractionDir = extractTo
+      ? path.resolve(extractTo)
+      : await fs.promises.mkdtemp(path.join(os.tmpdir(), 'reviva-restore-validate-'))
+    await fs.promises.mkdir(extractionDir, { recursive: true })
+    try {
+      let totalBytes = 0
+      for (const [archivePath, file] of expected) {
+        const entry = zip.file(archivePath)
+        if (!entry) throw new Error(`备份缺少文件：${archivePath}`)
+        const buffer = await entry.async('nodebuffer')
+        totalBytes += buffer.length
+        if (totalBytes > 64 * 1024 * 1024 * 1024) throw new Error('备份解压后超过 64GB 限制')
+        if (Number(file.size) !== buffer.length) throw new Error(`备份文件大小校验失败：${archivePath}`)
+        if (String(file.sha256 || '') !== hashBuffer(buffer)) throw new Error(`备份文件哈希校验失败：${archivePath}`)
+        const outputPath = path.join(extractionDir, archivePath)
+        if (!isWithin(extractionDir, outputPath)) throw new Error(`备份文件路径越界：${archivePath}`)
+        await fs.promises.mkdir(path.dirname(outputPath), { recursive: true })
+        await fs.promises.writeFile(outputPath, buffer)
+      }
+      const integrity = this._dbService.constructor.checkDatabaseIntegrity(path.join(extractionDir, 'database', 'reviva.db'))
+      if (!integrity.ok) throw new Error(`数据库快照校验失败：${integrity.error}`)
+      if (Number(manifest.stats?.fileCount || manifest.files.length) !== manifest.files.length) throw new Error('备份文件数量与清单统计不一致')
+      return {
+        success: true,
+        manifest,
+        extractionDir,
+        temporaryExtraction: !extractTo,
+        data: {
+          mode: manifest.mode,
+          createdAt: manifest.createdAt || '',
+          appVersion: manifest.appVersion || '',
+          fileCount: manifest.files.length,
+          totalBytes,
+          sourceFileName: path.basename(resolvedPackage),
+        },
+      }
+    } catch (error) {
+      if (!extractTo) await removeDirSafe(extractionDir)
+      throw error
+    }
+  }
+
+  async prepareRestore({ packagePath } = {}) {
+    const workRoot = this._workDirService?.getRootPath?.()
+    if (!workRoot) throw new Error('当前没有可恢复的工作空间')
+    if (!this._restoreStateRoot) throw new Error('恢复状态目录未配置')
+    const paths = restoreStatePaths(this._restoreStateRoot)
+    await fs.promises.mkdir(paths.root, { recursive: true })
+    if (await pathExists(paths.pending)) throw new Error('已有待执行的恢复任务，请先重启应用')
+    const id = `${Date.now()}-${crypto.randomBytes(4).toString('hex')}`
+    const stagingDir = path.join(paths.root, `staging-${id}`)
+    try {
+      const validation = await this.validateBackup(packagePath, { extractTo: stagingDir })
+      const safetyDir = path.join(workRoot, '.reviva', 'restore-safety')
+      const safetyBackupPath = path.join(safetyDir, `reviva-before-restore-${timestampStamp()}${BACKUP_EXT}`)
+      await this.createBackup({ mode: 'full', outputPath: safetyBackupPath })
+      const pending = {
+        id,
+        targetRoot: path.resolve(workRoot),
+        stagingDir,
+        sourceFileName: path.basename(path.resolve(packagePath)),
+        safetyBackupPath,
+        createdAt: new Date().toISOString(),
+        manifest: validation.manifest,
+      }
+      await writeJsonAtomic(paths.pending, pending)
+      return { success: true, data: { ...validation.data, safetyBackupPath, restartRequired: true } }
+    } catch (error) {
+      if (isWithin(paths.root, stagingDir)) await fs.promises.rm(stagingDir, { recursive: true, force: true }).catch(() => {})
+      throw error
+    }
+  }
+
+  async consumeRestoreResult() {
+    if (!this._restoreStateRoot) return null
+    const paths = restoreStatePaths(this._restoreStateRoot)
+    if (!(await pathExists(paths.result))) return null
+    try {
+      return JSON.parse(await fs.promises.readFile(paths.result, 'utf-8'))
+    } finally {
+      await fs.promises.rm(paths.result, { force: true }).catch(() => {})
+    }
+  }
+
   _workspaceRootsForMode(mode) {
     if (mode === 'database') return []
     if (mode === 'compact') return ['.reviva/config.json', 'notes', 'skills']
@@ -279,13 +594,15 @@ export class BackupService {
     if (mode === 'compact') {
       return [
         ...common,
-        'docs',
+        'docs except remote media references',
         'wikis',
         'agents outputs',
         'context attachments',
         'file-backed artifacts',
         'outputs',
         'running parse/OCR jobs',
+        'media source files and temporary downloads',
+        'media keyframes and thumbnails',
       ]
     }
     return common
@@ -307,6 +624,30 @@ export class BackupService {
       if (shouldSkipWorkspaceEntry(file.rel, file.stat, outputPath, file.abs)) continue
       await this._addFile(zip, file.abs, slashPath(path.join('workspace', file.rel)), manifest)
     }
+  }
+
+  async _addCompactMediaArtifacts(zip, workRoot, outputPath, manifest) {
+    const files = await walkFiles(workRoot, 'context/media')
+    let count = 0
+    for (const file of files) {
+      if (!isCompactMediaArtifact(file.rel)) continue
+      if (shouldSkipWorkspaceEntry(file.rel, file.stat, outputPath, file.abs)) continue
+      await this._addFile(zip, file.abs, slashPath(path.join('workspace', file.rel)), manifest)
+      count += 1
+    }
+    return count
+  }
+
+  async _addCompactMediaReferences(zip, workRoot, outputPath, manifest) {
+    const files = await walkFiles(workRoot, 'docs')
+    let count = 0
+    for (const file of files) {
+      if (!file.rel.toLowerCase().endsWith('.media.md')) continue
+      if (shouldSkipWorkspaceEntry(file.rel, file.stat, outputPath, file.abs)) continue
+      await this._addFile(zip, file.abs, slashPath(path.join('workspace', file.rel)), manifest)
+      count += 1
+    }
+    return count
   }
 
   async _addFile(zip, absPath, archivePath, manifest) {

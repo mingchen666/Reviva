@@ -25,6 +25,8 @@
     "fileWrite": true,
     "fileDelete": false,
     "fileRename": false,
+    "noteRead": true,
+    "noteWrite": true,
     "execCommand": true,
     "webSearch": true,
     "kbSearch": true

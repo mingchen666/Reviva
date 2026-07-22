@@ -16,7 +16,7 @@
     "fileRename": false,
     "execCommand": false
   },
-  "tools": ["mcp:exa", "web_search_bing", "file_read", "file_write", "kb_search"],
+  "tools": ["mcp:exa", "web_search_bing", "file_read", "file_write", "document_read", "media_read", "vision_analyze", "kb_search"],
   "skills": ["ppt-creation", "ai-animation-skill"],
   "sub_agents": ["content-planner", "slide-builder", "pptx-exporter", "visual-reviewer"],
   "max_iterations": 0,

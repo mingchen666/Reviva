@@ -4,6 +4,7 @@ import { ipcMain } from 'electron'
 export function registerDbHandlers(db, services = {}) {
   const notes = services.notes || db
   const noteFolders = services.noteFolders || db
+  const mediaLifecycle = services.mediaLifecycle || null
   // ─── Spaces ───
   ipcMain.handle('db:spaces:list', () => db.listSpaces())
   ipcMain.handle('db:spaces:get', (_, id) => db.getSpace(id))
@@ -24,7 +25,12 @@ export function registerDbHandlers(db, services = {}) {
   ipcMain.handle('db:convs:create', (_, data) => db.createConv(data))
   ipcMain.handle('db:convs:createBranch', (_, data) => db.createConversationBranch(data))
   ipcMain.handle('db:convs:update', (_, id, data) => db.updateConv(id, data))
-  ipcMain.handle('db:convs:delete', (_, id) => db.deleteConv(id))
+  ipcMain.handle('db:convs:delete', (_, id) => {
+    const messages = mediaLifecycle ? db.listMsgs(id) : []
+    const result = db.deleteConv(id)
+    if (messages.length) mediaLifecycle.onMessagesDeleted(messages.map(message => message.id))
+    return result
+  })
 
   // ─── Conversation Groups ───
   ipcMain.handle('db:convGroups:list', () => db.listConvGroups())
@@ -40,7 +46,11 @@ export function registerDbHandlers(db, services = {}) {
   ipcMain.handle('db:msgs:count', (_, convId) => db.countMsgs(convId))
   ipcMain.handle('db:msgs:create', (_, data) => db.createMsg(data))
   ipcMain.handle('db:msgs:update', (_, id, data) => db.updateMsg(id, data))
-  ipcMain.handle('db:msgs:delete', (_, id) => db.deleteMsg(id))
+  ipcMain.handle('db:msgs:delete', (_, id) => {
+    const result = db.deleteMsg(id)
+    mediaLifecycle?.onMessagesDeleted?.([id])
+    return result
+  })
 
   // ─── Agents ───
   ipcMain.handle('db:agents:list', () => db.listAgents())
@@ -68,6 +78,14 @@ export function registerDbHandlers(db, services = {}) {
   ipcMain.handle('db:mcpServers:create', (_, data) => db.createMcpServer(data))
   ipcMain.handle('db:mcpServers:update', (_, id, data) => db.updateMcpServer(id, data))
   ipcMain.handle('db:mcpServers:delete', (_, id) => db.deleteMcpServer(id))
+
+  // ─── Quick Inputs ───
+  ipcMain.handle('db:quickInputs:list', () => db.listQuickInputs())
+  ipcMain.handle('db:quickInputs:get', (_, id) => db.getQuickInput(id))
+  ipcMain.handle('db:quickInputs:create', (_, data) => db.createQuickInput(data))
+  ipcMain.handle('db:quickInputs:update', (_, id, data) => db.updateQuickInput(id, data))
+  ipcMain.handle('db:quickInputs:delete', (_, id) => db.deleteQuickInput(id))
+  ipcMain.handle('db:quickInputs:reorder', (_, ids) => db.reorderQuickInputs(ids))
 
   // ─── Sub Agents ───
   ipcMain.handle('db:subAgents:list', () => db.listSubAgents())

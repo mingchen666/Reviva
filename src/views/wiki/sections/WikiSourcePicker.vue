@@ -26,6 +26,7 @@ const query = ref('')
 const urlInput = ref('')
 
 const allowedExts = new Set(['md', 'markdown', 'txt', 'pdf', 'docx', 'pptx', 'xlsx'])
+const mediaExts = new Set(['mp3', 'm4a', 'aac', 'wav', 'flac', 'ogg', 'opus', 'mp4', 'mov', 'mkv', 'webm', 'm4v', 'avi'])
 
 const breadcrumbs = computed(() => {
   const parts = currentPath.value.split('/').filter(Boolean)
@@ -87,11 +88,13 @@ function extOf(name) {
 
 function fileIcon(item) {
   if (item.isDirectory) return 'ri-folder-3-line'
+  if (String(item.name || '').toLowerCase().endsWith('.media.md')) return 'ri-movie-2-line'
   const ext = extOf(item.name)
   if (ext === 'pdf') return 'ri-file-pdf-2-line'
   if (ext === 'doc' || ext === 'docx') return 'ri-file-word-2-line'
   if (ext === 'pptx') return 'ri-file-ppt-2-line'
   if (ext === 'xlsx') return 'ri-file-excel-2-line'
+  if (mediaExts.has(ext)) return ['mp3', 'm4a', 'aac', 'wav', 'flac', 'ogg', 'opus'].includes(ext) ? 'ri-music-2-line' : 'ri-movie-2-line'
   if (ext === 'md' || ext === 'markdown') return 'ri-markdown-line'
   return 'ri-file-text-line'
 }
@@ -99,6 +102,12 @@ function fileIcon(item) {
 // Full literal class strings so UnoCSS can statically detect them (no dynamic concatenation).
 function fileTile(item) {
   if (item.isDirectory) return { icon: 'ri-folder-3-line', dark: 'bg-amber-400/12 text-amber-400', light: 'bg-amber-50 text-amber-500' }
+  if (String(item.name || '').toLowerCase().endsWith('.media.md')) {
+    return { icon: fileIcon(item), dark: 'bg-violet-400/12 text-violet-300', light: 'bg-violet-50 text-violet-600' }
+  }
+  if (mediaExts.has(extOf(item.name))) {
+    return { icon: fileIcon(item), dark: 'bg-violet-400/12 text-violet-300', light: 'bg-violet-50 text-violet-600' }
+  }
   const tones = {
     pdf: ['bg-red-400/12 text-red-400', 'bg-red-50 text-red-500'],
     doc: ['bg-blue-400/12 text-blue-400', 'bg-blue-50 text-blue-500'],
@@ -113,11 +122,14 @@ function fileTile(item) {
 }
 
 function canAdd(item) {
-  return item.isFile && allowedExts.has(extOf(item.name))
+  if (!item.isFile) return false
+  if (activeTab.value === 'media') return String(item.name || '').toLowerCase().endsWith('.media.md') || mediaExts.has(extOf(item.name))
+  return allowedExts.has(extOf(item.name))
 }
 
 function extBadge(item) {
   if (item.isDirectory) return '目录'
+  if (String(item.name || '').toLowerCase().endsWith('.media.md')) return 'MEDIA'
   return extOf(item.name).toUpperCase()
 }
 
@@ -169,7 +181,7 @@ function openItem(item) {
 
         <div class="px-5 pt-3 pb-2.5 border-b shrink-0" :class="isDark ? 'border-d4' : 'border-bdrL'">
           <div class="seg" :class="isDark ? 'bg-d0 border border-d4' : 'bg-l2 border border-bdrL'">
-            <button class="seg-btn" :class="activeTab === 'docs' ? (isDark ? 'bg-brand-400 text-d0' : 'bg-brand-500 text-white') : (isDark ? 'text-wt-sub hover:text-wt-main' : 'text-lt-sub hover:text-lt-main')" @click="activeTab = 'docs'; query = ''">
+            <button class="seg-btn" :class="activeTab === 'docs' ? (isDark ? 'bg-brand-400 text-d0' : 'bg-brand-500 text-white') : (isDark ? 'text-wt-sub hover:text-wt-main' : 'text-lt-sub hover:text-lt-main')" @click="activeTab = 'docs'; query = ''; loadDocs('')">
               <i class="ri-folder-3-line text-[14px]" /><span>文档</span>
             </button>
             <button class="seg-btn" :class="activeTab === 'notes' ? (isDark ? 'bg-brand-400 text-d0' : 'bg-brand-500 text-white') : (isDark ? 'text-wt-sub hover:text-wt-main' : 'text-lt-sub hover:text-lt-main')" @click="activeTab = 'notes'; query = ''">
@@ -178,14 +190,14 @@ function openItem(item) {
             <button class="seg-btn" :class="activeTab === 'link' ? (isDark ? 'bg-brand-400 text-d0' : 'bg-brand-500 text-white') : (isDark ? 'text-wt-sub hover:text-wt-main' : 'text-lt-sub hover:text-lt-main')" @click="activeTab = 'link'; query = ''">
               <i class="ri-link text-[14px]" /><span>链接</span>
             </button>
-            <button class="seg-btn seg-soon" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'" disabled title="即将支持">
-              <i class="ri-movie-2-line text-[14px]" /><span>音视频</span><span class="soon" :class="isDark ? 'bg-white/8 text-wt-dim' : 'bg-lt-aux/10 text-lt-aux'">即将</span>
+            <button class="seg-btn" :class="activeTab === 'media' ? (isDark ? 'bg-brand-400 text-d0' : 'bg-brand-500 text-white') : (isDark ? 'text-wt-sub hover:text-wt-main' : 'text-lt-sub hover:text-lt-main')" @click="activeTab = 'media'; query = ''; loadDocs('')">
+              <i class="ri-movie-2-line text-[14px]" /><span>音视频</span>
             </button>
           </div>
         </div>
 
         <div class="px-5 py-2.5 flex items-center gap-3 border-b shrink-0" :class="isDark ? 'border-d4' : 'border-bdrL'">
-          <div v-if="activeTab === 'docs'" class="flex items-center gap-1 min-w-0 overflow-x-auto thin-scroll">
+          <div v-if="activeTab === 'docs' || activeTab === 'media'" class="flex items-center gap-1 min-w-0 overflow-x-auto thin-scroll">
             <template v-for="(crumb, index) in breadcrumbs" :key="crumb.path">
               <i v-if="index > 0" class="ri-arrow-right-s-line text-[12px] shrink-0" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'" />
               <button
@@ -204,7 +216,7 @@ function openItem(item) {
               v-model="query"
               class="w-full h-8 pl-2.5 pr-1 rounded-1.5 text-[12px] outline-none border transition-colors"
               :class="isDark ? 'bg-d0 border-d4 text-wt-main placeholder-wt-dim focus:border-brand-400/50' : 'bg-l2 border-bdrL text-lt-main placeholder-lt-aux focus:border-brand-400'"
-              :placeholder="activeTab === 'docs' ? '搜索文档' : '搜索笔记'" />
+              :placeholder="activeTab === 'docs' ? '搜索文档' : activeTab === 'media' ? '搜索媒体引用' : '搜索笔记'" />
           </div>
         </div>
 
@@ -213,7 +225,7 @@ function openItem(item) {
         </div>
 
         <div class="flex-1 overflow-y-auto px-3 py-2 min-h-0 thin-scroll">
-          <div v-if="activeTab === 'docs'" class="space-y-0.5">
+          <div v-if="activeTab === 'docs' || activeTab === 'media'" class="space-y-0.5">
             <div v-if="loading" class="py-16 flex justify-center" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">
               <i class="ri-loader-4-line pulse text-[22px]" />
             </div>
@@ -250,7 +262,7 @@ function openItem(item) {
               </div>
               <div v-if="filteredItems.length === 0" class="py-16 text-center">
                 <i class="ri-folder-2-line text-[26px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'" />
-                <p class="mt-2 text-[12px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">当前目录没有可添加的文档</p>
+                <p class="mt-2 text-[12px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">{{ activeTab === 'media' ? '当前目录没有可添加的媒体引用' : '当前目录没有可添加的文档' }}</p>
               </div>
             </template>
           </div>
@@ -318,7 +330,7 @@ function openItem(item) {
 
         <div class="px-5 py-2.5 flex items-center gap-2 border-t shrink-0 text-[10.5px] leading-relaxed" :class="isDark ? 'border-d4 text-wt-dim' : 'border-bdrL text-lt-aux'">
           <i class="ri-information-line text-[13px] shrink-0" :class="isDark ? 'text-brand-400' : 'text-brand-500'" />
-          <span>支持文档、笔记与单页网页 URL；链接来源只写入当前 Wiki，音视频来源后续支持。</span>
+          <span>支持文档、笔记、单页网页 URL 和已解析音视频；媒体来源复用现有转录与章节，不复制解析任务。</span>
         </div>
       </div>
     </div>

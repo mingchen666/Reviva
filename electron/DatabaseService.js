@@ -15,6 +15,11 @@ import { AgentRepository } from './db/repositories/AgentRepository.js'
 import { WikiRepository } from './db/repositories/WikiRepository.js'
 import { PdfRepository } from './db/repositories/PdfRepository.js'
 import { WebImportRepository } from './db/repositories/WebImportRepository.js'
+import { QuickInputRepository } from './db/repositories/QuickInputRepository.js'
+import { MediaRepository } from './media/persistence/MediaRepository.js'
+import { MediaLocationRepository } from './media/persistence/MediaLocationRepository.js'
+import { MediaRunRepository } from './media/persistence/MediaRunRepository.js'
+import { MediaArtifactRepository } from './media/persistence/MediaArtifactRepository.js'
 import { SchemaManager } from './db/schema/createSchema.js'
 import { LegacyMigrationManager } from './db/schema/migrations/legacyMigrations.js'
 import { VersionedMigrationManager } from './db/schema/migrations/versionedMigrations.js'
@@ -61,6 +66,11 @@ export class DatabaseService {
     this._wikiRepository = new WikiRepository(this._context)
     this._pdfRepository = new PdfRepository(this._context)
     this._webImportRepository = new WebImportRepository(this._context)
+    this._quickInputRepository = new QuickInputRepository(this._context)
+    this._mediaRepository = new MediaRepository(this._context)
+    this._mediaLocationRepository = new MediaLocationRepository(this._context)
+    this._mediaRunRepository = new MediaRunRepository(this._context)
+    this._mediaArtifactRepository = new MediaArtifactRepository(this._context)
     this._schemaManager = new SchemaManager(this._context)
     this._legacyMigrationManager = new LegacyMigrationManager(this._context)
     this._versionedMigrationManager = new VersionedMigrationManager(this._context)
@@ -145,6 +155,15 @@ export class DatabaseService {
   }
 
   get db() { return this._db }
+
+  get mediaRepositories() {
+    return {
+      media: this._mediaRepository,
+      locations: this._mediaLocationRepository,
+      runs: this._mediaRunRepository,
+      artifacts: this._mediaArtifactRepository,
+    }
+  }
 
   // ─── Spaces ───
 
@@ -235,6 +254,15 @@ export class DatabaseService {
   updateMcpServer(id, data) { return this._extensionRepository.updateMcpServer(id, data) }
   deleteMcpServer(id) { return this._extensionRepository.deleteMcpServer(id) }
 
+  // ─── Quick Inputs ───
+
+  listQuickInputs() { return this._quickInputRepository.listQuickInputs() }
+  getQuickInput(id) { return this._quickInputRepository.getQuickInput(id) }
+  createQuickInput(data) { return this._quickInputRepository.createQuickInput(data) }
+  updateQuickInput(id, data) { return this._quickInputRepository.updateQuickInput(id, data) }
+  deleteQuickInput(id) { return this._quickInputRepository.deleteQuickInput(id) }
+  reorderQuickInputs(ids) { return this._quickInputRepository.reorderQuickInputs(ids) }
+
   // ─── Custom Sub Agents ───
 
   listSubAgents() { return this._extensionRepository.listSubAgents() }
@@ -275,7 +303,6 @@ export class DatabaseService {
   updateWikiSource(id, data) { return this._wikiRepository.updateWikiSource(id, data) }
   listWikiJobs(wikiId) { return this._wikiRepository.listWikiJobs(wikiId) }
 
-  // ─── Web Import Jobs ───
 
   // ─── Web Import Jobs ───
 

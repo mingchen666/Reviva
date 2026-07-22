@@ -42,10 +42,10 @@ function setNotAvailable(version) {
 
 function setFallbackNotAvailable(version) {
   checking.value = false
-  error.value = '默认更新通道暂不可用，已提供备用下载入口'
+  error.value = null
   lastCheckStatus.value = 'not-available'
-  lastCheckMessage.value = '默认更新通道暂不可用，备用通道显示当前已是最新版本' + (version ? ` v${version}` : '')
-  msgApi?.warning('默认更新通道暂不可用，可使用夸克网盘下载')
+  lastCheckMessage.value = '当前已是最新版本' + (version ? ` v${version}` : '')
+  msgApi?.success(lastCheckMessage.value)
 }
 
 function setError(message) {

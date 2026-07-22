@@ -181,7 +181,7 @@ defineExpose({ createNote })
         :class="aiConfigured
           ? (isDark ? 'text-agent-400 bg-agent-400/10 hover:bg-agent-400/18' : 'text-agent-500 bg-violet-50 hover:bg-violet-100')
           : (isDark ? 'text-wt-dim hover:text-wt-sub hover:bg-d3' : 'text-lt-aux hover:text-lt-sub hover:bg-l4')">
-        <i :class="aiConfigured ? 'ri-sparkling-line' : 'ri-settings-3-line'" class="text-[13px]" />
+        <i :class="aiConfigured ? 'ri-sparkling-line' : 'ri-settings-3-line'" class="text-[18px]" />
         <span v-if="aiConfigured" class="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-emerald-400" />
       </button>
     </div>
@@ -270,23 +270,23 @@ defineExpose({ createNote })
           {{ searchQuery ? `没有匹配「${searchQuery}」的笔记` : '还没有笔记，开始你的第一篇吧' }}
         </p>
         <button v-if="!searchQuery" @click="createNote()"
-          class="h-7 px-3 rounded-md text-[11px] font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
+          class="h-7 px-3 rounded-md text-[13px] font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
           :class="isDark ? 'bg-brand-400/12 text-brand-400 hover:bg-brand-400/20' : 'bg-brand-50 text-brand-500 hover:bg-brand-100'">
-          <i class="ri-add-line text-[12px]" />新建笔记
+          <i class="ri-add-line text-[13px]" />新建笔记
         </button>
       </div>
     </div>
 
     <!-- Footer -->
     <div class="px-3 py-2.5 flex gap-2" :class="isDark ? 'border-t border-d4' : 'border-t border-bdrL'">
-      <button @click="createNote()" class="flex-1 h-8 rounded-lg text-[12px] font-medium flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+      <button @click="createNote()" class="flex-1 h-8 rounded-lg text-[13px] font-medium flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
         :class="isDark ? 'bg-brand-400/12 text-brand-400 hover:bg-brand-400/20 border border-brand-400/20' : 'bg-brand-50 text-brand-500 hover:bg-brand-100 border border-brand-100'">
-        <i class="ri-add-line text-[13px]" /> 新建笔记
+        <i class="ri-add-line text-[15px]" /> 新建笔记
       </button>
       <button @click="openNewFolderModal()" title="新建文件夹"
         class="w-8 h-8 hover:text-blue  rounded-lg flex items-center justify-center transition-colors shrink-0 cursor-pointer"
         :class="isDark ? 'bg-d3 text-wt-aux hover:bg-d4 border border-bdr' : 'bg-l3 text-lt-aux hover:bg-l4 border border-bdrF'">
-        <i class="ri-folder-add-line text-[14px]" />
+        <i class="ri-folder-add-line text-[15px]" />
       </button>
     </div>
 

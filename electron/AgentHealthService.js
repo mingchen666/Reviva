@@ -303,6 +303,7 @@ export class AgentHealthService {
       { id: 'file_rename', name: '文件重命名', needsConfig: false },
       { id: 'exec_command', name: '执行命令', needsConfig: false },
       { id: 'kb_search', name: '知识库检索', needsConfig: false },
+      { id: 'note_tool', name: '笔记工具', needsConfig: false },
       { id: 'calculator', name: '科学计算器', needsConfig: false },
       { id: 'file_delete', name: '文件删除', needsConfig: false },
     ]

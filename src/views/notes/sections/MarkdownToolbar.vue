@@ -34,8 +34,8 @@ const groups = [
     { type: 'link', icon: 'ri-link', tip: '链接' },
     { type: 'image', icon: 'ri-image-line', tip: '图片' },
     { type: 'table', icon: 'ri-table-2', tip: '表格' },
-    { type: 'hr', icon: 'ri-subtract-line', tip: '分割线' },
-    { type: 'formula', icon: 'ri-function-line', tip: '公式 $$' },
+    { type: 'hr', icon: 'ri-separator', tip: '分割线' },
+    { type: 'formula', icon: 'ri-functions', tip: '公式 $$' },
   ],
 ]
 </script>
@@ -68,7 +68,7 @@ const groups = [
       <template v-for="(group, gi) in groups" :key="gi">
         <button v-for="item in group" :key="item.type" @click="emit('insert', item.type)" :title="item.tip" class="tb-btn group"
           :class="isDark ? 'text-wt-aux hover:text-wt-sub hover:bg-white/8' : 'text-lt-aux hover:text-lt-sub hover:bg-black/6'">
-          <i :class="[item.icon, 'text-[14px]']" />
+          <i :class="[item.icon, 'text-[15px]']" />
           <span class="tb-tip" :class="isDark ? 'bg-d3 text-wt-main' : 'bg-l3 text-lt-main shadow-sm'">{{ item.tip }}</span>
         </button>
         <div v-if="gi < groups.length - 1" class="tb-sep" :class="isDark ? 'bg-wt-dim' : 'bg-lt-aux'" />

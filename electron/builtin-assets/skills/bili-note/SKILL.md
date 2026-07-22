@@ -1,371 +1,202 @@
 ---
 name: bili-note
-description: Extract Bilibili videos and opus/article posts into readable Markdown knowledge notes. Use when the user asks to 提取/提炼/总结/整理 B站 or bilibili video/图文/动态/opus content, save a B站 note to a local knowledge base, include useful comments, handle multi-part videos, fetch B站 AI subtitles, download opus images, or fall back to audio transcription.
-allowed-tools: exec_command, file_read, file_write
+description: Turn Bilibili videos that are already registered and parsed in MindSpace, or Bilibili opus/article posts, into evidence-linked Markdown learning notes. Use whenever the user asks to 提取、提炼、总结、整理 B站/Bilibili 视频、课程、动态、图文或专栏，保存学习笔记，结合评论区补充观点，或从已解析视频中查找带时间戳的内容和关键画面。Video tasks require an authorized mediaId from the current attachment context; this skill never installs or runs its own ASR models.
+allowed-tools: media_read, vision_analyze, exec_command, file_read, file_write
 ---
 
 # Bili Note
 
-把 B站视频和图文动态变成可检索、可复用的 Markdown 知识笔记。视频优先拿字幕；字幕拿不到时再转写音频；图文优先抓正文、图片和代码块；用户要评论区时抓取评论并过滤无关讨论。
+把 B 站视频或图文内容整理成可检索、可复用、可回查证据的 Markdown 学习笔记。
 
-## Reviva 适配说明
+视频内容统一由 MindSpace 媒体模块负责字幕、语音转录、时间轴和关键帧；本技能不下载视频音频，不安装或运行 Qwen3-ASR、Whisper、Faster Whisper、FunASR、Python/CUDA 环境或模型缓存。
 
-这是脚本型 skill。要真正提取 B 站内容，当前 Agent 必须同时满足：
+## 两条工作路线
 
-- 已绑定 `bili-note` skill；
-- 已绑定 `exec_command` 工具；
-- Agent 权限里开启 `execCommand`；
-- 系统命令白名单允许 `python`；
-- 网络可以访问 B 站公开接口。
+先判断输入属于哪一类，不要混用流程。
 
-如果 `exec_command` 不可用，不要声称已经提取或归档；只能说明需要开启命令执行权限，或让用户改用手动提供的字幕/正文材料。
+### 已解析视频
 
-在 Reviva 中运行脚本时优先使用虚拟路径 `/skills/bili-note/scripts/...`，不要假定 skill 位于 `%USERPROFILE%\.codex\skills\bili-note`。下面原始示例里的 `.codex` 路径仅作为上游 skill 的参考；在 Reviva Agent 中应改成结构化 `exec_command` 调用，例如：
+当前附件上下文必须提供 `mediaId`。视频 URL 或 BVID 本身不足以开始转录。
+
+1. 用 `media_read(mediaId="<authorized mediaId>", mode="metadata")` 检查授权、解析状态、时长和可用模式。
+2. 如果解析未完成、失败或没有 `mediaId`，停止内容提炼，告诉用户先在 MindSpace 中添加并解析视频。
+3. 根据用户问题先用 `media_read(mediaId="<authorized mediaId>", mode="search", query="<主题>")` 定位主题，不要默认加载整段转录。
+4. 用 `media_read(mediaId="<authorized mediaId>", mode="transcript")` 读取连续上下文；下一页传入上一页的 `nextCursor` 作为 `cursor`。长视频按主题和时间段取证。
+5. 需要验证 PPT、代码、界面操作、板书或无解说画面时，用 `media_read(mediaId="<authorized mediaId>", mode="frames")` 获取候选关键帧，再按需交给 `vision_analyze`。
+6. `chapters` 和 `artifacts` 只在 metadata 声明可用时读取。
+7. 如用户要求评论区，可运行辅助脚本抓取评论；评论失败不影响基于系统媒体证据写笔记。
+8. 写作时区分转录证据、画面证据、评论/元数据和 Agent 推理。
+
+### Opus、动态与专栏图文
+
+图文不是视频语音解析，继续使用脚本抓正文、图片、代码块和可选评论。
 
 ```json
 {
   "cmd": "python",
-  "args": ["/skills/bili-note/scripts/check_environment.py"]
+  "args": [
+    "/skills/bili-note/scripts/run_bili_note.py",
+    "https://www.bilibili.com/opus/1194341967364882439",
+    "--work-dir", ".\\tmp_bili_opus",
+    "--archive-dir", "D:\\knowledge\\原始材料\\O1194341967364882439",
+    "--comments"
+  ]
 }
 ```
 
-联网或登录态操作必须走当前产品明确提供并授权的工具。上游文档提到的 `web-access` 不是当前 Reviva 默认内置工具；如果当前 Agent 没有可用的 `web-access`/浏览器代理/MCP 工具，就跳过网页 AI 字幕路线，不要把它当成可用能力。
+脚本型能力要求 Agent 已绑定 `exec_command` 且允许执行 `python`。如果不可用，说明限制并让用户直接提供图文正文；不要声称已经提取或归档。
 
-ASR 是增强路线，不是默认能力。用户不一定安装了 Qwen3-ASR、Whisper、faster-whisper 或 ffmpeg；只有字幕和网页 AI 字幕都不可用，并且用户确实需要完整转写时，才检查并引导安装/使用 ASR。不要自动安装大模型依赖，除非用户明确同意。
+## 视频输入检查
 
-联网或登录态操作如果有可用 `web-access`，必须先使用 `web-access`。
+### 没有 mediaId
 
-网页 AI 字幕当前只支持 Chrome + `web-access` 路线：让已登录的 B站页面自己请求字幕接口。不要把 Edge、Playwright 临时浏览器或原生 CDP 端口当成等价替代，除非脚本已经明确支持。
+明确告诉用户：
 
-Bili Note 与 DyNote 共享可复用本地资源。默认共享目录是 `%USERPROFILE%\.cache\rimagination-notes`，Qwen3-ASR 环境默认是 `%USERPROFILE%\.cache\rimagination-notes\qwen3-asr-venv`。如果任一 skill 已经安装过 Qwen3-ASR，另一个 skill 必须优先复用，不要重复安装。Hugging Face、Whisper 和 faster-whisper 缓存按本机通用缓存复用。
+- 先在 MindSpace 中添加该 B 站视频；
+- 在媒体解析配置中选择服务商并完成解析；
+- 再把已登记的视频作为附件交给当前 Agent。
 
-## 字幕密度与视觉理解
+不要自行回退到下载音频或安装 ASR。
 
-B 站视频优先拿字幕，但字幕/转写不等于完整理解。长视频如果字幕字数明显偏少，可能说明核心信息在画面、PPT、板书、代码演示、屏幕操作或无解说片段中。
+### 解析进行中或失败
 
-- 归档后必须读取 `metadata/note_budget.json`。如果 `visual_dependency.needs_visual_review=true`，不要把稀疏字幕写成完整学习笔记。
-- 这种情况下，先采用更合适的技术：抽取代表性关键帧或截图，再做 OCR 或多模态视觉理解；必要时重新抓网页 AI 字幕或补本地自动语音识别。
-- 如果当前接入的模型或工具不能看图，必须告诉用户：关键帧理解属于高级视觉能力，需要多模态模型、OCR 工具或人工查看；当前只能基于字幕/元数据生成有限笔记并标注覆盖范围。
-- 最终笔记和用户回复要转述 `visual_dependency.warnings`，并说明是否已经补了视觉证据。
+转述 `media_read(mode="metadata")` 返回的状态和错误。解析进行中时让用户稍后重试；解析失败时让用户在媒体界面重试或调整服务商。
 
-## 依赖与环境检查
+### 只有转录，没有画面
 
-默认路线尽量零第三方 Python 依赖：视频元数据、公开字幕、图文正文、图片清单、评论、归档、证据索引和笔记预算都用标准库完成。网页 AI 字幕和音频转写是增强路线，不是启动门槛。
+可以生成“基于转录的学习笔记”，但涉及视觉演示的判断要标记为未验证。
 
-第一次使用、换机器、用户怀疑依赖不全，或准备使用网页 AI 字幕 / 音频转写兜底时，先运行：
+### 只有画面，没有转录
 
-```powershell
-$skill = "$env:USERPROFILE\.codex\skills\bili-note"
-$py = "python"
-& $py "$skill\scripts\check_environment.py"
+除非用户接受视觉限定结果，否则不要把少量关键帧写成完整视频总结。
+
+## 取证策略
+
+### 先搜索，再连续读取
+
+- 用户指定主题时，先用 `search` 找命中段落。
+- 需要理解论证链或操作过程时，再按命中时间附近调用 `transcript`。
+- 使用 `startMs/endMs` 控制范围，并沿 `nextCursor` 分页。
+- 不要为了“完整”一次性读取全部长视频，避免上下文被原始转录占满。
+
+### 时间戳引用
+
+转录证据尽量保留 `[HH:MM:SS-HH:MM:SS]`。没有时间戳时明确标记为纯文本转录，不自行推测时间。
+
+### 画面证据
+
+关键帧只证明对应时间点的可见内容。不要仅凭单帧推断完整操作过程；必要时读取相邻帧并结合转录。
+
+### 评论区
+
+只保留：
+
+- 对原内容的纠错；
+- 实践经验或失败案例；
+- 有价值的问题与作者回复；
+- 可验证的补充资料和替代方案。
+
+过滤打卡、求资料、广告、情绪化争论和无关闲聊。
+
+## 辅助脚本
+
+### 检查图文/评论脚本环境
+
+```json
+{
+  "cmd": "python",
+  "args": ["/skills/bili-note/scripts/check_environment.py", "--json"]
+}
 ```
 
-根据检查结果选择路线：
+该检查只验证 Python、B 站公开接口和图文/评论脚本，不检查任何 ASR、模型或 CUDA 环境。
 
-- `public_subtitles_comments_archive=OK`：优先走默认字幕/图文、评论和归档流程。
-- `browser_ai_subtitles=OK`：当公开接口只有 `ai-zh` 且 `subtitle_url` 为空时，走 Chrome + `web-access` 网页 AI 字幕。
-- `audio_asr_fallback=OK`：只有字幕和网页 AI 字幕都不可得、且用户确实需要完整转写时，才走音频转写。中文或未指定语言优先共享 Qwen3-ASR；明确外语视频优先 Whisper 系后端。
-- 某个增强能力缺失时，只说明该路线暂不可用；不要把它说成整个 skill 不可用。
-- 网页登录态只通过 `web-access` 已授权的 Chrome 页面使用；不要读取或复制 Cookie/profile，不要强制结束用户浏览器进程。没有 Chrome + `web-access` 时就跳过网页 AI 字幕并说明覆盖范围。
+### 获取视频元数据和评论
 
-## 默认流程
+视频内容仍由 `media_read` 提供；该脚本只用于补充公开元数据和评论。
 
-1. 读清用户要什么：视频或图文链接、是否要评论区、保存路径、是否需要全文材料或只要提炼。
-2. 如果是首次使用、依赖状态不明、字幕抓取失败或用户要求音频转写，先用 `check_environment.py` 判断当前可走路线。
-3. 优先用 `run_bili_note.py` 一键完成可自动化部分。它会自动识别 `/video/BV...`、`/opus/...`、`/dynamic/...` 或纯 opus id。
-4. 如果是图文/动态，走 `extract_bilibili_opus.py` 路线：抓正文、标题、作者、发布时间、图片、代码块、图文证据索引；用户加 `--comments` 时抓图文评论。
-5. 如果是视频，优先下载字幕：
-   - 普通字幕 URL 可用时，直接用 `--download-subtitles`。
-   - 如果普通接口显示 `ai-zh` 但 `subtitle_url` 为空，不要说“没有字幕”；改走“网页 AI 字幕”流程。
-   - 如果字幕仍不可得，再按需要下载音频并用本地自动语音识别转写。中文优先 Qwen3-ASR，明确外语优先 Whisper 系后端。
-6. 用户要求评论区时，用 `--comments` 抓取主评论和子评论；写入笔记时过滤打卡、求资料、广告、闲聊等技术无关内容。
-7. 归档原始材料：把完整字幕或图文正文、图片、完整评论、元数据和 JSONL 索引存到知识库旁边的长期目录。
-8. 写前定标：必须先读取 `metadata/note_budget.json`，把推荐字数区间、压缩比目标、写作粒度、互动质量倍率、证据块数量和 `visual_dependency` 作为本次笔记的写作目标。视频按时长、字幕字数、证据块、评论量和互动质量定标；图文按正文长度、图片/代码/证据块、评论量和互动质量定标。
-   - 如果 `visual_dependency.risk` 是 `medium` 或 `high`，先补关键帧/OCR/多模态视觉理解，或明确告诉用户当前缺少视觉理解能力，不能写成完整解析。
-9. 按预算写 Markdown：默认写成“学习型笔记”，目标是让人或 Agent 像学完一节课或读完一篇教程一样获得概念、方法、判断标准、实践步骤和自测题；根据预算决定详略，不要把长课和短视频写成差不多字数。来源、覆盖范围和归档路径放到后半部分。正文证据默认用论文式编号 `[1][2]`，不直接堆长证据 ID。
-10. 写后验收：用 `score_bili_note.py` 校验笔记字数、压缩比、每分钟/每篇笔记密度和证据引用比例。评分只做 QA 和微调，不代替写前定标；太短时优先补“学习收获、知识地图、概念卡、实战流程、坑点、自测题”，不要只堆分P摘要或段落摘要。
-
-## 常用命令
-
-在 PowerShell 中先设定 skill 路径：
-
-```powershell
-$skill = "$env:USERPROFILE\.codex\skills\bili-note"
-$py = "python"
+```json
+{
+  "cmd": "python",
+  "args": [
+    "/skills/bili-note/scripts/extract_bilibili.py",
+    "BVxxxx",
+    "--out", ".\\tmp_bili_context",
+    "--comments"
+  ]
+}
 ```
 
-### 0. 检查依赖和可用路线
+### 图文一键提取与归档
 
-```powershell
-& $py "$skill\scripts\check_environment.py"
+```json
+{
+  "cmd": "python",
+  "args": [
+    "/skills/bili-note/scripts/run_bili_note.py",
+    "https://www.bilibili.com/opus/1194341967364882439",
+    "--work-dir", ".\\tmp_bili_opus",
+    "--archive-dir", "D:\\knowledge\\原始材料\\O1194341967364882439",
+    "--comments"
+  ]
+}
 ```
 
-需要给其他脚本读取时输出 JSON：
+`run_bili_note.py` 不再处理视频 URL；视频应通过系统媒体解析路线进入。
 
-```powershell
-& $py "$skill\scripts\check_environment.py" --json
-```
+## 写作前定标
 
-### 1. 一键提取和归档
+根据证据量决定笔记规模，而不是让所有视频都输出相同长度。
 
-默认先用总入口。它会自动跳过已有输出，适合断点续跑。
+- 短观点视频：重点还原问题、判断、论据和适用边界。
+- 长课程：按学习模块组织概念、流程、实践和坑点，不按分 P 流水账压缩。
+- 转录稀疏但视频很长：检查关键帧，无法补足视觉证据时明确限制。
+- 图文：根据正文、图片、代码块、评论和证据索引决定粒度。
 
-```powershell
-& $py "$skill\scripts\run_bili_note.py" "https://www.bilibili.com/video/BVxxxx/" `
-  --work-dir ".\tmp_bili_extract" `
-  --archive-dir "D:\knowledge\知识库\Rag技术\原始材料\BVxxxx_视频短标题" `
-  --comments
-```
+图文归档生成 `metadata/note_budget.json` 时先读取预算；视频路线根据 media metadata、实际读取的转录范围和视觉依赖自行定标。
 
-图文/动态也用同一个入口：
-
-```powershell
-& $py "$skill\scripts\run_bili_note.py" "https://www.bilibili.com/opus/1194341967364882439" `
-  --work-dir ".\tmp_bili_opus" `
-  --archive-dir "D:\knowledge\知识库\Rag技术\原始材料\O1194341967364882439_图文短标题" `
-  --comments
-```
-
-如果只想保存图文正文和图片 URL，不下载图片文件，加：
-
-```powershell
---no-download-images
-```
-
-如果普通接口没有字幕，但网页播放器能拿到 AI 字幕，先用 `web-access` 打开已登录 Chrome 里的视频页并取得 target id，然后加：
-
-```powershell
---browser-target "CDP_TARGET_ID"
-```
-
-运行后先看：
-
-- `bili_note_run_report.md`：本次跑了什么、跳过了什么、下一步读哪里。
-- `archive_dir/indexes/证据索引.jsonl`：写总结时可引用的图文/字幕/评论证据块。
-- `archive_dir/indexes/图文全集.md`：完整图文正文合集。
-- `archive_dir/indexes/字幕全集.md`：完整字幕合集。
-- `archive_dir/metadata/note_budget.json`：推荐笔记字数、压缩比、写作粒度和字幕稀疏时的画面依赖提示。
-
-### 2. 抓元数据和分P目录
-
-```powershell
-& $py "$skill\scripts\extract_bilibili.py" "BVxxxx" --out ".\tmp_bili_extract"
-```
-
-### 3. 下载普通公开字幕
-
-```powershell
-& $py "$skill\scripts\extract_bilibili.py" "BVxxxx" --out ".\tmp_bili_extract" --parts all --download-subtitles
-```
-
-### 4. 下载网页 AI 字幕
-
-当 `subtitle_probe.json` 里有 `ai-zh`，但 `subtitle_url` 为空时，使用这条路线。当前脚本需要 Chrome + `web-access` 的 `/targets` 和 `/eval` 代理接口；原生 Edge/Chrome DevTools 端口不能直接传给这个脚本。
-
-1. 用 `web-access` 打开已登录 Chrome 中的 B站视频页，确认页面已加载。
-2. 查看浏览器 target id：
-
-```powershell
-curl.exe -s http://localhost:3456/targets
-```
-
-3. 下载 AI 字幕：
-
-```powershell
-& $py "$skill\scripts\fetch_browser_ai_subtitles.py" --target "CDP_TARGET_ID" --out ".\tmp_bili_extract"
-```
-
-输出包括：
-
-- `browser_ai_subtitle_urls.json`：每个分P的 AI 字幕 URL。
-- `browser_ai_subtitle_manifest.json`：下载清单。
-- `browser_ai_subtitles\*.txt`：纯文本字幕。
-- `browser_ai_subtitles\*.srt`：SRT 字幕。
-- `browser_ai_subtitles\*.subtitle.json`：B站原始字幕 JSON。
-
-这条路线让 B站页面自己用登录态请求 `/x/player/wbi/v2`，不读取、不打印浏览器 cookie。
-
-如果下载到的 AI 字幕明显乱码、内容与标题或课程主题不相干，不要把它当作可靠全文。优先标注“AI 字幕质量不可用”，再考虑 ASR 兜底；若 ASR 也不可用，只能基于分P标题、简介、评论和元数据生成有限学习指南，并明确局限。
-
-### 5. 抓评论区
-
-```powershell
-& $py "$skill\scripts\extract_bilibili.py" "BVxxxx" --out ".\tmp_bili_extract" --comments
-```
-
-图文评论用总入口或图文脚本：
-
-```powershell
-& $py "$skill\scripts\extract_bilibili_opus.py" "https://www.bilibili.com/opus/1194341967364882439" --out ".\tmp_bili_opus" --comments
-```
-
-抓取后检查 `comments.md` 和 `comments_raw.json`。写入最终笔记时，只保留与内容主题相关的评论、纠错、技术补充、实践经验和有价值问题。
-
-### 6. 音频转写兜底
-
-只有在字幕和网页 AI 字幕都不可用时才用本地自动语音识别。长视频不要默认全量转写，除非用户明确要求。中文或未指定语言默认 `--asr-backend auto` 会优先共享 Qwen3-ASR；明确外语视频时用 Whisper 系后端。
-
-```powershell
-& $py "$skill\scripts\extract_bilibili.py" "BVxxxx" --out ".\tmp_bili_extract" --parts "1,10,38" --download-audio --transcribe --asr-backend auto --asr-model base
-```
-
-首次使用 Qwen3-ASR 前先安装共享环境：
-
-```powershell
-& $py "$skill\scripts\setup_qwen_asr_env.py"
-& $py "$skill\scripts\check_environment.py"
-```
-
-中文视频可显式指定 Qwen3-ASR：
-
-```powershell
-& $py "$skill\scripts\extract_bilibili.py" "BVxxxx" --out ".\tmp_bili_extract" --parts "1,10,38" --download-audio --transcribe --asr-backend qwen3-asr
-```
-
-### 7. 归档完整材料
-
-把临时提取目录整理成长期材料包。这个步骤默认要做，方便后续根据总结继续提问和回查证据。
-
-```powershell
-& $py "$skill\scripts\archive_bili_materials.py" --extract-dir ".\tmp_bili_extract" --archive-dir "D:\knowledge\知识库\Rag技术\原始材料\BVxxxx_视频短标题"
-```
-
-长期材料包包含：
-
-- `articles/图文全文.md`：完整图文 Markdown。
-- `articles/图文全文.txt`：完整图文纯文本。
-- `images/`：图文图片和图片清单。
-- `indexes/图文全集.md`：合并后的完整图文正文。
-- `indexes/图文全集.jsonl`：按图文内容块切分，适合检索和问答。
-- `indexes/图文证据索引.md`：图文证据块，适合给总结加引用。
-- `indexes/图文证据索引.jsonl`：图文证据块，适合程序检索。
-- `subtitles/txt/`：每个分P的完整纯文本字幕。
-- `subtitles/srt/`：每个分P的完整 SRT 字幕和时间轴。
-- `subtitles/json/`：B站原始字幕 JSON。
-- `comments/comments_raw.json`：完整评论原始结构。
-- `comments/评论全集.md`：完整评论 Markdown。
-- `indexes/字幕全集.md`：合并后的完整字幕，适合人工阅读。
-- `indexes/字幕全集.jsonl`：按字幕片段切分，适合检索和问答。
-- `indexes/字幕证据索引.md`：按时间段合并的字幕证据块，适合给总结加引用。
-- `indexes/字幕证据索引.jsonl`：按时间段合并的字幕证据块，适合程序检索。
-- `indexes/评论全集.jsonl`：按评论/回复切分，适合检索和问答。
-- `indexes/评论证据索引.jsonl`：按评论/回复生成的证据块。
-- `indexes/证据索引.jsonl`：图文/字幕证据和评论证据的合并索引。
-- `metadata/`：内容元数据、字幕清单、图文清单、评论清单。
-- `metadata/note_budget.json`：按内容信息量和互动质量生成的笔记预算，用于控制长短视频、长短图文的提炼粒度，并提示字幕稀疏时的视觉补证需求。
-
-### 8. 写前读取预算，写后验收信噪比
-
-写笔记前先看预算。预算是本次笔记的目标，不是写完后才补救的报告：
-
-```powershell
-Get-Content -Encoding UTF8 "D:\knowledge\知识库\Rag技术\原始材料\BVxxxx_视频短标题\metadata\note_budget.json"
-```
-
-重点先确定：
-
-- 推荐字数区间：`recommended_note_chars_min` 到 `recommended_note_chars_max`。
-- 写作粒度：`granularity` 和 `writing_guidance`。
-- 信息量基准：视频看 `duration_minutes`、`subtitle_chars`，图文看 `content_chars`、`reading_minutes_estimate`。
-- 字幕密度：视频看 `subtitle_chars_per_minute` 和 `visual_dependency`；长视频字幕过少时先补关键帧/OCR/多模态视觉理解。
-- 质量倍率：`quality_multiplier` 和 `quality_metrics`，用于判断是否值得保留更多细节。
-- 证据规模：`all_evidence_blocks`，用于决定关键判断需要覆盖多少证据。
-
-写完最终 Markdown 后，用归档目录里的预算给笔记打分：
-
-```powershell
-& $py "$skill\scripts\score_bili_note.py" `
-  --archive-dir "D:\knowledge\知识库\Rag技术\原始材料\BVxxxx_视频短标题" `
-  --note-path "D:\knowledge\知识库\Rag技术\观点X：视频短标题.md" `
-  --out "D:\knowledge\知识库\Rag技术\原始材料\BVxxxx_视频短标题\metadata\note_score.json"
-```
-
-也可以直接把评分结果写入笔记正文：
-
-```powershell
-& $py "$skill\scripts\update_note_budget_section.py" `
-  --archive-dir "D:\knowledge\知识库\Rag技术\原始材料\BVxxxx_视频短标题" `
-  --note-path "D:\knowledge\知识库\Rag技术\观点X：视频短标题.md"
-```
-
-重点看：
-
-- `status`：`too_short` 表示遗漏风险高，`too_long` 表示可能重复堆料，`ok` 表示落在写前推荐区间。
-- `quality_multiplier`：点赞、收藏、投币、评论、弹幕、分享、播放量和发布距今天数形成的互动质量倍率。
-- `actual_compression_ratio`：笔记字数 / 字幕字数。长视频应允许更高总字数，但仍要保持压缩。
-- `note_chars_per_minute`：每分钟视频对应多少笔记字。长课程不应和短视频接近同一个总字数。
-- `evidence_reference_ratio`：笔记中引用的证据块占比。关键判断要能回查图文证据 `O...`、字幕证据 `Pxx@...` 或评论证据 `C...`；正文用统一数字编号，文末编号脚注和 reference-style 链接定义必须指向含完整证据 ID 的归档文件。
-
-## 笔记写法
-
-默认输出必须是“学习型笔记”，不是目录搬运、分P流水账或证据清单。读完后应有“我真的学会了一些东西”的获得感。
-
-### 推荐结构
+## 推荐笔记结构
 
 1. `# 标题`
-2. `## 学完你应该获得什么`：用 5-8 条写清楚读者学完后能理解、判断或完成什么。
-3. `## 一句话总论`：说明视频最核心的判断，避免只复述标题。
-4. `## 适用场景与前置知识`：这套内容适合谁、不适合谁，读者需要先知道什么。
-5. `## 知识地图`：把核心概念、模块、流程和它们之间的关系讲清楚。课程型视频要有模块表；短观点视频要有论证链。
-6. `## 核心概念卡`：每个重要概念都写成“是什么、为什么重要、怎么用、常见误区、相关证据”。
-7. `## 方法或流程`：把原内容中的操作、架构、决策流程、参数选择、评估方法抽成可复用步骤。
-8. `## 关键洞察`：写作者真正想表达的判断，区分“事实描述、经验判断、推荐做法、限制条件”。
-9. `## 实践清单`：给出可以照着做的步骤、检查项、失败信号和排错方向。
-10. `## 坑点与反例`：整理视频和评论区提到的踩坑、争议、误区、边界条件。
-11. `## 自测题`：写 5-10 个问题和简短答案，帮助人或 Agent 检查是否学会。
-12. `## 证据与原文位置`：只放关键证据引用，不要让证据淹没学习内容。
-13. `## 来源、覆盖与局限`：URL、BVID、UP、发布时间、字幕/评论覆盖、原始材料路径和局限放在后面。
+2. `## 学完你应该获得什么`
+3. `## 一句话总论`
+4. `## 适用场景与前置知识`
+5. `## 知识地图`
+6. `## 核心概念卡`
+7. `## 方法或流程`
+8. `## 关键洞察与适用边界`
+9. `## 实践清单`
+10. `## 坑点、反例与评论补充`
+11. `## 自测题`
+12. `## 证据与原文位置`
+13. `## 来源、覆盖与局限`
 
-### 写作标准
+## 证据标注
 
-- 先解释“为什么”和“怎么迁移使用”，再列“他说了什么”。
-- 对课程型长视频，按学习模块组织，不要按分P机械压缩。每个模块至少包含：学习目标、核心概念、关键步骤、常见坑、可操作结论。
-- 对观点型短视频，按“问题背景 -> 作者判断 -> 论据 -> 适用边界 -> 对用户的启发”组织。
-- 对技术教程和图文长文，保留架构、数据流、代码思路、配置项、图片结论、评估方式和排错路径。
-- 如果长视频字幕/转写密度过低，先补视觉证据；没有多模态视觉能力时，明确把当前笔记标为“基于字幕/元数据的有限整理”。
-- 评论区只写有学习价值的内容：纠错、补充案例、实践经验、替代方案、争议点。
-- 证据引用服务于学习，不要把笔记写成引用列表。正文默认使用统一的论文式数字编号，例如 `[1][2]`；图文证据、字幕证据、评论证据共用一套编号，按正文首次出现顺序递增。不要在正文段落里直接塞很长的 `O<opus_id>-E001`、`Pxx@hh:mm:ss-hh:mm:ss` 或 `C<rpid>`。
-- 在 `## 来源、覆盖与局限` 之前放 `## 证据脚注`。脚注用有序列表写明编号和证据链接，例如 `1. [图文证据 E006](原始材料/O.../indexes/图文证据索引.md#O...-E006)`；列表后再放 reference-style 链接定义，例如 `[1]: 原始材料/O.../indexes/图文证据索引.md#O...-E006 "图文证据 E006"`，让正文里的 `[1]` 也能点击跳转。
-- 保留 `## 证据与原文位置` 作为证据总览，但总览里也只写 `[1]`、`[2]` 这样的编号，不再直接显示长证据 ID。
-- 写前先按 `note_budget.json` 定标，再开始写笔记；写后评分只用于验收和微调，不要把主要长度决策推迟到评分阶段。
-- 预算偏短或写后评分过短时，优先补“概念解释、流程图式文字、实践清单、自测题、反例和边界”，不要只增加摘要段落。
-- 热度是“值得多写”的辅助信号，不是替代证据。点赞、收藏、评论、弹幕、投币、分享和发布距今天数会提高或降低推荐字数，但扩写必须来自图文正文、字幕、评论证据和内容结构。
+正文使用简洁数字编号 `[1][2]`，在“证据与原文位置”中说明类型：
 
-### 不合格信号
+- 转录证据：媒体 ID、时间范围和短引用；
+- 画面证据：关键帧时间戳和可见内容；
+- 评论证据：评论 ID、作者和关键观点；
+- 图文证据：归档证据 ID 和原文位置；
+- Agent 推理：明确写成综合判断，不伪装成原作者原话。
 
-- 开头大段来源信息，读者看半天还不知道学到了什么。
-- 只有“核心观点/分P提炼/代表性证据”，没有概念解释、方法步骤和自测。
-- 把每个分P压成一句话，长课程读完仍不知道怎么做。
-- 长视频字幕极少，却没有提示画面依赖，也没有补关键帧/OCR/视觉理解。
-- 只总结作者立场，不写适用条件、反例和失败场景。
-- 评论区只是罗列热评，没有转化成纠错、补充或实践提醒。
+## 不合格信号
 
-不要把“只看了标题/目录”的内容写成“完整提取”。如果只抓到部分字幕或只转写了部分分P，明确列出覆盖范围。
-
-## B站字幕注意事项
-
-- 普通 `/x/player/v2` 可能只返回 `ai-zh` 字幕元信息，`subtitle_url` 为空。
-- 网页播放器接口 `/x/player/wbi/v2` 常能返回真正的 AI 字幕 URL。
-- AI 字幕常把技术词识别错：RAG 可能识别成 RG、ROG、rap；LangChain 可能识别成 non chain、long chain；reranker 可能识别成“瑞 rank”。
-- 总结时要结合分P标题和技术语境校正术语。
-
-## B站图文注意事项
-
-- 图文/动态正文优先从页面内的 `window.__INITIAL_STATE__` 读取；公开 polymer 动态接口可能返回风控错误。
-- 图文正文会保留标题、段落、标题层级、列表、代码块、链接卡片、图片 URL 和图片清单。
-- 图文评论对象通常不是 opus id 本身，而是页面数据里的 `basic.comment_type` 和 `basic.comment_id_str`；抓评论时不要硬套视频的 `type=1/oid=aid`。
-- 如果用户让你总结图文中的图片含义，先检查 `images/` 或 `images_manifest.json`；仅凭图片 URL 不足以判断内容时，应说明图片视觉内容未被完整理解。
+- 用户只给视频 URL，却绕过系统媒体模块自行下载和转写。
+- 没有 mediaId 或解析未完成，却声称已完整观看视频。
+- 长视频一次性加载全部转录，导致上下文浪费。
+- 把分 P 目录或评论罗列当成学习笔记。
+- 字幕稀疏且缺少视觉验证，却声称完整解析。
+- 不区分原文证据、评论观点和 Agent 推断。
 
 ## 相关文件
 
-- `scripts/check_environment.py`：检查核心流程、网页 AI 字幕、音频转写和测试依赖是否可用。
-- `scripts/setup_qwen_asr_env.py`：创建/更新共享的 Qwen3-ASR Python 环境。
-- `scripts/run_qwen_asr.py`：调用 Qwen3-ASR-0.6B，可按 chunk 分段避免显存溢出。
-- `scripts/run_bili_note.py`：一键运行视频/图文提取、评论、归档和证据索引流程。
-- `scripts/extract_bilibili.py`：元数据、字幕探测、普通字幕、音频、音频转写、评论抓取。
-- `scripts/extract_bilibili_opus.py`：B站图文/动态正文、图片、代码块和图文评论抓取。
-- `scripts/fetch_browser_ai_subtitles.py`：通过已登录网页播放器下载 B站 AI 字幕。
-- `scripts/archive_bili_materials.py`：归档完整材料，生成全文索引、证据索引和带字幕密度/视觉依赖提示的笔记预算。
-- `scripts/score_bili_note.py`：按 `metadata/note_budget.json` 验收最终笔记的长度、压缩比、证据引用和视觉依赖提示。
-- `scripts/update_note_budget_section.py`：把预算、互动质量和信噪比评分写回 Markdown 笔记。
-- `references/bilibili-api-notes.md`：接口细节和已知坑。
+- `scripts/check_environment.py`：检查图文/评论辅助脚本和 B 站公开接口。
+- `scripts/extract_bilibili.py`：抓取视频公开元数据和可选评论，不处理字幕、音频或 ASR。
+- `scripts/run_bili_note.py`：图文/动态一键提取与归档；视频输入会提示改用系统媒体解析。
+- `scripts/extract_bilibili_opus.py`：抓取图文正文、图片、代码块和评论。
+- `scripts/archive_bili_materials.py`：归档图文与评论材料并生成证据索引。
+- `scripts/score_bili_note.py`：验收归档型笔记的长度、压缩比和证据引用。
+- `scripts/update_note_budget_section.py`：把图文归档预算和评分写回 Markdown。
+- `references/bilibili-api-notes.md`：公开元数据、评论和图文接口注意事项。

@@ -15,9 +15,20 @@ def test_skill_requires_learning_oriented_notes():
     assert "不合格信号" in text
 
 
-def test_skill_declares_chrome_web_access_requirement():
+def test_skill_requires_authorized_media_read_for_video():
     text = (ROOT / "SKILL.md").read_text(encoding="utf-8")
 
-    assert "Chrome + `web-access`" in text
-    assert "不要读取或复制 Cookie/profile" in text
-    assert "不要强制结束用户浏览器进程" in text
+    assert 'media_read(mediaId="<authorized mediaId>", mode="metadata")' in text
+    assert 'mode="search", query="<主题>"' in text
+    assert 'mode="transcript")' in text
+    assert 'mode="frames")' in text
+    assert "`nextCursor` 作为 `cursor`" in text
+    assert "当前附件上下文必须提供 `mediaId`" in text
+    assert "不要自行回退到下载音频或安装 ASR" in text
+
+
+def test_skill_keeps_video_content_out_of_helper_scripts():
+    text = (ROOT / "SKILL.md").read_text(encoding="utf-8")
+
+    assert "不下载视频音频" in text
+    assert "run_bili_note.py` 不再处理视频 URL" in text

@@ -3,11 +3,13 @@ import { ref, computed, onMounted } from 'vue'
 import { useAppStore } from '@/stores/app'
 import { useSettingsStore } from '@/stores/settings'
 import { useMessage } from '@/components/MsMessage/useMessage'
+import { useMessageBox } from '@/components/MsMessageBox/useMessageBox'
 
 const appStore = useAppStore()
 const ss = useSettingsStore()
 const isDark = computed(() => appStore.isDark)
 const msg = useMessage()
+const mbox = useMessageBox()
 
 const cacheSize = ref('--')
 const dataSize = ref('--')
@@ -19,6 +21,7 @@ const clearConfirm = ref(false)
 const backupLoadingMode = ref('')
 const backupResult = ref(null)
 const backupError = ref('')
+const restoreLoading = ref(false)
 const configLoadingMode = ref('')
 
 function fmtSize(bytes) {
@@ -193,6 +196,32 @@ async function revealBackup() {
   await window.electronAPI.showItemInFolder(filePath)
 }
 
+async function restoreBackup() {
+  const confirmed = await mbox.confirm({
+    title: '恢复本地数据',
+    subtitle: '应用会先校验备份并创建当前数据的安全备份',
+    message: '恢复将替换当前数据库，并覆盖备份包中包含的工作区文件。准备完成后应用会立即重启。',
+    variant: 'warning',
+    confirmText: '选择备份并恢复',
+    cancelText: '取消',
+  })
+  if (!confirmed) return
+  restoreLoading.value = true
+  backupError.value = ''
+  try {
+    const result = await window.electronAPI?.backup?.prepareRestore?.()
+    if (result?.canceled) return
+    if (!result?.success) throw new Error(result?.error || '恢复准备失败')
+    msg.success('备份已校验，正在重启并恢复数据', { title: '恢复准备完成', duration: 3000 })
+    await window.electronAPI?.relaunch?.()
+  } catch (err) {
+    backupError.value = err?.message || '恢复准备失败'
+    msg.error(backupError.value, { title: '恢复失败', duration: 6000 })
+  } finally {
+    restoreLoading.value = false
+  }
+}
+
 async function resetSettings() {
   resetConfirm.value = false
   const defaults = {
@@ -212,8 +241,14 @@ async function resetSettings() {
   }
 }
 
-onMounted(() => {
+onMounted(async () => {
   loadDataMetrics()
+  const result = await window.electronAPI?.backup?.getRestoreResult?.()
+  if (result?.data?.success) {
+    msg.success(`已从 ${result.data.sourceFileName || '备份包'} 恢复数据`, { title: '数据恢复完成', duration: 6000 })
+  } else if (result?.data && result.data.success === false) {
+    msg.error(result.data.error || '数据恢复失败', { title: '恢复未完成', duration: 8000 })
+  }
 })
 </script>
 
@@ -320,7 +355,7 @@ onMounted(() => {
           <i class="ri-filter-3-line text-[16px] text-emerald-400" />
           <div class="flex-1 min-w-0">
             <div class="text-[12px] font-bold" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">精简备份</div>
-            <div class="text-[10px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">不包含产物、输出、大型附件</div>
+            <div class="text-[10px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">保留核心文字资料，不含原片与大型附件</div>
           </div>
           <i v-if="backupLoadingMode === 'compact'" class="ri-loader-4-line text-[12px] animate-spin" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'" />
           <i v-else class="ri-download-line text-[12px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'" />
@@ -334,13 +369,14 @@ onMounted(() => {
           <i v-if="backupLoadingMode === 'database'" class="ri-loader-4-line text-[12px] animate-spin" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'" />
           <i v-else class="ri-download-line text-[12px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'" />
         </button>
-        <button disabled class="row flex items-center gap-3 py-3 px-3 rounded-lg text-left transition-colors opacity-55 cursor-not-allowed" :class="isDark ? 'bg-d0 border border-d4' : 'bg-l2 border border-bdrF'">
+        <button @click="restoreBackup" :disabled="restoreLoading || !!backupLoadingMode" class="row flex items-center gap-3 py-3 px-3 rounded-lg text-left transition-colors disabled:opacity-55 disabled:cursor-not-allowed" :class="isDark ? 'bg-d0 border border-d4 hover:border-sky-400/30' : 'bg-l2 border border-bdrF hover:border-sky-200'">
           <i class="ri-upload-2-line text-[16px] text-sky-400" />
           <div class="flex-1 min-w-0">
             <div class="text-[12px] font-bold" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">恢复数据</div>
-            <div class="text-[10px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">导入备份包，即将支持</div>
+            <div class="text-[10px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">校验备份 / 自动安全备份 / 重启恢复</div>
           </div>
-          <span class="ctx-pill" :class="isDark ? 'bg-d4 text-wt-dim border border-bdr' : 'bg-l4 text-lt-aux border border-bdrF'">即将支持</span>
+          <i v-if="restoreLoading" class="ri-loader-4-line animate-spin text-[12px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'" />
+          <i v-else class="ri-restart-line text-[12px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'" />
         </button>
       </div>
       <div v-if="backupResult" class="mt-3 pt-3 flex items-center gap-2 text-[10px]" :class="isDark ? 'text-wt-dim border-t border-d4' : 'text-lt-aux border-t border-bdrF'">

@@ -1,6 +1,6 @@
 import { UNLIMITED_RECURSION_LIMIT } from './constants.js'
 
-const DEFAULT_AGENT_TOOL_IDS = ['document_read']
+const DEFAULT_AGENT_TOOL_IDS = ['document_read', 'media_read']
 const VISION_AGENT_TOOL_IDS = ['vision_analyze']
 const CLOUD_KNOWLEDGE_TOOL_IDS = new Set(['kb_search'])
 
@@ -15,6 +15,7 @@ export function withDefaultAgentTools(toolIds, { modelHasVision = false, visionA
 export function withPermissionAgentTools(toolIds, permissions = {}) {
   const ids = [...(toolIds || [])]
   if (permissions?.execCommand) ids.push('exec_command')
+  if (permissions?.noteRead || permissions?.noteWrite) ids.push('note_tool')
   return [...new Set(ids)]
 }
 

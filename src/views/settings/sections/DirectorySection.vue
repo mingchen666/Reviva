@@ -72,7 +72,7 @@ const {
         </span>
       </div>
       <p class="text-[11px] mb-3" :class="isDark ? 'text-wt-aux' : 'text-lt-aux'">
-        Agent 所有文件操作仅限此目录下的 docs/、notes/ 和 agents/ 子目录。选择后将自动创建目录结构。
+        Agent 所有文件操作仅限此目录下的 docs/、notes/ 和 agents/ 等子目录。选择后将自动创建目录结构。
       </p>
 
       <!-- "What is this?" friendly explainer -->
@@ -92,7 +92,7 @@ const {
           <div>
             选择后会自动创建
             <span class="font-mono" :class="isDark ? 'text-wt-sub' : 'text-lt-main'">
-              docs/ · notes/ · agents/ · skills/ · .reviva/
+              docs/ · notes/ · agents/ · skills/ · .reviva/等
             </span>
             子目录。建议选一个有较大可用知识库、便于备份的位置（例如个人文档分区）。
           </div>
@@ -212,7 +212,7 @@ const {
         class="flex items-center gap-1.5 text-[10px]"
         :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">
         <i class="ri-information-line text-[11px]" />
-        <span>目录结构: .reviva/ · docs/ · notes/ · agents/ · skills/</span>
+        <span>目录结构: .reviva/ · docs/ · notes/ · agents/ · skills/等</span>
       </div>
 
       <!-- Authorized roots / workspaces — keep the original card, append management here -->
@@ -307,7 +307,7 @@ const {
       <div class="space-y-2">
         <div class="flex items-start gap-2 text-[11px] leading-relaxed" :class="isDark ? 'text-wt-aux' : 'text-lt-aux'">
           <i class="ri-checkbox-circle-line text-emerald-400 text-[12px] mt-[1px] shrink-0" />
-          <span>所有 Agent 文件操作严格限于 docs/、notes/ 和 agents/ 目录内</span>
+          <span>所有 Agent 文件操作严格限于 docs/、notes/ 和 agents/ 等目录内</span>
         </div>
         <div class="flex items-start gap-2 text-[11px] leading-relaxed" :class="isDark ? 'text-wt-aux' : 'text-lt-aux'">
           <i class="ri-checkbox-circle-line text-emerald-400 text-[12px] mt-[1px] shrink-0" />

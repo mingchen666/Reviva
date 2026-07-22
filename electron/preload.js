@@ -28,6 +28,23 @@ const api = {
     startOcr: (filePath, options) => ipcRenderer.invoke('pdf:startOcr', filePath, options),
     listImages: (filePath, options) => ipcRenderer.invoke('pdf:listImages', filePath, options),
   },
+  media: {
+    register: (sourceInput) => ipcRenderer.invoke('media:register', sourceInput),
+    registerAndAnalyze: (sourceInput, options) => ipcRenderer.invoke('media:registerAndAnalyze', sourceInput, options),
+    resolveOwner: (owner) => ipcRenderer.invoke('media:resolveOwner', owner),
+    attachOwner: (mediaId, owner) => ipcRenderer.invoke('media:attachOwner', mediaId, owner),
+    analyze: (mediaId, options) => ipcRenderer.invoke('media:analyze', mediaId, options),
+    cancel: (runId) => ipcRenderer.invoke('media:cancel', runId),
+    getRun: (runId) => ipcRenderer.invoke('media:getRun', runId),
+    query: (request) => ipcRenderer.invoke('media:query', request),
+    history: (mediaId, options) => ipcRenderer.invoke('media:history', mediaId, options),
+    restoreRun: (mediaId, runId) => ipcRenderer.invoke('media:restoreRun', mediaId, runId),
+    exportTranscript: (mediaId, options) => ipcRenderer.invoke('media:exportTranscript', mediaId, options),
+    readFrame: (mediaId, frameId, options) => ipcRenderer.invoke('media:readFrame', mediaId, frameId, options),
+    checkSpeechProvider: (providerId, config) => ipcRenderer.invoke('media:checkSpeechProvider', providerId, config),
+    getBilibiliCookieStatus: () => ipcRenderer.invoke('media:getBilibiliCookieStatus'),
+    saveBilibiliCookie: (cookie) => ipcRenderer.invoke('media:saveBilibiliCookie', cookie),
+  },
 
   // Shell
   openPath: (filePath) => ipcRenderer.invoke('shell:openPath', filePath),
@@ -51,6 +68,8 @@ const api = {
   backup: {
     getModes: () => ipcRenderer.invoke('backup:getModes'),
     create: (options) => ipcRenderer.invoke('backup:create', options),
+    prepareRestore: () => ipcRenderer.invoke('backup:prepareRestore'),
+    getRestoreResult: () => ipcRenderer.invoke('backup:getRestoreResult'),
   },
   setStartup: (enabled) => ipcRenderer.invoke('app:setStartup', enabled),
   setMinimizeToTray: (enabled) => ipcRenderer.invoke('app:setMinimizeToTray', enabled),
@@ -303,6 +322,7 @@ const api = {
     readPage: (id, pagePath) => ipcRenderer.invoke('wiki:readPage', id, pagePath),
     listSources: (id) => ipcRenderer.invoke('wiki:listSources', id),
     addSource: (id, data) => ipcRenderer.invoke('wiki:addSource', id, data),
+    addMediaSource: (id, mediaId, options) => ipcRenderer.invoke('wiki:addMediaSource', id, mediaId, options),
     addNoteSource: (id, noteId) => ipcRenderer.invoke('wiki:addNoteSource', id, noteId),
     reparseSource: (id, sourceId) => ipcRenderer.invoke('wiki:reparseSource', id, sourceId),
     deleteSource: (id, sourceId) => ipcRenderer.invoke('wiki:deleteSource', id, sourceId),
@@ -429,6 +449,15 @@ const api = {
       update: (id, data) => ipcRenderer.invoke('db:mcpServers:update', id, data),
       delete: (id) => ipcRenderer.invoke('db:mcpServers:delete', id),
     },
+    // User-defined local text macros
+    quickInputs: {
+      list: () => ipcRenderer.invoke('db:quickInputs:list'),
+      get: (id) => ipcRenderer.invoke('db:quickInputs:get', id),
+      create: (data) => ipcRenderer.invoke('db:quickInputs:create', data),
+      update: (id, data) => ipcRenderer.invoke('db:quickInputs:update', id, data),
+      delete: (id) => ipcRenderer.invoke('db:quickInputs:delete', id),
+      reorder: (ids) => ipcRenderer.invoke('db:quickInputs:reorder', ids),
+    },
     // Sub Agents
     subAgents: {
       list: () => ipcRenderer.invoke('db:subAgents:list'),
@@ -518,6 +547,14 @@ const api = {
       update: (id, data) => ipcRenderer.invoke('db:notes:update', id, data),
       delete: (id) => ipcRenderer.invoke('db:notes:delete', id),
     },
+  },
+  localGateway: {
+    getStatus: () => ipcRenderer.invoke('localGateway:getStatus'),
+    createKey: () => ipcRenderer.invoke('localGateway:createKey'),
+    resetKey: () => ipcRenderer.invoke('localGateway:resetKey'),
+    getKey: () => ipcRenderer.invoke('localGateway:getKey'),
+    updateConfig: (patch) => ipcRenderer.invoke('localGateway:updateConfig', patch),
+    restart: () => ipcRenderer.invoke('localGateway:restart'),
   },
   update: {
     check: () => ipcRenderer.invoke('update:check'),

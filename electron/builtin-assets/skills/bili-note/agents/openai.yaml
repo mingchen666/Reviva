@@ -1,4 +1,4 @@
 interface:
   display_name: "Bili Note"
   short_description: "把 B站视频和图文转成学习型知识笔记。"
-  default_prompt: "Use $bili-note to extract a Bilibili video or opus/article post, archive full subtitles or article content, images, useful comments, and evidence indexes, then save a learning-oriented Markdown note with concepts, workflows, pitfalls, practice checklists, and self-test questions."
+  default_prompt: "Use $bili-note to turn an authorized, already-parsed MindSpace Bilibili media item or a Bilibili opus/article post into an evidence-linked Markdown learning note. For video, read metadata first, search and page through transcript evidence with media_read, inspect keyframes only when needed, and never download audio or run a skill-managed ASR environment."

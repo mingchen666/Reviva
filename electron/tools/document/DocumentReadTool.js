@@ -430,16 +430,15 @@ export function createDocumentReadTool({
 
       if (MEDIA_EXTS.has(ext)) {
         return JSON.stringify(unsupportedRoute(
-          'MEDIA_READ_PENDING',
-          '音视频解析工具尚未接入，当前返回待支持状态。',
+          'MEDIA_TOOL_RECOMMENDED',
+          '这是音视频文件，请使用 media_read 读取已登记的解析结果。',
           {
             success: true,
             type: 'media',
             file: baseFile('media'),
-            statusState: 'media_read_pending',
-            tone: 'future',
+            statusState: 'media_tool_recommended',
             action: 'media_read',
-            reason: '未来接入 media_read 后会由 document_read 分发。',
+            reason: 'media_read 按 mediaId 读取当前已发布解析结果；mediaId 由用户本次选择的媒体附件上下文提供。',
           },
         ))
       }
@@ -452,7 +451,7 @@ export function createDocumentReadTool({
           file: baseFile('unknown'),
           statusState: 'unsupported_format',
           action: 'convert_or_use_specific_tool',
-          reason: 'document_read 第一版只路由 PDF、Office 和未来媒体解析文件。',
+          reason: 'document_read 只路由 PDF 和 Office；音视频使用 media_read，其他格式使用对应专用工具。',
         },
       ))
     },

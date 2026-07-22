@@ -18,16 +18,17 @@ const isDark = computed(() => appStore.isDark)
 const accentHex = computed(() => settingsStore.currentAccentHex)
 
 const navGroups = [
-  { label: '模型', keys: ['default-models', 'models','ocr',] },
+  { label: '模型', keys: ['default-models', 'models', 'speech-models', 'ocr'] },
   { label: '工作台', keys: ['directory', 'environment',  'sandbox'] },
   { label: '记录与统计', keys: ['memory', 'usage'] },
-  { label: '界面与桌面', keys: ['preference', 'shortcuts', 'notifications'] },
-  { label: '数据与系统', keys: [ 'data', 'about', 'author'] },//['network', 'data', 'about']
+  { label: '界面与桌面', keys: ['preference', 'shortcuts', 'quick-inputs', 'notifications'] },
+  { label: '数据与系统', keys: ['local-gateway', 'data', 'about', 'author'] },//['network', 'data', 'about']
 ]
 
 const sectionMap = {
-  'default-models': { name: '默认模型', icon: 'ri-cloudy-line', color: 'brand', hint: '为对话、Skill、Agent、嵌入指定默认模型' },
+  'default-models': { name: '默认模型', icon: 'ri-cloudy-line', color: 'brand', hint: '为对话、Skill、Agent、翻译等指定默认模型' },
   models: { name: '模型服务', icon: 'ri-ai-generate-3d-line', color: 'agent', hint: '配置 LLM 服务商与模型启用' },
+  'speech-models': { name: '语音模型配置', icon: 'ri-mic-line', color: 'amber', hint: '配置语音转文本服务；文本转语音将在后续版本开放' },
   // network: { name: '网络与代理', icon: 'ri-global-line', color: 'blue', hint: '代理设置 · 中国用户访问国外 API 必备' },
   directory: { name: '目录与权限', icon: 'ri-folder-shield-line', color: 'emerald', hint: '设置 Agent 可访问的目录与权限范围' },
   environment: { name: '环境管理', icon: 'ri-tools-line', color: 'emerald', hint: '检测 Python / Node / FFmpeg / Pandoc 等系统依赖' },
@@ -35,9 +36,11 @@ const sectionMap = {
   sandbox: { name: '沙箱与限流', icon: 'ri-shield-check-line', color: 'amber', hint: 'Agent 沙箱执行环境的全局配置' },
   memory: { name: '记忆管理', icon: 'ri-brain-line', color: 'rose', hint: '管理 Agent 与对话使用的长期记忆' },
   usage: { name: '用量统计', icon: 'ri-line-chart-line', color: 'emerald', hint: '查看 Token 消耗与成本' },
-  preference: { name: '偏好配置', icon: 'ri-equalizer-line', color: 'agent', hint: '外观、风格、显示密度等界面偏好' },
+  preference: { name: '偏好配置', icon: 'ri-equalizer-line', color: 'agent', hint: '外观、语气风格等界面偏好' },
   shortcuts: { name: '快捷键', icon: 'ri-keyboard-line', color: 'brand', hint: '全局与应用内键盘快捷键' },
+  'quick-inputs': { name: '快捷输入', icon: 'ri-at-line', color: 'brand', hint: '管理聊天中的 @ 快捷输入' },
   notifications: { name: '通知与启动', icon: 'ri-notification-3-line', color: 'amber', hint: '声音通知、托盘与开机自启' },
+  'local-gateway': { name: '网关服务', icon: 'ri-router-line', color: 'brand', hint: '通过 HTTP 对外开放 Reviva 能力' },
   data: { name: '数据与备份', icon: 'ri-database-2-line', color: 'emerald', hint: '导出导入配置、缓存清理与数据迁移' },
   about: { name: '系统版本', icon: 'ri-information-line', color: 'rose', hint: '版本、更新日志与系统信息' },
   author: { name: '关于作者', icon: 'ri-user-heart-line', color: 'brand', hint: '作者、开发意图与联系信息' },
@@ -50,7 +53,7 @@ const activeSection = computed(() => {
     const section = path.slice(prefix.length)
     if (sectionMap[section]) return section
   }
-  return 'defaultModels'
+  return 'default-models'
 })
 
 const currentSectionInfo = computed(() => sectionMap[activeSection.value])
@@ -69,7 +72,7 @@ const currentSectionInfo = computed(() => sectionMap[activeSection.value])
       <div class="flex-1 overflow-y-auto px-2 py-1">
         <template v-for="g in navGroups" :key="g.label">
           <div>
-            <div class="text-[9px] font-bold uppercase tracking-[0.1em] px-3 pt-2 pb-1" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">{{ g.label }}</div>
+            <div class="text-[10px] font-bold uppercase tracking-[0.1em] px-3 pt-1 pb-1" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">{{ g.label }}</div>
             <div class="space-y-0.5">
               <button
                 v-for="k in g.keys"
@@ -82,9 +85,9 @@ const currentSectionInfo = computed(() => sectionMap[activeSection.value])
               >
                 <span v-show="activeSection === k" class="absolute left-0 top-2 bottom-2 w-[2px] rounded-r" :style="{ backgroundColor: accentHex }" />
                 <div class="w-[22px] h-[22px] rounded-md flex items-center justify-center shrink-0" :class="activeSection === k ? (isDark ? 'bg-d0' : 'bg-l2') : ''">
-                  <i :class="`${sectionMap[k].icon} text-[16px] ${activeSection === k ? (isDark ? 'text-brand-400' : 'text-brand-500') : ''}`" />
+                  <i :class="`${sectionMap[k].icon} text-[15px] ${activeSection === k ? (isDark ? 'text-brand-400' : 'text-brand-500') : ''}`" />
                 </div>
-                <span class="text-[15px] font-medium flex-1 text-left">{{ sectionMap[k].name }}</span>
+                <span class="text-[14px] font-medium flex-1 text-left">{{ sectionMap[k].name }}</span>
                 <span v-if="sectionMap[k].badge" class="text-[10px] font-semibold px-1.5 py-[1px] rounded" :class="isDark ? 'bg-d4 text-wt-dim' : 'bg-l4 text-lt-aux'">{{ sectionMap[k].badge }}</span>
               </button>
             </div>
@@ -109,9 +112,9 @@ const currentSectionInfo = computed(() => sectionMap[activeSection.value])
       </div>
 
       <!-- Footer -->
-      <div class="px-4 py-2.5 flex items-center justify-between" :class="isDark ? 'border-t border-d4' : 'border-t border-bdrL'">
-        <span class="text-[10px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">v{{appVersion}}</span>
-        <span class="text-[10px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">© Reviva</span>
+      <div class="px-4 py-2 flex items-center justify-between" :class="isDark ? 'border-t border-d4' : 'border-t border-bdrL'">
+        <span class="text-[12px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">v{{appVersion}}</span>
+        <span class="text-[12px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">© Reviva</span>
       </div>
     </LeftPanel>
 

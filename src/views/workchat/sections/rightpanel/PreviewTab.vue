@@ -3,12 +3,13 @@ import md from '@/utils/markdown'
 import { normalizeFilePath, toFileUrl } from '@/utils/fileUrl'
 import { computed, defineAsyncComponent, ref, watch } from 'vue'
 import { buildHtmlPreviewContent } from './htmlPreview'
+import MediaStatusBadge from '@/components/media/MediaStatusBadge.vue'
 
 const HtmlPreviewModal = defineAsyncComponent(() => import('./HtmlPreviewModal.vue'))
 
 const props = defineProps({ previewFile: Object, isDark: Boolean })
 
-const emit = defineEmits(['preview-file', 'close'])
+const emit = defineEmits(['preview-file', 'close', 'open-media'])
 
 const normalizedPath = computed(() => normalizeFilePath(props.previewFile?.path))
 const fileName = computed(() => {
@@ -26,8 +27,9 @@ const renderedContent = computed(() => {
 })
 
 const isImage = computed(() => ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp', 'ico'].includes(ext.value))
-const isAudio = computed(() => ['mp3', 'wav', 'ogg', 'flac', 'aac'].includes(ext.value))
-const isVideo = computed(() => ['mp4', 'webm', 'avi', 'mov', 'mkv'].includes(ext.value))
+const isAudio = computed(() => ['mp3', 'm4a', 'wav', 'ogg', 'opus', 'flac', 'aac'].includes(ext.value))
+const isVideo = computed(() => ['mp4', 'webm', 'avi', 'mov', 'mkv', 'm4v'].includes(ext.value))
+const isMedia = computed(() => isAudio.value || isVideo.value)
 const isHtml = computed(() => ['html', 'htm'].includes(ext.value))
 const hasContent = computed(() => typeof props.previewFile?.content === 'string')
 const hasError = computed(() => !!props.previewFile?.error)
@@ -88,7 +90,13 @@ function closePreview() {
       :class="isDark ? 'border-b border-d4' : 'border-b border-bdrL'">
       <i class="ri-file-3-line text-[12px] shrink-0" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'" />
       <span class="text-[13px] truncate min-w-0" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">{{ fileName }}</span>
+      <MediaStatusBadge v-if="isMedia && previewFile?.mediaId" :media-id="previewFile.mediaId" compact />
       <div class="ml-auto flex items-center gap-0.5 shrink-0">
+        <button v-if="isMedia" @click="emit('open-media', previewFile)"
+          class="h-7 px-2 rounded-md flex items-center gap-1 text-[11px] font-medium transition-colors"
+          :class="isDark ? 'bg-violet-400/10 text-violet-300 hover:bg-violet-400/16' : 'bg-violet-50 text-violet-600 hover:bg-violet-100'" title="打开媒体解析详情">
+          <i class="ri-file-list-3-line text-[11px]" /><span>解析详情</span>
+        </button>
         <button v-if="isHtml && hasContent" @click="openHtmlPreview"
           class="h-7 px-2.5 rounded-md flex items-center gap-1 text-[12px] font-medium transition-colors"
           :class="isDark ? 'bg-brand-400/12 text-brand-300 hover:bg-brand-400/20 hover:text-brand-200' : 'bg-brand-50 text-brand-600 hover:bg-brand-100'"

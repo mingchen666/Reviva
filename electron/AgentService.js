@@ -35,6 +35,7 @@ import {
   _decodeImageDataUrl,
   _ensureImageFilename,
   _isImageContextItem,
+  _isMediaContextItem,
   _isUserMessage,
   _messageAttachments,
   _toWorkspaceVirtualPath,
@@ -97,7 +98,7 @@ import { ChatOpenAICompletions } from '@langchain/openai'
 import { ChatOpenAIResponsesCompat, normalizeAnthropicApiUrl } from './agents/runtime/modelAdapters.js'
 import { MemorySaver, InMemoryStore, Command } from '@langchain/langgraph'
 import { HumanMessage } from '@langchain/core/messages'
-import { getLangchainTools, getUserDefinedLangchainTools, setToolProviderConfig, setWorkDirService, setDbService, setWikiService as setWikiServiceForTools, setMcpService as setMcpServiceForTools, setVisionAnalyzeHandler, resetTaskCounters, setExecCommandConfig, setCloudContext, setToolRunContext } from './agents/langchainTools.js'
+import { getLangchainTools, getUserDefinedLangchainTools, setToolProviderConfig, setWorkDirService, setDbService, setWikiService as setWikiServiceForTools, setMcpService as setMcpServiceForTools, setMediaQueryService as setMediaQueryServiceForTools, setNoteFileService as setNoteFileServiceForTools, setVisionAnalyzeHandler, resetTaskCounters, setExecCommandConfig, setCloudContext, setToolRunContext } from './agents/langchainTools.js'
 import { buildProjectSystemPrompt } from './agents/prompts/projectSystemPrompt.js'
 import { TokenRecorder } from './agents/TokenRecorder.js'
 import { ErrorClassifier } from './agents/ErrorClassifier.js'
@@ -108,11 +109,13 @@ import { VisionAnalyzeService } from './tools/VisionAnalyzeService.js'
 
 
 export class AgentService {
-  constructor(dbService, getWin, workDirService, mcpService, notificationHandlers = {}) {
+  constructor(dbService, getWin, workDirService, mcpService, notificationHandlers = {}, noteFileService = null) {
     this._db = dbService
     this._getWin = getWin
     this._workDirService = workDirService
     this._mcpService = mcpService || null
+    this._noteFileService = noteFileService || null
+    this._mediaIngestionService = null
     this._tokenRecorder = new TokenRecorder(dbService)
     this._errorClassifier = new ErrorClassifier()
     this._runStateManager = new RunStateManager(dbService)
@@ -133,6 +136,7 @@ export class AgentService {
     this._activeStreams = new Map()
     this._activeNoteAiRuns = new Map()
     this._interruptedRuns = new Map() // threadId → { runId, request, agentConfig }
+    this._gatewayEventListeners = new Set()
   }
 
   init() {
@@ -140,6 +144,7 @@ export class AgentService {
     setWorkDirService(this._workDirService)
     // Inject DatabaseService for reading security settings (allowFileDelete, deleteScope)
     setDbService(this._db)
+    setNoteFileServiceForTools(this._noteFileService)
     setMcpServiceForTools(this._mcpService)
     setVisionAnalyzeHandler((args, context) => this._visionAnalyzeService.analyze(args, context))
 
@@ -181,6 +186,85 @@ export class AgentService {
 
   setWikiService(wikiService) {
     setWikiServiceForTools(wikiService)
+  }
+
+  setMediaQueryService(mediaQueryService) {
+    setMediaQueryServiceForTools(mediaQueryService)
+  }
+
+  setMediaModule(mediaModule) {
+    this._mediaIngestionService = mediaModule?.ingestion || null
+    setMediaQueryServiceForTools(mediaModule?.query || null)
+  }
+
+  async _registerPreparedMediaContextItems(items = [], request = {}) {
+    if (!this._mediaIngestionService) return items
+    const settings = this._db?.getSetting?.('pdfReadStrategy') || {}
+    for (const [index, item] of items.entries()) {
+      if (!item?.path || item.mediaId || item.media_id || !_isMediaContextItem(item)) continue
+      try {
+        const registration = await this._mediaIngestionService.registerSource({
+          path: item.path,
+          sourceType: 'attachment',
+          title: item.name || '',
+          owner: {
+            type: 'message',
+            id: request.userMessageId || request.conversationId || '',
+            locator: `${request.msgId || 'attachment'}:${item.id || item.name || index}`,
+          },
+        })
+        item.mediaId = registration.source.id
+        request.allowedMediaIds = [...new Set([...(request.allowedMediaIds || []), registration.source.id])]
+        if (settings.mediaAction === 'low_cost_auto' && !registration.source.current_run_id) {
+          const run = this._mediaIngestionService.createRun(registration.source.id, {
+            locationId: registration.location.id,
+            presetId: settings.mediaPreset || 'subtitle_first',
+            language: settings.mediaPreferredLanguage === 'auto' ? '' : settings.mediaPreferredLanguage,
+            providerId: settings.mediaProviderId || 'auto',
+            preferSubtitle: settings.mediaPreferSubtitle !== false,
+            extractKeyframes: settings.mediaExtractKeyframes === true,
+            keyframeLimit: settings.mediaKeyframeLimit || 12,
+            sidecarCandidates: registration.sidecarCandidates || [],
+          })
+          item.mediaRunId = run?.id || ''
+        }
+      } catch (error) {
+        item.mediaRegistrationError = error?.code || error?.message || 'MEDIA_REGISTER_FAILED'
+        console.warn('[AgentService] Failed to register media context:', item.name || item.path, error.message)
+      }
+    }
+    return items
+  }
+
+  _allowedMediaIdsFromRequest(request = {}, fallbackContext = {}) {
+    const candidates = new Set()
+    const add = (value) => {
+      const id = String(value || '').trim()
+      if (/^med_[a-z0-9]+$/i.test(id)) candidates.add(id)
+    }
+    const inspectItems = (items) => {
+      for (const item of (Array.isArray(items) ? items : [])) {
+        add(item?.mediaId || item?.media_id)
+        add(item?.meta?.mediaId || item?.meta?.media_id)
+        add(item?.metadata?.mediaId || item?.metadata?.media_id)
+      }
+    }
+    for (const id of (request.allowedMediaIds || fallbackContext.allowedMediaIds || [])) add(id)
+    inspectItems(request.ctxItems)
+    inspectItems(request.ctxPaths)
+    inspectItems(fallbackContext.ctxItems)
+    inspectItems(fallbackContext.ctxPaths)
+    for (const message of (request.messages || [])) {
+      inspectItems(_messageAttachments(message))
+      inspectItems(message?.meta?.ctx)
+    }
+
+    const mediaRepository = this._db?.mediaRepositories?.media
+    if (!mediaRepository) return []
+    return [...candidates].filter((mediaId) => {
+      if (!mediaRepository.getMediaSource(mediaId)) return false
+      return mediaRepository.listMediaSourceLinks(mediaId, { state: 'active' }).length > 0
+    })
   }
 
   // ── Model Factory ────────────────────────────────────────────
@@ -604,7 +688,8 @@ export class AgentService {
       setToolProviderConfig(request.toolProviderConfigs || {})
       const agentDirName = this._agentRuntimeDirName(request.agentId || moduleConfig.id, agentEnglishName)
       const visionOptions = this._visionToolOptionsFromRequest(request)
-      setToolRunContext({ agentEnglishName: agentDirName, permissions: moduleConfig.permissions || {}, wikiContext: request.wikiContext || {}, boundSkillIds: moduleConfig.skills || [], vision: this._visionContextFromRequest(request) })
+      const allowedMediaIds = this._allowedMediaIdsFromRequest(request)
+      setToolRunContext({ agentEnglishName: agentDirName, permissions: moduleConfig.permissions || {}, wikiContext: request.wikiContext || {}, boundSkillIds: moduleConfig.skills || [], allowedMediaIds, vision: this._visionContextFromRequest(request) })
       setExecCommandConfig({
         whitelist: moduleConfig.permissions?.execCommandWhitelist || null,
         blacklist: moduleConfig.permissions?.execCommandBlacklist || null,
@@ -613,6 +698,7 @@ export class AgentService {
 
       workRoot = this._workDirService?.getRootPath?.() || ''
       const preparedCtxPaths = this._prepareContextItems(request.ctxItems || request.ctxPaths || [], workRoot)
+      await this._registerPreparedMediaContextItems(preparedCtxPaths, request)
 
       const model = this._createModel(
         request.providerId,
@@ -652,7 +738,8 @@ export class AgentService {
         ...(moduleConfig.skills || []),
         ...subAgentConfigs.flatMap(sa => Array.isArray(sa.skills) ? sa.skills : []),
       ]), moduleConfig.permissions), request.cloudContext, visionOptions), webSearchEnabled)
-      setToolRunContext({ agentEnglishName: agentDirName, permissions: moduleConfig.permissions || {}, wikiContext: request.wikiContext || {}, boundSkillIds: skillData.boundSkillIds, toolIds: effectiveToolIds, vision: this._visionContextFromRequest(request) })
+      const preparedAllowedMediaIds = this._allowedMediaIdsFromRequest({ ...request, ctxPaths: preparedCtxPaths })
+      setToolRunContext({ agentEnglishName: agentDirName, permissions: moduleConfig.permissions || {}, wikiContext: request.wikiContext || {}, boundSkillIds: skillData.boundSkillIds, toolIds: effectiveToolIds, allowedMediaIds: preparedAllowedMediaIds, vision: this._visionContextFromRequest(request) })
       const customTools = this._buildLocalRuntimeTools(effectiveToolIds, { includeDefaults: false })
       resetTaskCounters()
 
@@ -1011,7 +1098,8 @@ export class AgentService {
       // Set tool provider config (for web_search Tavily/SearXNG/Bing per-agent config)
       setToolProviderConfig(request.toolProviderConfigs || {})
       const visionOptions = this._visionToolOptionsFromRequest(request)
-      setToolRunContext({ agentEnglishName: agentDirName, permissions: request.permissions || {}, wikiContext: request.wikiContext || {}, boundSkillIds: request.skills || [], vision: this._visionContextFromRequest(request) })
+      const allowedMediaIds = this._allowedMediaIdsFromRequest(request)
+      setToolRunContext({ agentEnglishName: agentDirName, permissions: request.permissions || {}, wikiContext: request.wikiContext || {}, boundSkillIds: request.skills || [], allowedMediaIds, vision: this._visionContextFromRequest(request) })
       setExecCommandConfig({
         whitelist: request.permissions?.execCommandWhitelist || null,
         blacklist: request.permissions?.execCommandBlacklist || null,
@@ -1021,6 +1109,7 @@ export class AgentService {
       // Prepare context files: workspace docs keep their absolute paths; external attachments are staged under /context/YYYY-MM-DD/.
       workRoot = this._workDirService?.getRootPath?.() || ''
       const preparedCtxPaths = this._prepareContextItems(request.ctxPaths || [], workRoot)
+      await this._registerPreparedMediaContextItems(preparedCtxPaths, request)
 
       const model = this._createModel(
         request.providerId,
@@ -1071,7 +1160,8 @@ export class AgentService {
         ...(request.skills || []),
         ...subAgentSkillIds,
       ]), request.permissions), request.cloudContext, visionOptions)
-      setToolRunContext({ agentEnglishName: agentDirName, permissions: request.permissions || {}, wikiContext: request.wikiContext || {}, boundSkillIds: skillData.boundSkillIds, toolIds: effectiveToolIds, vision: this._visionContextFromRequest(request) })
+      const preparedAllowedMediaIds = this._allowedMediaIdsFromRequest({ ...request, ctxPaths: preparedCtxPaths })
+      setToolRunContext({ agentEnglishName: agentDirName, permissions: request.permissions || {}, wikiContext: request.wikiContext || {}, boundSkillIds: skillData.boundSkillIds, toolIds: effectiveToolIds, allowedMediaIds: preparedAllowedMediaIds, vision: this._visionContextFromRequest(request) })
       const customTools = this._buildLocalRuntimeTools(effectiveToolIds, { includeDefaults: false })
       resetTaskCounters()
       console.log('[AgentService] Tools loaded:', customTools.map(t => t.name))
@@ -1400,7 +1490,8 @@ export class AgentService {
       const agentDirName = agentConfig.agentDirName || this._agentRuntimeDirName(request.agentId, request.agentEnglishName)
       const resumeToolIds = withPermissionAgentTools(agentConfig.toolIds || request.toolIds || [], request.permissions)
       const resumeSkillIds = agentConfig.boundSkillIds || request.skills || []
-      setToolRunContext({ agentEnglishName: agentDirName, permissions: request.permissions || {}, wikiContext: request.wikiContext || {}, boundSkillIds: resumeSkillIds, toolIds: resumeToolIds, vision: this._visionContextFromRequest(request) })
+      const allowedMediaIds = this._allowedMediaIdsFromRequest(request)
+      setToolRunContext({ agentEnglishName: agentDirName, permissions: request.permissions || {}, wikiContext: request.wikiContext || {}, boundSkillIds: resumeSkillIds, toolIds: resumeToolIds, allowedMediaIds, vision: this._visionContextFromRequest(request) })
       setExecCommandConfig({
         whitelist: request.permissions?.execCommandWhitelist || null,
         blacklist: request.permissions?.execCommandBlacklist || null,
@@ -1626,7 +1717,8 @@ export class AgentService {
     const agentDirName = this._agentRuntimeDirName(request.agentId, request.agentEnglishName)
     const visionOptions = this._visionToolOptionsFromRequest(request)
     const effectiveToolIds = withContextualAgentTools(withPermissionAgentTools(this._withSkillTools(request.toolIds, request.skills), request.permissions), request.cloudContext, visionOptions)
-    setToolRunContext({ agentEnglishName: agentDirName, permissions: request.permissions || {}, wikiContext: request.wikiContext || {}, boundSkillIds: request.skills || [], toolIds: effectiveToolIds, vision: this._visionContextFromRequest(request) })
+    const allowedMediaIds = this._allowedMediaIdsFromRequest(request)
+    setToolRunContext({ agentEnglishName: agentDirName, permissions: request.permissions || {}, wikiContext: request.wikiContext || {}, boundSkillIds: request.skills || [], toolIds: effectiveToolIds, allowedMediaIds, vision: this._visionContextFromRequest(request) })
     const tools = this._buildLocalRuntimeTools(effectiveToolIds, visionOptions)
     const tool = tools.find(t => t.name === request.toolName)
     if (!tool) return { content: `Unknown tool: ${request.toolName}`, isError: true }
@@ -1654,7 +1746,8 @@ export class AgentService {
         request.cloudContext || context?.cloudContext,
         visionOptions,
       )
-      setToolRunContext({ agentEnglishName: agentDirName, permissions: request.permissions || context?.permissions || {}, wikiContext: request.wikiContext || context?.wikiContext || {}, boundSkillIds: skillData.boundSkillIds, toolIds: effectiveToolIds, vision: this._visionContextFromRequest(mergedVisionRequest) })
+      const allowedMediaIds = this._allowedMediaIdsFromRequest(request, context || {})
+      setToolRunContext({ agentEnglishName: agentDirName, permissions: request.permissions || context?.permissions || {}, wikiContext: request.wikiContext || context?.wikiContext || {}, boundSkillIds: skillData.boundSkillIds, toolIds: effectiveToolIds, allowedMediaIds, vision: this._visionContextFromRequest(mergedVisionRequest) })
       const subModel = this._createModel(providerId, apiKey, baseUrl, modelName, { streaming: false, apiFormat })
       const workRoot = this._workDirService?.getRootPath?.() || ''
       const normalizedRoot = (workRoot || '.').replace(/\\/g, '/')
@@ -2262,11 +2355,20 @@ export class AgentService {
   }
 
   _send(channel, data) {
+    for (const listener of this._gatewayEventListeners) {
+      try { listener(channel, data) } catch (error) { console.warn('[AgentService] gateway event listener failed:', error.message) }
+    }
     const win = this._getWin()
     if (win && !win.isDestroyed()) {
       win.webContents.send(channel, data)
     } else {
       console.warn('[AgentService] _send: BrowserWindow not available for', channel)
     }
+  }
+
+  subscribeGatewayEvents(listener) {
+    if (typeof listener !== 'function') return () => {}
+    this._gatewayEventListeners.add(listener)
+    return () => this._gatewayEventListeners.delete(listener)
   }
 }

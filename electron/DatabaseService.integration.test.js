@@ -4,6 +4,110 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { DatabaseService } from './DatabaseService.js'
+import { getDatabaseDriver } from './db/DatabaseContext.js'
+
+const LEGACY_PROVIDERS = [
+  {
+    id: 'deepseek',
+    name: 'DeepSeek',
+    desc: '深度求索',
+    region: '国内',
+    iconName: 'deepseek',
+    logoBg: '#4D6BFE',
+    logoChar: 'D',
+    builtin: true,
+    local: false,
+    apiFormat: 'openai',
+    apiKeyOptional: false,
+    enabled: true,
+    configured: true,
+    apiKey: 'legacy-deepseek-key',
+    apiKeyId: '',
+    baseUrl: 'https://api.deepseek.com/v1',
+    customProviderField: { preserved: true },
+    models: [
+      {
+        id: 'deepseek-v4-flash',
+        name: 'DeepSeek-V4-Flash',
+        ctx: '1000k',
+        maxOutput: '384k',
+        tier: 'flagship',
+        enabled: true,
+        capabilities: { tool_calling: true, vision: false, search: false, vector: false, reranking: false },
+        costInput: 1,
+        costOutput: 2,
+        costCacheRead: 0.02,
+        costCacheWrite: 0.02,
+        addedBy: 'default',
+        customModelField: ['preserved'],
+      },
+    ],
+  },
+  {
+    id: 'custom',
+    name: 'Ollama',
+    desc: '本地模型',
+    region: '本地',
+    iconName: 'ollama',
+    logoBg: '#111827',
+    logoChar: 'O',
+    builtin: true,
+    local: true,
+    apiFormat: 'openai',
+    apiKeyOptional: false,
+    enabled: true,
+    configured: true,
+    apiKey: 'ollama',
+    apiKeyId: '',
+    baseUrl: 'http://localhost:11434/v1',
+    models: [
+      {
+        id: 'qwen2.5:7b',
+        name: 'Qwen2.5 7B',
+        ctx: '128k',
+        maxOutput: '8k',
+        tier: 'balanced',
+        enabled: true,
+        capabilities: { tool_calling: true, vision: false, search: false, vector: false, reranking: false },
+        costInput: 0,
+        costOutput: 0,
+        costCacheRead: 0,
+        costCacheWrite: 0,
+        addedBy: 'user',
+      },
+    ],
+  },
+]
+
+const LEGACY_DEFAULT_MODELS = {
+  chat: 'deepseek::deepseek-v4-flash',
+  agent: 'deepseek::deepseek-v4-flash',
+  title: 'deepseek::deepseek-v4-flash',
+}
+
+const LEGACY_STT_SETTINGS = {
+  version: 2,
+  defaultProviderId: 'aliyun_bailian_asr',
+  providers: {
+    local_asr: {
+      enabled: false,
+      baseUrl: 'http://127.0.0.1:8000/v1',
+      apiKey: '',
+      model: 'whisper-1',
+      timestampLevel: 'segment',
+    },
+    aliyun_bailian_asr: {
+      enabled: true,
+      apiKey: 'legacy-stt-key',
+      workspaceId: 'workspace-test',
+      region: 'cn-beijing',
+      model: 'fun-asr',
+      language: 'auto',
+      enableTimestamps: true,
+      enableDiarization: false,
+    },
+  },
+}
 
 test('DatabaseService facade preserves representative domain behavior', () => {
   const service = new DatabaseService()
@@ -68,6 +172,123 @@ test('DatabaseContext follows workspace relocation', async () => {
   } finally {
     service.close()
     await fs.promises.rm(workspaceRoot, { recursive: true, force: true })
+  }
+})
+
+test('legacy LLM providers migrate without changing provider, model, key, or default model data', async () => {
+  const root = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'reviva-provider-migration-'))
+  const dbPath = path.join(root, 'legacy.db')
+  const BetterSqlite3 = getDatabaseDriver()
+  const legacyDb = new BetterSqlite3(dbPath)
+  legacyDb.exec('CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT DEFAULT \'\')')
+  legacyDb.prepare('INSERT INTO settings (key, value) VALUES (?, ?)').run('providers', JSON.stringify(LEGACY_PROVIDERS))
+  legacyDb.prepare('INSERT INTO settings (key, value) VALUES (?, ?)').run('defaultModels', JSON.stringify(LEGACY_DEFAULT_MODELS))
+  legacyDb.close()
+
+  const service = new DatabaseService()
+  try {
+    service.init(dbPath)
+    assert.deepEqual(service.getSetting('providers'), LEGACY_PROVIDERS)
+    assert.deepEqual(service.getSetting('defaultModels'), LEGACY_DEFAULT_MODELS)
+    assert.deepEqual(service.getAllSettings().providers, LEGACY_PROVIDERS)
+
+    const providerRows = service.db.prepare('SELECT id FROM llm_provider_profiles ORDER BY sort_order').all()
+    const modelRows = service.db.prepare('SELECT provider_id, model_id FROM llm_model_profiles ORDER BY provider_id, sort_order').all()
+    assert.deepEqual(providerRows.map(row => row.id), ['deepseek', 'custom'])
+    assert.deepEqual(modelRows, [
+      { provider_id: 'custom', model_id: 'qwen2.5:7b' },
+      { provider_id: 'deepseek', model_id: 'deepseek-v4-flash' },
+    ])
+    assert.ok(service.db.prepare('SELECT 1 FROM schema_migrations WHERE version = 7').get())
+    assert.deepEqual(JSON.parse(service.db.prepare("SELECT value FROM settings WHERE key = 'providers'").get().value), LEGACY_PROVIDERS)
+    assert.ok(service.db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'tts_provider_profiles'").get())
+  } finally {
+    service.close()
+  }
+
+  const reopened = new DatabaseService()
+  try {
+    reopened.init(dbPath)
+    assert.deepEqual(reopened.getSetting('providers'), LEGACY_PROVIDERS)
+    assert.deepEqual(reopened.getSetting('defaultModels'), LEGACY_DEFAULT_MODELS)
+  } finally {
+    reopened.close()
+    await fs.promises.rm(root, { recursive: true, force: true })
+  }
+})
+
+test('LLM provider compatibility CRUD and settings import persist through the existing settings API', async () => {
+  const root = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'reviva-provider-crud-'))
+  const dbPath = path.join(root, 'providers.db')
+  const service = new DatabaseService()
+  try {
+    service.init(dbPath)
+    service.setSetting('defaultModels', LEGACY_DEFAULT_MODELS)
+    assert.deepEqual(service.setSetting('providers', JSON.stringify(LEGACY_PROVIDERS)), { success: true })
+    assert.deepEqual(service.getSetting('providers'), LEGACY_PROVIDERS)
+
+    const edited = structuredClone(LEGACY_PROVIDERS)
+    edited[0].baseUrl = 'https://proxy.example.com/v1'
+    edited[0].apiKey = 'updated-key'
+    edited[0].models[0].enabled = false
+    edited[0].models.push({
+      id: 'deepseek-custom',
+      name: 'DeepSeek Custom',
+      enabled: true,
+      capabilities: { tool_calling: true, vision: true },
+      addedBy: 'user',
+    })
+    edited[1].models.splice(0, 1)
+
+    service.setSetting('providers', edited)
+    assert.deepEqual(service.getSetting('providers'), edited)
+    assert.deepEqual(service.getSetting('defaultModels'), LEGACY_DEFAULT_MODELS)
+
+    service.importSettings({ providers: LEGACY_PROVIDERS, importedFlag: true })
+    assert.deepEqual(service.getSetting('providers'), LEGACY_PROVIDERS)
+    assert.equal(service.getSetting('importedFlag'), true)
+    assert.deepEqual(JSON.parse(service.db.prepare("SELECT value FROM settings WHERE key = 'providers'").get().value), LEGACY_PROVIDERS)
+
+    const duplicateProviders = structuredClone(LEGACY_PROVIDERS)
+    duplicateProviders.push(structuredClone(duplicateProviders[0]))
+    assert.throws(
+      () => service.importSettings({ importedFlag: false, providers: duplicateProviders }),
+      /重复服务商 ID/,
+    )
+    assert.equal(service.getSetting('importedFlag'), true)
+    assert.deepEqual(service.getSetting('providers'), LEGACY_PROVIDERS)
+
+    const sparseLegacyProvider = [{
+      id: 'anthropic',
+      apiKey: 'legacy-anthropic-key',
+      baseUrl: 'https://api.anthropic.com/v1',
+      models: [{ id: 'claude-legacy' }],
+    }]
+    service.setSetting('providers', sparseLegacyProvider)
+    assert.deepEqual(service.getSetting('providers'), sparseLegacyProvider)
+    service.setSetting('mediaSpeechSettings', LEGACY_STT_SETTINGS)
+    assert.deepEqual(service.getSetting('mediaSpeechSettings'), LEGACY_STT_SETTINGS)
+  } finally {
+    service.close()
+  }
+
+  const reopened = new DatabaseService()
+  try {
+    reopened.init(dbPath)
+    assert.deepEqual(reopened.getSetting('providers'), [{
+      id: 'anthropic',
+      apiKey: 'legacy-anthropic-key',
+      baseUrl: 'https://api.anthropic.com/v1',
+      models: [{ id: 'claude-legacy' }],
+    }])
+    assert.deepEqual(reopened.getSetting('defaultModels'), LEGACY_DEFAULT_MODELS)
+    assert.equal(reopened.getSetting('importedFlag'), true)
+    assert.deepEqual(reopened.getSetting('mediaSpeechSettings'), LEGACY_STT_SETTINGS)
+    assert.equal(reopened.getSetting('mediaSpeechDefaultProviderId'), 'aliyun_bailian_asr')
+    assert.equal(reopened.getSetting('defaultSttModelRef'), 'aliyun_bailian_asr::fun-asr')
+  } finally {
+    reopened.close()
+    await fs.promises.rm(root, { recursive: true, force: true })
   }
 })
 

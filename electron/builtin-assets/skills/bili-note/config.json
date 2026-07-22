@@ -1,14 +1,14 @@
 {
   "id": "bili-note",
   "name": "B 站视频笔记",
-  "description": "提取 Bilibili 视频、图文、动态和评论，整理为可检索、可引用的 Markdown 学习笔记；优先使用公开字幕和图文正文，必要时才使用网页 AI 字幕或本地 ASR 兜底。",
+  "description": "把 MindSpace 已解析的 Bilibili 视频，或 B站图文、动态和评论，整理为可检索、可引用的 Markdown 学习笔记；视频内容只通过 media_read 读取。",
   "icon": "ri-bilibili-line",
   "color": "#00A1D6",
   "category": "学习",
   "source": "platform",
-  "allowedTools": ["exec_command", "file_read", "file_write"],
+  "allowedTools": ["media_read", "vision_analyze", "exec_command", "file_read", "file_write"],
   "outputTypes": ["Markdown", "JSON"],
-  "version": "1.0",
+  "version": "1.1",
   "author": "Rimagination",
   "license": "MIT"
 }

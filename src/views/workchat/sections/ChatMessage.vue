@@ -34,7 +34,7 @@ const props = defineProps({
 
 const emit = defineEmits([
   'preview-file', 'retry', 'copy', 'copy-error', 'edit', 'save-edit', 'delete',
-  'branch', 'export-markdown', 'save-to-note',
+  'branch', 'export-markdown', 'save-to-note', 'media-detail',
   'compress-context', 'auth-approve', 'auth-deny',
 ])
 
@@ -268,6 +268,7 @@ function onMarkdownLinkClick({ href }) {
     :chat-busy="chatBusy"
     :image-attachments="imageAttachments" :file-attachments="fileAttachments"
     @preview-file="(f) => emit('preview-file', f)"
+    @media-detail="(payload) => emit('media-detail', payload)"
     @copy="copyContent"
     @edit="emit('edit')"
     @save-edit="(d) => emit('save-edit', d)"
@@ -279,7 +280,7 @@ function onMarkdownLinkClick({ href }) {
     <!-- Avatar -->
     <div class="w-[28px] h-[28px] rounded-full flex items-center justify-center shrink-0 mt-0.5"
       :class="agent ? (isDark ? 'bg-agent-400/12 border-[1.5px] border-agent-400/30' : 'bg-agent-50 border-[1.5px] border-agent-100') : (isDark ? 'bg-brand-400/12 border border-brand-400/20' : 'bg-brand-50 border border-brand-100')">
-      <i :class="agent ? (agent.icon || 'ri-sparkling-2-line') + ' text-agent-400' : 'ri-robot-2-line text-brand-400'" class="text-[13px]" />
+      <i :class="agent ? (agent.icon || 'ri-sparkling-2-line') + ' text-agent-400' : 'ri-robot-2-line text-brand-400'" class="text-[16px]" />
     </div>
     <!-- Content column -->
     <div class="flex-1 min-w-0">
@@ -496,7 +497,9 @@ function onMarkdownLinkClick({ href }) {
 
       <!-- File cards -->
       <div v-if="fileAttachments.length" class="flex flex-col gap-2 mt-2">
-        <FileCard v-for="f in fileAttachments" :key="f.path" :file="f" :is-dark="isDark" @preview="emit('preview-file', f)" />
+        <FileCard v-for="f in fileAttachments" :key="f.path" :file="f" :is-dark="isDark"
+          @preview="emit('preview-file', f)"
+          @media-detail="emit('media-detail', { file: f, messageId: msg?.id || '' })" />
       </div>
       <MessageDeleteConfirm v-if="showDeleteConfirm" :is-dark="isDark" @confirm="confirmDelete" @cancel="showDeleteConfirm = false" />
     </div>

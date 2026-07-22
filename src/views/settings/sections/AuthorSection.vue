@@ -121,7 +121,7 @@ const stats = [
     icon: 'ri-code-s-slash-line',
     iconColor: 'text-brand-400'
   },
-  { label: '支持平台', value: 'Windows', icon: 'ri-windows-fill', iconColor: 'text-brand-400' }
+  { label: '支持平台', value: 'Windows | macOS', icon: 'ri-windows-fill', iconColor: 'text-brand-400' }
 ];
 
 function open(url) {

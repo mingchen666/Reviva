@@ -1,4 +1,5 @@
 import importlib.util
+import json
 import subprocess
 import sys
 from pathlib import Path
@@ -16,7 +17,21 @@ def load_module():
     return module
 
 
-def test_check_environment_help_exposes_json_and_strict_options():
+class FakeResponse:
+    def __init__(self, payload):
+        self.payload = payload
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_args):
+        return False
+
+    def read(self):
+        return json.dumps(self.payload).encode("utf-8")
+
+
+def test_check_environment_help_exposes_lightweight_options():
     result = subprocess.run(
         [sys.executable, str(SCRIPT), "--help"],
         check=True,
@@ -26,89 +41,38 @@ def test_check_environment_help_exposes_json_and_strict_options():
 
     assert "--json" in result.stdout
     assert "--strict" in result.stdout
-    assert "--cdp-url" in result.stdout
     assert "--api-url" in result.stdout
+    assert "--timeout" in result.stdout
+    assert "--cdp-url" not in result.stdout
 
 
-def test_evaluate_environment_reports_ready_optional_paths():
+def test_evaluate_environment_reports_system_media_and_opus_routes():
     module = load_module()
-
-    def fake_which(name):
-        return {"ffmpeg": "C:/tools/ffmpeg.exe", "yt-dlp": "C:/tools/yt-dlp.exe"}.get(name)
-
-    def fake_find_spec(name):
-        return object() if name in {"faster_whisper", "pytest"} else None
-
-    def fake_web_check(cdp_url, timeout):
-        return {"ok": True, "reachable": True, "target_count": 1, "url": cdp_url}
-
-    def fake_api_check(api_url, timeout):
-        return {"ok": True, "reachable": True, "url": api_url, "code": 0}
 
     report = module.evaluate_environment(
         script_dir=ROOT / "scripts",
-        which=fake_which,
-        find_spec=fake_find_spec,
-        web_check=fake_web_check,
-        api_check=fake_api_check,
-        qwen_probe=lambda find_spec: {"ok": True, "python": "C:/cache/qwen/python.exe"},
+        opener=lambda request, timeout: FakeResponse({"code": 0}),
     )
 
-    assert report["capabilities"]["core"]["ok"]
-    assert report["capabilities"]["public_subtitles_comments_archive"]["ok"]
-    assert report["capabilities"]["browser_ai_subtitles"]["ok"]
-    assert report["capabilities"]["audio_asr_fallback"]["ok"]
-    assert report["capabilities"]["developer_tests"]["ok"]
+    assert report["core_ok"] is True
+    assert report["capabilities"]["parsed_video_media_read"]["ok"] is True
+    assert report["capabilities"]["opus_article_comments"]["ok"] is True
+    assert report["asr_managed_by_skill"] is False
 
 
-def test_evaluate_environment_keeps_core_ready_when_optional_tools_are_missing():
+def test_evaluate_environment_reports_missing_helpers_without_asr_advice(tmp_path):
     module = load_module()
 
-    def fake_which(name):
-        return None
-
-    def fake_find_spec(name):
-        return None
-
-    def fake_web_check(cdp_url, timeout):
-        return {"ok": False, "reachable": False, "target_count": 0, "url": cdp_url}
-
-    def fake_api_check(api_url, timeout):
-        return {"ok": True, "reachable": True, "url": api_url, "code": 0}
+    def failing_opener(request, timeout):
+        raise TimeoutError("offline")
 
     report = module.evaluate_environment(
-        script_dir=ROOT / "scripts",
-        which=fake_which,
-        find_spec=fake_find_spec,
-        web_check=fake_web_check,
-        api_check=fake_api_check,
-        qwen_probe=lambda find_spec: {"ok": False, "python": None},
+        script_dir=tmp_path,
+        opener=failing_opener,
     )
 
-    assert report["capabilities"]["core"]["ok"]
-    assert report["capabilities"]["public_subtitles_comments_archive"]["ok"]
-    assert not report["capabilities"]["browser_ai_subtitles"]["ok"]
-    assert not report["capabilities"]["audio_asr_fallback"]["ok"]
-    assert not report["capabilities"]["developer_tests"]["ok"]
-    assert any("ffmpeg" in item for item in report["recommendations"])
-    assert any("Qwen3-ASR" in item for item in report["recommendations"])
-
-
-def test_evaluate_environment_marks_public_route_unavailable_when_bilibili_api_fails():
-    module = load_module()
-
-    def fake_api_check(api_url, timeout):
-        return {"ok": False, "reachable": False, "url": api_url, "error": "TimeoutError"}
-
-    report = module.evaluate_environment(
-        script_dir=ROOT / "scripts",
-        which=lambda name: None,
-        find_spec=lambda name: object() if name == "pytest" else None,
-        web_check=lambda cdp_url, timeout: {"ok": False, "reachable": False, "target_count": 0, "url": cdp_url},
-        api_check=fake_api_check,
-        qwen_probe=lambda find_spec: {"ok": False, "python": None},
-    )
-
-    assert report["capabilities"]["core"]["ok"]
-    assert not report["capabilities"]["public_subtitles_comments_archive"]["ok"]
+    assert report["core_ok"] is False
+    assert report["capabilities"]["parsed_video_media_read"]["ok"] is True
+    assert report["capabilities"]["opus_article_comments"]["ok"] is False
     assert any("Bilibili public APIs" in item for item in report["recommendations"])
+    assert all("ASR" not in item for item in report["recommendations"])

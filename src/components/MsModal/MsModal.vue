@@ -8,6 +8,7 @@ const isDark = computed(() => appStore.isDark)
 const props = defineProps({
   show: { type: Boolean, default: false },
   width: { type: Number, default: 560 },
+  height: { type: String, default: '' },
   closable: { type: Boolean, default: true },
   closeOnOverlay: { type: Boolean, default: true },
   showFooter: { type: Boolean, default: true },
@@ -79,7 +80,7 @@ const responsiveWidth = computed(() => {
           :class="isDark
             ? 'bg-d3 border border-bdr shadow-2xl shadow-black/60'
             : 'bg-l1 border border-bdrL shadow-2xl shadow-black/15'"
-          :style="{ maxWidth: responsiveWidth, maxHeight: maxHeight }"
+          :style="{ maxWidth: responsiveWidth, maxHeight: maxHeight, ...(height ? { height } : {}) }"
         >
           <!-- Header -->
           <div class="shrink-0 flex items-center justify-between gap-3 px-5 h-12"

@@ -9,17 +9,14 @@ Use public endpoints with a browser-like `User-Agent` and `Referer`.
 
 For multi-part videos, each `pages[]` item has `page`, `cid`, `part`, and `duration`.
 
-## Subtitles
+## Video Content Boundary
 
-- `https://api.bilibili.com/x/player/v2?bvid=<BVID>&cid=<CID>`
-- Check `data.subtitle.subtitles`.
-- If `need_login_subtitle` is true and `subtitles` is empty, public subtitle retrieval is unavailable.
+Do not retrieve subtitles, download audio, or run transcription from this
+skill. Video transcript, timestamps, parsing status, and keyframes come from an
+authorized MindSpace `mediaId` through `media_read`.
 
-## Audio
-
-- `https://api.bilibili.com/x/player/playurl?bvid=<BVID>&cid=<CID>&qn=16&fnval=16&fourk=1`
-- Use `data.dash.audio`, choose highest `bandwidth`, download `baseUrl`.
-- Convert with `ffmpeg -i audio.m4s -ar 16000 -ac 1 audio.wav`.
+Use the metadata endpoint in this reference only to supplement public video
+information or to resolve the AID needed by the optional comments route.
 
 ## Comments
 
@@ -59,23 +56,16 @@ For opus comments, do not use the opus id as `oid`. Read:
 
 Example from a public opus page: `comment_type=12`, `comment_id_str=48091857`.
 
-## Local Transcription
+## Sparse Transcript Handling
 
-Example command:
+Transcript availability is not the same as full video understanding. Compare
+the parsed media duration with the amount of transcript actually inspected:
 
-```powershell
-python "<skill>\scripts\extract_bilibili.py" "<BVID>" --out "<tmp>" --parts "2,20,22,23" --download-audio --transcribe --whisper-site-packages "<python-site-packages>"
-```
-
-Use `base` Whisper for speed. Use larger models only if the first pass is too noisy and the task justifies the time.
-
-## Sparse Subtitle / Transcript Handling
-
-Subtitle availability is not the same as full video understanding. After archiving, compare video duration with subtitle or ASR character count:
-
-- Long videos with very low `subtitle_chars_per_minute` may depend on PPT, boards, code editors, UI demos, product screens, or silent visual segments.
+- Long videos with sparse transcript evidence may depend on PPT, boards, code editors, UI demos, product screens, or silent visual segments.
 - Do not write "complete extraction" or a full learning note from sparse subtitles alone.
 - Use representative keyframes/screenshots plus OCR or multimodal visual understanding before detailed synthesis.
 - If the active model/toolchain cannot inspect images, tell the user that this advanced step requires a vision-capable model or manual review, and label the current note as limited to subtitles, metadata, and comments.
 
-`metadata/note_budget.json.visual_dependency` is the canonical place to surface this warning to downstream writing and scoring steps.
+For video notes, surface this limitation directly in the final note's coverage
+and limitations section. `metadata/note_budget.json` remains an Opus/article
+archive aid and is not a replacement for `media_read` evidence.

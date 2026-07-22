@@ -15,6 +15,8 @@ import { createManimTool } from '../tools/ManimToolService.js'
 import { createOfficeWriteTool } from '../tools/officecli/index.js'
 import { createPdfReadTool } from '../tools/pdf/PdfReadTool.js'
 import { createDocumentReadTool } from '../tools/document/DocumentReadTool.js'
+import { createNoteTool } from '../tools/note/NoteTool.js'
+import { createMediaReadTool } from '../media/tools/MediaReadTool.js'
 import { extractOfficeImages, queryOfficeImages } from '../tools/officecli/OfficeImageExtractor.js'
 import { PptxExportService } from '../PptxExportService.js'
 import { getOfficeCliCommandCandidates, getOfficeCliSpawnEnv } from '../officeCliResolver.js'
@@ -39,6 +41,8 @@ let _workDirService = null
 let _dbService = null
 let _wikiService = null
 let _mcpService = null
+let _mediaQueryService = null
+let _noteFileService = null
 let _toolRunContext = { agentEnglishName: '_shared', permissions: {} }
 let _visionAnalyzeHandler = null
 const _toolsetRegistry = new ToolsetRegistry()
@@ -68,6 +72,14 @@ export function setMcpService(service) {
   _mcpService = service
 }
 
+export function setMediaQueryService(service) {
+  _mediaQueryService = service || null
+}
+
+export function setNoteFileService(service) {
+  _noteFileService = service || null
+}
+
 export function setVisionAnalyzeHandler(handler) {
   _visionAnalyzeHandler = typeof handler === 'function' ? handler : null
 }
@@ -91,8 +103,41 @@ export function setToolRunContext(ctx = {}) {
     boundSkillIds,
     mcpServerIds: [...new Set(mcpServerIds)],
     toolIds: [...new Set(toolIds)],
+    allowedMediaIds: [...new Set((ctx.allowedMediaIds || []).map(item => String(item || '')).filter(Boolean))],
     vision: ctx.vision || {},
   }
+}
+
+export const mediaRead = createMediaReadTool({
+  getQueryService: () => _mediaQueryService,
+  getRunContext: () => _toolRunContext,
+})
+
+export const noteTool = createNoteTool({
+  getNoteService: () => _noteFileService,
+  getRunContext: () => _toolRunContext,
+})
+
+function createRunScopedMediaRead() {
+  const runContext = Object.freeze({
+    ..._toolRunContext,
+    allowedMediaIds: Object.freeze([...(_toolRunContext.allowedMediaIds || [])]),
+  })
+  return createMediaReadTool({
+    getQueryService: () => _mediaQueryService,
+    getRunContext: () => runContext,
+  })
+}
+
+function createRunScopedNoteTool() {
+  const runContext = Object.freeze({
+    ..._toolRunContext,
+    permissions: Object.freeze({ ...(_toolRunContext.permissions || {}) }),
+  })
+  return createNoteTool({
+    getNoteService: () => _noteFileService,
+    getRunContext: () => runContext,
+  })
 }
 
 // Cloud API context for kb_search: { baseUrl, token, defaultKbIds, defaultDocIds }
@@ -1367,7 +1412,7 @@ export const mcpPromptGet = tool(
   },
 )
 
-const CUSTOM_TOOLS = [execCommand, webSearchTavily, webSearchSearxng, webSearchBing, kbSearch, wikiTool, calculator, deleteFile, documentRead, officeRead, pdfRead, visionAnalyze, pptxExportLocal, mcpResourceRead, mcpPromptGet]
+const CUSTOM_TOOLS = [execCommand, webSearchTavily, webSearchSearxng, webSearchBing, kbSearch, wikiTool, noteTool, calculator, deleteFile, documentRead, mediaRead, officeRead, pdfRead, visionAnalyze, pptxExportLocal, mcpResourceRead, mcpPromptGet]
 const TOOL_ID_ALIASES = {
   file_delete: 'delete_file',
 }
@@ -1660,13 +1705,19 @@ function _createToolsetTools(toolIds) {
  * @returns {StructuredTool[]} LangChain tool instances
  */
 export function getLangchainTools(toolIds) {
-  if (!toolIds?.length) return CUSTOM_TOOLS
+  const mediaReadAvailable = (_toolRunContext.allowedMediaIds || []).length > 0
+  const bindRunScopedTools = tools => tools.flatMap((item) => {
+    if (item === mediaRead) return mediaReadAvailable ? [createRunScopedMediaRead()] : []
+    if (item === noteTool) return [createRunScopedNoteTool()]
+    return [item]
+  })
+  if (!toolIds?.length) return bindRunScopedTools(CUSTOM_TOOLS)
   const toolsetTools = _createToolsetTools(toolIds)
   const idSet = _normalizeToolIds(toolIds)
-  return [
+  return bindRunScopedTools([
     ...CUSTOM_TOOLS.filter(t => idSet.has(t.name)),
     ...toolsetTools,
-  ]
+  ])
 }
 
 export { CUSTOM_TOOLS }

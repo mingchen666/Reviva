@@ -1,9 +1,11 @@
-<script setup>
+﻿<script setup>
 import { ref, computed, defineAsyncComponent, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAppStore } from '@/stores/app'
 import { useSettingsStore } from '@/stores/settings'
 import { useRecycleBinStore } from '@/stores/recycleBin'
+import { useMediaStore } from '@/stores/media'
+import { useWorkchatStore } from '@/stores/workchat'
 import MsModal from '@/components/MsModal/MsModal.vue'
 import LeftPanel from '@/components/layout/LeftPanel.vue'
 import MainContent from '@/components/layout/MainContent.vue'
@@ -11,17 +13,29 @@ import MsTreeItem from '@/components/MsTreeItem/MsTreeItem.vue'
 import DocTreeItem from './sections/DocTreeItem.vue'
 import DocGridCard from './sections/DocGridCard.vue'
 import DocListRow from './sections/DocListRow.vue'
+import DocsContextMenu from './sections/DocsContextMenu.vue'
+import DocsRenameModal from './sections/DocsRenameModal.vue'
+import DocsCreateFolderModal from './sections/DocsCreateFolderModal.vue'
+import DocsDeleteConfirmModal from './sections/DocsDeleteConfirmModal.vue'
+import { useMessageBox } from '@/components/MsMessageBox/useMessageBox'
+import { useMessage } from '@/components/MsMessage/useMessage'
+import { fileIcon,fileIconColor} from './sections/constant'
 
 const DocPreview = defineAsyncComponent(() => import('./sections/DocPreview.vue'))
 const UploadModal = defineAsyncComponent(() => import('./sections/UploadModal.vue'))
 const MoveModal = defineAsyncComponent(() => import('./sections/MoveModal.vue'))
 const PdfProcessingSettingsModal = defineAsyncComponent(() => import('./sections/PdfProcessingSettingsModal.vue'))
 const WebImportHistoryDrawer = defineAsyncComponent(() => import('./sections/WebImportHistoryDrawer.vue'))
+const MediaDetailModal = defineAsyncComponent(() => import('@/components/media/MediaDetailModal.vue'))
 
 const router = useRouter()
 const appStore = useAppStore()
 const settingsStore = useSettingsStore()
 const recycleBinStore = useRecycleBinStore()
+const mediaStore = useMediaStore()
+const workchatStore = useWorkchatStore()
+const mbox = useMessageBox()
+const msg = useMessage()
 const isDark = computed(() => appStore.isDark)
 const isReady = computed(() => settingsStore.isWorkspaceReady)
 
@@ -39,6 +53,7 @@ const expandedFolders = ref(new Set())
 // ─── Modal State ───
 const showCreateFolderModal = ref(false)
 const newFolderName = ref('')
+const createFolderParentPath = ref('')
 const showRenameModal = ref(false)
 const renameItem = ref(null)
 const renameValue = ref('')
@@ -50,6 +65,8 @@ const showWebImportHistory = ref(false)
 const showMoveModal = ref(false)
 const moveTarget = ref(null)
 const showProcessingSettingsModal = ref(false)
+const showMediaDetailModal = ref(false)
+const mediaDetailItem = ref(null)
 const processingSettingsInitialTab = ref('pdf')
 const showPdfUploadPrompt = ref(false)
 const pendingPdfUploads = ref([])
@@ -66,7 +83,13 @@ const defaultProcessingSettings = {
   largePdfMode: 'adaptive',
   allowFullDocumentOcr: true,
   allowPaddleFullDocumentForPageRanges: true,
-  mediaAction: 'manual',
+  mediaAction: 'ask',
+  mediaPreset: 'subtitle_first',
+  mediaPreferredLanguage: 'auto',
+  mediaProviderId: 'auto',
+  mediaPreferSubtitle: true,
+  mediaExtractKeyframes: false,
+  mediaKeyframeLimit: 12,
 }
 const processingSettings = ref({ ...defaultProcessingSettings })
 const ocrProviders = ref([])
@@ -74,15 +97,20 @@ const pdfEnvironment = ref(null)
 const installingPdfLocalParser = ref(false)
 const pdfLocalParserInstallResult = ref(null)
 const manualParsingPdfPaths = ref(new Set())
+const manualParsingMediaPaths = ref(new Set())
 const webImportSettings = ref(null)
 const webImportProviders = ref([])
 const webImportJobs = ref([])
 const webImportSubmitting = ref(false)
+const remoteMediaSubmitting = ref(false)
+const remoteMediaError = ref('')
 const webImportJobsLoading = ref(false)
 const webImportJobsHasMore = ref(false)
 const WEB_IMPORT_PAGE_SIZE = 10
 let webJobUpdatedHandler = null
 let webImportJobsRequestId = 0
+let previewRequestId = 0
+let mediaStatusPollTimer = null
 
 function normalizeProcessingSettings(value = {}) {
   return {
@@ -113,17 +141,27 @@ async function loadWebImportSettings() {
 }
 
 async function saveWebImportSettings(patch, close) {
-  const result = await api()?.webImport?.saveSettings?.(patch)
-  if (result?.success) {
+  try {
+    const result = await api()?.webImport?.saveSettings?.(patch)
+    if (!result?.success) throw new Error(result?.error || result?.message || '网页解析配置保存失败')
     webImportSettings.value = result.data
     webImportProviders.value = result.providers || webImportProviders.value
     close?.()
+    msg.success('网页解析配置已保存')
+  } catch (error) {
+    msg.error(error?.message || '网页解析配置保存失败')
   }
 }
 
 function openWebImportSettings() {
   showUploadModal.value = false
   processingSettingsInitialTab.value = 'web'
+  showProcessingSettingsModal.value = true
+}
+
+function openMediaProcessingSettings() {
+  showUploadModal.value = false
+  processingSettingsInitialTab.value = 'media'
   showProcessingSettingsModal.value = true
 }
 
@@ -194,11 +232,21 @@ async function loadPdfEnvironment() {
 }
 
 async function saveProcessingSettings(close) {
-  const next = normalizeProcessingSettings(processingSettings.value)
-  const result = await api()?.pdf?.setSettings?.(next)
-  if (result?.success) {
+  try {
+    const next = normalizeProcessingSettings(processingSettings.value)
+    const result = await api()?.pdf?.setSettings?.(next)
+    if (!result?.success) throw new Error(result?.error || result?.message || '解析配置保存失败')
+    if (String(result.data?.mediaProviderId || 'auto') !== String(next.mediaProviderId || 'auto')) {
+      throw new Error('语音转文字服务选择未能保存，请重试。')
+    }
+    if (String(result.data?.defaultOcrProvider || 'auto') !== String(next.defaultOcrProvider || 'auto')) {
+      throw new Error('OCR 服务商选择未能保存，请重试。')
+    }
     processingSettings.value = normalizeProcessingSettings(result.data)
     close?.()
+    msg.success('解析配置已保存')
+  } catch (error) {
+    msg.error(error?.message || '解析配置保存失败')
   }
 }
 
@@ -241,9 +289,7 @@ const configuredOcrProviders = computed(() => supportedOcrProviders.value.filter
 ))
 
 function autoOcrProvider() {
-  return enabledOcrProviders.value.find(provider => String(provider.type || '').toLowerCase() === 'mineru')
-    || enabledOcrProviders.value.find(provider => String(provider.type || '').toLowerCase() === 'paddleocr')
-    || null
+  return enabledOcrProviders.value[0] || null
 }
 
 function selectedEnabledOcrProvider() {
@@ -287,10 +333,16 @@ const pdfEnvironmentStatusText = computed(() => {
 const uploadNeedsOcrProvider = computed(() => pdfUploadEngine.value !== 'local_fast')
 const uploadBlocksWithoutOcrProvider = computed(() => pdfUploadEngine.value === 'document_intelligent' && !effectiveOcrProvider.value)
 
-const MEDIA_PARSE_EXTS = new Set(['mp4', 'webm', 'avi', 'mov', 'mkv', 'mp3', 'wav', 'ogg', 'flac', 'aac'])
+const AUDIO_PARSE_EXTS = new Set(['mp3', 'm4a', 'aac', 'wav', 'flac', 'ogg', 'opus'])
+const VIDEO_PARSE_EXTS = new Set(['mp4', 'webm', 'avi', 'mov', 'mkv', 'm4v'])
+const MEDIA_PARSE_EXTS = new Set([...AUDIO_PARSE_EXTS, ...VIDEO_PARSE_EXTS])
 
 function extOfFile(item = {}) {
   return String(item.ext || item.name?.split('.').pop() || '').toLowerCase()
+}
+
+function isRemoteMediaReference(item = {}) {
+  return !item?.isDirectory && String(item.name || '').toLowerCase().endsWith('.media.md')
 }
 
 function splitEditableName(name = '', isDirectory = false) {
@@ -369,8 +421,9 @@ function pdfProcessingStatusFromResult(result) {
 
 function mediaProcessingStatusFor(item) {
   const ext = extOfFile(item)
-  if (!MEDIA_PARSE_EXTS.has(ext)) return null
-  return { kind: ext.startsWith('mp') || ['wav', 'ogg', 'flac', 'aac'].includes(ext) ? 'media' : 'video', state: 'future', tone: 'future', label: '解析待支持', detail: '媒体解析策略已预留，后续支持音视频转写、抽帧和摘要' }
+  if (!MEDIA_PARSE_EXTS.has(ext) && !isRemoteMediaReference(item)) return null
+  const kind = item.mediaType || (AUDIO_PARSE_EXTS.has(ext) ? 'audio' : 'video')
+  return { kind, state: 'pending', tone: 'pending', label: '未解析', detail: isRemoteMediaReference(item) ? '正在读取远程媒体引用' : '可右键开始字幕优先解析' }
 }
 
 function baseProcessingStatusFor(item) {
@@ -384,6 +437,10 @@ function isPdfItem(item) {
   return !item?.isDirectory && extOfFile(item) === 'pdf'
 }
 
+function isMediaItem(item) {
+  return !item?.isDirectory && (MEDIA_PARSE_EXTS.has(extOfFile(item)) || isRemoteMediaReference(item))
+}
+
 function currentProcessingStatusFor(item) {
   if (!item) return null
   const current = items.value.find(entry => entry.path === item.path)
@@ -394,6 +451,10 @@ function currentProcessingStatusFor(item) {
 
 function isPdfParsing(item) {
   return !!item?.path && manualParsingPdfPaths.value.has(item.path)
+}
+
+function isMediaParsing(item) {
+  return !!item?.path && (manualParsingMediaPaths.value.has(item.path) || ['queued', 'running'].includes(currentProcessingStatusFor(item)?.state))
 }
 
 function isLocalFastPdfStrategy() {
@@ -423,24 +484,166 @@ function pdfContextMenuIcon(item) {
   return 'ri-scan-2-line'
 }
 
+function mediaContextMenuLabel(item) {
+  if (isMediaParsing(item)) return '解析中'
+  const state = currentProcessingStatusFor(item)?.state
+  if (state === 'ready') return '重新解析音视频'
+  if (state === 'partial') return '重新解析音视频'
+  return '解析音视频'
+}
+
+function mediaContextMenuIcon(item) {
+  if (isMediaParsing(item)) return 'ri-loader-4-line animate-spin'
+  if (currentProcessingStatusFor(item)?.state === 'ready') return 'ri-check-line'
+  return 'ri-closed-captioning-line'
+}
+
 function applyProcessingStatus(filePath, status) {
   const idx = items.value.findIndex(item => item.path === filePath)
   if (idx >= 0) items.value[idx] = { ...items.value[idx], processingStatus: status }
   if (selectedFile.value?.path === filePath) selectedFile.value = { ...selectedFile.value, processingStatus: status }
 }
 
+function applyMediaState(filePath, patch = {}) {
+  const idx = items.value.findIndex(item => item.path === filePath)
+  if (idx >= 0) items.value[idx] = { ...items.value[idx], ...patch }
+  if (selectedFile.value?.path === filePath) selectedFile.value = { ...selectedFile.value, ...patch }
+}
+
+function mediaStatusFromMetadata(result, item = {}) {
+  const kind = result?.media?.mediaType || item.mediaType || (AUDIO_PARSE_EXTS.has(extOfFile(item)) ? 'audio' : 'video')
+  if (!result?.success) return { kind, state: 'error', tone: 'error', label: '状态异常', detail: result?.message || '媒体状态读取失败' }
+  const active = result.activeRun
+  if (active?.status === 'queued') return { kind, state: 'queued', tone: 'pending', label: '排队中', detail: active.message || '等待媒体解析任务执行' }
+  if (active?.status === 'running') return { kind, state: 'running', tone: 'running', label: `解析中 ${active.progress || 0}%`, detail: active.message || active.stage || '正在处理媒体' }
+  if (!result.run && result.latestRun?.status === 'failed') return { kind, state: 'error', tone: 'error', label: '解析失败', detail: result.latestRun.errorMessage || '媒体解析失败，可右键重试' }
+  if (!result.run && result.latestRun?.status === 'cancelled') return { kind, state: 'pending', tone: 'pending', label: '已取消', detail: '媒体解析已取消，可右键重新解析' }
+  if (!result.run) return { kind, state: 'pending', tone: 'pending', label: '未解析', detail: '已登记媒体，可右键开始解析' }
+  if (result.media?.contentAvailability === 'transcript_ready') {
+    const hasTimeline = result.artifacts?.some(item => item.type === 'segments' && (item.status === 'ready' || item.status === 'partial'))
+    return { kind, state: 'ready', tone: 'ready', label: '转录可读', detail: `${hasTimeline ? '已生成时间轴文字稿' : '已生成纯文字稿（服务商未返回时间戳）'}${result.media.durationMs ? ` · ${Math.round(result.media.durationMs / 1000)} 秒` : ''}` }
+  }
+  if (result.media?.contentAvailability === 'visual_only') return { kind, state: 'partial', tone: 'warning', label: '画面可读', detail: result.availableModes?.includes('frames') ? '已生成视频关键帧，暂无可用转录' : '视频没有可用音轨，已保留媒体信息' }
+  return { kind, state: 'partial', tone: 'warning', label: '部分可用', detail: result.run?.warnings?.[0] || '已读取媒体信息，暂无可用字幕或转录' }
+}
+
+function mediaAnalyzeOptions() {
+  const settings = processingSettings.value
+  const providerId = String(settings.mediaProviderId || 'auto').trim() || 'auto'
+  return {
+    presetId: settings.mediaPreset || 'subtitle_first',
+    language: settings.mediaPreferredLanguage === 'auto' ? '' : settings.mediaPreferredLanguage,
+    providerId,
+    preferSubtitle: settings.mediaPreferSubtitle !== false,
+    extractKeyframes: settings.mediaExtractKeyframes === true,
+    keyframeLimit: settings.mediaKeyframeLimit || 12,
+  }
+}
+
+const selectedMediaSpeechProvider = computed(() => {
+  const requestedId = String(processingSettings.value.mediaProviderId || 'auto').trim() || 'auto'
+  if (requestedId !== 'auto') {
+    return mediaStore.configuredSpeechProviders.find(provider => provider.id === requestedId) || {
+      id: requestedId,
+      name: '所选语音服务',
+      model: '',
+      modelName: '',
+      unavailable: true,
+      active: false,
+    }
+  }
+  return mediaStore.defaultSpeechProvider
+})
+
+async function registerDocsMedia(item) {
+  if (!isMediaItem(item) || !api()?.media?.register) return null
+  if (item.mediaId) return { success: true, source: { id: item.mediaId } }
+  if (isRemoteMediaReference(item)) {
+    const resolved = await api()?.media?.resolveOwner?.({ type: 'docs_file', id: '', locator: item.path })
+    if (resolved?.success && resolved.found && resolved.source?.id) {
+      applyMediaState(item.path, {
+        mediaId: resolved.source.id,
+        mediaType: resolved.source.mediaType || item.mediaType || 'video',
+        remoteMediaReference: true,
+      })
+      return { success: true, source: resolved.source, link: resolved.link }
+    }
+    return { success: false, message: '远程媒体引用已失效或尚未登记。' }
+  }
+  const result = await api().media.register({
+    path: item.path,
+    sourceType: 'document_upload',
+    title: item.name,
+    owner: { type: 'docs_file', id: '', locator: item.path },
+  })
+  if (result?.success) applyMediaState(item.path, { mediaId: result.source.id })
+  return result
+}
+
+async function refreshMediaStatus(item) {
+  const registration = item.mediaId ? { success: true, source: { id: item.mediaId } } : await registerDocsMedia(item)
+  if (!registration?.success) {
+    applyProcessingStatus(item.path, mediaStatusFromMetadata(registration, item))
+    return registration
+  }
+  const metadata = await api()?.media?.query?.({ mediaId: registration.source.id, mode: 'metadata' })
+  applyMediaState(item.path, {
+    mediaId: registration.source.id,
+    mediaType: metadata?.media?.mediaType || item.mediaType,
+    mediaRunId: metadata?.activeRun?.id || metadata?.run?.id || '',
+    processingStatus: mediaStatusFromMetadata(metadata, item),
+  })
+  return { registration, metadata }
+}
+
+async function openMediaDetails(item) {
+  if (!isMediaItem(item)) return
+  contextMenu.value = null
+  const result = await refreshMediaStatus(item)
+  const current = items.value.find(entry => entry.path === item.path)
+  const mediaId = current?.mediaId || selectedFile.value?.mediaId || result?.registration?.source?.id || item.mediaId || ''
+  mediaDetailItem.value = {
+    ...item,
+    ...(current || {}),
+    mediaId,
+    mediaType: current?.mediaType || result?.metadata?.media?.mediaType || item.mediaType || (AUDIO_PARSE_EXTS.has(extOfFile(item)) ? 'audio' : 'video'),
+    remoteMediaReference: isRemoteMediaReference(item),
+  }
+  showMediaDetailModal.value = true
+}
+
+async function refreshMediaDetailItem(item) {
+  if (item?.path) await refreshMediaStatus(item)
+}
+
 async function loadDocumentProcessingStatuses(entries = items.value) {
   const pdfEntries = entries.filter(item => !item.isDirectory && extOfFile(item) === 'pdf')
-  await Promise.allSettled(pdfEntries.map(async (entry) => {
-    const result = await api()?.pdf?.getStatus?.(entry.path, { probe: false })
-    applyProcessingStatus(entry.path, pdfProcessingStatusFromResult(result))
-  }))
+  const mediaEntries = entries.filter(isMediaItem)
+  await Promise.allSettled([
+    ...pdfEntries.map(async (entry) => {
+      const result = await api()?.pdf?.getStatus?.(entry.path, { probe: false })
+      applyProcessingStatus(entry.path, pdfProcessingStatusFromResult(result))
+    }),
+    ...mediaEntries.map(refreshMediaStatus),
+  ])
+}
+
+async function refreshActiveMediaStatuses() {
+  const active = items.value.filter(item => isMediaItem(item) && item.mediaId && ['queued', 'running'].includes(item.processingStatus?.state))
+  if (!active.length) return
+  await Promise.allSettled(active.map(refreshMediaStatus))
 }
 
 function openOcrSettings() {
   showProcessingSettingsModal.value = false
   showPdfUploadPrompt.value = false
   router.push('/settings/ocr')
+}
+
+function openSpeechSettings() {
+  showProcessingSettingsModal.value = false
+  showPdfUploadPrompt.value = false
+  router.push('/settings/speech-models')
 }
 
 // ─── Folder Tree ───
@@ -475,59 +678,7 @@ async function buildTree(absPath, relPath) {
   return { folders: folderNodes, files: fileItems }
 }
 
-// ─── File type helpers ───
-function fileIcon(name, isDir) {
-  if (isDir) return 'ri-folder-3-line'
-  const ext = name.split('.').pop().toLowerCase()
-  const map = {
-    pdf: 'ri-file-pdf-2-line',
-    md: 'ri-markdown-line',
-    markdown: 'ri-markdown-line',
-    docx: 'ri-file-word-2-line',
-    doc: 'ri-file-word-2-line',
-    txt: 'ri-file-text-line',
-    xlsx: 'ri-file-excel-2-line',
-    xls: 'ri-file-excel-2-line',
-    pptx: 'ri-file-ppt-2-line',
-    ppt: 'ri-file-ppt-2-line',
-    png: 'ri-image-line',
-    jpg: 'ri-image-line',
-    jpeg: 'ri-image-line',
-    gif: 'ri-image-line',
-    svg: 'ri-image-line',
-    webp: 'ri-image-line',
-    zip: 'ri-file-zip-line',
-    rar: 'ri-file-zip-line',
-    '7z': 'ri-file-zip-line',
-    mp4: 'ri-movie-line',
-    mp3: 'ri-music-line',
-    wav: 'ri-music-line',
-    csv: 'ri-file-text-line',
-    json: 'ri-code-line',
-    js: 'ri-code-line',
-    py: 'ri-code-line',
-    java: 'ri-code-line',
-    cpp: 'ri-code-line',
-  }
-  return map[ext] || 'ri-file-line'
-}
 
-function fileIconColor(name, isDir) {
-  if (isDir) return isDark.value ? 'text-amber-400' : 'text-amber-500'
-  const ext = name.split('.').pop().toLowerCase()
-  const map = {
-    pdf: 'text-red-400',
-    md: 'text-emerald-400',
-    docx: 'text-blue-400',
-    xlsx: 'text-emerald-400',
-    pptx: 'text-orange-400',
-    png: 'text-pink-400',
-    jpg: 'text-pink-400',
-    zip: 'text-yellow-400',
-    mp4: 'text-purple-400',
-  }
-  return map[ext] || (isDark.value ? 'text-wt-aux' : 'text-lt-aux')
-}
 
 // Card accent helpers removed — DocGridCard/DocListRow now own their own theming.
 
@@ -609,6 +760,7 @@ function expandPathInTree(relPath) {
 
 // ─── Tree event handlers ───
 function handleSelectFolder(node) {
+  previewRequestId += 1
   activeTreePath.value = node.path
   selectedFile.value = null
   navigateTo(node.path)
@@ -620,9 +772,16 @@ function handleToggleFolder(node) {
 }
 
 async function handleSelectFile(file) {
+  const requestId = ++previewRequestId
   selectedFile.value = { ...file, content: null, error: null, loading: true }
   activeTreePath.value = file.path
-  await loadFilePreview(file)
+  await loadFilePreview(file, requestId)
+}
+
+function commitFilePreview(file, requestId, patch) {
+  if (requestId !== previewRequestId || selectedFile.value?.path !== file.path) return false
+  selectedFile.value = { ...file, ...patch }
+  return true
 }
 
 const TEXT_EXTS = new Set([
@@ -671,57 +830,82 @@ const TEXT_EXTS = new Set([
   'sql',
 ])
 
-async function loadFilePreview(file) {
+async function loadFilePreview(file, requestId) {
   const ext = (file.ext || file.name.split('.').pop() || '').toLowerCase()
   const isImage = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp', 'ico'].includes(ext)
-  const isAudio = ['mp3', 'wav', 'ogg', 'flac', 'aac'].includes(ext)
-  const isVideo = ['mp4', 'webm', 'avi', 'mov', 'mkv'].includes(ext)
+  const isAudio = AUDIO_PARSE_EXTS.has(ext)
+  const isVideo = VIDEO_PARSE_EXTS.has(ext)
+  if (isRemoteMediaReference(file)) {
+    try {
+      const result = await refreshMediaStatus({ ...file, remoteMediaReference: true })
+      const current = items.value.find(item => item.path === file.path)
+      commitFilePreview(file, requestId, {
+        ...(current || {}),
+        content: null,
+        error: result?.success === false
+          ? (result.message || '远程媒体引用读取失败')
+          : (result?.registration?.success === false ? (result.registration.message || '远程媒体引用读取失败') : null),
+        loading: false,
+        remoteMediaReference: true,
+        mediaType: current?.mediaType || result?.metadata?.media?.mediaType || 'video',
+      })
+    } catch (e) {
+      commitFilePreview(file, requestId, {
+        content: null,
+        error: e.message || '远程媒体引用读取失败',
+        loading: false,
+        remoteMediaReference: true,
+        mediaType: file.mediaType || 'video',
+      })
+    }
+    return
+  }
   if (ext === 'pdf') {
     try {
       const result = await api()?.pdf?.preflight?.(file.path, { sourceInfo: { origin: 'docs_preview' } })
       const processingStatus = pdfProcessingStatusFromResult(result)
       applyProcessingStatus(file.path, processingStatus)
-      selectedFile.value = {
-        ...file,
+      commitFilePreview(file, requestId, {
         content: null,
         error: result?.success === false ? (result.message || result.error || 'PDF 预检失败') : null,
         loading: false,
         ext,
         processingStatus,
         pdfStatus: result?.success ? result : null,
-      }
+      })
     } catch (e) {
-      selectedFile.value = { ...file, content: null, error: e.message, loading: false, ext }
+      commitFilePreview(file, requestId, { content: null, error: e.message, loading: false, ext })
     }
     return
   }
   if (isImage || isAudio || isVideo) {
-    selectedFile.value = {
-      ...file,
+    const committed = commitFilePreview(file, requestId, {
       content: null,
       error: null,
       loading: false,
       mediaType: isImage ? 'image' : isAudio ? 'audio' : 'video',
-    }
+    })
+    if (committed && (isAudio || isVideo)) await refreshMediaStatus(selectedFile.value)
     return
   }
   if (!TEXT_EXTS.has(ext)) {
-    selectedFile.value = { ...file, content: null, error: null, loading: false, unsupported: true }
+    commitFilePreview(file, requestId, { content: null, error: null, loading: false, unsupported: true })
     return
   }
   try {
     const result = await api()?.readFile?.(file.path)
     if (result?.success) {
-      selectedFile.value = { ...file, content: result.data, error: null, loading: false, ext }
+      commitFilePreview(file, requestId, { content: result.data, error: null, loading: false, ext })
     } else {
-      selectedFile.value = { ...file, content: null, error: result?.error || '读取失败', loading: false }
+      commitFilePreview(file, requestId, { content: null, error: result?.error || '读取失败', loading: false, ext })
     }
   } catch (e) {
-    selectedFile.value = { ...file, content: null, error: e.message, loading: false }
+    commitFilePreview(file, requestId, { content: null, error: e.message, loading: false, ext })
   }
 }
 
 function closePreview() {
+  previewRequestId += 1
   selectedFile.value = null
   activeTreePath.value = currentPath.value
 }
@@ -735,10 +919,23 @@ function getFileIconColor(ext) {
 }
 
 // ─── Jump to conversation ───
-function chatWith(item) {
-  const fullPath = currentPath.value ? currentPath.value + '/' + item.name : item.name
+async function chatWith(item) {
+  if (!item) return
+  let mediaId = item.mediaId || ''
+  if (isMediaItem(item) && !mediaId) {
+    const registration = await registerDocsMedia(item)
+    mediaId = registration?.source?.id || ''
+  }
+  workchatStore.ctxItems = [{
+    type: item.isDirectory ? 'folder' : 'file',
+    source: 'docs',
+    id: `docs_${Date.now()}`,
+    name: item.name,
+    path: item.path,
+    isDirectory: !!item.isDirectory,
+    ...(mediaId ? { mediaId } : {}),
+  }]
   router.push({ path: '/workchat' })
-  // router.push({ path: '/workspace', query: { doc: fullPath, type: item.isDirectory ? 'folder' : 'file' } })
 }
 
 // ─── Count helpers ───
@@ -758,16 +955,59 @@ const breadcrumbs = computed(() => {
 })
 
 // ─── Actions ───
+function normalizeRelativePath(relPath) {
+  return String(relPath || '').replace(/\\/g, '/').replace(/^\/+|\/+$/g, '')
+}
+
+function getItemRelativePath(item) {
+  if (typeof item?.relPath === 'string') return normalizeRelativePath(item.relPath)
+
+  const docsBase = normalizeRelativePath(getDocsBasePath())
+  const itemPath = normalizeRelativePath(item?.path)
+  if (!docsBase || !itemPath) return null
+  if (itemPath.toLowerCase() === docsBase.toLowerCase()) return ''
+
+  const prefix = docsBase + '/'
+  if (!itemPath.toLowerCase().startsWith(prefix.toLowerCase())) return null
+  return itemPath.slice(prefix.length)
+}
+
+function openCreateFolderModal(parentPath = currentPath.value) {
+  createFolderParentPath.value = normalizeRelativePath(parentPath)
+  newFolderName.value = ''
+  showCreateFolderModal.value = true
+}
+
+function openCreateSubfolderModal(item) {
+  if (!item?.isDirectory) return
+  const parentPath = getItemRelativePath(item)
+  if (parentPath === null) {
+    msg.error('无法确定目标文件夹路径')
+    return
+  }
+  openCreateFolderModal(parentPath)
+}
+
 async function createFolder() {
-  if (!newFolderName.value.trim()) return
-  const relPath = currentPath.value ? currentPath.value + '/' + newFolderName.value : newFolderName.value
+  const folderName = newFolderName.value.trim()
+  if (!folderName) return
+  const parentPath = createFolderParentPath.value
+  const relPath = parentPath ? parentPath + '/' + folderName : folderName
   const absPath = getAbsolutePath(relPath)
-  const result = await api()?.mkdir?.(absPath)
-  if (result?.success) {
+  try {
+    const result = await api()?.mkdir?.(absPath)
+    if (!result?.success) {
+      msg.error(result?.error || '创建文件夹失败')
+      return
+    }
+
     newFolderName.value = ''
     showCreateFolderModal.value = false
-    loadDirectory(currentPath.value)
-    loadFolderTree()
+    if (parentPath === currentPath.value) await loadDirectory(currentPath.value)
+    await loadFolderTree()
+    expandPathInTree(parentPath)
+  } catch (error) {
+    msg.error(error?.message || '创建文件夹失败')
   }
 }
 
@@ -855,6 +1095,13 @@ function showContextMenu(e, item) {
         }
       }).catch(() => {})
     }
+  } else if (isMediaItem(item)) {
+    refreshMediaStatus(item).then(() => {
+      const refreshed = items.value.find(entry => entry.path === item.path)
+      if (refreshed && contextMenu.value?.item?.path === item.path) {
+        contextMenu.value = { ...contextMenu.value, item: refreshed }
+      }
+    }).catch(() => {})
   }
 }
 
@@ -896,7 +1143,50 @@ function previewItem(item) {
 }
 
 // ─── Upload submit ───
-async function handleUploadSubmit({ type, files, url, includeHtml }) {
+function safeRemoteReferenceBase(title, sourceType) {
+  const fallback = sourceType === 'bilibili' ? 'B站视频' : '远程音视频'
+  return String(title || fallback).replace(/\.media\.md$/i, '').replace(/[\\/:*?"<>|]/g, '_').replace(/[. ]+$/g, '').trim().slice(0, 80) || fallback
+}
+
+function safeRemoteReferenceName(title, sourceType) {
+  return `${safeRemoteReferenceBase(title, sourceType)}-${Date.now().toString(36)}.media.md`
+}
+
+async function uniqueRemoteReferencePath(targetDir, title, sourceType, currentPath = '') {
+  const base = safeRemoteReferenceBase(title, sourceType)
+  for (let index = 1; index <= 999; index++) {
+    const suffix = index === 1 ? '' : ` (${index})`
+    const candidate = joinPathName(targetDir, `${base}${suffix}.media.md`)
+    if (candidate === currentPath || !(await api()?.exists?.(candidate))) return candidate
+  }
+  return joinPathName(targetDir, `${base}-${Date.now().toString(36)}.media.md`)
+}
+
+function remoteReferenceContent({ mediaId, title, sourceType }) {
+  const displayTitle = String(title || '远程音视频').replace(/[\r\n]+/g, ' ').trim()
+  return `---\nmindspaceMediaReference: 1\nmediaId: ${mediaId}\nsourceType: ${sourceType}\n---\n\n# ${displayTitle}\n\n这是 MindSpace 的远程音视频安全引用。原始或签名 URL 不会写入本文档；请通过“解析详情”查看转录、关键帧和历史版本。\n`
+}
+
+async function confirmMediaAnalysis(count = 1) {
+  const amount = Math.max(1, Number(count) || 1)
+  return mbox.confirm({
+    title: amount > 1 ? `开始解析 ${amount} 个媒体文件？` : '开始解析这个媒体文件？',
+    subtitle: '将按照当前媒体解析方案创建任务',
+    message: '解析可能调用语音模型、下载远程媒体或提取视频关键帧，并可能产生服务费用。',
+    variant: 'warning',
+    confirmText: '开始解析',
+    cancelText: '稍后手动解析',
+  })
+}
+
+async function shouldStartMediaAnalysis(count = 1) {
+  const action = processingSettings.value.mediaAction || 'ask'
+  if (action === 'low_cost_auto') return true
+  if (action === 'manual') return false
+  return confirmMediaAnalysis(count)
+}
+
+async function handleUploadSubmit({ type, files, url, includeHtml, title, sourceType, presetId }) {
   if (type === 'url') {
     webImportSubmitting.value = true
     try {
@@ -905,19 +1195,85 @@ async function handleUploadSubmit({ type, files, url, includeHtml }) {
     } finally { webImportSubmitting.value = false }
     return
   }
+  if (type === 'media') {
+    remoteMediaSubmitting.value = true
+    remoteMediaError.value = ''
+    const targetDir = getAbsolutePath(currentPath.value)
+    let targetPath = joinPathName(targetDir, safeRemoteReferenceName(title, sourceType))
+    try {
+      const placeholder = await api()?.writeFile?.(targetPath, '# 正在登记远程音视频…\n')
+      if (placeholder?.success === false) throw new Error(placeholder.error || '无法创建远程媒体引用文件')
+      const result = await api()?.media?.register?.({
+        url,
+        sourceType,
+        title: title || '',
+        owner: { type: 'docs_file', id: '', locator: targetPath },
+      })
+      if (!result?.success) throw new Error(result?.message || '远程音视频登记失败')
+      const resolvedTitle = result.source.title || title || (sourceType === 'bilibili' ? 'B 站视频' : '远程音视频')
+      const titledPath = await uniqueRemoteReferencePath(targetDir, resolvedTitle, sourceType, targetPath)
+      if (titledPath !== targetPath) {
+        const renamed = await api()?.rename?.(targetPath, titledPath)
+        if (renamed?.success) targetPath = titledPath
+        else console.warn('[Docs] Failed to rename remote media reference:', renamed?.error || renamed)
+      }
+      const content = remoteReferenceContent({
+        mediaId: result.source.id,
+        title: resolvedTitle,
+        sourceType,
+      })
+      const written = await api()?.writeFile?.(targetPath, content)
+      if (written?.success === false) throw new Error(written.error || '远程媒体引用文件写入失败')
+      if (await shouldStartMediaAnalysis(1)) {
+        const analysis = await api()?.media?.analyze?.(result.source.id, {
+          ...mediaAnalyzeOptions(),
+          presetId: presetId || processingSettings.value.mediaPreset || 'subtitle_first',
+          extractKeyframes: presetId === 'keyframe_enhanced' || processingSettings.value.mediaExtractKeyframes === true,
+        })
+        if (!analysis?.success) console.warn('[Docs] Remote media analysis was not started:', analysis?.message || analysis)
+      }
+      await loadDirectory(currentPath.value)
+      await loadFolderTree()
+      showUploadModal.value = false
+    } catch (error) {
+      remoteMediaError.value = error?.message || '添加远程音视频失败'
+      try { await api()?.deleteFile?.(targetPath) } catch {}
+    } finally {
+      remoteMediaSubmitting.value = false
+    }
+    return
+  }
   if (type !== 'local' || !files?.length) return
   const targetDir = getAbsolutePath(currentPath.value)
   const copiedPdfPaths = []
+  const copiedMediaItems = []
   for (const f of files) {
     const dest = targetDir + '/' + f.name
     await api()?.copyFile?.(f.path, dest)
-    if ((f.name || '').split('.').pop()?.toLowerCase() === 'pdf') copiedPdfPaths.push(dest)
+    const ext = (f.name || '').split('.').pop()?.toLowerCase()
+    if (ext === 'pdf') copiedPdfPaths.push(dest)
+    if (MEDIA_PARSE_EXTS.has(ext)) copiedMediaItems.push({ name: f.name, path: dest, ext })
   }
   loadDirectory(currentPath.value)
   loadFolderTree()
   if (copiedPdfPaths.length) {
     handlePdfUploadProcessing(copiedPdfPaths)
   }
+  if (copiedMediaItems.length) handleMediaUploadProcessing(copiedMediaItems)
+}
+
+async function handleMediaUploadProcessing(mediaItems) {
+  const registrations = await Promise.allSettled(mediaItems.map(async (item) => {
+    const registration = await registerDocsMedia(item)
+    return registration
+  }))
+  const registered = registrations
+    .filter(item => item.status === 'fulfilled' && item.value?.success && item.value?.source?.id)
+    .map(item => item.value)
+  if (registered.length && await shouldStartMediaAnalysis(registered.length)) {
+    await Promise.allSettled(registered.map(registration => api()?.media?.analyze?.(registration.source.id, mediaAnalyzeOptions())))
+  }
+  await loadDocumentProcessingStatuses(items.value)
 }
 
 function handlePdfUploadProcessing(paths) {
@@ -1034,6 +1390,48 @@ async function parsePdfFromContextMenu(item) {
   }
 }
 
+async function parseMediaFromContextMenu(item) {
+  if (!isMediaItem(item) || isMediaParsing(item)) return
+  const filePath = item.path
+  manualParsingMediaPaths.value = new Set([...manualParsingMediaPaths.value, filePath])
+  applyProcessingStatus(filePath, {
+    kind: AUDIO_PARSE_EXTS.has(extOfFile(item)) ? 'audio' : 'video',
+    state: 'queued',
+    tone: 'pending',
+    label: '排队中',
+    detail: '正在创建媒体解析任务',
+  })
+  try {
+    const registration = await registerDocsMedia(item)
+    if (!registration?.success) throw new Error(registration?.message || '媒体登记失败')
+    const result = await api()?.media?.analyze?.(registration.source.id, mediaAnalyzeOptions())
+    if (!result?.success) throw new Error(result?.message || '媒体解析任务创建失败')
+    applyMediaState(filePath, {
+      mediaId: registration.source.id,
+      mediaRunId: result.run?.id || '',
+      processingStatus: {
+        kind: AUDIO_PARSE_EXTS.has(extOfFile(item)) ? 'audio' : 'video',
+        state: result.run?.status || 'queued',
+        tone: result.run?.status === 'running' ? 'running' : 'pending',
+        label: result.run?.status === 'running' ? `解析中 ${result.run?.progress || 0}%` : '排队中',
+        detail: result.run?.message || '等待后台解析',
+      },
+    })
+  } catch (error) {
+    applyProcessingStatus(filePath, {
+      kind: AUDIO_PARSE_EXTS.has(extOfFile(item)) ? 'audio' : 'video',
+      state: 'error',
+      tone: 'error',
+      label: '解析失败',
+      detail: error.message || '媒体解析失败',
+    })
+  } finally {
+    const next = new Set(manualParsingMediaPaths.value)
+    next.delete(filePath)
+    manualParsingMediaPaths.value = next
+  }
+}
+
 function runPdfParseForUploads(paths = pendingPdfUploads.value, engine = pdfUploadEngine.value) {
   const selectedEngine = engine || 'auto'
   Promise.allSettled(paths.map(filePath => parsePdfByStrategy(filePath, selectedEngine, 'docs_upload_full_parse'))).then((results) => {
@@ -1075,7 +1473,10 @@ async function handleMoveSubmit({ item, destRelPath }) {
   if (srcAbs === destAbs) return
   const result = await api()?.rename?.(srcAbs, destAbs)
   if (result?.success) {
-    if (selectedFile.value?.path === srcAbs) selectedFile.value = null
+    if (selectedFile.value?.path === srcAbs) {
+      previewRequestId += 1
+      selectedFile.value = null
+    }
     loadDirectory(currentPath.value)
     loadFolderTree()
   } else {
@@ -1107,6 +1508,7 @@ function handleTreeFileContextMenu(e, file) {
 // ─── Init ───
 onMounted(() => {
   loadProcessingSettings()
+  mediaStore.loadSpeechSettings()
   webJobUpdatedHandler = api()?.webImport?.onJobUpdated?.((job) => {
     if (job?.target_type !== 'docs' || job.target_ref !== currentPath.value) return
     const index = webImportJobs.value.findIndex(item => item.id === job.id)
@@ -1118,10 +1520,14 @@ onMounted(() => {
     loadDirectory('')
     loadFolderTree()
   }
+  mediaStatusPollTimer = setInterval(refreshActiveMediaStatuses, 2500)
 })
 
 onBeforeUnmount(() => {
+  previewRequestId += 1
   api()?.webImport?.removeJobUpdatedListener?.(webJobUpdatedHandler)
+  if (mediaStatusPollTimer) clearInterval(mediaStatusPollTimer)
+  mediaStatusPollTimer = null
 })
 
 watch(
@@ -1144,11 +1550,17 @@ watch(showProcessingSettingsModal, (visible) => {
     loadOcrProviders()
     loadPdfEnvironment()
     loadWebImportSettings()
+    mediaStore.loadSpeechSettings({ force: true })
   }
 })
 
 watch(showUploadModal, visible => {
-  if (visible) { loadWebImportSettings(); loadWebImportJobs({ reset: true }) }
+  if (visible) {
+    remoteMediaError.value = ''
+    loadWebImportSettings()
+    loadWebImportJobs({ reset: true })
+    mediaStore.loadSpeechSettings({ force: true })
+  }
 })
 
 watch(showWebImportHistory, visible => {
@@ -1177,14 +1589,14 @@ watch(showPdfUploadPrompt, (visible) => {
         class="h-10 flex items-center justify-between px-3 shrink-0"
         :class="isDark ? 'border-b border-d4' : 'border-b border-bdrL'">
         <div class="flex items-center gap-1.5">
-          <i class="ri-folder-line text-[16px]" :class="isDark ? 'text-brand-400' : 'text-brand-500'" />
-          <span class="text-[14px] font-semibold tracking-wide" :class="isDark ? 'text-wt-main' : 'text-lt-main'">
+          <i class="ri-folder-line text-[18px]" :class="isDark ? 'text-brand-400' : 'text-brand-500'" />
+          <span class="text-[15px] font-semibold tracking-wide" :class="isDark ? 'text-wt-main' : 'text-lt-main'">
             我的文档
           </span>
         </div>
         <div class="flex items-center gap-0.5">
           <button
-            @click="showCreateFolderModal = true"
+            @click="openCreateFolderModal()"
             class="h-6 w-6 rounded-md flex items-center justify-center transition-colors"
             :class="
               isDark ? 'text-wt-aux hover:text-wt-sub hover:bg-white/5' : 'text-lt-aux hover:text-lt-sub hover:bg-l4'
@@ -1320,7 +1732,7 @@ watch(showPdfUploadPrompt, (visible) => {
         </div>
         <div class="text-center">
           <p class="text-[14px] font-medium" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">未设置工作目录</p>
-          <p class="text-[11px] mt-1" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">请先在设置中选择工作目录</p>
+          <p class="text-[12px] mt-1" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">请先在设置中选择工作目录</p>
         </div>
         <router-link
           to="/settings"
@@ -1343,7 +1755,8 @@ watch(showPdfUploadPrompt, (visible) => {
           :file="selectedFile"
           :is-dark="isDark"
           @close="closePreview"
-          @chat="chatWithFile" />
+          @chat="chatWithFile"
+          @media-details="openMediaDetails" />
 
         <!-- ═══ DIRECTORY BROWSE MODE ═══ -->
         <template v-else>
@@ -1356,7 +1769,7 @@ watch(showPdfUploadPrompt, (visible) => {
                 <template v-for="(crumb, idx) in breadcrumbs" :key="crumb.path">
                   <i
                     v-if="idx > 0"
-                    class="ri-arrow-right-s-line text-[12px]"
+                    class="ri-arrow-right-s-line text-[16px]"
                     :class="isDark ? 'text-wt-dim' : 'text-lt-aux'" />
                   <button
                     @click="
@@ -1420,7 +1833,7 @@ watch(showPdfUploadPrompt, (visible) => {
                 </button>
               </div>
               <button
-                @click="showCreateFolderModal = true"
+                @click="openCreateFolderModal()"
                 class="ctx-pill doc-toolbar-action cursor-pointer"
                 :class="
                   isDark
@@ -1479,7 +1892,7 @@ watch(showPdfUploadPrompt, (visible) => {
               <p class="text-[13px] font-medium" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">
                 {{ searchQuery ? '没有匹配的文件' : '此文件夹为空' }}
               </p>
-              <p v-if="!searchQuery" class="text-[11px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">
+              <p v-if="!searchQuery" class="text-[12px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">
                 上传文件或创建文件夹开始使用
               </p>
             </div>
@@ -1529,291 +1942,57 @@ watch(showPdfUploadPrompt, (visible) => {
       </div>
     </MainContent>
 
-    <!-- ═══ Context Menu ═══ -->
-    <Teleport to="body">
-      <div
-        v-if="contextMenu"
-        class="fixed inset-0 z-[60]"
-        @click="closeContextMenu"
-        @contextmenu.prevent="closeContextMenu">
-        <div
-          class="fixed rounded-xl shadow-xl py-1.5 min-w-[180px] border"
-          :class="isDark ? 'bg-d2 border-bdr shadow-black/40' : 'bg-white border-bdrF shadow-xl'"
-          :style="{ left: contextMenu.x + 'px', top: contextMenu.y + 'px' }">
-          <!-- Open -->
-          <button
-            @click="
-              openItem(contextMenu.item);
-              closeContextMenu()
-            "
-            class="w-full flex items-center gap-2.5 px-3 py-2 text-[11px] transition-colors"
-            :class="isDark ? 'text-wt-sub hover:bg-white/4' : 'text-lt-sub hover:bg-l4'">
-            <i class="ri-external-link-line text-[13px]" />
-            <span>{{ contextMenu.item.isDirectory ? '打开文件夹' : '打开文件' }}</span>
-          </button>
-          <!-- Preview (file only) -->
-          <button
-            v-if="!contextMenu.item.isDirectory"
-            @click="
-              previewItem(contextMenu.item);
-              closeContextMenu()
-            "
-            class="w-full flex items-center gap-2.5 px-3 py-2 text-[11px] transition-colors"
-            :class="isDark ? 'text-wt-sub hover:bg-white/4' : 'text-lt-sub hover:bg-l4'">
-            <i class="ri-eye-line text-[13px]" />
-            <span>预览</span>
-          </button>
-          <!-- PDF parse (file only) -->
-          <button
-            v-if="isPdfItem(contextMenu.item)"
-            :disabled="isPdfParsed(contextMenu.item) || isPdfParsing(contextMenu.item)"
-            @click="
-              parsePdfFromContextMenu(contextMenu.item);
-              closeContextMenu()
-            "
-            class="w-full flex items-center gap-2.5 px-3 py-2 text-[11px] transition-colors disabled:cursor-default"
-            :class="isPdfParsed(contextMenu.item)
-              ? isDark ? 'text-emerald-300/80' : 'text-emerald-600'
-              : isDark ? 'text-wt-sub hover:bg-white/4 disabled:text-wt-dim' : 'text-lt-sub hover:bg-l4 disabled:text-lt-aux'">
-            <i :class="[pdfContextMenuIcon(contextMenu.item), 'text-[13px]']" />
-            <span>{{ pdfContextMenuLabel(contextMenu.item) }}</span>
-          </button>
-          <!-- Chat -->
-          <button
-            @click="
-              chatWith(contextMenu.item);
-              closeContextMenu()
-            "
-            class="w-full flex items-center gap-2.5 px-3 py-2 text-[11px] transition-colors"
-            :class="isDark ? 'text-brand-400 hover:bg-brand-400/8' : 'text-brand-500 hover:bg-brand-50'">
-            <i class="ri-message-3-line text-[13px]" />
-            <span>开始对话</span>
-          </button>
-          <div class="my-1 border-t" :class="isDark ? 'border-bdr' : 'border-bdrF'" />
-          <!-- Move -->
-          <button
-            @click="openMoveModal(contextMenu.item)"
-            class="w-full flex items-center gap-2.5 px-3 py-2 text-[11px] transition-colors"
-            :class="isDark ? 'text-wt-sub hover:bg-white/4' : 'text-lt-sub hover:bg-l4'">
-            <i class="ri-folder-transfer-line text-[13px]" />
-            <span>移动到...</span>
-          </button>
-          <!-- Rename -->
-          <button
-            @click="openRenameModal(contextMenu.item)"
-            class="w-full flex items-center gap-2.5 px-3 py-2 text-[11px] transition-colors"
-            :class="isDark ? 'text-wt-sub hover:bg-white/4' : 'text-lt-sub hover:bg-l4'">
-            <i class="ri-edit-line text-[13px]" />
-            <span>重命名</span>
-          </button>
-          <!-- Show in folder (file only) -->
-          <button
-            v-if="!contextMenu.item.isDirectory"
-            @click="
-              showInFolder(contextMenu.item);
-              closeContextMenu()
-            "
-            class="w-full flex items-center gap-2.5 px-3 py-2 text-[11px] transition-colors"
-            :class="isDark ? 'text-wt-sub hover:bg-white/4' : 'text-lt-sub hover:bg-l4'">
-            <i class="ri-folder-open-line text-[13px]" />
-            <span>在资源管理器中显示</span>
-          </button>
-          <div class="my-1 border-t" :class="isDark ? 'border-bdr' : 'border-bdrF'" />
-          <!-- Delete -->
-          <button
-            @click="
-              confirmDelete = contextMenu.item;
-              closeContextMenu()
-            "
-            class="w-full flex items-center gap-2.5 px-3 py-2 text-[11px] transition-colors"
-            :class="isDark ? 'text-red-400 hover:bg-red-400/8' : 'text-red-500 hover:bg-red-50'">
-            <i class="ri-delete-bin-line text-[13px]" />
-            <span>删除</span>
-          </button>
-        </div>
-      </div>
-    </Teleport>
+    <DocsContextMenu
+      :menu="contextMenu"
+      :is-dark="isDark"
+      :is-pdf-parsed="isPdfParsed"
+      :is-pdf-parsing="isPdfParsing"
+      :pdf-icon="pdfContextMenuIcon"
+      :pdf-label="pdfContextMenuLabel"
+      :is-pdf-item="isPdfItem"
+      :is-media-item="isMediaItem"
+      :is-media-parsing="isMediaParsing"
+      :media-icon="mediaContextMenuIcon"
+      :media-label="mediaContextMenuLabel"
+      @close="closeContextMenu"
+      @open="openItem"
+      @preview="previewItem"
+      @parse-pdf="parsePdfFromContextMenu"
+      @parse-media="parseMediaFromContextMenu"
+      @media-details="openMediaDetails"
+      @chat="chatWith"
+      @create-subfolder="openCreateSubfolderModal"
+      @move="openMoveModal"
+      @rename="openRenameModal"
+      @show-in-folder="showInFolder"
+      @delete="(item) => (confirmDelete = item)" />
 
-    <!-- ═══ Create Folder Modal ═══ -->
-    <MsModal v-if="showCreateFolderModal" v-model:show="showCreateFolderModal" :width="380" :show-footer="true">
-      <template #header>
-        <div class="flex items-center gap-2.5">
-          <div
-            class="w-8 h-8 rounded-lg flex items-center justify-center"
-            :class="isDark ? 'bg-amber-400/8' : 'bg-amber-50'">
-            <i class="ri-folder-add-line text-[16px] text-amber-400" />
-          </div>
-          <span class="text-[13px] font-bold" :class="isDark ? 'text-wt-main' : 'text-lt-main'">新建文件夹</span>
-        </div>
-      </template>
+    <DocsCreateFolderModal
+      v-model:show="showCreateFolderModal"
+      v-model:name="newFolderName"
+      :is-dark="isDark"
+      :current-path="createFolderParentPath"
+      @submit="createFolder" />
 
-      <div class="space-y-3">
-        <div
-          v-if="currentPath"
-          class="flex items-center gap-1.5 px-3 py-2 rounded-lg text-[11px]"
-          :class="isDark ? 'bg-d0 text-wt-dim' : 'bg-l3 text-lt-aux'">
-          <i class="ri-folder-line text-[12px]" />
-          <span>当前位置：{{ currentPath }}</span>
-        </div>
-        <div>
-          <label
-            class="block text-[10px] font-bold uppercase tracking-wider mb-1.5"
-            :class="isDark ? 'text-wt-aux' : 'text-lt-aux'">
-            文件夹名称
-          </label>
-          <input
-            v-model="newFolderName"
-            type="text"
-            placeholder="输入文件夹名称"
-            class="w-full h-9 px-3 rounded-lg text-[12px] outline-none transition-colors"
-            :class="
-              isDark
-                ? 'bg-d0 border border-d4 text-wt-sub placeholder-wt-dim focus:border-brand-400/40'
-                : 'bg-l3 border border-bdrF text-lt-sub placeholder-lt-aux focus:border-brand-400'
-            "
-            @keyup.enter="createFolder" />
-        </div>
-      </div>
+    <DocsRenameModal
+      v-model:show="showRenameModal"
+      :is-dark="isDark"
+      :item="renameItem"
+      v-model:value="renameValue"
+      :extension="renameExtension"
+      :error="renameError"
+      :feedback="renameFeedbackText"
+      :can-submit="renameCanSubmit"
+      :file-icon="fileIcon"
+      :file-icon-color="fileIconColor"
+      @clear-error="renameError = ''"
+      @submit="confirmRename" />
 
-      <template #footer="{ close }">
-        <button
-          @click="close()"
-          class="px-4 py-2 rounded-lg text-[11px] font-medium transition-colors"
-          :class="isDark ? 'text-wt-aux hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub'">
-          取消
-        </button>
-        <button
-          @click="
-            createFolder();
-            close()
-          "
-          class="px-4 py-2 rounded-lg text-[11px] font-medium transition-colors"
-          :class="isDark ? 'bg-brand-400 text-d0 hover:bg-brand-500' : 'bg-brand-500 text-white hover:bg-brand-600'">
-          确认创建
-        </button>
-      </template>
-    </MsModal>
-
-    <!-- ═══ Rename Modal ═══ -->
-    <MsModal v-if="showRenameModal" v-model:show="showRenameModal" :width="380" :show-footer="true">
-      <template #header>
-        <div class="flex items-center gap-2.5">
-          <div
-            class="w-8 h-8 rounded-lg flex items-center justify-center"
-            :class="isDark ? 'bg-brand-400/8' : 'bg-brand-50'">
-            <i class="ri-edit-line text-[16px] text-brand-400" />
-          </div>
-          <span class="text-[13px] font-bold" :class="isDark ? 'text-wt-main' : 'text-lt-main'">重命名</span>
-        </div>
-      </template>
-
-      <div class="space-y-3">
-        <div class="flex items-center gap-2.5 px-3 py-2 rounded-lg" :class="isDark ? 'bg-d0' : 'bg-l3'">
-          <i
-            :class="[
-              fileIcon(renameItem?.name, renameItem?.isDirectory),
-              fileIconColor(renameItem?.name, renameItem?.isDirectory),
-            ]"
-            class="text-[14px]" />
-          <span class="text-[12px]" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">{{ renameItem?.name }}</span>
-        </div>
-        <div>
-          <label
-            class="block text-[10px] font-bold uppercase tracking-wider mb-1.5"
-            :class="isDark ? 'text-wt-aux' : 'text-lt-aux'">
-            {{ renameExtension ? '文件名' : '新名称' }}
-          </label>
-          <div class="flex items-stretch">
-            <input
-              v-model="renameValue"
-              type="text"
-              placeholder="输入新名称"
-              class="h-9 min-w-0 flex-1 px-3 text-[12px] outline-none transition-colors"
-              :class="[
-                renameExtension ? 'rounded-l-lg rounded-r-none' : 'w-full rounded-lg',
-                isDark
-                  ? 'bg-d0 border border-d4 text-wt-sub placeholder-wt-dim focus:border-brand-400/40'
-                  : 'bg-l3 border border-bdrF text-lt-sub placeholder-lt-aux focus:border-brand-400',
-              ]"
-              @input="renameError = ''"
-              @keyup.enter="confirmRename" />
-            <span
-              v-if="renameExtension"
-              class="h-9 shrink-0 inline-flex items-center rounded-r-lg border border-l-0 px-3 text-[12px] font-medium"
-              :class="isDark ? 'bg-d2 border-d4 text-wt-aux' : 'bg-l2 border-bdrF text-lt-aux'">
-              {{ renameExtension }}
-            </span>
-          </div>
-          <p
-            v-if="renameExtension"
-            class="mt-1 text-[10.5px]"
-            :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">
-            仅修改文件名，扩展名保持不变
-          </p>
-          <p
-            v-if="renameFeedbackText"
-            class="mt-1 text-[10.5px]"
-            :class="renameError ? 'text-red-400' : (isDark ? 'text-wt-dim' : 'text-lt-aux')">
-            {{ renameFeedbackText }}
-          </p>
-        </div>
-      </div>
-
-      <template #footer="{ close }">
-        <button
-          @click="close()"
-          class="px-4 py-2 rounded-lg text-[11px] font-medium transition-colors"
-          :class="isDark ? 'text-wt-aux hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub'">
-          取消
-        </button>
-        <button
-          :disabled="!renameCanSubmit"
-          @click="confirmRename"
-          class="px-4 py-2 rounded-lg text-[11px] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50"
-          :class="isDark ? 'bg-brand-400 text-d0 hover:bg-brand-500' : 'bg-brand-500 text-white hover:bg-brand-600'">
-          确认重命名
-        </button>
-      </template>
-    </MsModal>
-
-    <!-- ═══ Delete Confirmation Modal ═══ -->
-    <MsModal v-if="confirmDelete !== null" v-model:show="showDeleteModal" :width="360" :show-footer="true">
-      <template #header>
-        <div class="flex items-center gap-2.5">
-          <div
-            class="w-8 h-8 rounded-lg flex items-center justify-center"
-            :class="isDark ? 'bg-red-400/8' : 'bg-red-50'">
-            <i class="ri-delete-bin-line text-[16px] text-red-400" />
-          </div>
-          <span class="text-[13px] font-bold" :class="isDark ? 'text-wt-main' : 'text-lt-main'">确认删除</span>
-        </div>
-      </template>
-
-      <div>
-        <p class="text-[12px]" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">
-          确定要删除「{{ confirmDelete?.name }}」{{
-            confirmDelete?.isDirectory ? '及其所有内容' : ''
-          }}吗？文件将移入回收站，可随时恢复。
-        </p>
-      </div>
-
-      <template #footer="{ close }">
-        <button
-          @click="close()"
-          class="px-4 py-2 rounded-lg text-[11px] font-medium transition-colors"
-          :class="isDark ? 'text-wt-aux hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub'">
-          取消
-        </button>
-        <button
-          @click="
-            deleteItem(confirmDelete);
-            close()
-          "
-          class="px-4 py-2 rounded-lg text-[11px] font-medium bg-red-500 text-white hover:bg-red-600">
-          移入回收站
-        </button>
-      </template>
-    </MsModal>
+    <DocsDeleteConfirmModal
+      v-model:show="showDeleteModal"
+      :is-dark="isDark"
+      :item="confirmDelete"
+      @confirm="deleteItem" />
 
     <PdfProcessingSettingsModal
       v-if="showProcessingSettingsModal"
@@ -1830,10 +2009,12 @@ watch(showPdfUploadPrompt, (visible) => {
       :initial-tab="processingSettingsInitialTab"
       :web-settings="webImportSettings"
       :web-providers="webImportProviders"
+      :configured-speech-providers="mediaStore.configuredSpeechProviders"
       @save="saveProcessingSettings"
       @save-web-settings="saveWebImportSettings"
       @install-local-parser="installPdfLocalParser"
-      @open-ocr-settings="openOcrSettings" />
+      @open-ocr-settings="openOcrSettings"
+      @open-speech-settings="openSpeechSettings" />
 
     <!-- ═══ PDF Upload Processing Prompt ═══ -->
     <MsModal v-model:show="showPdfUploadPrompt" :width="420" :show-footer="true">
@@ -1928,12 +2109,24 @@ watch(showPdfUploadPrompt, (visible) => {
       :web-providers="webImportProviders"
       :web-jobs="webImportJobs"
       :web-submitting="webImportSubmitting"
+      :media-submitting="remoteMediaSubmitting"
+      :media-error="remoteMediaError"
+      :speech-provider="selectedMediaSpeechProvider"
       @open-web-settings="openWebImportSettings"
+      @open-media-settings="openMediaProcessingSettings"
       @retry-web-job="retryWebImportJob"
       @delete-web-job="deleteWebImportJob"
       @clear-web-jobs="clearWebImportJobs"
       @open-web-result="openWebImportResult"
       @submit="handleUploadSubmit" />
+
+    <MediaDetailModal
+      v-if="showMediaDetailModal"
+      v-model:show="showMediaDetailModal"
+      :is-dark="isDark"
+      :item="mediaDetailItem"
+      @reanalyze="parseMediaFromContextMenu"
+      @updated="refreshMediaDetailItem" />
 
     <WebImportHistoryDrawer
       v-if="showWebImportHistory"
@@ -1999,3 +2192,5 @@ watch(showPdfUploadPrompt, (visible) => {
   line-height: 14px;
 }
 </style>
+
+

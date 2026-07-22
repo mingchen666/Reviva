@@ -10,7 +10,7 @@ const props = defineProps({
   ocrConfigured: { type: Boolean, default: false },
 })
 
-const emit = defineEmits(['reparse', 'run-ocr', 'delete'])
+const emit = defineEmits(['reparse', 'run-ocr', 'delete', 'open-media'])
 
 const sources = computed(() => props.sources)
 const isDark = computed(() => props.isDark)
@@ -19,6 +19,7 @@ const busyOcrSourceId = computed(() => props.busyOcrSourceId)
 const busyDeleteSourceId = computed(() => props.busyDeleteSourceId)
 
 function sourceIcon(source) {
+  if (source?.type === 'media') return source?.meta?.media?.media_type === 'audio' ? 'ri-music-2-line' : 'ri-movie-2-line'
   return source?.type === 'note' ? 'ri-sticky-note-line' : 'ri-file-text-line'
 }
 
@@ -49,6 +50,7 @@ function statusClass(source, isDark) {
 }
 
 function canReparse(source) {
+  if (source.type === 'media') return true
   return source.type !== 'note' && !canRunOcr(source) && ['pending', 'failed', 'changed'].includes(source.status)
 }
 
@@ -82,6 +84,14 @@ function canRunOcr(source) {
           <span class="status-pill" :class="statusClass(source, isDark)">
             {{ sourceStatusLabel(source) }}
           </span>
+          <button
+            v-if="source.type === 'media'"
+            class="reparse-btn"
+            :class="isDark ? 'text-wt-dim hover:text-brand-300 hover:bg-brand-400/10' : 'text-lt-aux hover:text-brand-600 hover:bg-brand-50'"
+            title="查看媒体解析详情"
+            @click="emit('open-media', source)">
+            <i class="ri-file-list-3-line" />
+          </button>
           <button
             v-if="canReparse(source)"
             class="reparse-btn"

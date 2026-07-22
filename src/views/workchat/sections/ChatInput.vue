@@ -1,11 +1,14 @@
 <script setup>
-import { ref, watch, nextTick, computed, onBeforeUnmount } from 'vue'
-import ChatSlashCommandMenu from './chat/ChatSlashCommandMenu.vue'
+import { ref, watch, computed, onBeforeUnmount, onMounted } from 'vue'
+import ChatTokenEditor from './chat/ChatTokenEditor.vue'
 import ChatContextPills from './chat/ChatContextPills.vue'
 import ChatPopoverLayer from './chat/ChatPopoverLayer.vue'
 import { useMessage } from '@/components/MsMessage/useMessage'
 import TextEditContextMenu from '@/components/TextEditContextMenu.vue'
 import { useAgentsStore } from '@/stores/agents'
+import { useSettingsStore } from '@/stores/settings'
+import { useQuickInputsStore } from '@/stores/quickInputs'
+import { displayTextFromDocument, isStructuredInputDocument, normalizeInputDocument, resolvedTextFromDocument } from '@/utils/chatInputDocument'
 import {
   canCreateAttachmentFromFile,
   collectFilesFromDataTransfer,
@@ -45,24 +48,24 @@ const emit = defineEmits([
   'clear-messages',
 ])
 
-const inputText = ref('')
+const inputDocument = ref([])
 const activePopover = ref(null) // 'agent' | 'attach' | 'wiki' | 'ctx' | null
 const popoverPos = ref({ left: 0, bottom: 0, arrowLeft: 18 })
 const attachBtnRef = ref(null)
 const agentBtnRef = ref(null)
 const wikiBtnRef = ref(null)
 const ctxBtnRef = ref(null)
-const textareaRef = ref(null)
+const tokenEditorRef = ref(null)
 const textEditMenuRef = ref(null)
 const MAX_INPUT_LENGTH = 2000
 const msg = useMessage()
 const agentsStore = useAgentsStore()
-const slashContext = ref(null)
-const slashActiveIndex = ref(0)
-const lastSelection = ref({ start: 0, end: 0 })
-let suppressSlashSync = false
+const settingsStore = useSettingsStore()
+const quickInputsStore = useQuickInputsStore()
 
 const totalTokens = computed(() => props.totalInputTokens + props.totalOutputTokens)
+const inputText = computed(() => displayTextFromDocument(inputDocument.value))
+const resolvedInputText = computed(() => resolvedTextFromDocument(inputDocument.value))
 const charCount = computed(() => inputText.value.length)
 const selectedWikiCount = computed(() => props.selectedWikiIds?.length || 0)
 const selectedWikiNames = computed(() => {
@@ -104,17 +107,6 @@ const slashCommandItems = computed(() => agentSkills.value.map(skill => {
     priority: 100,
   }
 }))
-
-const filteredSlashCommands = computed(() => {
-  if (!slashContext.value) return []
-  const query = slashContext.value.query.trim().toLowerCase()
-  const items = [...slashCommandItems.value].sort((a, b) => (b.priority || 0) - (a.priority || 0))
-  if (!query) return items
-  return items.filter(item => item.searchText.includes(query))
-})
-
-const showSlashMenu = computed(() => !!slashContext.value && slashCommandItems.value.length > 0)
-const activeSlashCommand = computed(() => filteredSlashCommands.value[slashActiveIndex.value] || null)
 
 const sendButtonClass = computed(() => {
   if (canSend.value) {
@@ -173,8 +165,10 @@ function closePopover() {
   activePopover.value = null
 }
 
-function openTextEditMenu(event) {
-  textEditMenuRef.value?.open(event, textareaRef.value)
+function openTextEditMenu(payload) {
+  const event = payload?.event || payload
+  const element = payload?.element || tokenEditorRef.value?.getElement?.()
+  textEditMenuRef.value?.open(event, element)
 }
 
 function handleAddCtx(item) {
@@ -183,161 +177,33 @@ function handleAddCtx(item) {
 }
 
 function handleSend() {
-  const trimmed = (inputText.value || '').trim()
-  if (!trimmed || props.isStreaming) return
+  const content = (inputText.value || '').trim()
+  const resolvedContent = (resolvedInputText.value || '').trim()
+  if (!content || props.isStreaming || charCount.value > MAX_INPUT_LENGTH) return
   // Require an agent selection before sending — guide the user instead of silently sending without one
   if (!props.selectedAgent) {
     msg.warning('请先在工具栏选择一个 Agent，再发送消息', { title: '未选择 Agent', duration: 3500 })
     togglePopover('agent')
     return
   }
-  inputText.value = ''
-  nextTick(autoResize)
-  emit('send', trimmed)
+  const documentSnapshot = normalizeInputDocument(inputDocument.value)
+  const hasTokens = isStructuredInputDocument(documentSnapshot)
+  inputDocument.value = []
+  emit('send', { content, inputDocument: hasTokens ? documentSnapshot : [], resolvedContent: hasTokens ? resolvedContent : content })
 }
 
-function rememberSelection() {
-  const el = textareaRef.value
-  if (!el) return
-  lastSelection.value = {
-    start: el.selectionStart ?? inputText.value.length,
-    end: el.selectionEnd ?? inputText.value.length,
-  }
-}
-
-function getSlashContextAtPosition(cursor) {
-  const prefix = inputText.value.slice(0, cursor)
-  const match = prefix.match(/(^|\s)(\/[^\s]*)$/)
-  if (!match) return null
-  const token = match[2]
-  return {
-    start: cursor - token.length,
-    end: cursor,
-    token,
-    query: token.slice(1),
-  }
-}
-
-function getSlashContextAtCursor() {
-  const el = textareaRef.value
-  const cursor = el?.selectionStart ?? lastSelection.value.end ?? inputText.value.length
-  return getSlashContextAtPosition(cursor)
-}
-
-function syncSlashContext() {
-  rememberSelection()
-  slashContext.value = getSlashContextAtCursor()
-  if (!slashContext.value) slashActiveIndex.value = 0
-}
-
-function handleTextareaBlur() {
-  rememberSelection()
-  closeSlashMenu()
-}
-
-function closeSlashMenu() {
-  slashContext.value = null
-  slashActiveIndex.value = 0
-}
-
-function insertCommandText(rawText, range = null) {
-  const command = String(rawText || '').trim()
-  if (!command) return
-
-  const text = inputText.value || ''
-  const fallbackRange = {
-    start: lastSelection.value.start ?? text.length,
-    end: lastSelection.value.end ?? text.length,
-  }
-  const targetRange = range || slashContext.value || fallbackRange
-  const start = Math.max(0, Math.min(targetRange.start ?? text.length, text.length))
-  const end = Math.max(start, Math.min(targetRange.end ?? start, text.length))
-  const before = text.slice(0, start)
-  const after = text.slice(end)
-  const leadingSpace = before && !/\s$/.test(before) ? ' ' : ''
-  const trailingSpace = after && /^\s/.test(after) ? '' : ' '
-  const insertText = `${leadingSpace}${command}${trailingSpace}`
-  const cursor = before.length + insertText.length
-
-  suppressSlashSync = true
-  inputText.value = `${before}${insertText}${after}`
-  lastSelection.value = { start: cursor, end: cursor }
-  closeSlashMenu()
-
-  nextTick(() => {
-    const el = textareaRef.value
-    el?.focus()
-    el?.setSelectionRange(cursor, cursor)
-    autoResize()
-    rememberSelection()
-    suppressSlashSync = false
-    closeSlashMenu()
-  })
-}
-
-function moveSlashActive(delta) {
-  const count = filteredSlashCommands.value.length
-  if (!count) return
-  slashActiveIndex.value = (slashActiveIndex.value + delta + count) % count
-}
-
-function selectSlashCommand(item) {
-  if (!item) return
-  insertCommandText(item.insertText || item.label, slashContext.value)
-}
-
-function handleTextareaKeydown(event) {
-  if (showSlashMenu.value) {
-    if (event.key === 'ArrowDown') {
-      event.preventDefault()
-      moveSlashActive(1)
-      return
-    }
-    if (event.key === 'ArrowUp') {
-      event.preventDefault()
-      moveSlashActive(-1)
-      return
-    }
-    if (event.key === 'Tab' || (event.key === 'Enter' && !event.shiftKey)) {
-      event.preventDefault()
-      if (activeSlashCommand.value) selectSlashCommand(activeSlashCommand.value)
-      return
-    }
-    if (event.key === 'Escape') {
-      event.preventDefault()
-      closeSlashMenu()
-      return
-    }
-  }
-
-  if (event.key === 'Enter') {
-    event.preventDefault()
-    if (!event.shiftKey) handleSend()
-  }
-}
-
-function autoResize() {
-  const el = textareaRef.value
-  if (!el) return
-  el.style.height = 'auto'
-  el.style.height = Math.min(el.scrollHeight, 200) + 'px'
-}
-watch(inputText, () => nextTick(() => {
-  autoResize()
-  if (!suppressSlashSync) syncSlashContext()
-}))
-
-watch(filteredSlashCommands, (items) => {
-  if (!items.length || slashActiveIndex.value >= items.length) slashActiveIndex.value = 0
-})
-
-watch(() => props.selectedAgent?.id, closeSlashMenu)
+watch(() => props.selectedAgent?.id, () => tokenEditorRef.value?.closeMenu?.())
 
 watch(() => props.commandInsertRequest?.id, () => {
   const request = props.commandInsertRequest
   if (!request?.text) return
-  insertCommandText(request.text, slashContext.value || getSlashContextAtPosition(lastSelection.value.end) || lastSelection.value)
+  if (request.type === 'skill') tokenEditorRef.value?.insertSkill?.({ id: request.skillId, label: request.text, insertText: request.text })
+  else tokenEditorRef.value?.insertText?.(request.text)
 })
+
+watch(() => settingsStore.workDirRoot, () => quickInputsStore.load().catch(() => {}))
+
+onMounted(() => quickInputsStore.load().catch(() => {}))
 
 // Clipboard files/images become local attachment context items; plain text paste keeps default behavior.
 async function handlePaste(e) {
@@ -384,32 +250,21 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick, true))
           ? 'bg-d1 border border-d4 focus-within:border-brand-400/30 focus-within:shadow-lg focus-within:shadow-brand-400/8'
           : 'bg-l1 border border-bdrF focus-within:border-brand-400/40 focus-within:shadow-lg focus-within:shadow-brand-400/12'
       ">
-      <ChatSlashCommandMenu
-        v-if="showSlashMenu"
-        class="absolute left-0 right-0 bottom-[calc(100%+8px)] z-40"
-        :is-dark="isDark"
-        :items="filteredSlashCommands"
-        :active-index="slashActiveIndex"
-        @hover="slashActiveIndex = $event"
-        @select="selectSlashCommand" />
-
-      <!-- Textarea 增加 relative 以便字数统计绝对定位-->
+      <!-- Token editor keeps the visible @/ labels separate from resolved message text. -->
       <div class="relative px-3 sm:px-4 pt-2 pb-1" @contextmenu.prevent.stop="openTextEditMenu">
-        <textarea
-          ref="textareaRef"
-          v-model="inputText"
-          class="w-full bg-transparent outline-none resize-none border-0 box-border text-sm leading-relaxed min-h-[56px] sm:min-h-[64px] pb-7"
-          :class="isDark ? 'text-wt-main placeholder-wt-dim' : 'text-lt-main placeholder-lt-aux'"
-          rows="3"
-          :maxlength="MAX_INPUT_LENGTH"
-          :placeholder="selectedAgent ? `向 ${selectedAgent.name} 提问，输入斜杠/ 查看和使用技能...` : '输入问题，选择Agent后再发送消息，输入斜杠/ 查看和使用技能...'"
-          @keydown="handleTextareaKeydown"
-          @keyup="syncSlashContext"
-          @click="syncSlashContext"
-          @focus="syncSlashContext"
-          @blur="handleTextareaBlur"
+        <ChatTokenEditor
+          ref="tokenEditorRef"
+          v-model="inputDocument"
+          class="chat-input-token-editor"
+          :is-dark="isDark"
+          :slash-items="slashCommandItems"
+          :quick-items="quickInputsStore.enabledItems"
+          :quick-enabled="settingsStore.quickInputEnabled"
+          :placeholder="selectedAgent ? `向 ${selectedAgent.name} 提问，输入 @ 使用快捷输入；输入 / 引用技能...` : '输入问题，选择 Agent 后再发送，输入 @ 使用快捷输入；输入 / 引用技能...'"
+          :menu-direction="'up'"
+          @submit="handleSend"
           @paste="handlePaste"
-          @contextmenu.prevent.stop="openTextEditMenu" />
+          @contextmenu="openTextEditMenu" />
 
         <!-- 右下角字数统计 -->
         <div
@@ -584,6 +439,13 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick, true))
 <style scoped>
 .chat-input-box {
   container-type: inline-size;
+}
+
+.chat-input-token-editor :deep(.chat-token-editor-surface) {
+  min-height: 64px;
+  max-height: 200px;
+  overflow-y: auto;
+  padding-bottom: 28px;
 }
 
 .chat-toolbar-left {

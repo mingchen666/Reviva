@@ -1,6 +1,6 @@
 // electron/main.js
 process.env['ELECTRON_DISABLE_SECURITY_WARNINGS'] = 'true'
-import { app, BrowserWindow, ipcMain, dialog, shell, globalShortcut, Tray, Menu, nativeImage, protocol, net } from 'electron'
+import { app, BrowserWindow, ipcMain, dialog, shell, globalShortcut, Tray, Menu, nativeImage, protocol, net, safeStorage } from 'electron'
 import { pathToFileURL } from 'node:url'
 import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
@@ -20,17 +20,21 @@ import { PptxExportService } from './PptxExportService'
 import { GenerationTaskService } from './GenerationTaskService'
 import { McpService } from './McpService'
 import { WikiService } from './WikiService.js'
-import { BackupService } from './BackupService.js'
+import { BackupService, applyPendingBackupRestore } from './BackupService.js'
 import { createSettingsTransfer, parseSettingsTransfer } from './SettingsTransferService.js'
 import { WebImportService } from './web-import/WebImportService.js'
 import { WebImportJobService } from './web-import/WebImportJobService.js'
 import { DocsWebImportWriter } from './web-import/DocsWebImportWriter.js'
+import { createMediaModule } from './media/index.js'
+import { registerMediaIpcHandlers } from './media/ipc/mediaIpcHandlers.js'
 import { PdfReadService } from './tools/pdf/PdfReadService.js'
 import { PdfLifecycleService } from './tools/pdf/PdfLifecycleService.js'
 import { PDF_READ_SETTINGS_KEY, normalizePdfReadSettings } from './tools/pdf/PdfReadSettings.js'
 import { PdfTextExtractor } from './tools/pdf/PdfTextExtractor.js'
 import { getOfficeCliCommandCandidates, getOfficeCliSpawnEnv } from './officeCliResolver.js'
 import { getSystemEnv } from './systemEnv.js'
+import { createLocalGateway } from './local-gateway/index.js'
+import { registerGatewayIpcHandlers } from './local-gateway/ipc/gatewayIpcHandlers.js'
 import path from 'node:path'
 import fs from 'node:fs'
 import { initAutoUpdater } from './AutoUpdater'
@@ -77,8 +81,10 @@ let mcpService = null
 let wikiService = null
 let webImportService = null
 let webImportJobService = null
+let mediaModule = null
 let backupService = null
 let pdfLifecycleService = null
+let localGateway = null
 let tray = null
 let minimizeToTray = false
 const DEFAULT_TRAY_MENU = [
@@ -473,6 +479,13 @@ ipcMain.handle('fs:rename', async (event, oldPath, newPath) => {
         console.error('[PdfLifecycle] Failed to update renamed PDF references:', error)
       }
     }
+    if (mediaModule?.lifecycle) {
+      try {
+        mediaModule.lifecycle.onRenamed(vOld, vNew, { isDirectory: oldStat.isDirectory() })
+      } catch (error) {
+        console.error('[MediaLifecycle] Failed to update renamed media references:', error)
+      }
+    }
     return { success: true }
   } catch (err) {
     return { success: false, error: err.message }
@@ -483,7 +496,13 @@ ipcMain.handle('fs:rename', async (event, oldPath, newPath) => {
 ipcMain.handle('fs:deleteFile', async (event, filePath) => {
   try {
     const validatedPath = validateFsPath(filePath)
+    let mediaSnapshot = null
+    try { mediaSnapshot = mediaModule?.lifecycle?.prepareMoveToTrash?.(validatedPath, { isDirectory: false }) || null }
+    catch (error) { console.error('[MediaLifecycle] Failed to snapshot deleted file:', error) }
     await fs.promises.unlink(validatedPath)
+    if (mediaSnapshot) {
+      await mediaModule.lifecycle.onPermanentlyDeleted({ payload_json: JSON.stringify({ mediaLifecycle: mediaSnapshot }) })
+    }
     return { success: true }
   } catch (err) {
     return { success: false, error: err.message }
@@ -505,7 +524,13 @@ ipcMain.handle('fs:mkdir', async (event, dirPath, options = {}) => {
 ipcMain.handle('fs:removeDir', async (event, dirPath) => {
   try {
     const validatedPath = validateFsPath(dirPath)
+    let mediaSnapshot = null
+    try { mediaSnapshot = mediaModule?.lifecycle?.prepareMoveToTrash?.(validatedPath, { isDirectory: true }) || null }
+    catch (error) { console.error('[MediaLifecycle] Failed to snapshot deleted directory:', error) }
     await fs.promises.rm(validatedPath, { recursive: true, force: true })
+    if (mediaSnapshot) {
+      await mediaModule.lifecycle.onPermanentlyDeleted({ payload_json: JSON.stringify({ mediaLifecycle: mediaSnapshot }) })
+    }
     return { success: true }
   } catch (err) {
     return { success: false, error: err.message }
@@ -652,9 +677,11 @@ async function _restoreDbItem(record) {
           parent_msg_id: messageIdMap.get(message.parentMsgId || message.parent_msg_id) || '',
         })
       }
-      return { restoredId: conv.id }
+      return { restoredId: conv.id, messageIdMap: Object.fromEntries(messageIdMap) }
     })
-    return restoreConversation()
+    const restored = restoreConversation()
+    mediaModule?.lifecycle?.onConversationRestored?.(payload.mediaLifecycle, restored.messageIdMap)
+    return { restoredId: restored.restoredId }
   }
   if (record.item_type === 'note') {
     if (noteFileService) return await noteFileService.restoreNote(record)
@@ -767,6 +794,9 @@ ipcMain.handle('recycleBin:moveToTrash', async (event, itemPath, itemMeta) => {
     const pdfSnapshot = pdfLifecycleService
       ? await pdfLifecycleService.prepareMoveToTrash(validatedPath, { isDirectory: isDir })
       : null
+    let mediaSnapshot = null
+    try { mediaSnapshot = mediaModule?.lifecycle?.prepareMoveToTrash?.(validatedPath, { isDirectory: isDir }) || null }
+    catch (error) { console.error('[MediaLifecycle] Failed to snapshot trashed path:', error) }
 
     await fs.promises.rename(validatedPath, trashPath)
 
@@ -791,7 +821,10 @@ ipcMain.handle('recycleBin:moveToTrash', async (event, itemPath, itemMeta) => {
       file_type: ext,
       category,
       item_type: 'file',
-      payload_json: pdfSnapshot ? JSON.stringify({ pdfLifecycle: pdfSnapshot }) : '',
+      payload_json: pdfSnapshot || mediaSnapshot ? JSON.stringify({
+        ...(pdfSnapshot ? { pdfLifecycle: pdfSnapshot } : {}),
+        ...(mediaSnapshot ? { mediaLifecycle: mediaSnapshot } : {}),
+      }) : '',
     })
 
     if (pdfLifecycleService && pdfSnapshot) {
@@ -799,6 +832,13 @@ ipcMain.handle('recycleBin:moveToTrash', async (event, itemPath, itemMeta) => {
         pdfLifecycleService.onMovedToTrash(record.id, pdfSnapshot)
       } catch (error) {
         console.error('[PdfLifecycle] Failed to mark PDF references as trashed:', error)
+      }
+    }
+    if (mediaModule?.lifecycle && mediaSnapshot) {
+      try {
+        mediaModule.lifecycle.onMovedToTrash(record.id, mediaSnapshot)
+      } catch (error) {
+        console.error('[MediaLifecycle] Failed to mark media references as trashed:', error)
       }
     }
 
@@ -893,14 +933,16 @@ ipcMain.handle('recycleBin:trashConversation', async (event, convId) => {
     const conv = dbService.getConv(convId)
     if (!conv) return { success: false, error: 'Conversation not found' }
     const messages = dbService.listMsgs(convId)
+    const mediaLifecycle = mediaModule?.lifecycle?.prepareConversationTrash?.(messages.map(message => message.id)) || null
     const record = dbService.createTrashItem({
       original_path: '', trash_path: '',
       original_name: conv.title || '未命名对话',
       is_directory: 0, size: messages.length, file_type: 'chat',
       category: 'chat',
       item_type: 'conversation', item_id: convId,
-      payload_json: JSON.stringify({ conv, messages }),
+      payload_json: JSON.stringify({ conv, messages, mediaLifecycle }),
     })
+    mediaModule?.lifecycle?.onConversationTrashed?.(record.id, mediaLifecycle)
     dbService.deleteConv(convId) // ON DELETE CASCADE clears messages
     console.log(`[RecycleBin] Trashed conversation ${convId} → ${record.id} (${messages.length} msgs)`)
     return { success: true, data: record }
@@ -934,6 +976,7 @@ ipcMain.handle('recycleBin:trashNote', async (event, noteId) => {
 // Soft-delete a note folder (recursive: each note and sub-folder becomes its own trash entry)
 ipcMain.handle('recycleBin:trashNoteFolder', async (event, folderId) => {
   try {
+    if (noteFileService?.trashNoteFolder) return await noteFileService.trashNoteFolder(folderId)
     const records = []
     async function trashRecursive(fid) {
       const folder = dbService.getNoteFolder(fid)
@@ -985,6 +1028,10 @@ ipcMain.handle('recycleBin:restore', async (event, trashId) => {
     if (record.item_type === 'file' || !record.item_type) {
       const restoredPath = await _restoreFileItem(record)
       if (pdfLifecycleService) await pdfLifecycleService.onRestored(record, restoredPath)
+      if (mediaModule?.lifecycle) {
+        try { mediaModule.lifecycle.onRestored(record, restoredPath) }
+        catch (error) { console.error('[MediaLifecycle] Failed after restoring file:', error) }
+      }
       dbService.deleteTrashItem(trashId)
       return { success: true, data: { restoredPath } }
     } else {
@@ -1006,6 +1053,10 @@ ipcMain.handle('recycleBin:restoreBatch', async (event, trashIds) => {
       if (record.item_type === 'file' || !record.item_type) {
         const restoredPath = await _restoreFileItem(record)
         if (pdfLifecycleService) await pdfLifecycleService.onRestored(record, restoredPath)
+        if (mediaModule?.lifecycle) {
+          try { mediaModule.lifecycle.onRestored(record, restoredPath) }
+          catch (error) { console.error('[MediaLifecycle] Failed after restoring file:', error) }
+        }
         dbService.deleteTrashItem(id)
         results.push({ id, success: true, restoredPath })
       } else {
@@ -1028,6 +1079,13 @@ ipcMain.handle('recycleBin:deletePermanently', async (event, trashId) => {
     if (pdfLifecycleService && (record.item_type === 'file' || !record.item_type)) {
       await pdfLifecycleService.onPermanentlyDeleted(record)
     }
+    if (mediaModule?.lifecycle && (record.item_type === 'file' || !record.item_type)) {
+      await mediaModule.lifecycle.onPermanentlyDeleted(record)
+    }
+    if (record.item_type === 'conversation') {
+      const payload = record.payload_json ? JSON.parse(record.payload_json) : {}
+      await mediaModule?.lifecycle?.onConversationPermanentlyDeleted?.(payload.mediaLifecycle)
+    }
     dbService.deleteTrashItem(trashId)
     return { success: true }
   } catch (err) {
@@ -1044,6 +1102,13 @@ ipcMain.handle('recycleBin:deleteBatchPermanently', async (event, trashIds) => {
       await _permanentlyDeleteItem(record)
       if (pdfLifecycleService && (record.item_type === 'file' || !record.item_type)) {
         await pdfLifecycleService.onPermanentlyDeleted(record)
+      }
+      if (mediaModule?.lifecycle && (record.item_type === 'file' || !record.item_type)) {
+        await mediaModule.lifecycle.onPermanentlyDeleted(record)
+      }
+      if (record.item_type === 'conversation') {
+        const payload = record.payload_json ? JSON.parse(record.payload_json) : {}
+        await mediaModule?.lifecycle?.onConversationPermanentlyDeleted?.(payload.mediaLifecycle)
       }
       dbService.deleteTrashItem(id)
       results.push({ id, success: true })
@@ -1071,6 +1136,13 @@ ipcMain.handle('recycleBin:emptyTrash', async () => {
         await _permanentlyDeleteItem(item)
         if (pdfLifecycleService && (item.item_type === 'file' || !item.item_type)) {
           await pdfLifecycleService.onPermanentlyDeleted(item)
+        }
+        if (mediaModule?.lifecycle && (item.item_type === 'file' || !item.item_type)) {
+          await mediaModule.lifecycle.onPermanentlyDeleted(item)
+        }
+        if (item.item_type === 'conversation') {
+          const payload = item.payload_json ? JSON.parse(item.payload_json) : {}
+          await mediaModule?.lifecycle?.onConversationPermanentlyDeleted?.(payload.mediaLifecycle)
         }
         dbService.deleteTrashItem(item.id)
         results.push({ id: item.id, success: true })
@@ -1847,6 +1919,31 @@ ipcMain.handle('backup:create', async (event, options = {}) => {
     return await backupService.createBackup({ mode, outputPath })
   } catch (err) {
     console.error('[BackupService] create failed:', err)
+    return { success: false, error: err.message }
+  }
+})
+
+ipcMain.handle('backup:prepareRestore', async () => {
+  try {
+    if (!backupService) throw new Error('备份服务未就绪')
+    const result = await dialog.showOpenDialog(win, {
+      title: '选择 Reviva 备份包',
+      defaultPath: app.getPath('documents'),
+      properties: ['openFile'],
+      filters: [{ name: 'Reviva Backup', extensions: ['zip'] }],
+    })
+    if (result.canceled || !result.filePaths?.[0]) return { success: false, canceled: true }
+    return await backupService.prepareRestore({ packagePath: result.filePaths[0] })
+  } catch (err) {
+    console.error('[BackupService] prepare restore failed:', err)
+    return { success: false, error: err.message }
+  }
+})
+
+ipcMain.handle('backup:getRestoreResult', async () => {
+  try {
+    return { success: true, data: await backupService?.consumeRestoreResult?.() || null }
+  } catch (err) {
     return { success: false, error: err.message }
   }
 })
@@ -2632,11 +2729,16 @@ ipcMain.handle('agent:healthCheck', async (_, agentIds, options = {}) => {
 // ========== App Lifecycle ==========
 
 app.on('will-quit', () => {
+  void localGateway?.stop?.()
+  mediaModule?.runner?.stop?.()
+  mediaModule?.maintenance?.stop?.()
   globalShortcut.unregisterAll()
   destroyTray()
 })
 
 app.on('window-all-closed', () => {
+  mediaModule?.runner?.stop?.()
+  mediaModule?.maintenance?.stop?.()
   if (dbService) dbService.close()
   if (process.platform !== 'darwin') {
     app.quit()
@@ -2651,6 +2753,7 @@ app.on('activate', () => {
 })
 
 app.whenReady().then(async () => {
+  await applyPendingBackupRestore({ stateRoot: app.getPath('userData') })
   // Handle reviva-file:// → stream local files to <img>/<audio>/<video> bypassing webSecurity
   protocol.handle('reviva-file', (request) => {
     try {
@@ -2712,6 +2815,14 @@ app.whenReady().then(async () => {
   } else {
     workDirService.loadFromDb()
   }
+  mediaModule = createMediaModule({ database: dbService, workDirService, secretStore: safeStorage })
+  registerMediaIpcHandlers(ipcMain, mediaModule)
+  mediaModule.runner?.start?.().catch(err => {
+    console.error('[MediaJobRunner] Failed to start:', err.message)
+  })
+  mediaModule.maintenance?.start?.().catch(err => {
+    console.error('[MediaMaintenance] Failed to start:', err.message)
+  })
   workspaceMigrationService = new WorkspaceMigrationService({
     dbService,
     registryService: workspaceRegistryService,
@@ -2738,8 +2849,9 @@ app.whenReady().then(async () => {
 
   agentService = new AgentService(dbService, () => win, workDirService, mcpService, {
     notifyTask: notifyAgentTaskSoundFromMain,
-  })
+  }, noteFileService)
   agentService.init()
+  agentService.setMediaModule?.(mediaModule)
 
   skillService = new SkillService(workDirService, {
     builtinSkillsDir: app.isPackaged
@@ -2756,7 +2868,7 @@ app.whenReady().then(async () => {
   generationTaskService = new GenerationTaskService(dbService, () => win, workDirService, agentService)
   generationTaskService.init()
 
-  wikiService = new WikiService(workDirService, dbService, agentService)
+  wikiService = new WikiService(workDirService, dbService, agentService, mediaModule)
   wikiService.init()
   agentService.setWikiService?.(wikiService)
 
@@ -2774,8 +2886,23 @@ app.whenReady().then(async () => {
     console.warn('[WebImportJobService] Failed to restore jobs:', err.message)
   }), 0)
 
+  localGateway = createLocalGateway({
+    dbService,
+    agentService,
+    wikiService,
+    workDirService,
+    webImportJobService,
+    mediaModule,
+    noteFileService,
+    secretStore: safeStorage,
+    appVersion: app.getVersion(),
+    logger: console,
+  })
+  registerGatewayIpcHandlers(ipcMain, localGateway)
+
   backupService = new BackupService(dbService, workDirService, {
     appVersion: app.getVersion(),
+    restoreStateRoot: app.getPath('userData'),
   })
 
   // Ensure agents directory exists in workspace
@@ -2806,7 +2933,7 @@ app.whenReady().then(async () => {
     console.error('[AgentService] Failed to install builtin agents:', err.message)
   }
 
-  registerDbHandlers(dbService, { notes: noteFileService, noteFolders: noteFileService })
+  registerDbHandlers(dbService, { notes: noteFileService, noteFolders: noteFileService, mediaLifecycle: mediaModule?.lifecycle })
   createWindow()
   initAutoUpdater(win)
   if (VITE_DEV_SERVER_URL) {

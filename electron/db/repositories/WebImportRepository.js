@@ -43,9 +43,9 @@ export class WebImportRepository extends BaseRepository {
     const now = data.created_at || data.createdAt || new Date().toISOString()
     this.db.prepare(`INSERT INTO web_import_jobs (
       id, target_type, target_ref, requested_url, final_url, provider, formats_json,
-      status, stage, progress, title, result_paths_json, source_id, error_code,
+      status, stage, progress, title, file_name, result_paths_json, source_id, error_code,
       error_message, usage_json, retry_of, created_at, started_at, completed_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
       id,
       targetType,
       targetRef,
@@ -57,6 +57,7 @@ export class WebImportRepository extends BaseRepository {
       stage,
       Number.isFinite(Number(data.progress)) ? Number(data.progress) : 0,
       data.title || '',
+      data.file_name || data.fileName || '',
       stringifyJSON(data.result_paths || data.result_paths_json || []),
       data.source_id || data.sourceId || '',
       data.error_code || data.errorCode || '',

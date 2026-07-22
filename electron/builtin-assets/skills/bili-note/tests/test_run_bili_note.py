@@ -1,6 +1,6 @@
+import importlib.util
 import subprocess
 import sys
-import importlib.util
 from pathlib import Path
 
 
@@ -16,7 +16,7 @@ def load_module():
     return module
 
 
-def test_run_bili_note_help_exposes_pipeline_options():
+def test_run_bili_note_help_exposes_opus_pipeline_options():
     result = subprocess.run(
         [sys.executable, str(SCRIPT), "--help"],
         check=True,
@@ -24,18 +24,23 @@ def test_run_bili_note_help_exposes_pipeline_options():
         capture_output=True,
     )
 
+    assert "--work-dir" in result.stdout
     assert "--archive-dir" in result.stdout
-    assert "--browser-target" in result.stdout
-    assert "--subtitle-mode" in result.stdout
+    assert "--comments" in result.stdout
     assert "--download-images" in result.stdout
     assert "--dry-run" in result.stdout
+    assert "--subtitle-mode" not in result.stdout
 
 
-def test_run_bili_note_detects_video_and_opus_sources():
+def test_run_bili_note_accepts_opus_and_rejects_video():
     module = load_module()
 
-    assert module.source_kind("https://www.bilibili.com/video/BV1abc/") == "video"
-    assert module.find_source_id("https://www.bilibili.com/video/BV1abc/") == "BV1abc"
-    assert module.source_kind("https://www.bilibili.com/opus/1194341967364882439?from=search") == "opus"
-    assert module.find_source_id("https://www.bilibili.com/opus/1194341967364882439?from=search") == "1194341967364882439"
-    assert module.source_kind("1194341967364882439") == "opus"
+    assert module.opus_id("https://www.bilibili.com/opus/1194341967364882439") == "1194341967364882439"
+    assert module.opus_id("1194341967364882439") == "1194341967364882439"
+
+    try:
+        module.opus_id("https://www.bilibili.com/video/BV1abcDEF123/")
+    except ValueError as exc:
+        assert "media_read" in str(exc)
+    else:
+        raise AssertionError("video input should require MindSpace media_read")

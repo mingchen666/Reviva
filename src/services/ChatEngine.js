@@ -20,13 +20,15 @@ function _toCtxMeta(ctxItems) {
     name: i.name,
     path: i.path || '',
     originalPath: i.originalPath || '',
+    mediaId: i.mediaId || i.media_id || '',
     dataUrl: i.dataUrl || '',
     isDirectory: !!i.isDirectory,
   }))
 }
 
 function _toCtxPaths(ctxItems) {
-  return (ctxItems || []).filter(i => i.path || i.dataUrl).map(i => ({
+  return (ctxItems || []).filter(i => i.path || i.dataUrl || i.mediaId || i.media_id).map(i => ({
+    id: i.id || '',
     path: i.path || '',
     originalPath: i.originalPath || '',
     dataUrl: i.dataUrl || '',
@@ -34,6 +36,7 @@ function _toCtxPaths(ctxItems) {
     type: i.type || (i.isDirectory ? 'folder' : 'file'),
     source: i.source || '',
     isDirectory: !!i.isDirectory,
+    mediaId: i.mediaId || i.media_id || '',
   }))
 }
 

@@ -1,4 +1,7 @@
 import { BaseRepository } from '../repositories/BaseRepository.js'
+import { createMediaTables } from '../../media/persistence/MediaSchema.js'
+import { createModelProviderTables } from './ModelProviderSchema.js'
+import { createSpeechProviderTables } from './SpeechProviderSchema.js'
 
 export class SchemaManager extends BaseRepository {
   _createTables() {
@@ -215,6 +218,7 @@ export class SchemaManager extends BaseRepository {
         stage TEXT DEFAULT 'queued',
         progress INTEGER DEFAULT 0,
         title TEXT DEFAULT '',
+        file_name TEXT DEFAULT '',
         result_paths_json TEXT DEFAULT '[]',
         source_id TEXT DEFAULT '',
         error_code TEXT DEFAULT '',
@@ -255,6 +259,19 @@ export class SchemaManager extends BaseRepository {
       CREATE TABLE IF NOT EXISTS settings (
         key TEXT PRIMARY KEY, value TEXT DEFAULT ''
       );
+      CREATE TABLE IF NOT EXISTS quick_inputs (
+        id TEXT PRIMARY KEY,
+        title TEXT NOT NULL COLLATE NOCASE,
+        type TEXT NOT NULL CHECK (type IN ('command', 'context', 'format')),
+        content TEXT NOT NULL,
+        description TEXT DEFAULT '',
+        enabled INTEGER NOT NULL DEFAULT 1,
+        sort_order INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now'))
+      );
+      CREATE UNIQUE INDEX IF NOT EXISTS uq_quick_inputs_title ON quick_inputs(title COLLATE NOCASE);
+      CREATE INDEX IF NOT EXISTS idx_quick_inputs_enabled_sort ON quick_inputs(enabled, sort_order, updated_at DESC);
       CREATE TABLE IF NOT EXISTS mcp_servers (
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
@@ -387,6 +404,9 @@ export class SchemaManager extends BaseRepository {
       );
       CREATE INDEX IF NOT EXISTS idx_notes_folder ON notes(folder_id);
     `)
+    createMediaTables(this.db)
+    createModelProviderTables(this.db)
+    createSpeechProviderTables(this.db)
   }
 
 }

@@ -190,10 +190,12 @@ const permList = [
   { key: 'fileWrite', label: '文件写入', icon: 'ri-edit-line', desc: '在授权目录内创建或修改文件' },
   { key: 'fileDelete', label: '文件删除', icon: 'ri-delete-bin-line', desc: '删除授权目录内 outputs/ 下的文件' },
   { key: 'fileRename', label: '文件重命名', icon: 'ri-price-tag-3-line', desc: '在授权目录内重命名文件' },
+  { key: 'noteRead', label: '笔记读取', icon: 'ri-sticky-note-line', desc: '读取 MindSpace 笔记和笔记目录' },
+  { key: 'noteWrite', label: '笔记写入', icon: 'ri-sticky-note-add-line', desc: '创建、更新、移动笔记或将笔记移入回收站' },
   { key: 'execCommand', label: '执行命令', icon: 'ri-terminal-box-line', desc: '在沙盒环境中执行 shell 命令' },
 ]
 
-const permToolMap = { file_read: 'fileRead', file_write: 'fileWrite', office_write: 'fileWrite', pptx_export_local: 'fileWrite', file_rename: 'fileRename', file_list: 'fileRead', file_delete: 'fileDelete', exec_command: 'execCommand', 'ffmpeg:*': 'fileRead', 'pandoc:*': 'fileRead', 'manim:*': 'fileRead' }
+const permToolMap = { file_read: 'fileRead', file_write: 'fileWrite', office_write: 'fileWrite', pptx_export_local: 'fileWrite', file_rename: 'fileRename', file_list: 'fileRead', file_delete: 'fileDelete', note_tool: ['noteRead', 'noteWrite'], exec_command: 'execCommand', 'ffmpeg:*': 'fileRead', 'pandoc:*': 'fileRead', 'manim:*': 'fileRead' }
 const isBuiltinAgent = computed(() => props.editAgent?.builtin === true || props.editAgent?.builtin === 1)
 const selectedToolCount = computed(() => store.toolList.filter(t => hasTool(t.id) && !t.runtimeDisabled).length)
 const filteredTools = computed(() => {
@@ -230,8 +232,8 @@ function toggleTool(id) {
   if (i >= 0) props.editAgent.tools.splice(i, 1)
   else {
     props.editAgent.tools.push(id)
-    const permKey = permToolMap[id] || tool?.permReq || tool?.perm_required
-    if (permKey && Object.prototype.hasOwnProperty.call(props.editAgent.permissions, permKey)) {
+    const permissionKeys = permToolMap[id] || tool?.permReq || tool?.perm_required
+    for (const permKey of (Array.isArray(permissionKeys) ? permissionKeys : [permissionKeys]).filter(Boolean)) {
       props.editAgent.permissions[permKey] = true
     }
   }

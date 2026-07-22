@@ -46,6 +46,7 @@ const ChartModal = defineAsyncComponent(() => import('./sections/rightpanel/moda
 const PodcastModal = defineAsyncComponent(() => import('./sections/rightpanel/modals/PodcastModal.vue'))
 const ResearchModal = defineAsyncComponent(() => import('./sections/rightpanel/modals/ResearchModal.vue'))
 const PptModal = defineAsyncComponent(() => import('./sections/rightpanel/modals/PptModal.vue'))
+const MediaDetailModal = defineAsyncComponent(() => import('@/components/media/MediaDetailModal.vue'))
 
 const appStore = useAppStore()
 const convStore = useConversationsStore()
@@ -164,6 +165,8 @@ watch(leftTab, (tab) => {
 const rightOpen = ref(true)
 const rightW = ref(320)
 const previewFile = ref(null)
+const showMediaDetail = ref(false)
+const mediaDetailItem = ref(null)
 const branchingMessageId = ref(null)
 const branchConfirmationPending = ref(false)
 const showConversationExport = ref(false)
@@ -875,8 +878,8 @@ function updateContextLength(val) {
 }
 
 // Send message
-async function sendMessage(text) {
-  const trimmed = (text || '').trim()
+async function sendMessage(payload) {
+  const trimmed = (typeof payload === 'string' ? payload : payload?.content || '').trim()
   if (!trimmed) return
   if (isStreaming.value) {
     msg.warning('当前对话正在生成，请等待完成或先停止任务')
@@ -892,7 +895,10 @@ async function sendMessage(text) {
     convId = conv.id
     addTab(conv)
   }
-  const ctxItems = currentCtxItems.value
+  const ctxItems = [...currentCtxItems.value]
+  clearCtxItems()
+  const inputDocument = Array.isArray(payload?.inputDocument) ? payload.inputDocument : []
+  const resolvedContent = String(payload?.resolvedContent || trimmed).trim()
   userScrolledUp = false
   showScrollBtn.value = false
   await nextTick()
@@ -900,6 +906,8 @@ async function sendMessage(text) {
   await agentRuntime.startChat({
     convId,
     userText: trimmed,
+    resolvedContent,
+    inputDocument,
     agentId: selectedAgent.value?.id || '',
     ctxItems,
     wikiContext: wikiContext.value,
@@ -1193,7 +1201,7 @@ async function handleClearMessages() {
   }
 }
 
-async function handleSaveEdit({ msgId, content }) {
+async function handleSaveEdit({ msgId, content, inputDocument, resolvedContent }) {
   if (isStreaming.value) {
     msg.warning('当前对话正在生成，请等待完成或先停止任务')
     return
@@ -1205,7 +1213,16 @@ async function handleSaveEdit({ msgId, content }) {
 
   const userMsg = msgs[idx]
   if (userMsg.role !== 'user') return
-  await convStore.updateMessage(convId, userMsg.id, { content })
+  const nextMeta = { ...(userMsg.meta || {}) }
+  const hasTokens = Array.isArray(inputDocument) && inputDocument.some(segment => segment?.type && segment.type !== 'text')
+  if (hasTokens) {
+    nextMeta.inputDocument = inputDocument
+    nextMeta.resolvedContent = String(resolvedContent || content || '').trim()
+  } else {
+    delete nextMeta.inputDocument
+    delete nextMeta.resolvedContent
+  }
+  await convStore.updateMessage(convId, userMsg.id, { content, meta: nextMeta })
   await agentRuntime.retryMessage(convId, userMsg.id)
 }
 
@@ -1239,6 +1256,85 @@ function handlePreviewFile(file) {
     }
   }
   if (!rightOpen.value) rightOpen.value = true
+}
+
+async function persistMessageMedia(messageId, file, patch) {
+  const conversationMessages = convStore.messages[currentConvId.value] || []
+  const matches = item => item?.id === file?.id || (!!item?.path && item.path === file?.path)
+  const message = conversationMessages.find(item => item.id === messageId)
+    || conversationMessages.find(item => (item.meta?.attachments || []).some(matches))
+  if (!message?.meta) return
+  const updateItems = items => (items || []).map(item => matches(item) ? { ...item, ...patch } : item)
+  await convStore.updateMessage(currentConvId.value, message.id, {
+    meta: {
+      ...message.meta,
+      ctx: updateItems(message.meta.ctx),
+      attachments: updateItems(message.meta.attachments),
+    },
+  })
+}
+
+async function resolveWorkchatMedia(file, messageId = '') {
+  if (!file) return null
+  if (file.mediaId) return { success: true, source: { id: file.mediaId, mediaType: file.mediaType || '' } }
+  const message = (convStore.messages[currentConvId.value] || []).find(item => item.id === messageId)
+    || (convStore.messages[currentConvId.value] || []).find(item => (item.meta?.attachments || []).some(attachment => attachment?.id === file?.id || (!!attachment?.path && attachment.path === file?.path)))
+  const owner = { type: 'message', id: message?.id || messageId || currentConvId.value || '', locator: file.id || file.path || file.name || 'attachment' }
+  let result = null
+  if (/\.media\.md$/i.test(String(file.name || file.path || '')) && file.path) {
+    const resolved = await window.electronAPI?.media?.resolveOwner?.({ type: 'docs_file', id: '', locator: file.path })
+    if (resolved?.success && resolved.found) {
+      await window.electronAPI?.media?.attachOwner?.(resolved.source.id, owner)
+      result = { success: true, source: resolved.source }
+    }
+  } else if (file.path) {
+    result = await window.electronAPI?.media?.register?.({
+      path: file.path,
+      sourceType: file.source === 'docs' ? 'document_upload' : 'attachment',
+      title: file.name || '',
+      owner,
+    })
+  }
+  if (result?.success && result.source?.id) {
+    const patch = {
+      mediaId: result.source.id,
+      mediaType: result.source.mediaType || result.source.media_type || (/\.(mp3|m4a|aac|wav|flac|ogg|opus)$/i.test(file.name || file.path || '') ? 'audio' : 'video'),
+    }
+    Object.assign(file, patch)
+    await persistMessageMedia(message?.id || messageId, file, patch)
+  }
+  return result
+}
+
+async function openWorkchatMediaDetail(payload) {
+  const file = payload?.file || payload
+  const messageId = payload?.messageId || ''
+  const result = await resolveWorkchatMedia(file, messageId)
+  if (!result?.success || !result.source?.id) {
+    msg.error(result?.message || '媒体登记失败，暂时无法打开解析详情')
+    return
+  }
+  mediaDetailItem.value = {
+    ...file,
+    mediaId: result.source.id,
+    mediaType: file.mediaType || result.source.mediaType || result.source.media_type || 'video',
+  }
+  showMediaDetail.value = true
+}
+
+async function reanalyzeWorkchatMedia(item) {
+  if (!item?.mediaId) return
+  const settings = await window.electronAPI?.db?.settings?.get?.('pdfReadStrategy') || {}
+  const result = await window.electronAPI?.media?.analyze?.(item.mediaId, {
+    presetId: settings.mediaPreset || 'subtitle_first',
+    language: settings.mediaPreferredLanguage === 'auto' ? '' : (settings.mediaPreferredLanguage || ''),
+    providerId: settings.mediaProviderId || 'auto',
+    preferSubtitle: settings.mediaPreferSubtitle !== false,
+    extractKeyframes: settings.mediaExtractKeyframes === true,
+    keyframeLimit: settings.mediaKeyframeLimit || 12,
+  })
+  if (!result?.success) msg.error(result?.message || '媒体解析任务创建失败')
+  else msg.success('媒体解析任务已创建')
 }
 
 // Scroll
@@ -1532,6 +1628,7 @@ function animateTitle(convId, targetTitle, tab) {
                     :branching="branchingMessageId === item.message.id"
                     :exporting="exportingMessageId === item.message.id"
                     @preview-file="handlePreviewFile"
+                    @media-detail="openWorkchatMediaDetail"
                     @retry="handleRetry(item.message.id)"
                     @branch="handleCreateBranch(item.message.id)"
                     @export-markdown="handleExportMessageMarkdown(item.message)"
@@ -1616,6 +1713,7 @@ function animateTitle(convId, targetTitle, tab) {
             :selected-agent="selectedAgent" :all-agents="allAgents" :ctx-items="currentCtxItems"
             :group-id="currentGroupId"
             @close="rightOpen = false" @preview-file="handlePreviewFile"
+            @open-media="openWorkchatMediaDetail"
             @tool-action="handleBuiltinTool"
             @select-skill="handleSelectSkillCommand" />
         </template>
@@ -1694,6 +1792,12 @@ function animateTitle(convId, targetTitle, tab) {
       :is-dark="isDark"
       @clear-error="saveMessageToNoteError = ''"
       @save="handleSaveMessageToNote" />
+    <MediaDetailModal
+      v-if="showMediaDetail"
+      v-model:show="showMediaDetail"
+      :is-dark="isDark"
+      :item="mediaDetailItem"
+      @reanalyze="reanalyzeWorkchatMedia" />
   </div>
 </template>
 

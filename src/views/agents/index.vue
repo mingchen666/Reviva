@@ -131,6 +131,8 @@ function startCreate() {
       fileWrite: false,
       fileDelete: false,
       fileRename: false,
+      noteRead: true,
+      noteWrite: true,
       execCommand: false,
       execCommandWhitelist: [],
       execCommandBlacklist: [],

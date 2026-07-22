@@ -147,6 +147,24 @@ const BUILTIN_TOOLS = [
     providerConfig: {}
   },
   {
+    id: 'media_read', name: '音视频读取', icon: 'ri-movie-2-line', color: '#14B8A6', cat: 'media', desc: '按任务读取已解析音视频的元数据、转录、上下文搜索结果、章节、关键帧和产物状态（系统默认工具）',
+    permReq: '', archCompat: ['全架构'], type: '',
+    params: [
+      { name: 'mediaId', type: 'string', required: true, desc: '本次上下文授权的媒体 ID' },
+      { name: 'mode', type: 'string', required: false, desc: 'metadata / transcript / search / chapters / frames / artifacts，默认 metadata' },
+      { name: 'query', type: 'string', required: false, desc: 'search 模式的主题、术语或短句' },
+      { name: 'startMs', type: 'number', required: false, desc: 'transcript / frames 起始时间（毫秒）' },
+      { name: 'endMs', type: 'number', required: false, desc: 'transcript / frames 结束时间（毫秒）' },
+      { name: 'cursor', type: 'string', required: false, desc: '相同查询条件上一页返回的 nextCursor，必须原样传回' },
+      { name: 'limit', type: 'number', required: false, desc: '返回数量上限，按任务复杂度设置' },
+      { name: 'maxChars', type: 'number', required: false, desc: 'transcript / search 单次文本上限' },
+      { name: 'contextSegments', type: 'number', required: false, desc: 'search 命中前后附带段数，0-6，默认 2' },
+    ],
+    sandbox: '系统默认只读工具。只访问本次 Agent 运行明确授权的 mediaId 和当前已发布 run；不读取绝对路径，不触发解析或创建媒体文件。',
+    builtin: true, enabled: true, alwaysEnabled: true,
+    providerConfig: {}
+  },
+  {
     id: 'office_read', name: 'Office 读取', icon: 'ri-file-text-line', color: '#3B82F6', cat: 'filesystem', desc: '读取 Word、Excel、PPT 的结构概览、分段正文和嵌入图片（底层精确工具）',
     permReq: '', archCompat: ['全架构'], type: '',
     params: [
@@ -292,6 +310,22 @@ const BUILTIN_TOOLS = [
       { name: 'query', type: 'string', required: false, desc: 'search 动作的检索问题' },
     ],
     sandbox: '只读访问当前工作区 wikis；普通 Agent 不开放 Wiki 写入', builtin: true, enabled: false,
+    providerConfig: {}
+  },
+  {
+    id: 'note_tool', name: '笔记工具', icon: 'ri-sticky-note-line', color: '#10B981', cat: 'knowledge', desc: '读取、创建和维护 MindSpace 笔记，支持任意层级的嵌套目录',
+    permReq: 'noteRead', archCompat: ['全架构'], type: '',
+    params: [
+      { name: 'action', type: 'string', required: true, desc: 'list / get / create / update / delete / create_folder' },
+      { name: 'note_id', type: 'string', required: false, desc: '读取、更新或删除的笔记 ID' },
+      { name: 'title', type: 'string', required: false, desc: '笔记标题' },
+      { name: 'content', type: 'string', required: false, desc: 'Markdown 正文' },
+      { name: 'folder_path', type: 'string', required: false, desc: '相对 notes 根目录的嵌套路径，如 项目/产品A/会议记录' },
+      { name: 'folder_id', type: 'string', required: false, desc: '稳定目录 ID，可替代 folder_path' },
+      { name: 'create_folders', type: 'boolean', required: false, desc: '是否自动逐级创建缺失目录，默认 true' },
+    ],
+    sandbox: 'list/get 需要 noteRead；create/update/delete/create_folder 需要 noteWrite。写入统一经过 NoteFileService，delete 只移入回收站。',
+    builtin: true, enabled: true, alwaysEnabled: true,
     providerConfig: {}
   },
   {
@@ -851,7 +885,7 @@ export const useAgentsStore = defineStore('agents', () => {
       color: agent.color || '#A78BFA',
       architecture: 'react',
       builtin: false,
-      permissions: agent.permissions || { fileRead: false, fileWrite: false, fileDelete: false, fileRename: false, execCommand: false, execCommandWhitelist: [], execCommandBlacklist: [] },
+      permissions: agent.permissions || { fileRead: false, fileWrite: false, fileDelete: false, fileRename: false, noteRead: true, noteWrite: true, execCommand: false, execCommandWhitelist: [], execCommandBlacklist: [] },
       tools: agent.tools || ['kb_search'],
       skills: agent.skills || [],
       sub_agents: agent.subAgents || [],

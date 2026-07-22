@@ -1,9 +1,7 @@
-"""Archive Bilibili extraction outputs for long-term knowledge-base use.
+"""Archive Bilibili article/comment outputs for knowledge-base use.
 
-Input is an extraction directory created by extract_bilibili.py,
-extract_bilibili_opus.py, and optionally fetch_browser_ai_subtitles.py. The
-script copies raw subtitles/articles/comments into a stable archive and builds
-retrieval-friendly Markdown and JSONL indexes.
+The optional subtitle archiver only accepts subtitle files already present in
+a generic manifest. It never downloads media or runs transcription.
 """
 
 from __future__ import annotations
@@ -82,48 +80,11 @@ def copy_if_exists(src: Path, dst: Path) -> bool:
 
 
 def find_subtitle_manifest(extract_dir: Path) -> Path | None:
-    for name in (
-        "browser_ai_subtitle_manifest.json",
-        "browser_subtitle_manifest.json",
-        "subtitle_manifest.json",
-    ):
+    for name in ("subtitle_manifest.json",):
         path = extract_dir / name
         if path.exists() and path.stat().st_size > 2:
             return path
     return None
-
-
-def transcript_manifest_from_run_summary(extract_dir: Path) -> dict[str, Any] | None:
-    summary_path = extract_dir / "run_summary.json"
-    if not summary_path.exists():
-        return None
-    summary = read_json(summary_path)
-    transcripts = summary.get("transcripts") or []
-    if not transcripts:
-        return None
-    outputs: list[dict[str, Any]] = []
-    for item in transcripts:
-        files: dict[str, str] = {}
-        if item.get("transcript_txt"):
-            files["txt"] = str(item["transcript_txt"])
-        if item.get("transcript_json"):
-            files["json"] = str(item["transcript_json"])
-        outputs.append(
-            {
-                "page": item.get("page"),
-                "cid": item.get("cid"),
-                "part": item.get("part"),
-                "duration": item.get("duration"),
-                "files": files,
-                "source": "asr_transcript",
-            }
-        )
-    return {
-        "source_manifest": "run_summary.json",
-        "bvid": summary.get("bvid"),
-        "aid": summary.get("aid"),
-        "outputs": outputs,
-    }
 
 
 def outputs_have_subtitle_files(outputs: list[dict[str, Any]]) -> bool:
@@ -196,19 +157,13 @@ def existing_subtitle_summary(archive_dir: Path, manifest_path: Path) -> dict[st
 
 def archive_subtitles(extract_dir: Path, archive_dir: Path) -> dict[str, Any]:
     manifest_path = find_subtitle_manifest(extract_dir)
-    manifest: dict[str, Any] | list[Any] | None = None
     if not manifest_path:
-        manifest = transcript_manifest_from_run_summary(extract_dir)
-        if manifest:
-            manifest_path = extract_dir / "run_summary.json"
-        else:
-            existing_manifest = archive_dir / "metadata" / "subtitles_manifest.clean.json"
-            if existing_manifest.exists():
-                return existing_subtitle_summary(archive_dir, existing_manifest)
-            return {"available": False, "reason": "no subtitle manifest found"}
+        existing_manifest = archive_dir / "metadata" / "subtitles_manifest.clean.json"
+        if existing_manifest.exists():
+            return existing_subtitle_summary(archive_dir, existing_manifest)
+        return {"available": False, "reason": "no pre-existing subtitle manifest found"}
 
-    if manifest is None:
-        manifest = read_json(manifest_path)
+    manifest: dict[str, Any] | list[Any] = read_json(manifest_path)
     if isinstance(manifest, list):
         outputs = manifest
     elif isinstance(manifest, dict):
@@ -216,11 +171,7 @@ def archive_subtitles(extract_dir: Path, archive_dir: Path) -> dict[str, Any]:
     else:
         outputs = []
     if not outputs_have_subtitle_files(outputs):
-        transcript_manifest = transcript_manifest_from_run_summary(extract_dir)
-        if transcript_manifest and manifest_path.name != "run_summary.json":
-            manifest_path = extract_dir / "run_summary.json"
-            manifest = transcript_manifest
-            outputs = manifest.get("outputs") or []
+        return {"available": False, "reason": "subtitle manifest contains no readable files"}
 
     txt_dir = archive_dir / "subtitles" / "txt"
     srt_dir = archive_dir / "subtitles" / "srt"
@@ -896,7 +847,7 @@ def write_note_budget(
 
 def archive_metadata(extract_dir: Path, archive_dir: Path) -> dict[str, bool]:
     copied: dict[str, bool] = {}
-    for name in ("metadata.json", "source.md", "run_summary.json", "subtitle_probe.json", "opus_raw.json", "opus_normalized.json"):
+    for name in ("metadata.json", "source.md", "run_summary.json", "opus_raw.json", "opus_normalized.json"):
         copied[name] = copy_if_exists(extract_dir / name, archive_dir / "metadata" / name)
     return copied
 

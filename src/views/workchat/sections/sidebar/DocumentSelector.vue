@@ -1,7 +1,7 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
 import { useSettingsStore } from '@/stores/settings'
-
+import { fileIcon, fileIconColor } from './icon'
 const props = defineProps({
   isDark: Boolean,
   selectedDocs: Array,
@@ -92,28 +92,6 @@ function handleToggle(item) {
   else emit('toggle-doc', item)
 }
 
-function fileIcon(name, isDir, isExpanded) {
-  if (isDir) return isExpanded ? 'ri-folder-open-line' : 'ri-folder-3-line'
-  const ext = name.split('.').pop().toLowerCase()
-  const map = {
-    pdf: 'ri-file-pdf-2-line', md: 'ri-markdown-line', markdown: 'ri-markdown-line',
-    docx: 'ri-file-word-2-line', txt: 'ri-file-text-line',
-    xlsx: 'ri-file-excel-2-line', pptx: 'ri-file-ppt-2-line',
-    png: 'ri-image-line', jpg: 'ri-image-line', jpeg: 'ri-image-line',
-    csv: 'ri-file-text-line', json: 'ri-code-line',
-  }
-  return map[ext] || 'ri-file-line'
-}
-
-function fileIconColor(name, isDir) {
-  if (isDir) return props.isDark ? 'text-amber-400' : 'text-amber-500'
-  const ext = name.split('.').pop().toLowerCase()
-  const map = {
-    pdf: 'text-red-400', md: 'text-emerald-400', docx: 'text-blue-400',
-    xlsx: 'text-emerald-400', pptx: 'text-orange-400', png: 'text-pink-400',
-  }
-  return map[ext] || (props.isDark ? 'text-wt-aux' : 'text-lt-aux')
-}
 
 onMounted(loadFileTree)
 watch(() => settingsStore.workDirRoot, (newVal) => {
@@ -169,7 +147,7 @@ watch(() => settingsStore.workDirRoot, (newVal) => {
       <div class="py-1">
         <div v-for="item in flatTree" :key="item.path"
           @click.stop="handleToggle(item)"
-          class="flex items-center gap-2 px-3 py-1.5 cursor-pointer transition-all duration-150 group relative"
+          class="flex items-center gap-1.5 px-2 py-1.5 cursor-pointer transition-all duration-150 group relative"
           :class="isSelected(item.path)
             ? (isDark ? 'bg-brand-400/10 text-brand-400' : 'bg-brand-50 text-brand-600')
             : (isDark ? 'hover:bg-wt-dim/5 text-wt-sub' : 'hover:bg-lt-aux/10 text-lt-sub')"
@@ -181,9 +159,9 @@ watch(() => settingsStore.workDirRoot, (newVal) => {
 
           <!-- Folder toggle arrow -->
           <button v-if="item.isDirectory" @click.stop="expandFolder(item.path)"
-            class="h-4 w-4 rounded flex items-center justify-center shrink-0 transition-colors"
+            class="h-3 w-3 rounded flex items-center justify-center shrink-0 transition-colors"
             :class="isDark ? 'text-wt-dim hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub'">
-            <i class="ri-arrow-right-s-line text-[14px] transition-transform duration-200 ease-out"
+            <i class="ri-arrow-right-s-line text-[20px] transition-transform duration-200 ease-out"
                :style="{ transform: expandedFolders[item.path] ? 'rotate(90deg)' : 'rotate(0deg)' }" />
           </button>
           <span v-else class="w-4 shrink-0" />
@@ -197,7 +175,7 @@ watch(() => settingsStore.workDirRoot, (newVal) => {
           </div>
 
           <!-- Icon -->
-          <i :class="[fileIcon(item.name, item.isDirectory, expandedFolders[item.path]), fileIconColor(item.name, item.isDirectory)]"
+          <i :class="[fileIcon(item.name, item.isDirectory, expandedFolders[item.path]), fileIconColor(item.name, item.isDirectory,props.isDark)]"
             class="text-[15px] shrink-0 transition-transform duration-200"
             :style="{ opacity: isSelected(item.path) ? 1 : 0.75 }" />
 

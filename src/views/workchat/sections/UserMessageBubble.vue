@@ -1,10 +1,19 @@
 <script setup>
-import { computed, nextTick, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, ref } from 'vue'
 import MarkdownImagePreview from '@/components/MarkdownImagePreview.vue'
 import { toFileUrl } from '@/utils/fileUrl'
+import { useAgentsStore } from '@/stores/agents'
+import { useSettingsStore } from '@/stores/settings'
+import { useQuickInputsStore } from '@/stores/quickInputs'
+import {
+  displayTextFromDocument,
+  normalizeInputDocument,
+  resolvedTextFromDocument,
+} from '@/utils/chatInputDocument'
 import MessageDeleteConfirm from './MessageDeleteConfirm.vue'
 import FileCard from './FileCard.vue'
 import KnowledgeScopeCard from './KnowledgeScopeCard.vue'
+import ChatTokenEditor from './chat/ChatTokenEditor.vue'
 
 const props = defineProps({
   msg: Object,
@@ -14,15 +23,19 @@ const props = defineProps({
   fileAttachments: { type: Array, default: () => [] },
 })
 
-const emit = defineEmits(['preview-file', 'copy', 'edit', 'save-edit', 'retry', 'delete'])
+const emit = defineEmits(['preview-file', 'media-detail', 'copy', 'edit', 'save-edit', 'retry', 'delete'])
 
 const isEditing = ref(false)
-const editContent = ref('')
+const editDocument = ref([])
 const showDeleteConfirm = ref(false)
 const copied = ref(false)
 const bubbleRef = ref(null)
-const editTextareaRef = ref(null)
+const editEditorRef = ref(null)
 const activeImagePreview = ref(null)
+const activeToken = ref(null)
+const agentsStore = useAgentsStore()
+const settingsStore = useSettingsStore()
+const quickInputsStore = useQuickInputsStore()
 
 function isKnowledgeAttachment(item) {
   return item?.type === 'cloud_kb' || item?.type === 'cloud_doc' || item?.type === 'kb'
@@ -45,9 +58,35 @@ const localFileAttachments = computed(() =>
   (props.fileAttachments || []).filter(i => !isKnowledgeAttachment(i)),
 )
 const originalContent = computed(() => String(props.msg?.content || ''))
+const originalDocument = computed(() => normalizeInputDocument(props.msg?.meta?.inputDocument, originalContent.value))
+const editContent = computed(() => displayTextFromDocument(editDocument.value))
+const editResolvedContent = computed(() => resolvedTextFromDocument(editDocument.value))
+const slashItems = computed(() => {
+  const agentId = props.msg?.meta?.agentId
+  const agent = agentsStore.agents.find(item => item.id === agentId)
+  return (agent?.skills || []).map(skillId => agentsStore.allAvailableSkills.find(skill => skill.id === skillId)).filter(Boolean).map(skill => {
+    const description = skill.desc || skill.description || skill.category || ''
+    const keywords = [skill.id, skill.name, skill.category, description].filter(Boolean)
+    return {
+      type: 'skill',
+      typeLabel: 'Skill',
+      id: skill.id,
+      label: `/${skill.id}`,
+      name: skill.name || skill.id,
+      description,
+      insertText: `/${skill.id}`,
+      icon: skill.icon || 'ri-magic-line',
+      color: skill.color,
+      searchText: keywords.join(' ').toLowerCase(),
+    }
+  })
+})
 const canSaveEdit = computed(() => {
   const next = editContent.value.trim()
-  return !props.chatBusy && !!next && next !== originalContent.value.trim()
+  return !props.chatBusy && !!next && (
+    next !== originalContent.value.trim() ||
+    JSON.stringify(normalizeInputDocument(editDocument.value)) !== JSON.stringify(originalDocument.value)
+  )
 })
 
 function formatSize(bytes) {
@@ -71,38 +110,23 @@ function knowledgeKey(item, index) {
 }
 
 function startEdit() {
-  editContent.value = originalContent.value
+  editDocument.value = normalizeInputDocument(originalDocument.value)
   isEditing.value = true
   nextTick(() => {
-    autoResizeEdit()
-    editTextareaRef.value?.focus()
-    const len = editContent.value.length
-    editTextareaRef.value?.setSelectionRange(len, len)
+    editEditorRef.value?.focus?.()
   })
 }
 function saveEdit() {
   if (!canSaveEdit.value) return
-  emit('save-edit', { msgId: props.msg.id, content: editContent.value.trim() })
+  emit('save-edit', {
+    msgId: props.msg.id,
+    content: editContent.value.trim(),
+    inputDocument: normalizeInputDocument(editDocument.value),
+    resolvedContent: editResolvedContent.value.trim(),
+  })
   isEditing.value = false
 }
 function cancelEdit() { isEditing.value = false }
-function autoResizeEdit() {
-  const el = editTextareaRef.value
-  if (!el) return
-  el.style.height = 'auto'
-  el.style.height = Math.min(el.scrollHeight, 260) + 'px'
-}
-function handleEditKeydown(event) {
-  if (event.key === 'Escape') {
-    event.preventDefault()
-    cancelEdit()
-    return
-  }
-  if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
-    event.preventDefault()
-    saveEdit()
-  }
-}
 function copyContent() {
   navigator.clipboard.writeText(props.msg.content || '')
     .then(() => { copied.value = true; setTimeout(() => { copied.value = false }, 1500) })
@@ -111,9 +135,7 @@ function copyContent() {
 }
 function confirmDelete() { emit('delete'); showDeleteConfirm.value = false }
 
-watch(editContent, () => {
-  if (isEditing.value) nextTick(autoResizeEdit)
-})
+onMounted(() => quickInputsStore.ensureLoaded().catch(() => {}))
 </script>
 
 <template>
@@ -150,7 +172,9 @@ watch(editContent, () => {
       </div>
       <div v-if="localFileAttachments.length && !isEditing" class="flex flex-col items-end gap-2 mb-1">
         <FileCard v-for="f in localFileAttachments" :key="f.path || f.id || f.name"
-          class="w-full max-w-[420px]" :file="f" :is-dark="isDark" @preview="$emit('preview-file', f)" />
+          class="w-full max-w-[420px]" :file="f" :is-dark="isDark"
+          @preview="$emit('preview-file', f)"
+          @media-detail="$emit('media-detail', { file: f, messageId: msg?.id || '' })" />
       </div>
       <div v-if="isEditing"
         class="relative rounded-xl rounded-tr-md overflow-hidden shadow-sm transition-colors"
@@ -161,14 +185,17 @@ watch(editContent, () => {
           class="absolute inset-y-0 left-0 w-1"
           :class="isDark ? 'bg-brand-400/70' : 'bg-brand-500/80'" />
         <div class="px-4 pt-3 pb-2">
-          <textarea
-            ref="editTextareaRef"
-            v-model="editContent"
-            class="w-full min-h-[82px] max-h-[260px] bg-transparent outline-none resize-none border-0 text-sm leading-relaxed p-0"
-            :class="isDark ? 'text-wt-main placeholder-wt-dim' : 'text-lt-main placeholder-lt-aux'"
-            rows="3"
+          <ChatTokenEditor
+            ref="editEditorRef"
+            v-model="editDocument"
+            class="message-edit-token-editor"
+            :is-dark="isDark"
+            :slash-items="slashItems"
+            :quick-items="quickInputsStore.enabledItems"
+            :quick-enabled="settingsStore.quickInputEnabled"
             placeholder="编辑这条消息..."
-            @keydown="handleEditKeydown" />
+            menu-direction="down"
+            @submit="saveEdit" />
         </div>
         <div
           class="flex items-center gap-2 px-4 py-2 justify-between"
@@ -195,9 +222,23 @@ watch(editContent, () => {
           </div>
         </div>
       </div>
-      <div v-else ref="bubbleRef" class="px-3.5 py-2.5 rounded-md rounded-tr-md text-[0.84375rem] leading-relaxed text-white"
+      <div v-else ref="bubbleRef" class="px-3.5 py-2.5 rounded-md rounded-tr-md text-[0.84375rem] leading-relaxed text-white whitespace-pre-wrap"
         style="background: linear-gradient(135deg, #6c8aff, #4a6cff)">
-        {{ msg.content }}
+        <template v-for="(segment, index) in originalDocument" :key="`${index}:${segment.type}`">
+          <span v-if="segment.type === 'text'">{{ segment.text }}</span>
+          <button
+            v-else
+            type="button"
+            class="message-inline-token"
+            :class="segment.type === 'skill' ? 'message-inline-token-skill' : 'message-inline-token-quick'"
+            :title="segment.type === 'skill' ? segment.label : '查看快捷输入内容'"
+            @click.stop="activeToken = activeToken === segment ? null : segment">
+            {{ segment.label }}
+          </button>
+        </template>
+        <div v-if="activeToken?.type === 'quick-input'" class="mt-2 rounded-md px-2.5 py-2 text-[11px] leading-relaxed text-left whitespace-pre-wrap bg-black/15 border border-white/15">
+          {{ activeToken.contentSnapshot }}
+        </div>
       </div>
       <div v-if="!isEditing"
         class="flex items-center justify-end gap-0 mt-1 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto group-focus-within:opacity-100 group-focus-within:pointer-events-auto transition-opacity duration-150">
@@ -239,4 +280,9 @@ watch(editContent, () => {
 <style scoped>
 .fade-up { animation: fadeUp 0.2s ease-out; }
 @keyframes fadeUp { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+.message-edit-token-editor :deep(.chat-token-editor-surface) { min-height: 82px; max-height: 260px; overflow-y: auto; padding-bottom: 6px; }
+.message-inline-token { display: inline-flex; align-items: center; height: 22px; margin: 0 2px; padding: 0 6px; border-radius: 5px; border: 1px solid rgba(255,255,255,.34); color: white; background: rgba(255,255,255,.16); font-size: 11px; line-height: 1; font-weight: 650; vertical-align: middle; cursor: pointer; }
+.message-inline-token:hover { background: rgba(255,255,255,.24); }
+.message-inline-token-skill { border-color: rgba(216,180,254,.5); color: #f3e8ff; background: rgba(147,51,234,.2); }
+.message-inline-token-quick { border-color: rgba(199,210,254,.5); color: #e0e7ff; background: rgba(99,102,241,.22); }
 </style>

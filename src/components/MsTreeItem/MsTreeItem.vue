@@ -64,7 +64,7 @@ import { computed } from 'vue'
      <i 
   :class="[
     expanded ? 'ri-arrow-down-s-line' : 'ri-arrow-right-s-line',
-    'text-[16px] transition-transform',
+    'text-[18px] transition-transform',
     isDark ? 'text-wt-dim' : 'text-lt-aux'
   ]"
 />

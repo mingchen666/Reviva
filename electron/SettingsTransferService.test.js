@@ -12,6 +12,7 @@ test('creates a versioned settings transfer and excludes workspace root', () => 
   const result = createSettingsTransfer({
     themeMode: 'dark',
     providers: [{ id: 'openai', apiKey: 'kept-by-product-decision' }],
+    defaultSttModelRef: 'local_asr::whisper-1',
     workdir_root: 'D:\\old-workspace',
   }, { appVersion: '1.2.3' })
 
@@ -20,6 +21,7 @@ test('creates a versioned settings transfer and excludes workspace root', () => 
   assert.equal(result.appVersion, '1.2.3')
   assert.equal(result.data.settings.themeMode, 'dark')
   assert.equal(result.data.settings.providers[0].apiKey, 'kept-by-product-decision')
+  assert.equal(Object.hasOwn(result.data.settings, 'defaultSttModelRef'), false)
   assert.equal(Object.hasOwn(result.data.settings, 'workdir_root'), false)
 })
 

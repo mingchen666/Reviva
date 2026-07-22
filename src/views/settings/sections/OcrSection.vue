@@ -15,9 +15,11 @@ const activeType = ref('mineru')
 const loading = ref(false)
 const saving = ref(false)
 const selectorOpen = ref(false)
+const showApiKey = ref(false)
 const error = ref('')
 
-const PADDLE_DEFAULT_URL = 'https://paddleocr.aistudio-app.com/api/v2/ocr/layout-parsing'
+const PADDLE_DEFAULT_URL = 'https://paddleocr.aistudio-app.com/api/v2/ocr/jobs'
+const PADDLE_DEFAULT_MODEL = 'PaddleOCR-VL-1.6'
 const PADDLE_OPTIONS = [
   {
     key: 'useDocOrientationClassify',
@@ -30,24 +32,9 @@ const PADDLE_OPTIONS = [
     desc: '处理褶皱、倾斜等图像形变',
   },
   {
-    key: 'useLayoutDetection',
-    label: '版面分析',
-    desc: '检测文档区域并按阅读顺序整理',
-  },
-  {
     key: 'useChartRecognition',
     label: '图表识别',
     desc: '将图表解析为更易编辑的结构',
-  },
-  {
-    key: 'prettifyMarkdown',
-    label: 'Markdown 美化',
-    desc: '输出更规整的 Markdown 文本',
-  },
-  {
-    key: 'visualize',
-    label: '返回可视化图',
-    desc: '会增加响应体大小和处理耗时',
   },
 ]
 
@@ -66,7 +53,7 @@ const SERVICES = [
     type: 'paddleocr',
     name: 'PaddleOCR',
     headline: 'PaddleOCR-VL 版面解析',
-    desc: '同步 /layout-parsing，适合图片型 PDF、截图和通用文字识别',
+    desc: '异步 Jobs 版面解析，适合图片型 PDF、截图和通用文字识别',
     icon: paddleocrIcon,
     accent: '#10B981',
     urlPlaceholder: PADDLE_DEFAULT_URL,
@@ -99,14 +86,18 @@ function defaultBaseUrl(type) {
   return ''
 }
 
+function normalizePaddleUrl(value) {
+  const url = String(value || PADDLE_DEFAULT_URL).trim() || PADDLE_DEFAULT_URL
+  if (/\/layout-parsing\/?$/i.test(url)) return url.replace(/\/layout-parsing\/?$/i, '/jobs').replace(/\/+$/, '')
+  if (/\/ocr\/?$/i.test(url)) return `${url.replace(/\/+$/, '')}/jobs`
+  return url.replace(/\/+$/, '')
+}
+
 function defaultPaddleConfig() {
   return {
     useDocOrientationClassify: false,
     useDocUnwarping: false,
-    useLayoutDetection: true,
     useChartRecognition: false,
-    prettifyMarkdown: true,
-    visualize: false,
   }
 }
 
@@ -116,6 +107,7 @@ function createForm(type) {
     enabled: false,
     base_url: defaultBaseUrl(type),
     api_key_ref: '',
+    model: type === 'paddleocr' ? PADDLE_DEFAULT_MODEL : '',
     paddle: defaultPaddleConfig(),
   }
 }
@@ -127,6 +119,7 @@ function resetForms() {
 
 async function loadProviders() {
   loading.value = true
+  showApiKey.value = false
   error.value = ''
   try {
     const providers = await wikiStore.loadOcrProviders()
@@ -151,8 +144,13 @@ function fillForm(type, provider) {
   Object.assign(forms[type], {
     id: provider.id || '',
     enabled: isProviderEnabled(provider),
-    base_url: provider.base_url || defaultBaseUrl(type),
+    base_url: type === 'paddleocr'
+      ? normalizePaddleUrl(provider.base_url)
+      : (provider.base_url || defaultBaseUrl(type)),
     api_key_ref: provider.api_key_ref || '',
+    model: type === 'paddleocr'
+      ? String(config.model || config.modelId || config.model_id || PADDLE_DEFAULT_MODEL).trim() || PADDLE_DEFAULT_MODEL
+      : '',
   })
   if (type === 'paddleocr') {
     Object.assign(forms[type].paddle, {
@@ -181,6 +179,7 @@ function toggleSelector() {
 function chooseProvider(type) {
   if (!forms[type]) return
   activeType.value = type
+  showApiKey.value = false
   normalizeEnabled(type)
   selectorOpen.value = false
 }
@@ -192,7 +191,9 @@ function disableAll() {
 
 function providerReady(type) {
   const form = forms[type]
-  return !!form?.base_url?.trim() && !!form?.api_key_ref?.trim()
+  return !!form?.base_url?.trim()
+    && !!form?.api_key_ref?.trim()
+    && (type !== 'paddleocr' || !!String(form.model || '').trim())
 }
 
 function providerOptionMeta(type) {
@@ -216,21 +217,22 @@ function defaultConfig(type) {
   }
   const paddle = forms.paddleocr?.paddle || defaultPaddleConfig()
   return {
-    bodyMode: 'json_base64',
-    fileType: null,
-    useDocOrientationClassify: !!paddle.useDocOrientationClassify,
-    useDocUnwarping: !!paddle.useDocUnwarping,
-    useLayoutDetection: !!paddle.useLayoutDetection,
-    useChartRecognition: !!paddle.useChartRecognition,
-    prettifyMarkdown: !!paddle.prettifyMarkdown,
-    visualize: !!paddle.visualize,
+    model: String(forms.paddleocr?.model || PADDLE_DEFAULT_MODEL).trim() || PADDLE_DEFAULT_MODEL,
+    optionalPayload: {
+      useDocOrientationClassify: !!paddle.useDocOrientationClassify,
+      useDocUnwarping: !!paddle.useDocUnwarping,
+      useChartRecognition: !!paddle.useChartRecognition,
+    },
+    pollIntervalMs: 5000,
+    maxPolls: 120,
   }
 }
 
 function pickPaddleConfig(config) {
   const defaults = defaultPaddleConfig()
+  const source = { ...config, ...(config.optionalPayload || config.optional_payload || {}) }
   return Object.fromEntries(
-    Object.keys(defaults).map(key => [key, config[key] ?? defaults[key]])
+    Object.keys(defaults).map(key => [key, source[key] ?? defaults[key]])
   )
 }
 
@@ -240,12 +242,16 @@ function buildPayload(type) {
   if (!service || !form) throw new Error('未知 OCR 服务商')
   if (form.enabled && !form.base_url.trim()) throw new Error(`请填写 ${service.name} 服务 URL`)
   if (form.enabled && !form.api_key_ref.trim()) throw new Error(`请填写 ${service.name} API Key`)
+  if (type === 'paddleocr' && form.enabled && !String(form.model || '').trim()) throw new Error('请填写 PaddleOCR 模型 ID')
+  if (type === 'paddleocr' && form.enabled && !/\/jobs\/?$/i.test(normalizePaddleUrl(form.base_url))) {
+    throw new Error('PaddleOCR 请求 URL 必须是 Jobs 接口地址')
+  }
   return {
     id: form.id || undefined,
     name: service.name,
     type,
     mode: 'remote',
-    base_url: form.base_url.trim(),
+    base_url: type === 'paddleocr' ? normalizePaddleUrl(form.base_url) : form.base_url.trim(),
     api_key_ref: form.api_key_ref.trim(),
     enabled: !!form.enabled,
     config: defaultConfig(type),
@@ -335,7 +341,7 @@ async function saveCurrent() {
           :aria-expanded="selectorOpen"
           @click="toggleSelector">
           <span class="provider-icon" :style="{ color: activeService.accent }">
-            <img :src="activeService.icon" class="h-40px w-40px rounded-full" alt="">
+            <img :src="activeService.icon" class="provider-logo" alt="">
          
           </span>
           <span class="provider-copy">
@@ -360,7 +366,7 @@ async function saveCurrent() {
             type="button"
             @click="chooseProvider(service.type)">
             <span class="provider-icon small" :style="{ color: service.accent }">
-              <img :src="service.icon" class="h-40px w-40px rounded-full" alt="">
+              <img :src="service.icon" class="provider-logo" alt="">
             </span>
             <span class="provider-copy">
               <span class="provider-name">{{ service.name }}</span>
@@ -393,21 +399,45 @@ async function saveCurrent() {
           :class="isDark ? 'bg-emerald-400/6 text-wt-aux border border-emerald-400/15' : 'bg-emerald-50/60 text-lt-aux border border-emerald-100'">
           <i class="ri-route-line text-emerald-400 text-[13px] shrink-0" />
           <span>
-            当前接入 PaddleOCR 同步接口，请填写文档中的完整 API_URL，通常以 /layout-parsing 结尾；异步 /jobs 接口暂未接入本地解析流程。
+            当前使用官方异步 Jobs 接口：提交文件后后台轮询任务，再下载 JSONL 版面结果。
           </span>
         </div>
 
-        <label
+        <div
           class="config-row"
           :class="isDark ? 'bg-d0/70 border border-d4' : 'bg-l2/70 border border-bdrF'">
           <i class="ri-key-2-line text-[14px] shrink-0" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'" />
           <span class="field-label" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">API Key</span>
+          <div class="config-input-wrap">
+            <input
+              v-model="activeForm.api_key_ref"
+              :type="showApiKey ? 'text' : 'password'"
+              class="config-input"
+              :class="isDark ? 'text-wt-sub placeholder:text-wt-dim' : 'text-lt-sub placeholder:text-lt-aux'"
+              :placeholder="activeService.keyPlaceholder" />
+            <button
+              class="key-toggle"
+              type="button"
+              :title="showApiKey ? '隐藏 API Key' : '显示 API Key'"
+              :aria-label="showApiKey ? '隐藏 API Key' : '显示 API Key'"
+              :aria-pressed="showApiKey"
+              @click="showApiKey = !showApiKey">
+              <i :class="showApiKey ? 'ri-eye-off-line' : 'ri-eye-line'" />
+            </button>
+          </div>
+        </div>
+
+        <label
+          v-if="showPaddleOptions"
+          class="config-row"
+          :class="isDark ? 'bg-d0/70 border border-d4' : 'bg-l2/70 border border-bdrF'">
+          <i class="ri-cpu-line text-[14px] shrink-0" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'" />
+          <span class="field-label" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">模型 ID</span>
           <input
-            v-model="activeForm.api_key_ref"
-            type="password"
+            v-model="activeForm.model"
             class="config-input"
             :class="isDark ? 'text-wt-sub placeholder:text-wt-dim' : 'text-lt-sub placeholder:text-lt-aux'"
-            :placeholder="activeService.keyPlaceholder" />
+            :placeholder="PADDLE_DEFAULT_MODEL" />
         </label>
 
         <div
@@ -417,7 +447,7 @@ async function saveCurrent() {
           <div class="flex items-center justify-between gap-2 mb-2.5">
             <div class="field-label wide" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">解析参数</div>
             <div class="text-[10px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">
-              fileType 会按 PDF / 图片自动判断
+              作为 optionalPayload 提交
             </div>
           </div>
           <div class="paddle-options-grid">
@@ -522,8 +552,8 @@ async function saveCurrent() {
 }
 
 .provider-select {
-  min-height: 70px;
-  padding: 12px;
+  min-height: 62px;
+  padding: 9px 10px;
   border: 1px solid transparent;
   transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
 }
@@ -550,8 +580,8 @@ async function saveCurrent() {
 }
 
 .provider-icon {
-  width: 40px;
-  height: 40px;
+  width: 34px;
+  height: 34px;
   border-radius: 10px;
   display: grid;
   place-items: center;
@@ -560,6 +590,13 @@ async function saveCurrent() {
 
 .provider-icon i {
   font-size: 18px;
+}
+
+.provider-logo {
+  width: 100%;
+  height: 100%;
+  border-radius: 9px;
+  object-fit: cover;
 }
 
 .provider-icon.small {
@@ -661,12 +698,12 @@ async function saveCurrent() {
 }
 
 .config-row {
-  min-height: 48px;
+  min-height: 42px;
   display: flex;
   align-items: center;
   gap: 12px;
   border-radius: 10px;
-  padding: 9px 12px;
+  padding: 7px 10px;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
@@ -689,12 +726,36 @@ async function saveCurrent() {
 .config-input {
   width: 100%;
   min-width: 0;
-  height: 28px;
+  height: 26px;
   border: 0;
   outline: none;
   background: transparent;
   font-size: 12px;
-  line-height: 28px;
+  line-height: 26px;
+}
+
+.config-input-wrap {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  flex: 1;
+}
+
+.key-toggle {
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  border-radius: 6px;
+  color: #8a8a9e;
+  font-size: 15px;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.key-toggle:hover {
+  color: #6c8aff;
+  background: rgba(108, 138, 255, 0.1);
 }
 
 .endpoint-note {
@@ -709,17 +770,17 @@ async function saveCurrent() {
 
 .paddle-options-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 6px;
 }
 
 .paddle-option {
-  min-height: 56px;
+  min-height: 48px;
   display: flex;
   align-items: center;
   gap: 10px;
   border-radius: 9px;
-  padding: 8px 9px;
+  padding: 6px 8px;
   cursor: pointer;
   transition: background 0.15s ease;
 }
@@ -802,6 +863,10 @@ button {
 
   .field-label {
     width: auto;
+  }
+
+  .config-input-wrap {
+    width: 100%;
   }
 
   .paddle-options-grid {

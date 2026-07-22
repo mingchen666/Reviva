@@ -19,7 +19,7 @@
     "fileRename": false,
     "execCommand": false
   },
-  "tools": ["file_read", "kb_search"],
+  "tools": ["file_read", "document_read", "media_read", "vision_analyze", "kb_search"],
   "skills": ["quiz-generator"],
   "sub_agents": [],
   "max_iterations": 1,

@@ -50,6 +50,7 @@ const toolNameMap = {
   file_read: '文件读取',
   file_write: '文件写入',
   kb_search: '知识库检索',
+  note_tool: '笔记工具',
   translate: '翻译',
   exec_command: '执行命令',
 }

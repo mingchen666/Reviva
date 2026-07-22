@@ -17,6 +17,7 @@ import WikiSourceDeleteConfirmModal from './sections/WikiSourceDeleteConfirmModa
 import WikiSourcePicker from './sections/WikiSourcePicker.vue'
 import WikiAgentSettingsModal from './sections/WikiAgentSettingsModal.vue'
 import PdfProcessingSettingsModal from '@/views/docs/sections/PdfProcessingSettingsModal.vue'
+import MediaDetailModal from '@/components/media/MediaDetailModal.vue'
 
 const router = useRouter()
 const appStore = useAppStore()
@@ -74,6 +75,8 @@ const showSourceDelete = ref(false)
 const showAgentSettings = ref(false)
 const showInspectorDrawer = ref(false)
 const showDocumentProcessingSettings = ref(false)
+const showMediaDetail = ref(false)
+const mediaDetailItem = ref(null)
 const createError = ref('')
 const deleteError = ref('')
 const sourceError = ref('')
@@ -389,6 +392,37 @@ async function reparseSource(sourceId) {
   }
 }
 
+function openWikiMedia(source) {
+  const media = source?.meta?.media || {}
+  if (!media.media_id) {
+    msg.error('该 Wiki 来源缺少 mediaId')
+    return
+  }
+  mediaDetailItem.value = {
+    mediaId: media.media_id,
+    mediaType: media.media_type || 'video',
+    name: source.title || '媒体转录',
+    path: source.original_path || '',
+    remoteMediaReference: true,
+    wikiSourceId: source.id,
+  }
+  showMediaDetail.value = true
+}
+
+async function reanalyzeWikiMedia(item) {
+  if (!item?.mediaId) return
+  const result = await window.electronAPI?.media?.analyze?.(item.mediaId, {
+    presetId: 'subtitle_first',
+    providerId: 'auto',
+    preferSubtitle: true,
+  })
+  if (!result?.success) {
+    msg.error(result?.message || '媒体重新解析任务创建失败')
+    return
+  }
+  msg.success('媒体已加入重新解析队列；完成后请刷新 Wiki 来源')
+}
+
 async function runOcr(sourceId) {
   if (!sourceId || ocrSourceId.value) return
   ocrSourceId.value = sourceId
@@ -601,6 +635,7 @@ function openOcrSettings() {
                 @reparse-source="reparseSource"
                 @run-ocr="runOcr"
                 @delete-source="openDeleteSource"
+                @open-media="openWikiMedia"
                 @run-lint="runWikiLint"
                 @run-semantic-audit="runSemanticAudit"
               />
@@ -609,6 +644,13 @@ function openOcrSettings() {
         </Transition>
       </div>
     </MainContent>
+
+    <MediaDetailModal
+      v-if="showMediaDetail"
+      v-model:show="showMediaDetail"
+      :is-dark="isDark"
+      :item="mediaDetailItem"
+      @reanalyze="reanalyzeWikiMedia" />
 
     <WikiCreateModal
       :show="showCreate"
