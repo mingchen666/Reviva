@@ -69,10 +69,10 @@ const recentOutputs = computed(() =>
 
 const recentSpaces = computed(() => spacesStore.spaces.slice(0, 3))
 
-const betaHighlights = [
-  { icon: 'ri-flask-line', label: '内测预览', desc: '功能仍在快速迭代' },
+const releaseHighlights = [
+  { icon: 'ri-sparkling-2-line', label: 'Agent 驱动', desc: '围绕资料完成学习任务' },
   { icon: 'ri-shield-check-line', label: '本地优先', desc: '资料与配置以本机为主' },
-  { icon: 'ri-message-3-line', label: '欢迎反馈', desc: '问题和建议会优先处理' },
+  { icon: 'ri-refresh-line', label: '学习闭环', desc: '理解、复习与输出持续沉淀' },
 ]
 
 function typeIcon(type) {
@@ -84,6 +84,7 @@ function typeIcon(type) {
     outline: 'ri-list-check-3',
     flashcards: 'ri-flashlight-line',
     quiz: 'ri-question-line',
+    quizzes: 'ri-question-line',
     mindmap: 'ri-mind-map',
     cram_sheet: 'ri-file-paper-2-line',
   }
@@ -98,6 +99,7 @@ function typeColor(type) {
     summary: '#6C8AFF',
     outline: '#4ADE80',
     flashcards: '#FACC15',
+    quiz: '#F87171',
     quizzes: '#F87171',
     mindmap: '#0EA5E9',
     cram_sheet: '#FB923C',
@@ -110,6 +112,7 @@ function typeLabel(type) {
     summary: '摘要',
     outline: '大纲',
     flashcards: '闪卡',
+    quiz: '测验题',
     quizzes: '测验题',
     mindmap: '思维导图',
     cram_sheet: '速记表',
@@ -157,7 +160,7 @@ const quickActions = [
   {
     icon: 'ri-upload-cloud-2-line',
     label: '导入资料',
-    sub: '上传文件验证流程',
+    sub: '添加文档、图片或音视频',
     accent: 'brand',
     handler: () => {
       importMode.value = 'files'
@@ -167,7 +170,7 @@ const quickActions = [
   {
     icon: 'ri-folder-open-line',
     label: '创建知识库',
-    sub: '整理上传资料知识库',
+    sub: '整理资料并持续沉淀',
     accent: 'agent',
     handler: () => {
       router.push('/spaces')
@@ -176,7 +179,7 @@ const quickActions = [
   {
     icon: 'ri-ai-generate-3d-line',
     label: '配置模型',
-    sub: '填写服务商和默认模型',
+    sub: '连接模型服务与 API',
     accent: 'output',
     handler: () => {
       router.push('/settings/models')
@@ -185,7 +188,7 @@ const quickActions = [
   {
     icon: 'ri-sparkling-2-line',
     label: '配置 Agent',
-    sub: '检查工具、权限和模型',
+    sub: '设置角色、技能与权限',
     accent: 'amber',
     handler: () => {
       router.push('/agents')
@@ -203,16 +206,16 @@ const quickActions = [
           <div>
             <div class="flex items-center gap-2">
               <h1 class="text-[18px] font-bold" :class="isDark ? 'text-wt-main' : 'text-lt-main'">
-                {{ greeting }}，欢迎体验 Reviva 内测版
+                {{ greeting }}，欢迎使用 Reviva
               </h1>
               <span
                 class="ctx-pill uppercase"
                 :class="
                   isDark
-                    ? 'bg-amber-400/10 text-amber-300 border border-amber-400/20'
-                    : 'bg-amber-50 text-amber-700 border border-amber-100'
+                    ? 'bg-emerald-400/10 text-emerald-300 border border-emerald-400/20'
+                    : 'bg-emerald-50 text-emerald-700 border border-emerald-100'
                 ">
-                Beta Preview
+                v1.0.0
               </span>
             </div>
             <div class="flex items-center gap-2 mt-0.5">
@@ -232,7 +235,7 @@ const quickActions = [
                 <span>{{ isConnected ? '云端连接正常' : '云端连接待检查' }}</span>
               </span>
               <span class="text-[10px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">
-                {{ stats.spaces }} 个知识库 · {{ stats.docs }} 篇文档 · 内测数据以本机为准
+                {{ stats.spaces }} 个知识库 · {{ stats.docs }} 篇文档 · 数据以本机为主
               </span>
             </div>
           </div>
@@ -246,28 +249,27 @@ const quickActions = [
                 : 'text-lt-aux bg-l2 border border-bdrF hover:text-lt-sub'
             "
             @click="router.push('/settings/about')">
-            <i class="ri-message-3-line text-[10px]" />
-            内测说明
+            <i class="ri-information-line text-[10px]" />
+            版本信息
           </button>
         </div>
       </div>
 
-      <!-- Beta notice -->
+      <!-- Product overview -->
       <div
         class="rounded-xl p-4 mb-5 flex items-center gap-4"
         :class="isDark ? 'bg-brand-400/6 border border-brand-400/15' : 'bg-brand-50 border border-brand-100'">
         <div class="flex-1 min-w-0">
           <div class="text-[13px] font-semibold" :class="isDark ? 'text-wt-main' : 'text-lt-main'">
-            当前处于小范围内测阶段
+            开始你的学习工作流
           </div>
           <div class="text-[11px] leading-relaxed mt-1" :class="isDark ? 'text-wt-aux' : 'text-lt-sub'">
-            建议先用少量资料验证“导入、对话、生成、导出”的完整流程。模型、Agent
-            和工具配置还会继续调整，遇到异常请保留任务记录便于排查。
+            导入文档、图片或音视频，选择合适的 Agent 与资料对话，再将测验、闪卡、导图等结果持续沉淀到笔记和知识库中。
           </div>
         </div>
         <div class="hidden lg:grid grid-cols-3 gap-2.5 shrink-0">
           <div
-            v-for="item in betaHighlights"
+            v-for="item in releaseHighlights"
             :key="item.label"
             class="w-[132px] rounded-lg px-3 py-2"
             :class="isDark ? 'bg-d3/70 border border-bdr' : 'bg-white/70 border border-brand-100/80'">
@@ -286,7 +288,7 @@ const quickActions = [
       <div class="grid grid-cols-4 gap-3 mb-5">
         <div
           v-for="(card, i) in [
-            { key: 'spaces', icon: 'ri-folder-3-line', iconBg: 'brand', label: '知识库', sub: '内测资料知识库' },
+            { key: 'spaces', icon: 'ri-folder-3-line', iconBg: 'brand', label: '知识库', sub: '可用于检索与对话' },
             { key: 'docs', icon: 'ri-file-text-line', iconBg: 'agent', label: '文档', sub: '可被 Agent 引用' },
             { key: 'tasks', icon: 'ri-list-check-3', iconBg: 'amber', label: '任务', sub: `${runningTasks} 个进行中` },
             { key: 'outputs', icon: 'ri-file-chart-line', iconBg: 'output', label: '生成结果', sub: '本地输出记录' },
@@ -334,7 +336,7 @@ const quickActions = [
         :class="isDark ? 'bg-d2 border border-bdr' : 'bg-l2 border border-bdrF shadow-sm'">
         <div class="flex items-center gap-2 mb-3">
           <i class="ri-flashlight-line text-[14px] text-amber-400" />
-          <span class="text-[12px] font-semibold" :class="isDark ? 'text-wt-main' : 'text-lt-main'">内测快捷入口</span>
+          <span class="text-[12px] font-semibold" :class="isDark ? 'text-wt-main' : 'text-lt-main'">常用操作</span>
         </div>
         <div class="grid grid-cols-4 gap-2.5">
           <button
@@ -427,7 +429,7 @@ const quickActions = [
               </div>
             </template>
             <div v-else class="px-4 py-8 text-center text-[12px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">
-              还没有运行记录。导入资料或启动 Agent 后，这里会显示内测任务状态。
+              还没有运行记录。导入资料或启动 Agent 后，任务状态会显示在这里。
             </div>
           </div>
         </div>
@@ -501,7 +503,7 @@ const quickActions = [
         <div class="flex items-center justify-between mb-3">
           <div class="flex items-center gap-2">
             <i class="ri-folder-3-line text-[14px] text-brand-400" />
-            <span class="text-[12px] font-semibold" :class="isDark ? 'text-wt-main' : 'text-lt-main'">内测知识库</span>
+            <span class="text-[12px] font-semibold" :class="isDark ? 'text-wt-main' : 'text-lt-main'">最近知识库</span>
           </div>
           <button
             class="text-[10px] font-medium"
@@ -559,7 +561,7 @@ const quickActions = [
           </template>
           <template v-else>
             <div class="col-span-3 py-8 text-center text-[12px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">
-              还没有知识库。内测阶段建议先导入少量资料验证完整流程。
+              还没有知识库。导入资料并创建知识库后，最近使用的内容会显示在这里。
             </div>
           </template>
         </div>

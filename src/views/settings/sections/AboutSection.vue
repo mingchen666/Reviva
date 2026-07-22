@@ -18,20 +18,20 @@ const updateNotice = computed(() => {
   return ''
 })
 
-const betaChecklist = [
+const gettingStartedItems = [
   {
-    label: '模型服务商配置',
-    desc: '确认 API Key、Base URL、默认模型和 Code Plan 服务商是否可用。',
+    label: '连接模型服务',
+    desc: '配置 API Key、Base URL、默认模型和 Code Plan 服务商。',
     route: '/settings/models'
   },
   {
-    label: '资料导入流程',
-    desc: '用少量 PDF、DOCX、Markdown 或文件夹验证导入、检索和引用。',
+    label: '导入学习资料',
+    desc: '添加 PDF、DOCX、Markdown 或文件夹，并在对话中直接引用。',
     route: '/docs-manage'
   },
   {
-    label: 'Agent 执行体验',
-    desc: '检查执行模型、工具权限、执行上限和失败提示是否清楚。',
+    label: '配置你的 Agent',
+    desc: '设置模型、Skills、工具和权限，然后开始第一次对话。',
     route: '/agents'
   }
   // { label: '生成结果沉淀', desc: '关注摘要、闪卡、导图、报告等输出是否能稳定保存和复用。', route: '/outputs' },
@@ -39,34 +39,34 @@ const betaChecklist = [
 
 const releaseNotes = [
   {
-    title: '当前内测版',
-    meta: appVersion,
-    type: 'preview',
+    title: 'Reviva 1.0',
+    meta: `v${appVersion} 正式版`,
+    type: 'stable',
     items: [
-      '调整首页和关于页为内测版表达，减少正式发布语气。',
-      '内置国内模型服务商，并为主要服务商拆分独立 Code Plan 入口。',
-      '保留知识库、文档、Agent、Skills、工具、输出中心等核心入口。',
-      '支持在本地工作区内验证导入、对话、生成和导出的完整流程。'
+      '以 Agent 为核心连接资料、知识库、笔记、Skills 与工具。',
+      '支持在对话中切换 Agent，并共享已选择的资料上下文。',
+      '整合文档处理、音视频解析、知识检索和可视化学习工具。',
+      '完善本地优先的数据管理、权限控制与备份能力。'
     ]
   },
   {
-    title: '近期重点',
-    meta: '持续迭代',
+    title: '核心能力',
+    meta: '稳定可用',
     type: 'focus',
     items: [
-      '提高模型配置、Agent 健康检查和工具依赖提示的可理解性。',
-      '继续收敛内测用户最常用的资料导入、学习台对话和生成输出路径。',
-      '补齐错误恢复、任务记录和配置迁移相关的边界体验。'
+      '围绕本地文档、文件夹、Wiki 知识库和音视频内容与 Agent 对话。',
+      '生成测验、闪卡、思维导图、知识图谱、图表、PPT 和研究报告。',
+      '接入自定义模型、OCR、语音识别、MCP 与本地网关服务。'
     ]
   },
   {
-    title: '已知限制',
-    meta: '内测说明',
+    title: '使用提示',
+    meta: '持续更新',
     type: 'limit',
     items: [
       '自动更新优先使用系统更新通道；网络不可达时会提示备用发布入口。',
       '模型价格、上下文长度和能力标签会随服务商调整，实际调用以服务商为准。',
-      '部分功能仍可能调整入口、名称和默认配置，不建议把内测版当作稳定发行版归档。'
+      '长期使用前建议定期创建完整备份、精简备份或数据库备份。'
     ]
   }
 ];
@@ -121,8 +121,8 @@ function toneClass(tone) {
 }
 
 function releaseTone(type) {
-  if (type === 'preview') return toneClass('brand');
-  if (type === 'focus') return toneClass('emerald');
+  if (type === 'stable') return toneClass('emerald');
+  if (type === 'focus') return toneClass('brand');
   return toneClass('amber');
 }
 </script>
@@ -155,10 +155,10 @@ function releaseTone(type) {
                   class="ctx-pill"
                   :class="
                     isDark
-                      ? 'bg-amber-400/10 text-amber-300 border border-amber-400/20'
-                      : 'bg-amber-50 text-amber-700 border border-amber-100'
+                      ? 'bg-emerald-400/10 text-emerald-300 border border-emerald-400/20'
+                      : 'bg-emerald-50 text-emerald-700 border border-emerald-100'
                   "
-                  >Beta Preview</span
+                  >正式版</span
                 >
                 <span
                   class="ctx-pill font-mono"
@@ -174,9 +174,7 @@ function releaseTone(type) {
                 class="text-[12px] leading-relaxed mt-2 max-w-3xl"
                 :class="isDark ? 'text-wt-aux' : 'text-lt-aux'"
               >
-                Reviva
-                是面向个人学习和知识工作的桌面应用。内测阶段先聚焦一个目标：让资料、对话、笔记、Agent
-                和生成结果能在同一个本地工作区里连续起来。
+                Reviva 是以 Agent 为核心、本地优先的 AI 学习工作台，将资料、对话、知识库、笔记、学习工具和生成结果连接在同一个桌面应用中。
               </p>
             </div>
             <button
@@ -218,18 +216,17 @@ function releaseTone(type) {
           class="w-9 h-9 rounded-lg flex items-center justify-center border shrink-0"
           :class="toneClass('brand')"
         >
-          <i class="ri-flask-line text-[16px]" />
+          <i class="ri-sparkling-2-line text-[16px]" />
         </div>
         <div class="min-w-0">
           <h3
             class="text-[13px] font-bold mb-1.5"
             :class="isDark ? 'text-wt-main' : 'text-lt-main'"
           >
-            关于当前内测
+            关于 Reviva 1.0
           </h3>
           <p class="text-[12px] leading-relaxed" :class="isDark ? 'text-wt-aux' : 'text-lt-aux'">
-            Reviva 仍处在小范围内测阶段，当前版本优先验证资料导入、知识库、Agent
-            对话、生成输出和本地工作流是否顺畅。资料、配置和生成结果以本机工作区为主；使用云端模型或服务时，请以对应服务商的规则和计费为准。遇到可复现的问题、卡住的流程或不清楚的文案，可以保留任务记录、模型配置和操作路径，后续会更容易排查。
+            Reviva 1.0.0 是首个正式版本。你可以围绕本地资料与 Agent 对话，并将理解、复习、研究和创作结果持续沉淀到笔记、Wiki 与本地目录。资料、配置和生成结果以本机工作区为主；使用云端模型或服务时，请以对应服务商的规则、隐私政策和计费方式为准。
           </p>
         </div>
       </div>
@@ -244,11 +241,11 @@ function releaseTone(type) {
           <div class="flex items-center gap-2">
             <i class="ri-history-line text-brand-400 text-[14px]" />
             <span class="section-title" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'"
-              >内测更新日志</span
+              >版本更新</span
             >
           </div>
           <span class="text-[10px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'"
-            >按当前内测状态整理</span
+            >v{{ appVersion }} 版本要点与使用提示</span
           >
         </div>
 
@@ -293,12 +290,12 @@ function releaseTone(type) {
           <div class="flex items-center gap-2 mb-3">
             <i class="ri-checkbox-circle-line text-emerald-400 text-[14px]" />
             <span class="section-title" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'"
-              >建议验证</span
+              >快速开始</span
             >
           </div>
           <div class="space-y-2">
             <button
-              v-for="item in betaChecklist"
+              v-for="item in gettingStartedItems"
               :key="item.label"
               class="w-full rounded-lg px-3 py-2 text-left transition-colors"
               :class="isDark ? 'bg-d0 hover:bg-white/4' : 'bg-l2 hover:bg-l4'"
@@ -362,7 +359,7 @@ function releaseTone(type) {
     </div>
 
     <p class="text-center text-[10px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">
-      Reviva Desktop · 内测版本 · 请勿将预览功能视为稳定承诺
+      Reviva Desktop · v{{ appVersion }} · 本地优先 · 持续更新
     </p>
   </div>
 </template>

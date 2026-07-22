@@ -13,7 +13,7 @@ const author = {
   role: 'Reviva 设计与开发',
   bio: 'AI 应该帮人学得更好，而不只是答得更快。Reviva 想做的是把 AI 和学习真正绑在一起——你带着自己的资料来，AI 基于你的上下文回答问题、帮你梳理知识、生成复习材料和学习产出，而不是给你一个脱离语境的通用答案。',
   bioExtra:
-    'Reviva 是一个面向学习者的 AI 桌面应用，围绕你的资料完成问答、复习和创作输出，所有动作都在同一个本地工作区里连续完成。目前还在早期，欢迎试用反馈。',
+    'Reviva 是一个面向学习者的 AI 桌面应用，围绕你的资料完成问答、复习和创作输出，所有动作都在同一个本地工作区里连续完成。Reviva 1.0 已正式发布，欢迎分享使用体验和建议。',
   email: '1906837163@qq.com'
 };
 
@@ -80,7 +80,7 @@ const focusAreas = [
   },
   {
     title: '学习资料管理',
-    items: ['多格式导入', '上下文检索增强', 'Agent输出联动'],
+    items: ['多格式导入', '上下文检索增强', 'Agent 输出联动'],
     icon: 'ri-file-list-3-line',
     color: 'purple'
   },
@@ -100,10 +100,10 @@ const milestones = [
     color: 'brand'
   },
   {
-    icon: 'ri-flask-line',
-    title: '内测阶段',
-    desc: '资料问答、闪卡测验、创作工作台三条学习主线逐步跑通，小范围收集真实学习反馈',
-    color: 'amber'
+    icon: 'ri-rocket-line',
+    title: '正式发布',
+    desc: 'Reviva 1.0 正式上线，资料问答、学习巩固和创作输出形成完整工作流',
+    color: 'emerald'
   },
   {
     icon: 'ri-road-map-line',
@@ -114,7 +114,7 @@ const milestones = [
 ];
 
 const stats = [
-  { label: '开发阶段', value: '内测中', icon: 'ri-flask-line', iconColor: 'text-amber-400' },
+  { label: '发布状态', value: '正式版', icon: 'ri-shield-check-line', iconColor: 'text-emerald-400' },
   {
     label: '当前版本',
     value: appVersion,
