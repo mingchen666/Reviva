@@ -93,16 +93,16 @@ const visiblePermissions = computed(() => Object.entries(props.agent?.permission
       <div class="flex items-center gap-2.5 min-w-0">
         <div class="w-[24px] h-[24px] rounded-md flex items-center justify-center" :class="isDark ? 'bg-d0' : 'bg-l2'"><i :class="agent.icon + ' text-[13px]'" :style="'color:' + agent.color" /></div>
         <span class="text-[13px] font-semibold truncate" :class="isDark ? 'text-wt-main' : 'text-lt-main'">{{ agent.name }}</span>
-        <span v-if="agent.builtin" class="ctx-pill shrink-0" :class="isDark ? 'bg-d4 text-wt-dim border border-bdr' : 'bg-l4 text-lt-aux border border-bdrF'">内置</span>
+        <span v-if="agent.builtin" class="ag-label shrink-0" :class="isDark ? 'bg-d4 text-wt-dim border border-bdr' : 'bg-l4 text-lt-aux border border-bdrF'">内置</span>
       </div>
       <div class="flex items-center gap-1.5 shrink-0">
-        <button class="ctx-pill cursor-pointer" :class="isDark ? 'text-agent-400 bg-agent-400/8 border border-agent-400/20 hover:bg-agent-400/15' : 'text-agent-500 bg-agent-50 border border-agent-100 hover:bg-agent-100'" @click="emit('create')"><i class="ri-add-line text-[10px]" /> 新建</button>
-        <button class="ctx-pill cursor-pointer" :class="isDark ? 'text-wt-aux bg-d3 border border-bdr hover:text-wt-sub' : 'text-lt-aux bg-l3 border border-bdrF hover:text-lt-sub'" @click="emit('invoke')"><i class="ri-chat-smile-2-line text-[10px]" /> 在学习台调用</button>
-        <button class="ctx-pill cursor-pointer" :class="isDark ? 'text-emerald-400 bg-emerald-400/8 border border-emerald-400/20 hover:bg-emerald-400/15' : 'text-emerald-600 bg-emerald-50 border border-emerald-100 hover:bg-emerald-100'" @click="emit('healthCheck')"><i class="ri-heart-pulse-line text-[10px]" /> 检查状态</button>
+        <button class="ctx-pill cursor-pointer" :class="isDark ? 'text-agent-400 bg-agent-400/8 border border-agent-400/20 hover:bg-agent-400/15' : 'text-agent-500 bg-agent-50 border border-agent-100 hover:bg-agent-100'" @click="emit('create')"><i class="ri-add-line text-[14px]" /> 新建</button>
+        <button class="ctx-pill cursor-pointer" :class="isDark ? 'text-wt-aux bg-d3 border border-bdr hover:text-wt-sub' : 'text-lt-aux bg-l3 border border-bdrF hover:text-lt-sub'" @click="emit('invoke')"><i class="ri-chat-smile-2-line text-[14px]" /> 在学习台调用</button>
+        <button class="ctx-pill cursor-pointer" :class="isDark ? 'text-emerald-400 bg-emerald-400/8 border border-emerald-400/20 hover:bg-emerald-400/15' : 'text-emerald-600 bg-emerald-50 border border-emerald-100 hover:bg-emerald-100'" @click="emit('healthCheck')"><i class="ri-heart-pulse-line text-[14px]" /> 检查状态</button>
         <HealthBadge v-if="healthResult?.status && healthResult.status !== 'checking'" :status="healthResult.status" :is-dark="isDark" size="sm" />
         <span v-if="healthResult?.checkedAt" class="text-[9px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">{{ formatTime(healthResult.checkedAt) }}</span>
-        <button class="ctx-pill cursor-pointer" :class="isDark ? 'text-wt-aux bg-d3 border border-bdr hover:text-wt-sub' : 'text-lt-aux bg-l3 border border-bdrF hover:text-lt-sub'" @click="emit('duplicate')"><i class="ri-file-copy-line text-[10px]" /> 复制</button>
-        <button class="ctx-pill cursor-pointer" :class="isDark ? 'text-agent-400 bg-agent-400/8 border border-agent-400/20 hover:bg-agent-400/15' : 'text-agent-500 bg-agent-50 border border-agent-100 hover:bg-agent-100'" @click="emit('edit')"><i class="ri-edit-line text-[10px]" /> 编辑</button>
+        <button class="ctx-pill cursor-pointer" :class="isDark ? 'text-wt-aux bg-d3 border border-bdr hover:text-wt-sub' : 'text-lt-aux bg-l3 border border-bdrF hover:text-lt-sub'" @click="emit('duplicate')"><i class="ri-file-copy-line text-[14px]" /> 复制</button>
+        <button class="ctx-pill cursor-pointer" :class="isDark ? 'text-agent-400 bg-agent-400/8 border border-agent-400/20 hover:bg-agent-400/15' : 'text-agent-500 bg-agent-50 border border-agent-100 hover:bg-agent-100'" @click="emit('edit')"><i class="ri-edit-line text-[14px]" /> 编辑</button>
         <button v-if="!agent.builtin" class="ctx-pill cursor-pointer" :class="isDark ? 'text-red-400/80 bg-d3 border border-bdr hover:text-red-400 hover:border-red-400/30 hover:bg-red-400/8' : 'text-red-500 bg-l3 border border-bdrF hover:border-red-200 hover:bg-red-50'" @click="emit('delete')"><i class="ri-delete-bin-line text-[10px]" /> 删除</button>
       </div>
     </div>
@@ -250,3 +250,12 @@ const visiblePermissions = computed(() => Object.entries(props.agent?.permission
     </div>
   </div>
 </template>
+
+<style scoped>
+.ag-label{
+font-size: 13px;
+padding: 4px 6px;
+border-radius: 8px;
+color:   var(--brand) ;
+}
+</style>

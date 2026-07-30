@@ -4,6 +4,7 @@ import { createMediaTables } from '../../../media/persistence/MediaSchema.js'
 import { createModelProviderTables } from '../../schema/ModelProviderSchema.js'
 import { ModelProviderRepository } from '../../repositories/ModelProviderRepository.js'
 import { createSpeechProviderTables } from '../../schema/SpeechProviderSchema.js'
+import { createLearningMemoryTables } from '../../../learning-memory/LearningMemorySchema.js'
 
 export class VersionedMigrationManager extends BaseRepository {
   _ensureSchemaMigrationsTable() {
@@ -206,6 +207,23 @@ export class VersionedMigrationManager extends BaseRepository {
             CREATE UNIQUE INDEX IF NOT EXISTS uq_quick_inputs_title ON quick_inputs(title COLLATE NOCASE);
             CREATE INDEX IF NOT EXISTS idx_quick_inputs_enabled_sort ON quick_inputs(enabled, sort_order, updated_at DESC);
           `)
+        },
+      },
+      {
+        version: 10,
+        name: 'reset_learning_memory_agent_tool_schema',
+        up: db => {
+          db.exec(`
+            DROP TABLE IF EXISTS learning_extraction_jobs;
+            DROP TABLE IF EXISTS learning_review_items;
+            DROP TABLE IF EXISTS learning_preferences;
+            DROP TABLE IF EXISTS learning_capability_states;
+            DROP TABLE IF EXISTS learning_concept_states;
+            DROP TABLE IF EXISTS learning_tracks;
+            DROP TABLE IF EXISTS learning_events;
+            DROP TABLE IF EXISTS learning_settings;
+          `)
+          createLearningMemoryTables(db)
         },
       },
     ]

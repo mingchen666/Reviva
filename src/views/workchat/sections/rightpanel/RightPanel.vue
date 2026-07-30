@@ -120,7 +120,7 @@ async function deleteArtifact(a) {
         :class="
           isDark ? 'text-wt-aux hover:text-wt-sub hover:bg-white/5' : 'text-lt-aux hover:text-lt-sub hover:bg-l4'
         ">
-        <i class="ri-close-line text-[14px]" />
+        <i class="ri-close-line text-[18px]" />
       </button>
     </div>
 

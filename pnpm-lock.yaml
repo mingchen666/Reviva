@@ -38,6 +38,9 @@ importers:
       electron-updater:
         specifier: ^6.8.3
         version: 6.8.3
+      jszip:
+        specifier: ^3.10.1
+        version: 3.10.1
       langchain:
         specifier: ^1.4.0
         version: 1.4.0(@langchain/core@1.1.46(openai@6.37.0(ws@8.20.1)(zod@4.4.3))(ws@8.20.1))(openai@6.37.0(ws@8.20.1)(zod@4.4.3))(vue@3.5.34(typescript@5.9.3))(ws@8.20.1)(zod-to-json-schema@3.25.2(zod@4.4.3))

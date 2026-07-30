@@ -4,6 +4,7 @@ import fs from 'node:fs'
 import { DatabaseContext, getDatabaseDriver } from './db/DatabaseContext.js'
 import { SettingsRepository } from './db/repositories/SettingsRepository.js'
 import { MemoryRepository } from './db/repositories/MemoryRepository.js'
+import { LearningMemoryRepository } from './learning-memory/LearningMemoryRepository.js'
 import { RecycleBinRepository } from './db/repositories/RecycleBinRepository.js'
 import { UsageRepository } from './db/repositories/UsageRepository.js'
 import { NotesRepository } from './db/repositories/NotesRepository.js'
@@ -55,6 +56,7 @@ export class DatabaseService {
     this._context = new DatabaseContext()
     this._settingsRepository = new SettingsRepository(this._context)
     this._memoryRepository = new MemoryRepository(this._context)
+    this._learningMemoryRepository = new LearningMemoryRepository(this._context)
     this._recycleBinRepository = new RecycleBinRepository(this._context)
     this._usageRepository = new UsageRepository(this._context)
     this._notesRepository = new NotesRepository(this._context)
@@ -378,6 +380,21 @@ export class DatabaseService {
   createMemory(data) { return this._memoryRepository.createMemory(data) }
   updateMemory(id, data) { return this._memoryRepository.updateMemory(id, data) }
   deleteMemory(id) { return this._memoryRepository.deleteMemory(id) }
+
+  // ─── Learning & capability memory ───
+
+  getLearningMemorySettings() { return this._learningMemoryRepository.getSettings() }
+  updateLearningMemorySettings(patch) { return this._learningMemoryRepository.updateSettings(patch) }
+  insertLearningEvents(events) { return this._learningMemoryRepository.insertEvents(events) }
+  getLearningMemoryOverview(options) { return this._learningMemoryRepository.getOverview(options) }
+  getLearningSnapshotData() { return this._learningMemoryRepository.getSnapshotData() }
+  findLearningProfileTargets(options) { return this._learningMemoryRepository.findProfileTargets(options) }
+  applyLearningAgentOperations(operations) { return this._learningMemoryRepository.applyAgentOperations(operations) }
+  findLearningTrackByTitle(title) { return this._learningMemoryRepository.findTrackByTitle(title) }
+  retractLearningEvent(traceId, retractedBy) { return this._learningMemoryRepository.retractEvent(traceId, retractedBy) }
+  deleteLearningByConversation(conversationId) { return this._learningMemoryRepository.deleteByConversation(conversationId) }
+  deleteLearningByMessage(messageId) { return this._learningMemoryRepository.deleteByMessage(messageId) }
+  clearLearningMemory() { return this._learningMemoryRepository.clearAll() }
 
   // ─── Recycle Bin ───
 

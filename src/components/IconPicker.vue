@@ -170,7 +170,7 @@ watch(showDialog, (open) => {
         aria-label="更多图标"
         @click="showDialog = true">
         <i class="ri-more-line text-[16px]" />
-        <span>更多图标</span>
+        <span>更多</span>
       </button>
     </div>
 

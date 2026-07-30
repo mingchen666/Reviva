@@ -1,4 +1,4 @@
-import { BETA_RELEASE } from '@/config/beta'
+import { RELEASE_CONFIG } from '@/config/release'
 import { getAppVersion } from '@/utils/tools'
 
 const DEFAULT_TIMEOUT_MS = 6500
@@ -33,7 +33,7 @@ function normalizeUpdateInfo(raw, source = {}) {
     releaseDate: raw.releaseDate || raw.published_at || raw.date || source.releaseDate || '',
     releaseName: raw.releaseName || raw.name || source.name || source.label || '',
     releaseNotes: raw.releaseNotes || raw.body || raw.notes || source.releaseNotes || '',
-    fallbackUrl: downloadUrl || BETA_RELEASE.downloadUrl || '',
+    fallbackUrl: downloadUrl || RELEASE_CONFIG.downloadUrl || '',
     sourceId: source.id || raw.sourceId || 'manual',
     sourceName: source.name || source.label || raw.sourceName || '备用发布通道',
     canAutoDownload: raw.canAutoDownload ?? source.canAutoDownload ?? false,
@@ -41,16 +41,16 @@ function normalizeUpdateInfo(raw, source = {}) {
 }
 
 function configuredSources() {
-  const configured = Array.isArray(BETA_RELEASE.updateSources) ? BETA_RELEASE.updateSources : []
-  const hasDownloadFallback = configured.some(source => source?.downloadUrl === BETA_RELEASE.downloadUrl)
-  const fallbackSource = BETA_RELEASE.downloadUrl && !hasDownloadFallback
+  const configured = Array.isArray(RELEASE_CONFIG.updateSources) ? RELEASE_CONFIG.updateSources : []
+  const hasDownloadFallback = configured.some(source => source?.downloadUrl === RELEASE_CONFIG.downloadUrl)
+  const fallbackSource = RELEASE_CONFIG.downloadUrl && !hasDownloadFallback
     ? [{
-        id: 'beta-fallback',
+        id: 'release-fallback',
         type: 'manual',
         name: '备用发布通道',
-        version: BETA_RELEASE.latestVersion || BETA_RELEASE.version,
-        downloadUrl: BETA_RELEASE.downloadUrl,
-        releaseNotes: BETA_RELEASE.releaseNotes || '',
+        version: RELEASE_CONFIG.latestVersion || RELEASE_CONFIG.version,
+        downloadUrl: RELEASE_CONFIG.downloadUrl,
+        releaseNotes: RELEASE_CONFIG.releaseNotes || '',
         canAutoDownload: false,
       }]
     : []

@@ -179,7 +179,7 @@ export function createNoteTool({ getNoteService, getRunContext } = {}) {
     {
       name: 'note_tool',
       description: [
-        '管理 MindSpace 笔记和嵌套笔记目录。所有写入通过 NoteFileService 同步数据库与 Markdown 文件，不能用 write_file 代替。',
+        '管理 Reviva 笔记和嵌套笔记目录。所有写入通过 NoteFileService 同步数据库与 Markdown 文件，不能用 write_file 代替。',
         'action=list/get 需要 noteRead；create/update/delete/create_folder 需要 noteWrite。delete 只移入回收站。',
         'folder_path 是相对 notes 根目录的目录路径，例如 项目/产品A/会议记录；create/update 默认自动逐级创建缺失目录。',
       ].join('\n'),

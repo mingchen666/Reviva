@@ -57,7 +57,7 @@ export function importStagedFileToDocs({ fileId, fileName, relativePath = '', wo
 }
 
 export function registerDocumentGateway({ server, registry, dbService, workDirService, sendJson }) {
-  registry.registerAction({ id: 'documents.import', description: 'Import a staged file into a MindSpace workspace', riskLevel: 'medium' })
+  registry.registerAction({ id: 'documents.import', description: 'Import a staged file into a Reviva workspace', riskLevel: 'medium' })
   server.register('POST', '/api/v1/documents/import', ({ response, body }) => {
     const result = String(body?.targetType || body?.target?.type || '').toLowerCase() === 'docs'
       ? importStagedFileToDocs({ fileId: body?.fileId, fileName: body?.fileName || body?.name, relativePath: body?.relativePath, workDirService })

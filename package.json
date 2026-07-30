@@ -3,8 +3,8 @@
   "private": true,
   "author": "Reviva",
   "license": "AGPL-3.0",
-  "description": "Reviva",
-  "version": "1.0.0",
+  "description": "Reviva是AI 学习工作台，围绕你的资料完成问答、笔记、复习和创作输出。是一个面向学习、研究和知识工作的本地桌面 Agent。它把对话、文档、知识库、笔记、复习工具和创作输出放在同一个工作台里。",
+  "version": "1.1.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -17,6 +17,8 @@
     "postinstall": "electron-builder install-app-deps",
     "build:electron": "cross-env NODE_OPTIONS=--max-old-space-size=8192 vite build",
     "test:wiki": "node --test electron/wiki/__tests__/wiki-core.test.js",
+    "test:skills": "node --test electron/SkillService.test.js",
+    "test:themes": "node --test electron/ThemeService.test.js src/config/themes.test.js src/styles/themes/themes.test.js",
     "test:web-import": "cross-env ELECTRON_RUN_AS_NODE=1 electron --test electron/web-import/__tests__/core.test.js electron/web-import/__tests__/database.test.js electron/web-import/__tests__/job-service.test.js"
   },
   "pnpm": {
@@ -39,6 +41,7 @@
     "better-sqlite3": "^12.9.0",
     "deepagents": "^1.10.2",
     "electron-updater": "^6.8.3",
+    "jszip": "^3.10.1",
     "langchain": "^1.4.0",
     "langsmith": "~0.6.3",
     "mathjs": "^15.2.0",

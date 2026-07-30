@@ -300,8 +300,8 @@ function onMarkdownLinkClick({ href }) {
               <button @click="toggleProcessBlock('thinking-' + bi)"
                 class="flex items-center gap-1.5 text-[11px] font-medium leading-none transition-colors py-1.5 px-2 -ml-2 rounded-md"
                 :class="isDark ? 'text-wt-dim hover:text-wt-sub hover:bg-white/4' : 'text-lt-aux hover:text-lt-sub hover:bg-l4'">
-                <i :class="processBlockOpen['thinking-' + bi] ? 'ri-arrow-down-s-line' : 'ri-arrow-right-s-line'" class="text-[12px] leading-none transition-transform" />
-                <i class="ri-brain-line text-[11px] leading-none" :class="isDark ? 'text-agent-400' : 'text-agent-500'" />
+                <i :class="processBlockOpen['thinking-' + bi] ? 'ri-arrow-down-s-line' : 'ri-arrow-right-s-line'" class="text-[14px] leading-none transition-transform" />
+                <i class="ri-brain-line text-[12px] leading-none" :class="isDark ? 'text-agent-400' : 'text-agent-500'" />
                 <span class="leading-none" v-if="isStreaming && block.stepIndex === displaySteps.length - 1">思考中...</span>
                 <span class="leading-none" v-else>思考过程</span>
                 <span v-if="!isStreaming" class="ml-0.5 text-[10px] leading-none tabular-nums px-1.5 py-[3px] rounded"
@@ -320,8 +320,8 @@ function onMarkdownLinkClick({ href }) {
               <button @click="toggleProcessBlock('tools-' + bi)"
                 class="flex items-center gap-1.5 text-[11px] font-medium transition-colors py-0.5 w-full"
                 :class="isDark ? 'text-wt-dim hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub'">
-                <i :class="processBlockOpen['tools-' + bi] ? 'ri-arrow-down-s-line' : 'ri-arrow-right-s-line'" class="text-[11px]" />
-                <i class="ri-tools-line text-[10px]" :class="isDark ? 'text-sky-400' : 'text-sky-500'" />
+                <i :class="processBlockOpen['tools-' + bi] ? 'ri-arrow-down-s-line' : 'ri-arrow-right-s-line'" class="text-[14px]" />
+                <i class="ri-tools-line text-[12px]" :class="isDark ? 'text-sky-400' : 'text-sky-500'" />
                 <span>工具调用 ({{ block.toolCalls.length }})</span>
               </button>
               <Transition name="thinking-slide">
@@ -340,8 +340,8 @@ function onMarkdownLinkClick({ href }) {
           </template>
           <!-- Active streaming items -->
           <div v-if="activeToolCalls.length && isStreaming" class="px-4 py-1.5">
-            <div class="flex items-center gap-1.5 text-[11px] font-medium py-0.5" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">
-              <i class="ri-loader-4-line text-[10px]" :class="isDark ? 'text-sky-400' : 'text-sky-500'" style="animation: spin 1s linear infinite" />
+            <div class="flex items-center gap-1.5 text-[12px] font-medium py-0.5" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">
+              <i class="ri-loader-4-line text-[13px]" :class="isDark ? 'text-sky-400' : 'text-sky-500'" style="animation: spin 1s linear infinite" />
               <span>工具调用中...</span>
             </div>
             <div class="mt-1.5 space-y-1.5">
@@ -391,7 +391,7 @@ function onMarkdownLinkClick({ href }) {
               class="flex items-center gap-1.5 text-[11px] font-medium leading-none transition-colors py-1.5 px-2 -ml-2 rounded-md"
               :class="isDark ? 'text-wt-dim hover:text-wt-sub hover:bg-white/4' : 'text-lt-aux hover:text-lt-sub hover:bg-l4'">
               <i :class="thinkingOpen ? 'ri-arrow-down-s-line' : 'ri-arrow-right-s-line'" class="text-[12px] leading-none transition-transform" />
-              <i class="ri-brain-line text-[11px] leading-none" :class="isDark ? 'text-agent-400' : 'text-agent-500'" />
+              <i class="ri-brain-line text-[12px] leading-none" :class="isDark ? 'text-agent-400' : 'text-agent-500'" />
               <span class="leading-none" v-if="isStreaming">思考中...</span>
               <span class="leading-none" v-else-if="thinkingDuration">已思考 {{ thinkingDuration }}</span>
               <span class="leading-none" v-else>思考过程</span>

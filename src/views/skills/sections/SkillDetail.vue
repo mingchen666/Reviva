@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue'
 import md, { parseFrontmatter } from '@/utils/markdown'
+import { useMessage } from '@/components/MsMessage/useMessage'
 import TreeItem from './TreeItem.vue'
 
 const props = defineProps({
@@ -9,20 +10,31 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['edit', 'delete'])
+const msg = useMessage()
 
 const fileTree = ref([])
 const expandedDirs = ref({})
 const selectedPath = ref('')
 const fileContent = ref('')
 const fileLoading = ref(false)
+const fileEditing = ref(false)
+const fileDraft = ref('')
+const fileSaving = ref(false)
+const selectedPreviewable = ref(false)
+
+function filterDetailFiles(items) {
+  return (Array.isArray(items) ? items : []).filter(item => (
+    String(item?.path || '').replace(/\\/g, '/').toLowerCase() !== 'config.json'
+  ))
+}
 
 async function loadFileTree() {
   if (!window.electronAPI?.skill?.listFiles) return
   const result = await window.electronAPI.skill.listFiles(props.skill.id)
   if (result.success) {
-    fileTree.value = result.data
+    fileTree.value = filterDetailFiles(result.data)
     // If directory is empty or missing, try to install the skill to disk first
-    if (!result.data.length && props.skill.id && window.electronAPI?.skill?.install) {
+    if (!result.data.length && isCustom.value && props.skill.id && window.electronAPI?.skill?.install) {
       const installData = {
         ...props.skill,
         promptContent: props.skill.promptContent || props.skill.prompt_content || props.skill.prompt_template || '',
@@ -31,7 +43,7 @@ async function loadFileTree() {
       try {
         await window.electronAPI.skill.install(props.skill.id, JSON.parse(JSON.stringify(installData)))
         const retry = await window.electronAPI.skill.listFiles(props.skill.id)
-        if (retry.success) fileTree.value = retry.data
+        if (retry.success) fileTree.value = filterDetailFiles(retry.data)
       } catch (e) { /* install failed, show empty state */ }
     }
     setAllExpanded(fileTree.value)
@@ -65,12 +77,34 @@ function toggleDir(p) { expandedDirs.value[p] = !isExpanded(p) }
 
 async function selectFile(relPath, previewable) {
   if (!previewable) return
+  fileEditing.value = false
   selectedPath.value = relPath
+  selectedPreviewable.value = !!previewable
   fileLoading.value = true
   if (!window.electronAPI?.skill?.readFile) { fileLoading.value = false; return }
   const result = await window.electronAPI.skill.readFile(props.skill.id, relPath)
   fileContent.value = result.success ? result.data : ''
+  fileDraft.value = fileContent.value
   fileLoading.value = false
+}
+
+const isCustom = computed(() => !props.skill?.builtin && props.skill?.source !== 'platform')
+const canEditFile = computed(() => isCustom.value && selectedPreviewable.value && selectedPath.value !== 'config.json')
+
+async function saveFile() {
+  if (!canEditFile.value || fileSaving.value) return
+  fileSaving.value = true
+  try {
+    const result = await window.electronAPI?.skill?.writeFile?.(props.skill.id, selectedPath.value, fileDraft.value)
+    if (!result?.success) throw new Error(result?.error || '文件保存失败')
+    fileContent.value = fileDraft.value
+    fileEditing.value = false
+    msg.success('文件已保存')
+  } catch (err) {
+    msg.error(err.message || '文件保存失败')
+  } finally {
+    fileSaving.value = false
+  }
 }
 
 const isMarkdown = computed(() => selectedPath.value.endsWith('.md') || selectedPath.value.endsWith('.markdown'))
@@ -79,7 +113,7 @@ const frontmatter = computed(() => parsed.value.meta)
 const renderedMd = computed(() => isMarkdown.value ? md.render(parsed.value.body) : '')
 
 onMounted(() => loadFileTree())
-watch(() => props.skill?.id, () => { fileTree.value = []; selectedPath.value = ''; fileContent.value = ''; loadFileTree() })
+watch(() => props.skill?.id, () => { fileTree.value = []; selectedPath.value = ''; fileContent.value = ''; fileEditing.value = false; loadFileTree() })
 </script>
 
 <template>
@@ -100,8 +134,8 @@ watch(() => props.skill?.id, () => { fileTree.value = []; selectedPath.value = '
         </span>
       </div>
       <div v-if="!skill.builtin && skill.source !== 'platform'" class="flex items-center gap-1.5">
-        <button @click="emit('edit')" class="ctx-pill cursor-pointer" :class="isDark ? 'text-brand-400 bg-brand-400/8 border border-brand-400/20 hover:bg-brand-400/15' : 'text-brand-500 bg-brand-50 border border-brand-100 hover:bg-brand-100'"><i class="ri-edit-line text-[10px]" /> 编辑</button>
-        <button @click="emit('delete')" class="ctx-pill cursor-pointer" :class="isDark ? 'text-red-400 bg-red-400/8 border border-red-400/20 hover:bg-red-400/15' : 'text-red-500 bg-red-50 border border-red-100 hover:bg-red-100'"><i class="ri-delete-bin-line text-[10px]" /> 删除</button>
+        <button @click="emit('edit')" class="ctx-pill cursor-pointer" :class="isDark ? 'text-brand-400 bg-brand-400/8 border border-brand-400/20 hover:bg-brand-400/15' : 'text-brand-500 bg-brand-50 border border-brand-100 hover:bg-brand-100'"><i class="ri-edit-line text-[12px]" /> 编辑</button>
+        <button @click="emit('delete')" class="ctx-pill cursor-pointer" :class="isDark ? 'text-red-400 bg-red-400/8 border border-red-400/20 hover:bg-red-400/15' : 'text-red-500 bg-red-50 border border-red-100 hover:bg-red-100'"><i class="ri-delete-bin-line text-[12px]" /> 删除</button>
       </div>
     </div>
 
@@ -112,15 +146,23 @@ watch(() => props.skill?.id, () => { fileTree.value = []; selectedPath.value = '
         <!-- LEFT: file content -->
         <div class="flex-1 flex flex-col overflow-hidden min-w-0">
           <!-- Path breadcrumb -->
-          <div class="h-7 flex items-center px-4 shrink-0"
+          <div class="h-8 flex items-center justify-between px-4 shrink-0"
             :class="isDark ? 'border-b border-d4' : 'border-b border-bdrL'">
             <span class="text-[11px] font-mono" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">{{ skill.id }}/{{ selectedPath }}</span>
+            <div v-if="canEditFile" class="flex items-center gap-1">
+              <template v-if="fileEditing">
+                <button class="ctx-pill cursor-pointer" :class="isDark ? 'text-wt-aux hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub'" @click="fileEditing = false; fileDraft = fileContent">取消</button>
+                <button class="ctx-pill cursor-pointer" :class="isDark ? 'text-brand-400 bg-brand-400/8' : 'text-brand-500 bg-brand-50'" @click="saveFile"><i :class="fileSaving ? 'ri-loader-4-line animate-spin' : 'ri-save-line'" /> 保存</button>
+              </template>
+              <button v-else class="ctx-pill cursor-pointer" :class="isDark ? 'text-wt-aux hover:text-brand-400' : 'text-lt-aux hover:text-brand-500'" @click="fileEditing = true; fileDraft = fileContent"><i class="ri-edit-line" /> 编辑文件</button>
+            </div>
           </div>
           <!-- Content with inner scroll -->
           <div class="flex-1 overflow-y-auto min-h-0 px-5 py-4 thin-scroll">
             <div v-if="fileLoading" class="flex items-center justify-center py-12">
               <i class="ri-loader-4-line text-[18px] animate-spin" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'" />
             </div>
+            <textarea v-else-if="fileEditing" v-model="fileDraft" class="w-full min-h-full p-3 rounded-lg resize-none outline-none text-[12px] leading-relaxed font-mono" :class="isDark ? 'bg-d0 border border-d4 text-wt-sub' : 'bg-l2 border border-bdrF text-lt-sub'"></textarea>
             <div v-else-if="selectedPath && isMarkdown && fileContent" class="max-w-5xl markdown-content markdown-content--compact" :class="isDark ? 'markdown-content--dark' : 'markdown-content--light'">
               <!-- Frontmatter card -->
               <div v-if="frontmatter" class="fm-card mb-5 rounded-xl p-4" :class="isDark ? 'bg-d0/80 border border-bdr' : 'bg-l2 border border-bdrF'">
@@ -155,8 +197,8 @@ watch(() => props.skill?.id, () => { fileTree.value = []; selectedPath.value = '
           :class="isDark ? 'border-l border-d4' : 'border-l border-bdrL'">
           <div class="h-7 flex items-center px-4 shrink-0"
             :class="isDark ? 'border-b border-d4' : 'border-b border-bdrL'">
-            <i class="ri-folder-open-line text-[11px] text-brand-400" />
-            <span class="text-[11px] font-medium ml-1" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">{{ skill.id }}/</span>
+            <i class="ri-folder-open-line text-[14px] text-brand-400" />
+            <span class="text-[13px] font-medium ml-1" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">{{ skill.id }}/</span>
           </div>
           <div class="flex-1 overflow-y-auto min-h-0 py-1.5 px-2 thin-scroll">
             <TreeItem v-for="item in fileTree" :key="item.path"

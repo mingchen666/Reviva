@@ -47,7 +47,7 @@ function chatUsage(usage = {}) {
   return { prompt_tokens: promptTokens, completion_tokens: completionTokens, total_tokens: promptTokens + completionTokens, prompt_tokens_details: { cached_tokens: Number(usage.cacheReadTokens ?? usage.cache_read_tokens) || 0 }, completion_tokens_details: { reasoning_tokens: Number(usage.thinkingTokens ?? usage.thinking_tokens) || 0 } }
 }
 
-function mindspaceUsage(usage = {}, latencyMs = 0) {
+function revivaUsage(usage = {}, latencyMs = 0) {
   return { cache_write_tokens: Number(usage.cacheWriteTokens ?? usage.cache_write_tokens) || 0, thinking_tokens: Number(usage.thinkingTokens ?? usage.thinking_tokens) || 0, cost: Number(usage.cost) || 0, latency_ms: Number(latencyMs ?? usage.latencyMs ?? usage.latency_ms) || 0 }
 }
 
@@ -57,18 +57,18 @@ export function registerOpenAiCompatibility({ server, registry, dbService, agent
     for (const id of messageIds.filter(Boolean)) dbService?.deleteMsg?.(id)
     dbService?.deleteConv?.(conversationId)
   }
-  registry.registerResource({ id: 'openai.models', version: '1.0', description: 'List MindSpace Agents as OpenAI-compatible models' })
+  registry.registerResource({ id: 'openai.models', version: '1.0', description: 'List Reviva Agents as OpenAI-compatible models' })
   registry.registerAction({ id: 'openai.chat.completions', version: '1.0', description: 'Invoke an Agent through OpenAI Chat Completions', executionMode: 'stream', riskLevel: 'high' })
 
   server.register('GET', '/v1/models', ({ response }) => {
-    const data = adapters.agents.list().filter(agent => !CREATION_CENTER_ENGLISH_NAMES.has(String(agent.englishName || agent.english_name || '').toLowerCase())).map(agent => ({ id: agent.id, object: 'model', created: 0, owned_by: 'mindspace', name: agent.name || agent.id }))
+    const data = adapters.agents.list().filter(agent => !CREATION_CENTER_ENGLISH_NAMES.has(String(agent.englishName || agent.english_name || '').toLowerCase())).map(agent => ({ id: agent.id, object: 'model', created: 0, owned_by: 'reviva', name: agent.name || agent.id }))
     sendJson(response, 200, { object: 'list', data })
   })
   server.register('GET', '/v1/models/:id', ({ response, params }) => {
     const agent = adapters.agents.get(params.id)
     if (!agent) throw new GatewayError(GATEWAY_ERROR_CODES.NOT_FOUND, 'The requested model does not exist', { status: 404 })
     if (CREATION_CENTER_ENGLISH_NAMES.has(String(agent.englishName || agent.english_name || '').toLowerCase())) throw new GatewayError(GATEWAY_ERROR_CODES.NOT_FOUND, 'The requested model is not available through OpenAI Chat Completions', { status: 404 })
-    sendJson(response, 200, { id: agent.id, object: 'model', created: 0, owned_by: 'mindspace', name: agent.name || agent.id })
+    sendJson(response, 200, { id: agent.id, object: 'model', created: 0, owned_by: 'reviva', name: agent.name || agent.id })
   })
 
   server.register('POST', '/v1/chat/completions', async ({ request, response, body }) => {
@@ -88,13 +88,13 @@ export function registerOpenAiCompatibility({ server, registry, dbService, agent
     if (!assistant?.id) throw new GatewayError(GATEWAY_ERROR_CODES.INTERNAL_ERROR, 'Failed to create Agent message', { status: 500 })
     const runId = `chatcmpl_${crypto.randomUUID()}`
     const systemPrompt = [agent.prompt || '', ...messages.filter(item => item?.role === 'system').map(item => textContent(item.content))].filter(Boolean).join('\n\n')
-    const requestPayload = { runId, conversationId, agentId, agentEnglishName: agent.englishName || '', msgId: assistant.id, userMessageId: user?.id, systemPrompt, messages, ...modelConfig, maxIterations: agent.maxIter, temperature: body?.temperature ?? agent.temperature, maxTokens: body?.max_tokens ?? agent.maxTokens, topP: body?.top_p ?? agent.topP, thinkingMode: agent.thinkingMode, thinkingIntensity: reasoningEffort(body?.reasoning_effort, agent.thinkingIntensity), toolIds: agent.tools || [], permissions: agent.permissions || {}, skills: agent.skills || [], subAgents: [], toolProviderConfigs: dbService?.getSetting?.('toolProviderConfigMap') || {} }
+    const requestPayload = { runId, conversationId, agentId, agentEnglishName: agent.englishName || '', msgId: assistant.id, userMessageId: user?.id, systemPrompt, messages, ...modelConfig, maxIterations: agent.maxIter, temperature: body?.temperature ?? agent.temperature, maxTokens: body?.max_tokens ?? agent.maxTokens, topP: body?.top_p ?? agent.topP, thinkingMode: agent.thinkingMode, thinkingIntensity: reasoningEffort(body?.reasoning_effort, agent.thinkingIntensity), toolIds: agent.tools || [], permissions: agent.permissions || {}, skills: agent.skills || [], subAgents: [], toolProviderConfigs: dbService?.getSetting?.('toolProviderConfigMap') || {}, learningProfileAllowed: false }
 
     if (body?.stream !== true) {
       try { await agentService.handleStartRun(requestPayload) } catch (error) { cleanupEphemeral(conversationId, [user?.id, assistant?.id], persistentConversation); throw error }
       const finalMessage = adapters.conversations.messages(conversationId).filter(item => item.role === 'assistant').pop()
       cleanupEphemeral(conversationId, [user?.id, assistant?.id], persistentConversation)
-      sendJson(response, 200, { id: runId, object: 'chat.completion', created: now(), model: agentId, choices: [{ index: 0, message: { role: 'assistant', content: finalMessage?.content || '', reasoning_content: finalMessage?.thinkingContent || '' }, finish_reason: 'stop' }], usage: chatUsage(finalMessage), mindspace_usage: mindspaceUsage(finalMessage, finalMessage?.latencyMs), mindspace: { conversationId } })
+      sendJson(response, 200, { id: runId, object: 'chat.completion', created: now(), model: agentId, choices: [{ index: 0, message: { role: 'assistant', content: finalMessage?.content || '', reasoning_content: finalMessage?.thinkingContent || '' }, finish_reason: 'stop' }], usage: chatUsage(finalMessage), reviva_usage: revivaUsage(finalMessage, finalMessage?.latencyMs), reviva: { conversationId } })
       return
     }
 
@@ -113,8 +113,8 @@ export function registerOpenAiCompatibility({ server, registry, dbService, agent
         if (payload.chunk?.type === 'thinking' || payload.chunk?.type === 'reasoning') write(openAiChunk(runId, agentId, { reasoning_content: text }))
         else write(openAiChunk(runId, agentId, { content: text }))
       }
-      if (channel === 'agent:runDone') { cleanupEphemeral(conversationId, [user?.id, assistant?.id], persistentConversation); write(openAiChunk(runId, agentId, {}, 'stop')); if (body?.stream_options?.include_usage === true) write({ id: runId, object: 'chat.completion.chunk', created: now(), model: agentId, choices: [], usage: chatUsage(payload.usage), mindspace_usage: mindspaceUsage(payload.usage, payload.latencyMs) }); response.end('data: [DONE]\n\n'); unsubscribe() }
-      if (channel === 'agent:runError' || channel === 'agent:runCancelled') { cleanupEphemeral(conversationId, [user?.id, assistant?.id], persistentConversation); write({ error: { message: payload.error?.message || channel, type: 'mindspace_agent_error', code: payload.error?.code || null } }); response.end('data: [DONE]\n\n'); unsubscribe() }
+      if (channel === 'agent:runDone') { cleanupEphemeral(conversationId, [user?.id, assistant?.id], persistentConversation); write(openAiChunk(runId, agentId, {}, 'stop')); if (body?.stream_options?.include_usage === true) write({ id: runId, object: 'chat.completion.chunk', created: now(), model: agentId, choices: [], usage: chatUsage(payload.usage), reviva_usage: revivaUsage(payload.usage, payload.latencyMs) }); response.end('data: [DONE]\n\n'); unsubscribe() }
+      if (channel === 'agent:runError' || channel === 'agent:runCancelled') { cleanupEphemeral(conversationId, [user?.id, assistant?.id], persistentConversation); write({ error: { message: payload.error?.message || channel, type: 'reviva_agent_error', code: payload.error?.code || null } }); response.end('data: [DONE]\n\n'); unsubscribe() }
     })
     response.on('close', () => {
       if (response.writableEnded) return
@@ -122,6 +122,6 @@ export function registerOpenAiCompatibility({ server, registry, dbService, agent
       unsubscribe()
       agentService.handleCancelRun?.(runId)
     })
-    agentService.handleStartRun(requestPayload).catch(error => { logger.error?.('[LocalGateway] OpenAI chat failed:', error); cleanupEphemeral(conversationId, [user?.id, assistant?.id], persistentConversation); if (!closed) response.end(`data: ${JSON.stringify({ error: { message: error.message, type: 'mindspace_agent_error' } })}\n\ndata: [DONE]\n\n`) })
+    agentService.handleStartRun(requestPayload).catch(error => { logger.error?.('[LocalGateway] OpenAI chat failed:', error); cleanupEphemeral(conversationId, [user?.id, assistant?.id], persistentConversation); if (!closed) response.end(`data: ${JSON.stringify({ error: { message: error.message, type: 'reviva_agent_error' } })}\n\ndata: [DONE]\n\n`) })
   })
 }

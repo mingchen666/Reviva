@@ -508,7 +508,7 @@ export class CloudBusinessTaskRunner {
     if (!raw) return ''
     let parsed
     try {
-      parsed = new URL(raw, 'http://mindspace.local')
+      parsed = new URL(raw, 'http://reviva.local')
     } catch (_) {
       return ''
     }

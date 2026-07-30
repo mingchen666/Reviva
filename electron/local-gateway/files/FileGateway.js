@@ -6,7 +6,7 @@ import net from 'node:net'
 import dns from 'node:dns/promises'
 import { GatewayError, GATEWAY_ERROR_CODES } from '../core/GatewayErrors.js'
 
-const root = path.join(os.tmpdir(), 'mindspace-gateway-uploads')
+const root = path.join(os.tmpdir(), 'reviva-gateway-uploads')
 const trashRoot = path.join(root, '.trash')
 const idFor = value => `file_${crypto.createHash('sha256').update(value).digest('hex').slice(0, 24)}`
 

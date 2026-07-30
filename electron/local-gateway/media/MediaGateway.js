@@ -28,7 +28,7 @@ function createReferenceFile(workDirService, relativePath, title, sourceType) {
 
 function writeReferenceFile(reference, mediaId, title) {
   const displayTitle = String(title || '远程音视频').replace(/[\r\n]+/g, ' ').trim()
-  fs.writeFileSync(reference.absolutePath, `---\nmindspaceMediaReference: 1\nmediaId: ${mediaId}\nsourceType: ${reference.sourceType}\n---\n\n# ${displayTitle}\n\n这是 MindSpace 的远程音视频安全引用。原始或签名 URL 不会写入本文档；请通过“解析详情”查看转录、关键帧和历史版本。\n`, { flag: 'wx' })
+  fs.writeFileSync(reference.absolutePath, `---\nrevivaMediaReference: 1\nmediaId: ${mediaId}\nsourceType: ${reference.sourceType}\n---\n\n# ${displayTitle}\n\n这是 Reviva 的远程音视频安全引用。原始或签名 URL 不会写入本文档；请通过“解析详情”查看转录、关键帧和历史版本。\n`, { flag: 'wx' })
 }
 
 export async function importMediaToDocs({ mediaModule, workDirService, url, title, relativePath = '', presetId, language, providerId, extractKeyframes, maxDownloadMb }) {

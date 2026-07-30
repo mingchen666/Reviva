@@ -91,7 +91,7 @@ class FakeNoteDb {
 }
 
 function createFixture() {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mindspace-note-tool-'))
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'reviva-note-tool-'))
   const notesRoot = path.join(root, 'notes')
   const workDir = {
     getRootPath: () => root,

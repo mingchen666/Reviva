@@ -44,8 +44,8 @@ const PAGE_LIST_MAX = 420
 const READER_MIN = 420
 const RESIZE_GUTTERS = 12
 
-const sidebarWidth = useLocalStorage('mindspace:wiki:sidebar-width', SIDEBAR_DEFAULT)
-const pageListWidth = useLocalStorage('mindspace:wiki:page-list-width', PAGE_LIST_DEFAULT)
+const sidebarWidth = useLocalStorage('reviva:wiki:sidebar-width', SIDEBAR_DEFAULT)
+const pageListWidth = useLocalStorage('reviva:wiki:page-list-width', PAGE_LIST_DEFAULT)
 const activeResize = ref('')
 const resizeState = {
   pointerId: null,

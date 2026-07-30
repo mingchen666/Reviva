@@ -17,7 +17,7 @@ const builtinTools = [
 </script>
 
 <template>
-  <div class="shrink-0 px-2 pt-2 pb-2" :class="isDark ? 'border-b border-d4' : 'border-b border-bdrL'">
+  <div class="shrink-0 px-2 pt-1" :class="isDark ? 'border-b border-d4' : 'border-b border-bdrL'">
     <div class="flex items-center gap-2 mb-2.5">
       <i class="ri-wrench-line text-[14px]" :class="isDark ? 'text-agent-400' : 'text-agent-500'" />
       <span class="text-[13px] font-semibold" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">创作工具</span>

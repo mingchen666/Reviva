@@ -131,7 +131,7 @@ export class ExtensionRepository extends BaseRepository {
       outputTypes: parseJSON(row.output_types),
       allowedTools: parseJSON(row.allowed_tools || '[]'),
       source: row.source || 'custom', category: row.category || '',
-      version: row.version || '1.0', author: row.author || '',
+      version: row.version ?? '', author: row.author ?? '',
       license: row.license || '', enabled: !!row.enabled,
       builtin: !!row.builtin,
     }

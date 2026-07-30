@@ -146,8 +146,8 @@ const {
         <div
           class="flex-1 min-w-[200px] flex items-center gap-2 px-3 h-9 rounded-lg"
           :class="isDark ? 'bg-d0 border border-d4' : 'bg-l2 border border-bdrF'">
-          <i class="ri-folder-line text-[14px] text-emerald-400" />
-          <span class="text-[12px] font-mono truncate" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">
+          <i class="ri-folder-line text-[15px] text-emerald-400" />
+          <span class="text-[13px] font-mono truncate" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">
             {{ workDirRoot || '未设置' }}
           </span>
         </div>
@@ -209,17 +209,17 @@ const {
       </div>
       <div
         v-else-if="isReady"
-        class="flex items-center gap-1.5 text-[10px]"
+        class="flex items-center gap-1.5 text-[11px]"
         :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">
-        <i class="ri-information-line text-[11px]" />
+        <i class="ri-information-line text-[12px]" />
         <span>目录结构: .reviva/ · docs/ · notes/ · agents/ · skills/等</span>
       </div>
 
       <!-- Authorized roots / workspaces — keep the original card, append management here -->
       <div v-if="workspaces.length" class="mt-3 pt-3 border-t" :class="isDark ? 'border-d4' : 'border-bdrF'">
         <div class="flex items-center gap-2 mb-2">
-          <i class="ri-stack-line text-brand-400 text-[12px]" />
-          <span class="text-[11px] font-semibold" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">已授权根目录</span>
+          <i class="ri-stack-line text-brand-400 text-[13px]" />
+          <span class="text-[12px] font-semibold" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">已授权根目录</span>
           <span class="text-[9.5px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">各工作空间数据完全独立</span>
         </div>
         <div class="space-y-1.5">
@@ -228,27 +228,27 @@ const {
             :class="workspace.id === workspaceState.activeWorkspaceId
               ? (isDark ? 'bg-emerald-400/6 border border-emerald-400/15' : 'bg-emerald-50/70 border border-emerald-100')
               : (isDark ? 'bg-d0 border border-d4' : 'bg-l2 border border-bdrF')">
-            <i :class="workspace.available === false ? 'ri-folder-warning-line text-red-400' : 'ri-folder-line text-emerald-400'" class="text-[13px] shrink-0" />
+            <i :class="workspace.available === false ? 'ri-folder-warning-line text-red-400' : 'ri-folder-line text-emerald-400'" class="text-[15px] shrink-0" />
             <div class="min-w-0 flex-1">
               <div class="flex items-center gap-1.5">
-                <span class="text-[10.5px] font-medium truncate" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">{{ workspace.name }}</span>
-                <span v-if="workspace.id === workspaceState.activeWorkspaceId" class="text-[8.5px] px-1.5 py-0.5 rounded-full"
+                <span class="text-[12.5px] font-medium truncate" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">{{ workspace.name }}</span>
+                <span v-if="workspace.id === workspaceState.activeWorkspaceId" class="text-[9px] px-1.5 py-0.5 rounded-full"
                   :class="isDark ? 'bg-emerald-400/10 text-emerald-400' : 'bg-emerald-50 text-emerald-600'">当前</span>
-                <span v-if="workspace.id === workspaceState.pendingWorkspaceId" class="text-[8.5px] px-1.5 py-0.5 rounded-full"
+                <span v-if="workspace.id === workspaceState.pendingWorkspaceId" class="text-[9px] px-1.5 py-0.5 rounded-full"
                   :class="isDark ? 'bg-amber-400/10 text-amber-400' : 'bg-amber-50 text-amber-600'">待重启切换</span>
               </div>
-              <div class="text-[9.5px] font-mono truncate" :class="workspace.available === false ? 'text-red-400' : (isDark ? 'text-wt-dim' : 'text-lt-aux')">
+              <div class="text-[10.5px] font-mono truncate" :class="workspace.available === false ? 'text-red-400' : (isDark ? 'text-wt-dim' : 'text-lt-aux')">
                 {{ workspace.available === false ? (workspace.error || workspace.rootPath) : workspace.rootPath }}
               </div>
             </div>
             <button v-if="workspace.id !== workspaceState.activeWorkspaceId && workspace.id !== workspaceState.pendingWorkspaceId"
               @click="switchWorkspace(workspace)" :disabled="workspace.available === false"
-              class="h-7 px-2.5 rounded-lg text-[9.5px] font-medium transition-colors disabled:opacity-40"
+              class="h-7 px-2.5 rounded-lg text-[10px] font-medium transition-colors disabled:opacity-40"
               :class="isDark ? 'text-brand-400 hover:bg-brand-400/10' : 'text-brand-600 hover:bg-brand-50'">
               切换
             </button>
             <button v-if="workspace.id === workspaceState.pendingWorkspaceId" @click="cancelPendingSwitch"
-              class="h-7 px-2 rounded-lg text-[9.5px] transition-colors"
+              class="h-7 px-2 rounded-lg text-[10px] transition-colors"
               :class="isDark ? 'text-wt-aux hover:bg-white/5' : 'text-lt-aux hover:bg-l4'">取消</button>
           </div>
         </div>
@@ -305,19 +305,19 @@ const {
         <span class="section-title" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">权限范围说明</span>
       </div>
       <div class="space-y-2">
-        <div class="flex items-start gap-2 text-[11px] leading-relaxed" :class="isDark ? 'text-wt-aux' : 'text-lt-aux'">
+        <div class="flex items-center gap-2 text-[11px] leading-relaxed" :class="isDark ? 'text-wt-aux' : 'text-lt-aux'">
           <i class="ri-checkbox-circle-line text-emerald-400 text-[12px] mt-[1px] shrink-0" />
           <span>所有 Agent 文件操作严格限于 docs/、notes/ 和 agents/ 等目录内</span>
         </div>
-        <div class="flex items-start gap-2 text-[11px] leading-relaxed" :class="isDark ? 'text-wt-aux' : 'text-lt-aux'">
+        <div class="flex items-center gap-2 text-[11px] leading-relaxed" :class="isDark ? 'text-wt-aux' : 'text-lt-aux'">
           <i class="ri-checkbox-circle-line text-emerald-400 text-[12px] mt-[1px] shrink-0" />
           <span>每个 Agent 在创建时单独配置读取 / 写入 / 重命名 / 联网 / KB 检索权限</span>
         </div>
-        <div class="flex items-start gap-2 text-[11px] leading-relaxed" :class="isDark ? 'text-wt-aux' : 'text-lt-aux'">
+        <div class="flex items-center gap-2 text-[11px] leading-relaxed" :class="isDark ? 'text-wt-aux' : 'text-lt-aux'">
           <i class="ri-alert-line text-amber-400 text-[12px] mt-[1px] shrink-0" />
           <span>批量重命名 / 覆盖已有 / 删除输出 / 取消任务等高风险操作需二次确认</span>
         </div>
-        <div class="flex items-start gap-2 text-[11px] leading-relaxed" :class="isDark ? 'text-wt-aux' : 'text-lt-aux'">
+        <div class="flex items-center gap-2 text-[11px] leading-relaxed" :class="isDark ? 'text-wt-aux' : 'text-lt-aux'">
           <i class="ri-close-circle-line text-red-400 text-[12px] mt-[1px] shrink-0" />
           <span>未开启的权限，对应工具调用将被沙箱直接拒绝</span>
         </div>

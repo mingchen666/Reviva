@@ -1,0 +1,122 @@
+/* Graphite: maximum legibility, strong boundaries and no decorative depth. */
+.theme-contrast {
+  --ui-radius-small: 2px;
+  --ui-radius-control: 4px;
+  --ui-radius-medium: 5px;
+  --ui-radius-card: 6px;
+  --ui-radius-dialog: 8px;
+  --ui-control-height: 34px;
+  --ui-page-gap: 18px;
+  --ui-section-gap: 14px;
+  --ui-card-padding: 16px;
+  --ui-accent-secondary: #596168;
+  --ui-accent-secondary-rgb: 89, 97, 104;
+  --ui-shadow-small: none;
+  --ui-shadow-panel: none;
+  --ui-shadow-popup: none;
+  --ui-shadow-dialog: none;
+  --ui-motion-fast: 90ms;
+  --ui-motion-normal: 140ms;
+  --ui-motion-slow: 200ms;
+}
+
+.theme-contrast .shadow-sm,
+.theme-contrast .shadow-md,
+.theme-contrast .shadow-lg,
+.theme-contrast .shadow-xl,
+.theme-contrast .shadow-2xl { box-shadow: none; }
+
+.theme-contrast.theme-light {
+  --ui-bg-0: #ffffff;
+  --ui-bg-1: #f1f2f3;
+  --ui-bg-2: #ffffff;
+  --ui-bg-3: #e9ebed;
+  --ui-bg-4: #d8dce0;
+  --ui-bg-0-rgb: 255, 255, 255;
+  --ui-bg-1-rgb: 241, 242, 243;
+  --ui-bg-2-rgb: 255, 255, 255;
+  --ui-bg-3-rgb: 233, 235, 237;
+  --ui-bg-4-rgb: 216, 220, 224;
+  --ui-text-main: #080a0c;
+  --ui-text-sub: #2b3136;
+  --ui-text-aux: #525b63;
+  --ui-text-dim: #7d8790;
+  --ui-text-main-rgb: 8, 10, 12;
+  --ui-text-sub-rgb: 43, 49, 54;
+  --ui-text-aux-rgb: 82, 91, 99;
+  --ui-text-dim-rgb: 125, 135, 144;
+  --ui-border-panel: #9da5ad;
+  --ui-border-card: #59636c;
+  --ui-border-panel-rgb: 157, 165, 173;
+  --ui-border-card-rgb: 89, 99, 108;
+  --ui-brand-50: #edf5ff;
+  --ui-brand-100: #d8e9ff;
+  --ui-brand-200: #b4d4ff;
+  --ui-brand-300: #82b5f4;
+  --ui-brand-400: #4d91e5;
+  --ui-brand-500: #1769d2;
+  --ui-brand-600: #0b50ad;
+  --ui-brand-50-rgb: 237, 245, 255;
+  --ui-brand-100-rgb: 216, 233, 255;
+  --ui-brand-200-rgb: 180, 212, 255;
+  --ui-brand-300-rgb: 130, 181, 244;
+  --ui-brand-400-rgb: 77, 145, 229;
+  --ui-brand-500-rgb: 23, 105, 210;
+  --ui-brand-600-rgb: 11, 80, 173;
+  --ui-border-focus: rgba(23, 105, 210, 0.64);
+}
+
+.theme-contrast.theme-dark {
+  --ui-bg-0: #050607;
+  --ui-bg-1: #0d0f11;
+  --ui-bg-2: #15181b;
+  --ui-bg-3: #202428;
+  --ui-bg-4: #2d3338;
+  --ui-bg-0-rgb: 5, 6, 7;
+  --ui-bg-1-rgb: 13, 15, 17;
+  --ui-bg-2-rgb: 21, 24, 27;
+  --ui-bg-3-rgb: 32, 36, 40;
+  --ui-bg-4-rgb: 45, 51, 56;
+  --ui-text-main: #ffffff;
+  --ui-text-sub: #dde2e6;
+  --ui-text-aux: #aeb6bd;
+  --ui-text-dim: #7f8992;
+  --ui-text-main-rgb: 255, 255, 255;
+  --ui-text-sub-rgb: 221, 226, 230;
+  --ui-text-aux-rgb: 174, 182, 189;
+  --ui-text-dim-rgb: 127, 137, 146;
+  --ui-border-panel: #515a62;
+  --ui-border-card: #808b95;
+  --ui-border-panel-rgb: 81, 90, 98;
+  --ui-border-card-rgb: 128, 139, 149;
+  --ui-brand-50: #10233a;
+  --ui-brand-100: #17365b;
+  --ui-brand-200: #234f82;
+  --ui-brand-300: #3674b8;
+  --ui-brand-400: #70aeff;
+  --ui-brand-500: #5599ed;
+  --ui-brand-600: #397ccf;
+  --ui-brand-50-rgb: 16, 35, 58;
+  --ui-brand-100-rgb: 23, 54, 91;
+  --ui-brand-200-rgb: 35, 79, 130;
+  --ui-brand-300-rgb: 54, 116, 184;
+  --ui-brand-400-rgb: 112, 174, 255;
+  --ui-brand-500-rgb: 85, 153, 237;
+  --ui-brand-600-rgb: 57, 124, 207;
+  --ui-accent-secondary: #aeb6bd;
+  --ui-accent-secondary-rgb: 174, 182, 189;
+  --ui-border-focus: rgba(112, 174, 255, 0.76);
+}
+
+.theme-contrast[data-theme='contrast'][data-color-mode] .chat-input-box,
+.theme-contrast[data-theme='contrast'][data-color-mode] .n-card,
+.theme-contrast[data-theme='contrast'][data-color-mode] .n-dialog,
+.theme-contrast[data-theme='contrast'][data-color-mode] .n-modal {
+  box-shadow: none !important;
+  border-color: var(--ui-border-card) !important;
+}
+
+.theme-contrast[data-theme='contrast'][data-color-mode] :focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}

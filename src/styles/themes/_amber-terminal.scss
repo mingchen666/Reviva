@@ -1,0 +1,160 @@
+/* Amber Terminal: retro hardware hierarchy without scanlines or novelty type. */
+.theme-amber-terminal {
+  --ui-radius-small: 2px;
+  --ui-radius-control: 3px;
+  --ui-radius-medium: 4px;
+  --ui-radius-card: 5px;
+  --ui-radius-dialog: 6px;
+  --ui-control-height: 32px;
+  --ui-page-gap: 17px;
+  --ui-section-gap: 12px;
+  --ui-card-padding: 14px;
+  --ui-accent-secondary: #2f7d52;
+  --ui-accent-secondary-rgb: 47, 125, 82;
+  --ui-shadow-small: none;
+  --ui-shadow-panel: none;
+  --ui-shadow-popup: 0 0 0 1px rgba(var(--brand-rgb), 0.22), 6px 6px 0 rgba(20, 24, 16, 0.16);
+  --ui-shadow-dialog: 0 0 0 1px rgba(var(--brand-rgb), 0.3), 9px 9px 0 rgba(20, 24, 16, 0.22);
+  --ui-motion-fast: 80ms;
+  --ui-motion-normal: 130ms;
+  --ui-motion-slow: 190ms;
+}
+
+.theme-amber-terminal .shadow-sm,
+.theme-amber-terminal .shadow-md { box-shadow: none; }
+.theme-amber-terminal .shadow-lg,
+.theme-amber-terminal .shadow-xl { box-shadow: var(--ui-shadow-popup); }
+.theme-amber-terminal .shadow-2xl { box-shadow: var(--ui-shadow-dialog); }
+
+.theme-amber-terminal.theme-light {
+  --ui-bg-0: #f3f4f0;
+  --ui-bg-1: #e6e8e1;
+  --ui-bg-2: #fafbf7;
+  --ui-bg-3: #eceee7;
+  --ui-bg-4: #dcded5;
+  --ui-bg-0-rgb: 243, 244, 240;
+  --ui-bg-1-rgb: 230, 232, 225;
+  --ui-bg-2-rgb: 250, 251, 247;
+  --ui-bg-3-rgb: 236, 238, 231;
+  --ui-bg-4-rgb: 220, 222, 213;
+  --ui-text-main: #20251e;
+  --ui-text-sub: #50584b;
+  --ui-text-aux: #778170;
+  --ui-text-dim: #a6ada0;
+  --ui-text-main-rgb: 32, 37, 30;
+  --ui-text-sub-rgb: 80, 88, 75;
+  --ui-text-aux-rgb: 119, 129, 112;
+  --ui-text-dim-rgb: 166, 173, 160;
+  --ui-border-panel: #cfd3c8;
+  --ui-border-card: #b8beb0;
+  --ui-border-panel-rgb: 207, 211, 200;
+  --ui-border-card-rgb: 184, 190, 176;
+  --ui-brand-50: #fbf3df;
+  --ui-brand-100: #f5e5bd;
+  --ui-brand-200: #e8ca87;
+  --ui-brand-300: #d1a94a;
+  --ui-brand-400: #b98218;
+  --ui-brand-500: #8f5a08;
+  --ui-brand-600: #6f4304;
+  --ui-brand-50-rgb: 251, 243, 223;
+  --ui-brand-100-rgb: 245, 229, 189;
+  --ui-brand-200-rgb: 232, 202, 135;
+  --ui-brand-300-rgb: 209, 169, 74;
+  --ui-brand-400-rgb: 185, 130, 24;
+  --ui-brand-500-rgb: 143, 90, 8;
+  --ui-brand-600-rgb: 111, 67, 4;
+  --ui-agent-50: #edf8f1;
+  --ui-agent-100: #d6eddf;
+  --ui-agent-400: #4d9b6c;
+  --ui-agent-500: #2f7d52;
+  --ui-agent-50-rgb: 237, 248, 241;
+  --ui-agent-100-rgb: 214, 237, 223;
+  --ui-agent-400-rgb: 77, 155, 108;
+  --ui-agent-500-rgb: 47, 125, 82;
+  --ui-border-focus: rgba(143, 90, 8, 0.54);
+}
+
+.theme-amber-terminal.theme-dark {
+  --ui-bg-0: #090b08;
+  --ui-bg-1: #10130e;
+  --ui-bg-2: #171b14;
+  --ui-bg-3: #20261c;
+  --ui-bg-4: #2a3224;
+  --ui-bg-0-rgb: 9, 11, 8;
+  --ui-bg-1-rgb: 16, 19, 14;
+  --ui-bg-2-rgb: 23, 27, 20;
+  --ui-bg-3-rgb: 32, 38, 28;
+  --ui-bg-4-rgb: 42, 50, 36;
+  --ui-text-main: #f0d49a;
+  --ui-text-sub: #c9b27f;
+  --ui-text-aux: #918260;
+  --ui-text-dim: #625a45;
+  --ui-text-main-rgb: 240, 212, 154;
+  --ui-text-sub-rgb: 201, 178, 127;
+  --ui-text-aux-rgb: 145, 130, 96;
+  --ui-text-dim-rgb: 98, 90, 69;
+  --ui-border-panel: #4b432d;
+  --ui-border-card: #6b5d36;
+  --ui-border-panel-rgb: 75, 67, 45;
+  --ui-border-card-rgb: 107, 93, 54;
+  --ui-brand-50: #2b220f;
+  --ui-brand-100: #463514;
+  --ui-brand-200: #684d1b;
+  --ui-brand-300: #966d25;
+  --ui-brand-400: #f0b84a;
+  --ui-brand-500: #d99a2f;
+  --ui-brand-600: #b4771d;
+  --ui-brand-50-rgb: 43, 34, 15;
+  --ui-brand-100-rgb: 70, 53, 20;
+  --ui-brand-200-rgb: 104, 77, 27;
+  --ui-brand-300-rgb: 150, 109, 37;
+  --ui-brand-400-rgb: 240, 184, 74;
+  --ui-brand-500-rgb: 217, 154, 47;
+  --ui-brand-600-rgb: 180, 119, 29;
+  --ui-agent-50: #12271b;
+  --ui-agent-100: #1b3e29;
+  --ui-agent-400: #67c98a;
+  --ui-agent-500: #4aad70;
+  --ui-agent-50-rgb: 18, 39, 27;
+  --ui-agent-100-rgb: 27, 62, 41;
+  --ui-agent-400-rgb: 103, 201, 138;
+  --ui-agent-500-rgb: 74, 173, 112;
+  --ui-accent-secondary: #67c98a;
+  --ui-accent-secondary-rgb: 103, 201, 138;
+  --ui-border-focus: rgba(240, 184, 74, 0.62);
+  --ui-on-accent: #1b1202;
+  --ui-on-accent-rgb: 27, 18, 2;
+}
+
+.theme-amber-terminal[data-theme='amber-terminal'][data-color-mode] ::selection {
+  color: var(--ui-on-accent);
+  background: var(--brand);
+}
+
+.theme-amber-terminal[data-theme='amber-terminal'][data-color-mode] .chat-token-counter,
+.theme-amber-terminal[data-theme='amber-terminal'][data-color-mode] .tabular-nums,
+.theme-amber-terminal[data-theme='amber-terminal'][data-color-mode] code,
+.theme-amber-terminal[data-theme='amber-terminal'][data-color-mode] pre {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.theme-amber-terminal[data-theme='amber-terminal'][data-color-mode] .chat-input-box {
+  border-color: rgba(var(--brand-rgb), 0.42) !important;
+  box-shadow: inset 0 0 0 1px rgba(var(--brand-rgb), 0.08);
+}
+
+.theme-amber-terminal[data-theme='amber-terminal'][data-color-mode] .nav-btn[class*='bg-brand'] {
+  border: 1px solid rgba(var(--brand-rgb), 0.46);
+  box-shadow: inset 3px 0 var(--brand);
+}
+
+.theme-amber-terminal[data-theme='amber-terminal'][data-color-mode] .md-content pre,
+.theme-amber-terminal[data-theme='amber-terminal'][data-color-mode] .note-preview pre {
+  border: 1px solid var(--ui-border-card) !important;
+  border-left: 3px solid var(--brand) !important;
+}
+
+.theme-amber-terminal[data-theme='amber-terminal'][data-color-mode] .user-message-bubble {
+  border: 1px solid rgba(var(--ui-accent-secondary-rgb), 0.54);
+  box-shadow: none;
+}

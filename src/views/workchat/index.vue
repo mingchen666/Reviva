@@ -437,8 +437,8 @@ function measureVisibleMessagesSoon() {
 }
 
 // Resize
-function onLeftResize(delta) { leftW.value = Math.min(380, Math.max(180, leftW.value + delta)) }
-function onRightResize(delta) { rightW.value = Math.min(500, Math.max(240, rightW.value + delta)) }
+function onLeftResize(delta) { leftW.value = Math.min(380, Math.max(200, leftW.value + delta)) }
+function onRightResize(delta) { rightW.value = Math.min(500, Math.max(250, rightW.value + delta)) }
 
 function nextTabAccessAt() {
   tabAccessSeq.value += 1

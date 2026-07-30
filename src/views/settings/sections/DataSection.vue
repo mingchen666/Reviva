@@ -12,12 +12,15 @@ const msg = useMessage()
 const mbox = useMessageBox()
 
 const cacheSize = ref('--')
+const tempSize = ref('--')
 const dataSize = ref('--')
 const sizeLoading = ref(true)
 const sizeError = ref('')
-const loading = ref(false)
+const cacheClearLoading = ref(false)
+const tempClearLoading = ref(false)
 const resetConfirm = ref(false)
-const clearConfirm = ref(false)
+const cacheClearConfirm = ref(false)
+const tempClearConfirm = ref(false)
 const backupLoadingMode = ref('')
 const backupResult = ref(null)
 const backupError = ref('')
@@ -32,23 +35,34 @@ function fmtSize(bytes) {
 }
 
 async function loadDataMetrics() {
-  if (!window.electronAPI?.getDataSize) {
+  const api = window.electronAPI
+  if (!api?.getDataSize || !api?.getCacheSize || !api?.getTempSize) {
+    sizeError.value = '当前版本不支持存储空间统计，请重启应用后重试'
+    dataSize.value = '获取失败'
+    cacheSize.value = '获取失败'
+    tempSize.value = '获取失败'
     sizeLoading.value = false
     return
   }
   sizeLoading.value = true
   sizeError.value = ''
   try {
-    const result = await window.electronAPI.getDataSize()
-    if (!result?.success) throw new Error(result?.error || '获取失败')
-    const raw = result.data.raw || 0
-    dataSize.value = result.data.total
-    // Cache size is approximate until a dedicated cache-size IPC is available.
-    cacheSize.value = fmtSize(Math.round(raw * 0.3))
+    const [dataResult, cacheResult, tempResult] = await Promise.all([
+      api.getDataSize(),
+      api.getCacheSize(),
+      api.getTempSize(),
+    ])
+    if (!dataResult?.success) throw new Error(dataResult?.error || '数据目录大小获取失败')
+    if (!cacheResult?.success) throw new Error(cacheResult?.error || '系统缓存大小获取失败')
+    if (!tempResult?.success) throw new Error(tempResult?.error || '临时文件大小获取失败')
+    dataSize.value = dataResult.data.total
+    cacheSize.value = cacheResult.data.formatted
+    tempSize.value = tempResult.data.formatted
   } catch (err) {
     sizeError.value = err.message || '获取失败'
     dataSize.value = '获取失败'
     cacheSize.value = '获取失败'
+    tempSize.value = '获取失败'
   } finally {
     sizeLoading.value = false
   }
@@ -63,14 +77,40 @@ async function openDataDir() {
 }
 
 async function clearCache() {
-  clearConfirm.value = false
-  if (!window.electronAPI?.clearCache) return
-  loading.value = true
-  const result = await window.electronAPI.clearCache()
-  loading.value = false
-  if (result?.success) {
-    cacheSize.value = '0 MB'
+  cacheClearConfirm.value = false
+  cacheClearLoading.value = true
+  try {
+    if (!window.electronAPI?.clearCache) throw new Error('当前版本不支持清理 系统缓存')
+    const result = await window.electronAPI.clearCache()
+    if (!result?.success) throw new Error(result?.error || '清理 系统缓存失败')
     await loadDataMetrics()
+    msg.success(`已清理 ${fmtSize(result.data?.clearedBytes || 0)} 系统缓存`, {
+      title: '缓存清理完成',
+      duration: 3200,
+    })
+  } catch (err) {
+    msg.error(err.message || '清理 系统缓存失败', { title: '清理失败', duration: 5000 })
+  } finally {
+    cacheClearLoading.value = false
+  }
+}
+
+async function clearTempFiles() {
+  tempClearConfirm.value = false
+  tempClearLoading.value = true
+  try {
+    if (!window.electronAPI?.clearTempFiles) throw new Error('当前版本不支持清理临时文件')
+    const result = await window.electronAPI.clearTempFiles()
+    if (!result?.success) throw new Error(result?.error || '清理临时文件失败')
+    await loadDataMetrics()
+    msg.success(`已清理 ${fmtSize(result.data?.clearedBytes || 0)} 临时文件`, {
+      title: '临时文件清理完成',
+      duration: 3200,
+    })
+  } catch (err) {
+    msg.error(err.message || '清理临时文件失败', { title: '清理失败', duration: 5000 })
+  } finally {
+    tempClearLoading.value = false
   }
 }
 
@@ -272,9 +312,9 @@ onMounted(async () => {
           <div v-else class="text-[16px] font-bold leading-none" :class="sizeError ? (isDark ? 'text-red-400' : 'text-red-500') : (isDark ? 'text-wt-main' : 'text-lt-main')">{{ cacheSize }}</div>
         </div>
         <div class="rounded-lg p-3" :class="isDark ? 'bg-d0 border border-d4' : 'bg-l2 border border-bdrF'">
-          <div class="text-[10px] font-medium mb-1" :class="isDark ? 'text-wt-aux' : 'text-lt-aux'">索引大小</div>
+          <div class="text-[10px] font-medium mb-1" :class="isDark ? 'text-wt-aux' : 'text-lt-aux'">临时文件</div>
           <div v-if="sizeLoading" class="h-4 w-12 rounded animate-pulse" :class="isDark ? 'bg-d4' : 'bg-l4'" />
-          <div v-else class="text-[16px] font-bold leading-none" :class="isDark ? 'text-wt-main' : 'text-lt-main'">--</div>
+          <div v-else class="text-[16px] font-bold leading-none" :class="sizeError ? (isDark ? 'text-red-400' : 'text-red-500') : (isDark ? 'text-wt-main' : 'text-lt-main')">{{ tempSize }}</div>
         </div>
       </div>
       <div v-if="sizeError" class="mb-2 flex items-center gap-1.5 text-[10px]" :class="isDark ? 'text-red-400' : 'text-red-500'">
@@ -290,13 +330,23 @@ onMounted(async () => {
           </div>
           <i class="ri-arrow-right-up-line text-[12px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'" />
         </button>
-        <button @click="clearConfirm = true" class="row w-full flex items-center gap-3 py-2.5 px-2 rounded-lg text-left transition-colors" :class="isDark ? 'hover:bg-white/4' : 'hover:bg-l4'">
+        <button @click="cacheClearConfirm = true" :disabled="cacheClearLoading" class="row w-full flex items-center gap-3 py-2.5 px-2 rounded-lg text-left transition-colors disabled:opacity-50 disabled:cursor-not-allowed" :class="isDark ? 'hover:bg-white/4' : 'hover:bg-l4'">
           <i class="ri-delete-bin-line text-[14px] text-amber-400" />
           <div class="flex-1 min-w-0">
-            <div class="text-[12px] font-medium" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">清理缓存</div>
-            <div class="text-[10px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">清理临时文件，不会影响知识库与对话</div>
+            <div class="text-[12px] font-medium" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">清理系统缓存</div>
+            <div class="text-[10px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">清理网页请求缓存，不影响知识库与对话</div>
           </div>
-          <span class="ctx-pill" :class="isDark ? 'bg-d4 text-wt-dim border border-bdr' : 'bg-l4 text-lt-aux border border-bdrF'">{{ cacheSize }}</span>
+          <i v-if="cacheClearLoading" class="ri-loader-4-line text-[12px] animate-spin" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'" />
+          <span v-else class="ctx-pill" :class="isDark ? 'bg-d4 text-wt-dim border border-bdr' : 'bg-l4 text-lt-aux border border-bdrF'">{{ cacheSize }}</span>
+        </button>
+        <button @click="tempClearConfirm = true" :disabled="tempClearLoading" class="row w-full flex items-center gap-3 py-2.5 px-2 rounded-lg text-left transition-colors disabled:opacity-50 disabled:cursor-not-allowed" :class="isDark ? 'hover:bg-white/4' : 'hover:bg-l4'">
+          <i class="ri-folder-reduce-line text-[14px] text-cyan-400" />
+          <div class="flex-1 min-w-0">
+            <div class="text-[12px] font-medium" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">清理临时文件</div>
+            <div class="text-[10px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">清理工作区 /tmp，不影响解析缓存与正式文件</div>
+          </div>
+          <i v-if="tempClearLoading" class="ri-loader-4-line text-[12px] animate-spin" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'" />
+          <span v-else class="ctx-pill" :class="isDark ? 'bg-d4 text-wt-dim border border-bdr' : 'bg-l4 text-lt-aux border border-bdrF'">{{ tempSize }}</span>
         </button>
       </div>
     </div>
@@ -438,21 +488,42 @@ onMounted(async () => {
     </div>
   </Teleport>
 
-  <!-- Clear Cache Confirm Modal -->
+  <!-- 系统Cache Confirm Modal -->
   <Teleport to="body">
-    <div v-if="clearConfirm" class="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" @click="clearConfirm = false" />
+    <div v-if="cacheClearConfirm" class="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" @click="cacheClearConfirm = false" />
       <div class="relative rounded-2xl overflow-hidden w-full max-w-[400px]"
         :class="isDark ? 'bg-d3 border border-bdr shadow-xl shadow-black/50' : 'bg-l2 border border-bdrF shadow-xl'">
         <div class="px-5 py-4">
           <div class="flex items-center gap-2 mb-2">
             <i class="ri-delete-bin-line text-amber-400 text-[16px]" />
-            <span class="text-[14px] font-bold" :class="isDark ? 'text-wt-main' : 'text-lt-main'">确认清理缓存？</span>
+            <span class="text-[14px] font-bold" :class="isDark ? 'text-wt-main' : 'text-lt-main'">确认清理 系统缓存？</span>
           </div>
-          <p class="text-[12px] mb-4" :class="isDark ? 'text-wt-aux' : 'text-lt-aux'">清理临时文件和缓存数据，不会影响知识库与对话记录。</p>
+          <p class="text-[12px] mb-4" :class="isDark ? 'text-wt-aux' : 'text-lt-aux'">将清理网页请求产生的 HTTP 缓存，不会影响登录状态、知识库与对话记录。</p>
           <div class="flex justify-end gap-2">
-            <button @click="clearConfirm = false" class="px-4 py-2 rounded-lg text-[11px] font-medium" :class="isDark ? 'text-wt-aux hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub'">取消</button>
-            <button @click="clearCache" :disabled="loading" class="px-4 py-2 rounded-lg text-[11px] font-semibold bg-amber-500 text-white hover:bg-amber-600 disabled:opacity-50">确认清理</button>
+            <button @click="cacheClearConfirm = false" class="px-4 py-2 rounded-lg text-[11px] font-medium" :class="isDark ? 'text-wt-aux hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub'">取消</button>
+            <button @click="clearCache" :disabled="cacheClearLoading" class="px-4 py-2 rounded-lg text-[11px] font-semibold bg-amber-500 text-white hover:bg-amber-600 disabled:opacity-50">确认清理</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </Teleport>
+
+  <!-- Temporary Files Confirm Modal -->
+  <Teleport to="body">
+    <div v-if="tempClearConfirm" class="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" @click="tempClearConfirm = false" />
+      <div class="relative rounded-2xl overflow-hidden w-full max-w-[400px]"
+        :class="isDark ? 'bg-d3 border border-bdr shadow-xl shadow-black/50' : 'bg-l2 border border-bdrF shadow-xl'">
+        <div class="px-5 py-4">
+          <div class="flex items-center gap-2 mb-2">
+            <i class="ri-folder-reduce-line text-cyan-400 text-[16px]" />
+            <span class="text-[14px] font-bold" :class="isDark ? 'text-wt-main' : 'text-lt-main'">确认清理临时文件？</span>
+          </div>
+          <p class="text-[12px] mb-4" :class="isDark ? 'text-wt-aux' : 'text-lt-aux'">将清空工作区 /tmp。正在执行任务的中间文件可能丢失，知识库、对话、解析缓存与正式文件不受影响。</p>
+          <div class="flex justify-end gap-2">
+            <button @click="tempClearConfirm = false" class="px-4 py-2 rounded-lg text-[11px] font-medium" :class="isDark ? 'text-wt-aux hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub'">取消</button>
+            <button @click="clearTempFiles" :disabled="tempClearLoading" class="px-4 py-2 rounded-lg text-[11px] font-semibold bg-cyan-500 text-white hover:bg-cyan-600 disabled:opacity-50">确认清理</button>
           </div>
         </div>
       </div>

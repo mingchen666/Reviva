@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { useAppStore } from '@/stores/app'
 import { encodeModelRef, parseModelRef } from '@/utils/modelRef'
+import { BUILTIN_THEMES, getBuiltinTheme, resolveThemeColorMode } from '@/config/themes'
 
 // ─── Accent Presets ───
 const ACCENT_PRESETS = [
@@ -416,6 +417,31 @@ function darkenHex(hex, factor = 0.85) {
   return '#' + [r, g, b].map(c => Math.round(c * factor).toString(16).padStart(2, '0')).join('')
 }
 
+function mixHex(hex, target = '#ffffff', ratio = 0.5) {
+  const sourceRgb = hexToRgb(hex)
+  const targetRgb = hexToRgb(target)
+  const channel = key => Math.round(sourceRgb[key] * (1 - ratio) + targetRgb[key] * ratio)
+  return '#' + ['r', 'g', 'b'].map(key => channel(key).toString(16).padStart(2, '0')).join('')
+}
+
+function buildAccentScale(hex) {
+  if (hex.toUpperCase() === '#4A6CFF') {
+    return {
+      50: '#eff6ff', 100: '#dbeafe', 200: '#bfdbfe', 300: '#93c5fd',
+      400: '#6c8aff', 500: '#4a6cff', 600: '#3a5ced',
+    }
+  }
+  return {
+    50: mixHex(hex, '#ffffff', 0.93),
+    100: mixHex(hex, '#ffffff', 0.85),
+    200: mixHex(hex, '#ffffff', 0.7),
+    300: mixHex(hex, '#ffffff', 0.45),
+    400: mixHex(hex, '#ffffff', 0.18),
+    500: hex,
+    600: darkenHex(hex, 0.85),
+  }
+}
+
 function rgbStr(hex) {
   const { r, g, b } = hexToRgb(hex)
   return `${r},${g},${b}`
@@ -553,8 +579,17 @@ export const useSettingsStore = defineStore('settings', () => {
   })
 
   // ─── Preferences ───
+  const themeId = ref('default')
   const themeMode = ref('light')
-  const accentColor = ref('brand')
+  const accentColor = ref('theme')
+  const userThemes = ref([])
+  const themeLoadErrors = ref([])
+  const themesLoading = ref(false)
+  const customCss = ref('')
+  const pendingCustomCss = ref('')
+  const customCssPreviewing = ref(false)
+  const customCssBusy = ref(false)
+  const customCssSecondsRemaining = ref(0)
   const customAccentHex = ref('#4A6CFF')
   const fontSize = ref('medium')
   const langPref = ref('zh')
@@ -627,7 +662,10 @@ export const useSettingsStore = defineStore('settings', () => {
   const defaultModels = ref({ ...DEFAULT_DEFAULT_MODELS })
 
   // ─── Accent Color Computed ───
+  const availableThemes = computed(() => [...BUILTIN_THEMES, ...userThemes.value])
+  const currentTheme = computed(() => availableThemes.value.find(theme => theme.id === themeId.value) || getBuiltinTheme('default'))
   const currentAccentHex = computed(() => {
+    if (accentColor.value === 'theme') return currentTheme.value.accentHex
     if (accentColor.value === 'custom') return customAccentHex.value
     const preset = ACCENT_PRESETS.find(p => p.key === accentColor.value)
     return preset ? preset.hex : '#4A6CFF'
@@ -635,6 +673,7 @@ export const useSettingsStore = defineStore('settings', () => {
 
   const currentAccentHover = computed(() => darkenHex(currentAccentHex.value, 0.85))
   const currentAccentRgb = computed(() => rgbStr(currentAccentHex.value))
+  const currentAccentScale = computed(() => buildAccentScale(currentAccentHex.value))
 
   // ─── Model Computed ───
   const enabledProviders = computed(() => providers.value.filter(p => p.enabled))
@@ -683,16 +722,272 @@ export const useSettingsStore = defineStore('settings', () => {
 
   // ─── Apply Accent Color ───
   function applyAccentColor() {
+    const appRoot = document.querySelector('#app > [data-theme]') || document.documentElement
+    const documentRoot = document.documentElement
+    const properties = [
+      ...[50, 100, 200, 300, 400, 500, 600].flatMap(step => [
+        `--ui-brand-${step}`,
+        `--ui-brand-${step}-rgb`,
+      ]),
+      '--brand',
+      '--brand-hover',
+      '--brand-rgb',
+    ]
+    for (const el of new Set([appRoot, documentRoot])) {
+      for (const property of properties) el.style.removeProperty(property)
+    }
+    if (accentColor.value === 'theme') {
+      return
+    }
     const hex = currentAccentHex.value
     const hover = currentAccentHover.value
     const rgb = currentAccentRgb.value
-    const el = document.documentElement
-    el.style.setProperty('--brand', hex)
-    el.style.setProperty('--brand-hover', hover)
-    el.style.setProperty('--brand-rgb', rgb)
+    const targets = themeId.value === 'default' ? [appRoot] : [...new Set([appRoot, documentRoot])]
+    for (const el of targets) {
+      for (const [step, color] of Object.entries(currentAccentScale.value)) {
+        el.style.setProperty(`--ui-brand-${step}`, color)
+        el.style.setProperty(`--ui-brand-${step}-rgb`, rgbStr(color))
+      }
+      el.style.setProperty('--brand', hex)
+      el.style.setProperty('--brand-hover', hover)
+      el.style.setProperty('--brand-rgb', rgb)
+    }
+  }
+
+  // ─── Apply Product Theme ───
+  function removeUserThemeStyle() {
+    document.getElementById('reviva-user-theme')?.remove()
+  }
+
+  function injectUserThemeStyle(css) {
+    let style = document.getElementById('reviva-user-theme')
+    if (!style) {
+      style = document.createElement('style')
+      style.id = 'reviva-user-theme'
+      const customStyle = document.getElementById('reviva-custom-css')
+      if (customStyle) document.head.insertBefore(style, customStyle)
+      else document.head.appendChild(style)
+    }
+    style.textContent = css
+  }
+
+  function injectCustomCssStyle(css) {
+    const value = String(css || '')
+    let style = document.getElementById('reviva-custom-css')
+    if (!value.trim()) {
+      style?.remove()
+      return
+    }
+    if (!style) {
+      style = document.createElement('style')
+      style.id = 'reviva-custom-css'
+    }
+    style.textContent = value
+    document.head.appendChild(style)
+  }
+
+  async function preflightCustomCss(css) {
+    if (typeof CSSStyleSheet !== 'function' || typeof CSSStyleSheet.prototype?.replace !== 'function') return
+    const sheet = new CSSStyleSheet()
+    try {
+      await sheet.replace(css)
+    } catch (error) {
+      throw new Error(`CSS 语法无法解析：${error.message}`)
+    }
+  }
+
+  let customCssPreviewTimer = null
+
+  function clearCustomCssPreviewTimer() {
+    if (customCssPreviewTimer) window.clearInterval(customCssPreviewTimer)
+    customCssPreviewTimer = null
+    customCssSecondsRemaining.value = 0
+  }
+
+  async function loadCustomCss() {
+    clearCustomCssPreviewTimer()
+    customCssPreviewing.value = false
+    pendingCustomCss.value = ''
+    if (!window.electronAPI?.theme?.readCustomCss) {
+      customCss.value = ''
+      injectCustomCssStyle('')
+      return { success: true, css: '', exists: false }
+    }
+    const result = await window.electronAPI.theme.readCustomCss()
+    if (!result?.success) {
+      customCss.value = ''
+      injectCustomCssStyle('')
+      return result || { success: false, error: '无法读取自定义 CSS' }
+    }
+    customCss.value = typeof result.css === 'string' ? result.css : ''
+    injectCustomCssStyle(customCss.value)
+    return result
+  }
+
+  async function performCustomCssRollback() {
+    clearCustomCssPreviewTimer()
+    customCssPreviewing.value = false
+    pendingCustomCss.value = ''
+    const result = await window.electronAPI?.theme?.discardPendingCustomCss?.()
+    if (result?.success && typeof result.css === 'string') customCss.value = result.css
+    injectCustomCssStyle(customCss.value)
+    return result || { success: false, error: '无法恢复上一份自定义 CSS' }
+  }
+
+  async function rollbackCustomCss() {
+    if (customCssBusy.value) return { success: false, busy: true, error: '自定义 CSS 正在处理' }
+    customCssBusy.value = true
+    try {
+      return await performCustomCssRollback()
+    } finally {
+      customCssBusy.value = false
+    }
+  }
+
+  function startCustomCssPreviewTimer() {
+    clearCustomCssPreviewTimer()
+    const deadline = Date.now() + 5000
+    customCssSecondsRemaining.value = 5
+    customCssPreviewTimer = window.setInterval(() => {
+      const remaining = Math.max(0, Math.ceil((deadline - Date.now()) / 1000))
+      customCssSecondsRemaining.value = remaining
+      if (remaining === 0) void rollbackCustomCss()
+    }, 100)
+  }
+
+  async function previewCustomCss(css) {
+    if (customCssBusy.value) return { success: false, busy: true, error: '自定义 CSS 正在处理' }
+    if (customCssPreviewing.value) return { success: false, error: '请先确认或恢复正在试用的样式' }
+    customCssBusy.value = true
+    try {
+      const value = String(css ?? '')
+      try {
+        await preflightCustomCss(value)
+      } catch (error) {
+        return { success: false, error: error.message }
+      }
+      const result = await window.electronAPI?.theme?.stageCustomCss?.(value)
+      if (!result?.success) return result || { success: false, error: '无法暂存自定义 CSS' }
+      pendingCustomCss.value = value
+      customCssPreviewing.value = true
+      injectCustomCssStyle(value)
+      startCustomCssPreviewTimer()
+      return { success: true, css: value }
+    } finally {
+      customCssBusy.value = false
+    }
+  }
+
+  async function commitCustomCss() {
+    if (customCssBusy.value) return { success: false, busy: true, error: '自定义 CSS 正在处理' }
+    if (!customCssPreviewing.value) return { success: false, error: '当前没有等待确认的样式' }
+    customCssBusy.value = true
+    try {
+      clearCustomCssPreviewTimer()
+      const result = await window.electronAPI?.theme?.commitCustomCss?.()
+      if (!result?.success) {
+        await performCustomCssRollback()
+        return result || { success: false, error: '无法保存自定义 CSS' }
+      }
+      customCss.value = typeof result.css === 'string' ? result.css : pendingCustomCss.value
+      pendingCustomCss.value = ''
+      customCssPreviewing.value = false
+      injectCustomCssStyle(customCss.value)
+      return { success: true, css: customCss.value }
+    } finally {
+      customCssBusy.value = false
+    }
+  }
+
+  async function resetCustomCss() {
+    if (customCssBusy.value) return { success: false, busy: true, error: '自定义 CSS 正在处理' }
+    customCssBusy.value = true
+    try {
+      clearCustomCssPreviewTimer()
+      customCssPreviewing.value = false
+      pendingCustomCss.value = ''
+      injectCustomCssStyle(customCss.value)
+      const result = await window.electronAPI?.theme?.resetCustomCss?.()
+      if (!result?.success) return result || { success: false, error: '无法重置自定义 CSS' }
+      customCss.value = ''
+      injectCustomCssStyle('')
+      return { success: true, css: '', exists: false }
+    } finally {
+      customCssBusy.value = false
+    }
+  }
+
+  async function loadThemes() {
+    themesLoading.value = true
+    try {
+      if (!window.electronAPI?.theme?.list) {
+        userThemes.value = []
+        themeLoadErrors.value = []
+        return { success: true, themes: [] }
+      }
+      const result = await window.electronAPI.theme.list()
+      if (!result?.success) return { success: false, error: result?.error || '无法读取用户主题' }
+      userThemes.value = Array.isArray(result.themes) ? result.themes : []
+      themeLoadErrors.value = Array.isArray(result.errors) ? result.errors : []
+      return result
+    } finally {
+      themesLoading.value = false
+    }
+  }
+
+  async function applyTheme(requestedThemeId = themeId.value) {
+    const appStore = useAppStore()
+    const requested = String(requestedThemeId || '').trim().toLowerCase()
+    const target = availableThemes.value.find(theme => theme.id === requested) || getBuiltinTheme('default')
+
+    if (target.source === 'user') {
+      const result = await window.electronAPI?.theme?.readCss?.(target.id)
+      if (!result?.success || typeof result.css !== 'string') {
+        return { success: false, error: result?.error || '无法读取主题 CSS' }
+      }
+      injectUserThemeStyle(result.css)
+    } else {
+      removeUserThemeStyle()
+    }
+
+    themeId.value = target.id
+    appStore.applyTheme(target.id)
+    applyAccentColor()
+    applyThemeMode()
+    return { success: true, theme: target }
+  }
+
+  async function importTheme() {
+    const result = await window.electronAPI?.theme?.import?.()
+    if (!result?.success) return result || { success: false, error: '当前环境不支持导入主题' }
+    await loadThemes()
+    const applyResult = await savePreference('themeId', result.theme.id)
+    if (!applyResult?.success) return applyResult
+    return result
+  }
+
+  async function reloadThemes() {
+    const result = await loadThemes()
+    if (!result?.success) return result
+    return await applyTheme(themeId.value)
+  }
+
+  async function removeTheme(id) {
+    const target = userThemes.value.find(theme => theme.id === id)
+    if (!target) return { success: false, error: '只能删除用户主题' }
+    if (themeId.value === id) await savePreference('themeId', 'default')
+    const result = await window.electronAPI?.theme?.remove?.(id)
+    if (!result?.success) return result || { success: false, error: '当前环境不支持删除主题' }
+    await loadThemes()
+    return result
+  }
+
+  async function openThemeDirectory() {
+    return await window.electronAPI?.theme?.openDirectory?.()
   }
 
   // ─── Apply Theme Mode ───
+
   function applyThemeMode() {
     // Remove previous system listener
     if (_systemThemeListener) {
@@ -700,16 +995,21 @@ export const useSettingsStore = defineStore('settings', () => {
       _systemThemeListener = null
     }
     const appStore = useAppStore()
+    const supports = currentTheme.value.supports || ['light', 'dark']
+    const applySupportedMode = (preferred, systemPrefersDark = false) => {
+      const resolved = resolveThemeColorMode(supports, preferred, systemPrefersDark)
+      appStore.isDark = resolved === 'dark'
+    }
 
     if (themeMode.value === 'dark') {
-      appStore.isDark = true
+      applySupportedMode('dark')
     } else if (themeMode.value === 'light') {
-      appStore.isDark = false
+      applySupportedMode('light')
     } else {
       // system
       const mql = window.matchMedia('(prefers-color-scheme: dark)')
-      appStore.isDark = mql.matches
-      _systemThemeListener = (e) => { appStore.isDark = e.matches }
+      applySupportedMode('system', mql.matches)
+      _systemThemeListener = (e) => { applySupportedMode('system', e.matches) }
       mql.addEventListener('change', _systemThemeListener)
     }
   }
@@ -717,14 +1017,20 @@ export const useSettingsStore = defineStore('settings', () => {
   // ─── Save Preferences ───
   async function savePreference(key, value) {
     const refsMap = {
-      themeMode, accentColor, customAccentHex, fontSize,
+      themeId, themeMode, accentColor, customAccentHex, fontSize,
       langPref, animations, reducedMotion, answerStyle, conflictStrategy, quickInputEnabled,
       proxyMode, proxyType, proxyHost, proxyPort, proxyAuth, proxyUser, proxyPass, wikiWebResearchSettings,
       maxIter, maxTaskMin, searchLimit, fileOpLimit, toolCallLimit, modelCallLimit, loopGuard, auditDays, pathRedact, allowFileDelete, deleteScope, allowExecCommand, commandWhitelist, commandBlacklist,
       notifyTaskDone, notifyTaskFailed, notifySound, notifySoundType, notifyDND,
       autoStart, minimizeToTray, trayIcon, singleInstance,
     }
-    if (refsMap[key]) refsMap[key].value = value
+    if (key === 'themeId') {
+      const result = await applyTheme(value)
+      if (!result.success) return result
+      value = themeId.value
+    } else if (refsMap[key]) {
+      refsMap[key].value = value
+    }
 
     // Persist to DB
     if (window.electronAPI?.db) {
@@ -749,6 +1055,7 @@ export const useSettingsStore = defineStore('settings', () => {
         console.error(`apply ${key} error:`, e)
       }
     }
+    return { success: true }
   }
 
   async function saveProviders() {
@@ -777,8 +1084,9 @@ export const useSettingsStore = defineStore('settings', () => {
       workDirRoot.value = all.workdir_root ?? ''
 
       // Preferences (no JSON.parse needed — getAllSettings already parsed)
-      themeMode.value = all.themeMode ?? 'light'
-      accentColor.value = all.accentColor ?? 'brand'
+      themeId.value = String(all.themeId || 'default')
+      themeMode.value = ['light', 'dark', 'system'].includes(all.themeMode) ? all.themeMode : 'light'
+      accentColor.value = all.accentColor ?? 'theme'
       customAccentHex.value = all.customAccentHex ?? '#4A6CFF'
       fontSize.value = all.fontSize ?? 'medium'
       langPref.value = all.langPref ?? 'zh'
@@ -1106,9 +1414,11 @@ export const useSettingsStore = defineStore('settings', () => {
     cancelWorkspaceSwitch, renameWorkspace, removeWorkspace, migrateWorkspace,
     cleanupFailedWorkspaceMigration,
     // Preferences
-    themeMode, accentColor, customAccentHex, fontSize, langPref,
+    themeId, themeMode, accentColor, customAccentHex, fontSize, langPref,
+    userThemes, themeLoadErrors, themesLoading, availableThemes,
+    customCss, pendingCustomCss, customCssPreviewing, customCssBusy, customCssSecondsRemaining,
     animations, reducedMotion, answerStyle, conflictStrategy, quickInputEnabled,
-    ACCENT_PRESETS,
+    ACCENT_PRESETS, BUILTIN_THEMES,
     // Network
     proxyMode, proxyType, proxyHost, proxyPort, proxyAuth, proxyUser, proxyPass, wikiWebResearchSettings,
     // Sandbox
@@ -1123,10 +1433,11 @@ export const useSettingsStore = defineStore('settings', () => {
     // Model management
     addModelToProvider, removeModelFromProvider, updateModelInProvider, updateModelCapabilities, addFetchedModels, syncFetchedModels, getProviderDefaultBaseUrl, resetProviderBaseUrl, guessTier, providerConfigured, normalizeProviderApiFormat,
     // Computed
-    currentAccentHex, currentAccentHover, currentAccentRgb,
+    currentTheme, currentAccentHex, currentAccentHover, currentAccentRgb, currentAccentScale,
     // Methods
     savePreference, saveTrayMenu, saveProviders, saveDefaultModels,
-    applyAccentColor, applyThemeMode,
+    applyAccentColor, loadThemes, applyTheme, importTheme, reloadThemes, removeTheme, openThemeDirectory, applyThemeMode,
+    loadCustomCss, previewCustomCss, commitCustomCss, rollbackCustomCss, resetCustomCss,
   }
 }, {
   persist: {

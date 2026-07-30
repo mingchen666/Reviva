@@ -85,7 +85,7 @@ function toggleTheme() {
             <!-- Active indicator bar -->
             <span
               v-show="isActive(item)"
-              class="absolute left-0 top-2 bottom-2 w-[2px] rounded-r"
+              class="absolute left-0 top-2 bottom-2 w-[3px] rounded-r"
               :style="{ backgroundColor: accentHex }" />
 
             <i v-if="!item.isSvg" :class="item.icon" class="text-[20px]" />
@@ -129,7 +129,7 @@ function toggleTheme() {
             <!-- Active indicator bar -->
             <span
               v-show="isSettingsActive()"
-              class="absolute left-0 top-2 bottom-2 w-[2px] rounded-r"
+              class="absolute left-0 top-2 bottom-2 w-[3px] rounded-r"
               :style="{ backgroundColor: accentHex }" />
             <i class="ri-settings-3-line text-[20px]" />
             <span class="tip" :class="isDark ? 'bg-d3 text-wt-main' : 'bg-l3 text-lt-main shadow-sm'">设置</span>

@@ -27,7 +27,7 @@ function getModelCapabilities(modelId) {
 
 const modelCards = computed(() => [
   { key: 'chat', label: '对话默认', icon: 'ri-chat-smile-2-line', desc: '学习工作台Agent对话与日常问答使用的默认模型' },
-  // { key: 'skill', label: 'Skill 生成', icon: 'ri-flashlight-line', desc: '执行 Skill 生成任务（摘要、大纲、闪卡等）时使用的模型' },
+  { key: 'skill', label: 'Skill 生成', icon: 'ri-flashlight-line', desc: 'AI 创建和生成自定义 Skill 时使用的默认模型' },
   // { key: 'agent', label: 'Agent 规划', icon: 'ri-sparkling-2-line', desc: 'Agent 执行任务规划、推理决策时使用的模型' },
   { key: 'vision', label: '视觉理解模型', icon: 'ri-eye-line', desc: '图片、截图、图表理解工具与按需视觉 OCR 使用的模型' },
   { key: 'title', label: '对话标题生成', icon: 'ri-heading', desc: '自动生成对话标题时使用的模型' },
@@ -103,7 +103,7 @@ function onModelChange(key, value) {
       </div>
       <div class="space-y-2 text-[12px]" :class="isDark ? 'text-wt-aux' : 'text-lt-aux'">
         <div class="flex items-center gap-2"><i class="ri-chat-smile-2-line text-brand-400 text-[12px]" /><span>对话场景推荐均衡模型，性价比最优</span></div>
-        <!-- <div class="flex items-center gap-2"><i class="ri-flashlight-line text-brand-400 text-[12px]" /><span>Skill 生成需要创造力，旗舰模型效果更佳</span></div> -->
+        <div class="flex items-center gap-2"><i class="ri-flashlight-line text-brand-400 text-[12px]" /><span>Skill 生成需要较强的指令理解和结构化输出能力</span></div>
         <!-- <div class="flex items-center gap-2"><i class="ri-sparkling-2-line text-agent-400 text-[12px]" /><span>Agent 规划需要强推理能力，推荐 DeepSeek Reasoner 或 Opus</span></div> -->
         <!-- <div class="flex items-center gap-2"><i class="ri-database-2-line text-amber-400 text-[12px]" /><span>嵌入模型建议选 text-embedding-3-large，兼容性最好</span></div> -->
         <div class="flex items-center gap-2"><i class="ri-eye-line text-sky-400 text-[12px]" /><span>视觉理解模型需要具备视觉能力，用于图片理解工具、图表分析和少量图片文字提取</span></div>

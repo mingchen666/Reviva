@@ -3266,7 +3266,7 @@ export class WikiService {
     }
     const ref = overrideRef || agentConfig.model_ref || defaultModels.chat || defaultModels.agent || ''
     const parsed = parseModelRef(ref)
-    if (!parsed.modelId) throw new Error('请先配置 WikiAgent 模型或全局聊天模型')
+    if (!parsed.modelId) throw new Error('请先配置 WikiAgent 模型或全局默认对话模型')
 
     let provider = null
     if (parsed.scoped) {

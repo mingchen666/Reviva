@@ -15,11 +15,17 @@ const props = defineProps({
 
 const emit = defineEmits(['add-source', 'open-page', 'open-status', 'configure-agent'])
 
+const WIKI_AUTO_NAV_MARKERS = [
+  '<!-- wiki:auto-navigation:start -->',
+  '<!-- wiki:auto-navigation:end -->',
+]
+
 const pageDocument = computed(() => parseMarkdownFrontMatter(props.page?.content || ''))
 
 const renderedContent = computed(() => {
   if (!pageDocument.value.body) return ''
-  return rewriteImageSources(md.render(preprocessWikiLinks(preprocessSourceRefs(pageDocument.value.body))), props.page)
+  const content = preprocessWikiAutoNavigation(pageDocument.value.body)
+  return rewriteImageSources(md.render(preprocessWikiLinks(preprocessSourceRefs(content))), props.page)
 })
 
 const pageMetadata = computed(() => {
@@ -141,6 +147,13 @@ function preprocessSourceRefs(markdown) {
     const clean = String(sourceId || '').trim()
     return clean ? `（来源：\`${clean}\`）` : match
   })
+}
+
+function preprocessWikiAutoNavigation(markdown) {
+  return WIKI_AUTO_NAV_MARKERS.reduce(
+    (content, marker) => content.split(marker).join(''),
+    String(markdown || ''),
+  )
 }
 
 function resolveRelativeMarkdownPath(href) {

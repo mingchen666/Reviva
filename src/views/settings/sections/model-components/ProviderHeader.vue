@@ -19,14 +19,14 @@ defineEmits(['toggle-provider'])
     <div class="flex-1 min-w-0">
       <div class="flex items-center gap-1.5 flex-wrap">
         <span class="text-[15px] font-semibold" :class="isDark ? 'text-wt-main' : 'text-lt-main'">{{ provider.name }}</span>
-        <span v-if="provider.official" class="ctx-pill" :class="isDark ? 'bg-brand-400/10 text-brand-300 border border-brand-400/15' : 'bg-brand-50 text-brand-600 border border-brand-100'">
-          <i class="ri-verified-badge-line text-[10px]" />官方
+        <span v-if="provider.official" class="ctx-pill " :class="isDark ? 'bg-brand-400/10 text-brand-300 border border-brand-400/15' : 'bg-brand-50 text-brand-600 border border-brand-100'">
+          <i class="ri-verified-badge-line text-[12px]" />官方
         </span>
         <span v-if="provider.recommended" class="ctx-pill" :class="isDark ? 'bg-emerald-400/8 text-emerald-400 border border-emerald-400/15' : 'bg-emerald-50 text-emerald-600 border border-emerald-100'">
-          <i class="ri-thumb-up-line text-[10px]" />推荐
+          <i class="ri-thumb-up-line text-[12px]" />推荐
         </span>
         <span v-else-if="provider.builtin" class="ctx-pill" :class="isDark ? 'bg-violet-400/10 text-violet-300 border border-violet-400/15' : 'bg-violet-50 text-violet-600 border border-violet-100'">
-          <i class="ri-shield-check-line text-[10px]" />内置
+          <i class="ri-shield-check-line text-[12px]" />内置
         </span>
         <span v-if="provider.configured" class="ctx-pill" :class="isDark ? 'bg-emerald-400/8 text-emerald-400 border border-emerald-400/15' : 'bg-emerald-50 text-emerald-600 border border-emerald-100'">
           <span class="w-1 h-1 rounded-full" :class="isDark ? 'bg-emerald-400' : 'bg-emerald-600'" />已配置

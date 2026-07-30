@@ -17,6 +17,18 @@ declare global {
       showItemInFolder: (filePath: string) => Promise<{ success: boolean; error?: string }>
       getVersion: () => Promise<string>
       getPath: (name: string) => Promise<string>
+      theme?: {
+        list: () => Promise<any>
+        readCss: (id: string) => Promise<any>
+        import: () => Promise<any>
+        remove: (id: string) => Promise<any>
+        openDirectory: () => Promise<any>
+        readCustomCss: () => Promise<any>
+        stageCustomCss: (css: string) => Promise<any>
+        commitCustomCss: () => Promise<any>
+        discardPendingCustomCss: () => Promise<any>
+        resetCustomCss: () => Promise<any>
+      }
       openExternal?: (url: string) => Promise<{ success: boolean; error?: string }>
       quit?: () => Promise<{ success: boolean; error?: string }>
       setStartup?: (enabled: boolean) => Promise<{ ok: boolean; error?: string }>
@@ -46,6 +58,21 @@ declare global {
         cleanupFailedMigration: (targetRoot: string) => Promise<any>
         onMigrationProgress: (callback: (progress: any) => void) => any
         removeMigrationProgressListener: (handler: any) => void
+      }
+      skill?: {
+        install: (skillId: string, data: any) => Promise<any>
+        update: (skillId: string, data: any) => Promise<any>
+        create: (skillId: string, data: any) => Promise<any>
+        save: (skillId: string, data: any) => Promise<any>
+        delete: (skillId: string, options?: any) => Promise<any>
+        uninstall: (skillId: string) => Promise<any>
+        listFiles: (skillId: string) => Promise<any>
+        readFile: (skillId: string, relativePath: string) => Promise<any>
+        writeFile: (skillId: string, relativePath: string, content: string) => Promise<any>
+        pickImportSource: (type: 'zip' | 'folder' | 'skill') => Promise<any>
+        importSource: (sessionId: string, options: any) => Promise<any>
+        isInstalled: (skillId: string) => Promise<any>
+        listBuiltin: () => Promise<any>
       }
       wiki?: {
         list: () => Promise<any>
@@ -85,8 +112,20 @@ declare global {
         removeJobUpdatedListener: (handler: any) => void
         removeNotificationListener: (handler: any) => void
       }
+      learningMemory?: {
+        getSettings: () => Promise<{ success: boolean; data?: any; error?: string }>
+        updateSettings: (patch: any) => Promise<{ success: boolean; data?: any; error?: string }>
+        getOverview: () => Promise<{ success: boolean; data?: any; error?: string }>
+        getRuntimeStatus: () => Promise<{ success: boolean; data?: any; error?: string }>
+        retractEvent: (traceId: string) => Promise<{ success: boolean; data?: any; error?: string }>
+        clearAll: () => Promise<{ success: boolean; data?: any; error?: string }>
+        onUpdated: (callback: (payload: any) => void) => (() => void)
+        removeUpdatedListeners: () => void
+      }
       db?: {
         noteFolders: any
+        agents?: any
+        skills?: any
         notes: {
           list: (folderId?: string) => Promise<any[]>
           get: (id: string) => Promise<any>

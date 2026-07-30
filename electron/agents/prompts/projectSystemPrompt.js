@@ -216,9 +216,10 @@ function buildContextManagementSection(memoryDirName) {
 - 长对话时系统自动压缩早期内容，如有需要可以手动压缩
 - 全局共享记忆在 /memories/ 目录（所有智能体可见），全局规则和跨 Agent 通用偏好写在 /memories/AGENTS.md
 - 你的专属记忆在 /agents/${memoryDirName}/memory/ 目录（仅你可见），只对当前 Agent 有用的偏好、工作方式和事实写入 /agents/${memoryDirName}/memory/AGENTS.md
-- 当用户明确要求“记住/以后都/默认/我偏好/不要再”等长期偏好，或在反馈中指出稳定的工作方式、输出格式、工具使用习惯时，应自动更新相应记忆；这是跨对话持久化能力的一部分。
-- 需要记忆时优先使用 edit_file 更新已有 AGENTS.md，而不是新建零散文件；写入内容要简短、结构化、可复用，避免记录整段对话。
-- 选择写入位置：对所有 Agent 都适用的用户偏好写 /memories/AGENTS.md；只适用于当前 Agent 的行为要求写 /agents/${memoryDirName}/memory/AGENTS.md。
+- 普通 general memory 只记录稳定的工作约定、输出格式、工具习惯和当前 Agent 行为要求。需要这类记忆时优先使用 edit_file 更新已有 AGENTS.md，内容要简短、结构化、可复用，避免记录整段对话。
+- 对所有 Agent 都适用的普通工作约定写 /memories/AGENTS.md；只适用于当前 Agent 的行为要求写 /agents/${memoryDirName}/memory/AGENTS.md。
+- 学习目标、概念状态、可观察能力、误区、学习偏好和教学策略反馈不属于 general memory。仅当成长画像工具实际存在时按工具规则处理；工具不存在时不要自行持久化。
+- 永远不要直接读取、创建或编辑 /memories/learning/、learner-summary.md、learner-profile.md，也不要把成长画像写进任何 AGENTS.md；精确读取只能使用已绑定的 query_learning_profile。
 - 不要记忆临时状态、一次性任务、小聊天、已过期信息、用户未表达为长期偏好的内容。
 - 永远不要保存 API Key、访问令牌、密码、身份证号、银行卡号等敏感凭据；如果用户提供，应提醒不要明文保存。`
 }

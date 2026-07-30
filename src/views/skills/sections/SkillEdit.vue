@@ -1,4 +1,6 @@
 <script setup>
+import IconPicker from '@/components/IconPicker.vue'
+
 const props = defineProps({
   editSkill: Object,
   isDark: Boolean,
@@ -12,10 +14,7 @@ function slugify(val) {
 }
 
 const colorOptions = ['#6C8AFF', '#A78BFA', '#4ADE80', '#FACC15', '#F87171', '#3B82F6', '#EC4899', '#8B5CF6']
-const categoryOptions = ['学习', '编程', '写作', '研究', '效率']
-const promptVars = ['{{input}}', '{{document_name}}', '{{space_name}}', '{{topic}}']
-const emojiOptions = ['🧠', '📝', '💻', '🔍', '📊', '🎨', '⚡', '🔧', '📚', '🎯', '🚀', '💡', '🗂️', '🤖', '🔒', '🌐']
-const iconOptions = ['ri-flashlight-line', 'ri-file-text-line', 'ri-list-check-2', 'ri-stack-line', 'ri-question-line', 'ri-node-tree', 'ri-brain-line', 'ri-code-s-slash-line']
+const categoryOptions = ['学习', '编程', '写作', '研究', '效率', '其他']
 </script>
 
 <template>
@@ -32,7 +31,7 @@ const iconOptions = ['ri-flashlight-line', 'ri-file-text-line', 'ri-list-check-2
             <i class="ri-flashlight-line text-brand-400 text-[14px]" />
             <span class="text-[13px] font-bold" :class="isDark ? 'text-wt-main' : 'text-lt-main'">{{ editSkill.name ? '编辑 · ' + editSkill.name : '新建 Skill' }}</span>
           </div>
-          <button @click="emit('cancel')" :class="isDark ? 'text-wt-aux hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub'"><i class="ri-close-line text-[14px]" /></button>
+          <button @click="emit('cancel')" :class="isDark ? 'text-wt-aux hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub'"><i class="ri-close-line text-[20px]" /></button>
         </div>
 
         <!-- Body -->
@@ -40,7 +39,7 @@ const iconOptions = ['ri-flashlight-line', 'ri-file-text-line', 'ri-list-check-2
           <div class="px-5 py-4 space-y-4">
 
             <!-- Basic Info -->
-            <div class="rounded-xl p-4" :class="isDark ? 'bg-d3 border border-bdr' : 'bg-l3 border border-bdrF'">
+            <div class="rounded-xl p-3" :class="isDark ? 'bg-d3 border border-bdr' : 'bg-l3 border border-bdrF'">
               <div class="flex items-center gap-2 mb-3"><i class="ri-profile-line text-brand-400 text-[14px]" /><span class="section-title" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">基础信息</span></div>
               <div class="space-y-3">
                 <div>
@@ -49,35 +48,24 @@ const iconOptions = ['ri-flashlight-line', 'ri-file-text-line', 'ri-list-check-2
                     :value="editSkill.englishName || editSkill.id"
                     @input="editSkill.englishName = slugify($event.target.value); editSkill.id = editSkill.englishName"
                     placeholder="my-skill-name"
-                    class="w-full h-9 px-3 rounded-lg text-[12px] outline-none transition-colors font-mono"
+                    class="w-full h-8 px-3 rounded-lg text-[12.5px] outline-none transition-colors font-mono"
                     :class="isDark ? 'bg-d0 border border-d4 text-wt-sub placeholder-wt-dim focus:border-brand-400/40' : 'bg-l2 border border-bdrF text-lt-sub placeholder-lt-aux focus:border-brand-400'"
                     :disabled="!editSkill._isNew"
                   />
-                  <p class="text-[10px] mt-1" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">仅限英文小写、数字、连字符，作为 skills/ 下的目录名</p>
+                  <p class="text-[10px] mt-1" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">仅限英文小写、数字、-连字符，作为 skills/ 下的目录名</p>
                 </div>
                 <div>
                   <label class="block text-[11px] font-medium mb-1" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">显示名称 <span class="text-red-400">*</span></label>
-                  <input v-model="editSkill.name" type="text" placeholder="输入 Skill 显示名称" class="w-full h-9 px-3 rounded-lg text-[12px] outline-none transition-colors" :class="isDark ? 'bg-d0 border border-d4 text-wt-sub placeholder-wt-dim focus:border-brand-400/40' : 'bg-l2 border border-bdrF text-lt-sub placeholder-lt-aux focus:border-brand-400'">
+                  <input v-model="editSkill.name" type="text" placeholder="输入 Skill 显示名称，可以是中文" class="w-full h-8 px-3 rounded-lg text-[12.5px] outline-none transition-colors" :class="isDark ? 'bg-d0 border border-d4 text-wt-sub placeholder-wt-dim focus:border-brand-400/40' : 'bg-l2 border border-bdrF text-lt-sub placeholder-lt-aux focus:border-brand-400'">
                 </div>
                 <div>
                   <label class="block text-[11px] font-medium mb-1" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">描述</label>
                   <textarea v-model="editSkill.desc" rows="2" placeholder="简短描述 Skill 功能..." class="w-full px-3 py-2 rounded-lg text-[12px] outline-none resize-none transition-colors" :class="isDark ? 'bg-d0 border border-d4 text-wt-sub placeholder-wt-dim focus:border-brand-400/40' : 'bg-l2 border border-bdrF text-lt-sub placeholder-lt-aux focus:border-brand-400'"></textarea>
                 </div>
                 <div class="flex gap-6">
-                  <div>
+                  <div class="w-[330px] max-w-full">
                     <label class="block text-[11px] font-medium mb-1.5" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">图标</label>
-                    <!-- Emoji row -->
-                    <div class="flex gap-1 flex-wrap mb-1.5">
-                      <button v-for="em in emojiOptions" :key="em" @click="editSkill.icon = em" class="w-8 h-8 rounded-lg flex items-center justify-center text-[16px] transition-all" :class="editSkill.icon === em ? (isDark ? 'bg-brand-400/12 border border-brand-400/30' : 'bg-brand-50 border border-brand-100') : (isDark ? 'border border-d4 hover:border-brand-400/30' : 'border border-bdrF hover:border-brand-200')">
-                        {{ em }}
-                      </button>
-                    </div>
-                    <!-- Remix icon row -->
-                    <div class="flex gap-1 flex-wrap">
-                      <button v-for="ic in iconOptions" :key="ic" @click="editSkill.icon = ic" class="w-8 h-8 rounded-lg flex items-center justify-center transition-all" :class="editSkill.icon === ic ? (isDark ? 'bg-brand-400/12 border border-brand-400/30' : 'bg-brand-50 border border-brand-100') : (isDark ? 'border border-d4 hover:border-brand-400/30' : 'border border-bdrF hover:border-brand-200')">
-                        <i :class="ic + ' text-[14px] ' + (editSkill.icon === ic ? (isDark ? 'text-brand-400' : 'text-brand-500') : (isDark ? 'text-wt-aux' : 'text-lt-aux'))" />
-                      </button>
-                    </div>
+                    <IconPicker v-model="editSkill.icon" :is-dark="isDark" />
                   </div>
                   <div>
                     <label class="block text-[11px] font-medium mb-1.5" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">颜色</label>
@@ -90,17 +78,13 @@ const iconOptions = ['ri-flashlight-line', 'ri-file-text-line', 'ri-list-check-2
             </div>
 
             <!-- Prompt Template / SKILL.md -->
-            <div class="rounded-xl p-4" :class="isDark ? 'bg-d3 border border-bdr' : 'bg-l3 border border-bdrF'">
+            <div class="rounded-xl p-3" :class="isDark ? 'bg-d3 border border-bdr' : 'bg-l3 border border-bdrF'">
               <div class="flex items-center gap-2 mb-3"><i class="ri-double-quotes-l text-brand-400 text-[14px]" /><span class="section-title" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">SKILL.md / 提示词模板 <span class="text-red-400">*</span></span></div>
               <textarea v-model="editSkill.promptContent" rows="8" placeholder="定义 Skill 的 SKILL.md 格式内容（frontmatter + instructions），支持 {{variable}} 插值..." class="w-full px-3 py-2 rounded-lg text-[12px] outline-none resize-y transition-colors leading-relaxed font-mono" :class="isDark ? 'bg-d0 border border-d4 text-wt-sub placeholder-wt-dim focus:border-brand-400/40' : 'bg-l2 border border-bdrF text-lt-sub placeholder-lt-aux focus:border-brand-400'"></textarea>
-              <div class="flex items-center gap-1.5 mt-2 flex-wrap">
-                <span class="text-[10px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">插入变量：</span>
-                <button v-for="v in promptVars" :key="v" @click="editSkill.promptContent = (editSkill.promptContent || '') + v" class="ctx-pill cursor-pointer font-mono text-[10px]" :class="isDark ? 'text-brand-400 bg-brand-400/6 border border-brand-400/15 hover:bg-brand-400/12' : 'text-brand-500 bg-brand-50 border border-brand-100 hover:bg-brand-100'">{{ v }}</button>
-              </div>
             </div>
 
             <!-- Category -->
-            <div class="rounded-xl p-4" :class="isDark ? 'bg-d3 border border-bdr' : 'bg-l3 border border-bdrF'">
+            <div class="rounded-xl p-3" :class="isDark ? 'bg-d3 border border-bdr' : 'bg-l3 border border-bdrF'">
               <div class="flex items-center gap-2 mb-3"><i class="ri-folder-line text-agent-400 text-[14px]" /><span class="section-title" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">分类</span></div>
               <div class="flex flex-wrap gap-1.5">
                 <button v-for="cat in categoryOptions" :key="cat" @click="editSkill.category = cat" class="ctx-pill cursor-pointer transition-colors"
@@ -116,8 +100,8 @@ const iconOptions = ['ri-flashlight-line', 'ri-file-text-line', 'ri-list-check-2
         <!-- Footer -->
         <div class="px-5 py-3 flex justify-end gap-2 shrink-0"
           :class="isDark ? 'border-t border-d4 bg-d4/30' : 'border-t border-bdrL bg-l4/30'">
-          <button @click="emit('cancel')" class="px-4 py-2 rounded-lg text-[11px] font-medium transition-colors" :class="isDark ? 'text-wt-aux hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub'">取消</button>
-          <button @click="emit('save')" class="px-4 py-2 rounded-lg text-[11px] font-semibold flex items-center gap-1 transition-colors" :class="isDark ? 'bg-brand-400 text-d0 hover:bg-brand-500' : 'bg-brand-500 text-white hover:bg-brand-600'"><i class="ri-check-line text-[12px]" /> 保存</button>
+          <button @click="emit('cancel')" class="px-4 py-2 rounded-lg text-[12px] font-medium transition-colors" :class="isDark ? 'text-wt-aux hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub'">取消</button>
+          <button @click="emit('save')" class="px-4 py-2 rounded-lg text-[12px] font-semibold flex items-center gap-1 transition-colors" :class="isDark ? 'bg-brand-400 text-d0 hover:bg-brand-500' : 'bg-brand-500 text-white hover:bg-brand-600'"><i class="ri-check-line text-[14px]" /> 保存</button>
         </div>
       </div>
     </div>

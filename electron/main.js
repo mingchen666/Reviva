@@ -2,6 +2,7 @@
 process.env['ELECTRON_DISABLE_SECURITY_WARNINGS'] = 'true'
 import { app, BrowserWindow, ipcMain, dialog, shell, globalShortcut, Tray, Menu, nativeImage, protocol, net, safeStorage } from 'electron'
 import { pathToFileURL } from 'node:url'
+import crypto from 'node:crypto'
 import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
 import { createMenu } from './menu'
@@ -13,6 +14,7 @@ import { LogService } from './LogService'
 import { NoteFileService } from './NoteFileService'
 import { registerDbHandlers } from './db-handlers'
 import { AgentService } from './AgentService'
+import { LearningMemoryService, registerLearningMemoryIpcHandlers } from './learning-memory/index.js'
 import { AgentHealthService } from './AgentHealthService'
 import { SkillService } from './SkillService'
 import { OutputScanService } from './OutputScanService'
@@ -21,6 +23,8 @@ import { GenerationTaskService } from './GenerationTaskService'
 import { McpService } from './McpService'
 import { WikiService } from './WikiService.js'
 import { BackupService, applyPendingBackupRestore } from './BackupService.js'
+import { ThemeService } from './ThemeService.js'
+import { StorageCleanupService, formatStorageSize } from './StorageCleanupService.js'
 import { createSettingsTransfer, parseSettingsTransfer } from './SettingsTransferService.js'
 import { WebImportService } from './web-import/WebImportService.js'
 import { WebImportJobService } from './web-import/WebImportJobService.js'
@@ -72,6 +76,7 @@ let workspaceStartupError = ''
 let noteFileService = null
 let logService = null
 let agentService = null
+let learningMemoryService = null
 let agentHealthService = null
 let skillService = null
 let pptxExportService = null
@@ -83,8 +88,11 @@ let webImportService = null
 let webImportJobService = null
 let mediaModule = null
 let backupService = null
+let themeService = null
 let pdfLifecycleService = null
 let localGateway = null
+const storageCleanupService = new StorageCleanupService()
+const skillImportSessions = new Map()
 let tray = null
 let minimizeToTray = false
 const DEFAULT_TRAY_MENU = [
@@ -348,6 +356,103 @@ async function ensureWorkspaceDirs() {
 }
 
 // ========== IPC Handlers ==========
+
+ipcMain.handle('theme:list', async () => {
+  try {
+    if (!themeService) return { success: false, error: '主题服务尚未就绪' }
+    return await themeService.listThemes()
+  } catch (error) {
+    return { success: false, error: error.message }
+  }
+})
+
+ipcMain.handle('theme:readCss', async (_event, id) => {
+  try {
+    if (!themeService) return { success: false, error: '主题服务尚未就绪' }
+    return await themeService.readCss(id)
+  } catch (error) {
+    return { success: false, error: error.message }
+  }
+})
+
+ipcMain.handle('theme:import', async () => {
+  try {
+    if (!themeService) return { success: false, error: '主题服务尚未就绪' }
+    const result = await dialog.showOpenDialog(win, {
+      title: '选择主题文件夹',
+      properties: ['openDirectory'],
+    })
+    if (result.canceled || !result.filePaths[0]) return { success: false, canceled: true }
+    return await themeService.importFromDirectory(result.filePaths[0])
+  } catch (error) {
+    return { success: false, error: error.message }
+  }
+})
+
+ipcMain.handle('theme:remove', async (_event, id) => {
+  try {
+    if (!themeService) return { success: false, error: '主题服务尚未就绪' }
+    return await themeService.removeTheme(id)
+  } catch (error) {
+    return { success: false, error: error.message }
+  }
+})
+
+ipcMain.handle('theme:openDirectory', async () => {
+  try {
+    if (!themeService) return { success: false, error: '主题服务尚未就绪' }
+    await themeService.init()
+    const error = await shell.openPath(themeService.getRootPath())
+    return error ? { success: false, error } : { success: true }
+  } catch (error) {
+    return { success: false, error: error.message }
+  }
+})
+
+ipcMain.handle('theme:readCustomCss', async () => {
+  try {
+    if (!themeService) return { success: false, error: '主题服务尚未就绪' }
+    return await themeService.readCustomCss()
+  } catch (error) {
+    return { success: false, error: error.message }
+  }
+})
+
+ipcMain.handle('theme:stageCustomCss', async (_event, css) => {
+  try {
+    if (!themeService) return { success: false, error: '主题服务尚未就绪' }
+    return await themeService.stageCustomCss(css)
+  } catch (error) {
+    return { success: false, error: error.message }
+  }
+})
+
+ipcMain.handle('theme:commitCustomCss', async () => {
+  try {
+    if (!themeService) return { success: false, error: '主题服务尚未就绪' }
+    return await themeService.commitCustomCss()
+  } catch (error) {
+    return { success: false, error: error.message }
+  }
+})
+
+ipcMain.handle('theme:discardPendingCustomCss', async () => {
+  try {
+    if (!themeService) return { success: false, error: '主题服务尚未就绪' }
+    return await themeService.discardPendingCustomCss()
+  } catch (error) {
+    return { success: false, error: error.message }
+  }
+})
+
+ipcMain.handle('theme:resetCustomCss', async () => {
+  try {
+    if (!themeService) return { success: false, error: '主题服务尚未就绪' }
+    return await themeService.resetCustomCss()
+  } catch (error) {
+    return { success: false, error: error.message }
+  }
+})
 
 // Open directory dialog
 ipcMain.handle('dialog:openDirectory', async () => {
@@ -772,6 +877,21 @@ async function _permanentlyDeleteItem(record) {
   // DB items: nothing to delete on disk; data was already removed from origin table at trash time
 }
 
+async function _finalizePermanentlyDeletedItem(record) {
+  if (pdfLifecycleService && (record.item_type === 'file' || !record.item_type)) {
+    await pdfLifecycleService.onPermanentlyDeleted(record)
+  }
+  if (mediaModule?.lifecycle && (record.item_type === 'file' || !record.item_type)) {
+    await mediaModule.lifecycle.onPermanentlyDeleted(record)
+  }
+  if (record.item_type === 'conversation') {
+    const payload = record.payload_json ? JSON.parse(record.payload_json) : {}
+    await mediaModule?.lifecycle?.onConversationPermanentlyDeleted?.(payload.mediaLifecycle)
+    const conversationId = record.item_id || payload.conv?.id || ''
+    if (conversationId) learningMemoryService?.deleteByConversation?.(conversationId)
+  }
+}
+
 ipcMain.handle('recycleBin:moveToTrash', async (event, itemPath, itemMeta) => {
   try {
     const validatedPath = validateFsPath(itemPath)
@@ -1076,16 +1196,7 @@ ipcMain.handle('recycleBin:deletePermanently', async (event, trashId) => {
     const record = dbService.getTrashItem(trashId)
     if (!record) return { success: false, error: 'Item not found' }
     await _permanentlyDeleteItem(record)
-    if (pdfLifecycleService && (record.item_type === 'file' || !record.item_type)) {
-      await pdfLifecycleService.onPermanentlyDeleted(record)
-    }
-    if (mediaModule?.lifecycle && (record.item_type === 'file' || !record.item_type)) {
-      await mediaModule.lifecycle.onPermanentlyDeleted(record)
-    }
-    if (record.item_type === 'conversation') {
-      const payload = record.payload_json ? JSON.parse(record.payload_json) : {}
-      await mediaModule?.lifecycle?.onConversationPermanentlyDeleted?.(payload.mediaLifecycle)
-    }
+    await _finalizePermanentlyDeletedItem(record)
     dbService.deleteTrashItem(trashId)
     return { success: true }
   } catch (err) {
@@ -1100,16 +1211,7 @@ ipcMain.handle('recycleBin:deleteBatchPermanently', async (event, trashIds) => {
     if (!record) { results.push({ id, success: false, error: 'Not found' }); continue }
     try {
       await _permanentlyDeleteItem(record)
-      if (pdfLifecycleService && (record.item_type === 'file' || !record.item_type)) {
-        await pdfLifecycleService.onPermanentlyDeleted(record)
-      }
-      if (mediaModule?.lifecycle && (record.item_type === 'file' || !record.item_type)) {
-        await mediaModule.lifecycle.onPermanentlyDeleted(record)
-      }
-      if (record.item_type === 'conversation') {
-        const payload = record.payload_json ? JSON.parse(record.payload_json) : {}
-        await mediaModule?.lifecycle?.onConversationPermanentlyDeleted?.(payload.mediaLifecycle)
-      }
+      await _finalizePermanentlyDeletedItem(record)
       dbService.deleteTrashItem(id)
       results.push({ id, success: true })
     } catch (err) {
@@ -1134,16 +1236,7 @@ ipcMain.handle('recycleBin:emptyTrash', async () => {
     for (const item of items) {
       try {
         await _permanentlyDeleteItem(item)
-        if (pdfLifecycleService && (item.item_type === 'file' || !item.item_type)) {
-          await pdfLifecycleService.onPermanentlyDeleted(item)
-        }
-        if (mediaModule?.lifecycle && (item.item_type === 'file' || !item.item_type)) {
-          await mediaModule.lifecycle.onPermanentlyDeleted(item)
-        }
-        if (item.item_type === 'conversation') {
-          const payload = item.payload_json ? JSON.parse(item.payload_json) : {}
-          await mediaModule?.lifecycle?.onConversationPermanentlyDeleted?.(payload.mediaLifecycle)
-        }
+        await _finalizePermanentlyDeletedItem(item)
         dbService.deleteTrashItem(item.id)
         results.push({ id: item.id, success: true })
       } catch (e) {
@@ -1190,9 +1283,190 @@ ipcMain.handle('app:getWindowPresence', () => ({
 }))
 
 // ── Skill directory IPC ──
+function isPlatformSkillRecord(skillId) {
+  const record = dbService?.listSkills?.().find(skill => skill.id === skillId)
+  return record?.source === 'platform' || record?.builtin === true
+}
+
+function skillDbPayload(skillId, config, promptContent) {
+  return {
+    id: skillId,
+    name: config.name || skillId,
+    icon: config.icon,
+    color: config.color,
+    description: config.description,
+    prompt_template: promptContent || '',
+    prompt_content: promptContent || '',
+    output_types: config.outputTypes || [],
+    allowed_tools: config.allowedTools || [],
+    source: 'custom',
+    category: config.category || '',
+    version: config.version || '',
+    author: config.author || '',
+    license: config.license || '',
+    builtin: 0,
+    enabled: 1,
+  }
+}
+
+function skillReferences(skillId) {
+  const agents = dbService.listAgents().filter(agent => Array.isArray(agent.skills) && agent.skills.includes(skillId))
+  const subAgents = dbService.listSubAgents().filter(agent => Array.isArray(agent.skills) && agent.skills.includes(skillId))
+  return { agents, subAgents, usedBy: [
+    ...agents.map(agent => ({ id: agent.id, name: agent.name, type: 'agent' })),
+    ...subAgents.map(agent => ({ id: agent.id, name: agent.name, type: 'subagent' })),
+  ] }
+}
+
+async function withSkillSnapshot(skillId, operation) {
+  const snapshot = await skillService.createSkillSnapshot(skillId)
+  try {
+    return await operation()
+  } catch (error) {
+    try {
+      await skillService.restoreSkillSnapshot(skillId, snapshot)
+    } catch (restoreError) {
+      console.error(`[SkillService] Failed to restore ${skillId}:`, restoreError.message)
+      throw new Error(`${error.message}；Skill 文件回滚失败：${restoreError.message}`)
+    }
+    throw error
+  } finally {
+    await skillService.discardSkillSnapshot(snapshot)
+  }
+}
+
+async function migrateCustomSkillBuiltinCollisions() {
+  const builtinIds = new Set((await skillService.listBuiltinSkills()).map(skill => skill.id))
+  const customSkills = dbService.listSkills().filter(skill => skill.source !== 'platform' && builtinIds.has(skill.id))
+  if (!customSkills.length) return []
+
+  const reservedIds = new Set([
+    ...builtinIds,
+    ...dbService.listSkills().map(skill => skill.id),
+  ])
+  const migrations = []
+
+  for (const skill of customSkills) {
+    const oldId = skill.id
+    const baseId = `${oldId}-custom`
+    let newId = baseId
+    let suffix = 2
+    while (reservedIds.has(newId) || skillService.isInstalled(newId)) {
+      newId = `${baseId}-${suffix}`
+      suffix += 1
+    }
+
+    let hasCustomDirectory = skillService.isInstalled(oldId)
+    if (hasCustomDirectory) {
+      const configResult = await skillService.readSkillFile(oldId, 'config.json')
+      if (configResult.success) {
+        try {
+          const config = JSON.parse(configResult.data)
+          hasCustomDirectory = config.source !== 'platform' && config.builtin !== true
+        } catch { /* Invalid or missing config is normalized during rename. */ }
+      }
+    }
+    if (hasCustomDirectory) await skillService.renameCustomSkill(oldId, newId)
+    try {
+      const migrateDb = dbService.db.transaction(() => {
+        const agents = dbService.listAgents().filter(agent => Array.isArray(agent.skills) && agent.skills.includes(oldId))
+        const subAgents = dbService.listSubAgents().filter(agent => Array.isArray(agent.skills) && agent.skills.includes(oldId))
+        dbService.db.prepare('UPDATE custom_skills SET id = ? WHERE id = ?').run(newId, oldId)
+        for (const agent of agents) dbService.updateAgent(agent.id, { skills: agent.skills.map(id => id === oldId ? newId : id) })
+        for (const agent of subAgents) dbService.updateSubAgent(agent.id, { skills: agent.skills.map(id => id === oldId ? newId : id) })
+      })
+      migrateDb()
+    } catch (error) {
+      if (hasCustomDirectory) {
+        try {
+          await skillService.renameCustomSkill(newId, oldId)
+        } catch (restoreError) {
+          console.error(`[SkillService] Failed to restore custom Skill directory ${oldId}:`, restoreError.message)
+          throw new Error(`${error.message}；Skill 目录回滚失败：${restoreError.message}`)
+        }
+      }
+      throw error
+    }
+
+    reservedIds.add(newId)
+    migrations.push({ oldId, newId })
+    console.log(`[SkillService] Renamed custom Skill ${oldId} to ${newId} before builtin installation`)
+  }
+
+  return migrations
+}
+
 ipcMain.handle('skill:install', async (event, skillId, skillData) => {
   try {
-    return await skillService.installSkill(skillId, skillData)
+    if (isPlatformSkillRecord(skillId)) throw new Error(`不能覆盖内置 Skill：${skillId}`)
+    return await skillService.installSkill(skillId, { ...skillData, source: 'custom' })
+  } catch (err) {
+    return { success: false, error: err.message }
+  }
+})
+
+ipcMain.handle('skill:update', async (event, skillId, skillData) => {
+  try {
+    if (isPlatformSkillRecord(skillId)) throw new Error(`不能编辑内置 Skill：${skillId}`)
+    return await skillService.updateSkill(skillId, { ...skillData, source: 'custom' })
+  } catch (err) {
+    return { success: false, error: err.message }
+  }
+})
+
+ipcMain.handle('skill:create', async (event, skillId, skillData = {}) => {
+  try {
+    if (dbService.listSkills().some(skill => skill.id === skillId) || skillService.isBuiltinSkillId(skillId)) throw new Error(`Skill ID "${skillId}" 已存在`)
+    return await withSkillSnapshot(skillId, async () => {
+      const installed = await skillService.installSkill(skillId, { ...skillData, source: 'custom' })
+      if (!installed.spec?.valid) throw new Error(installed.spec?.issues?.join('；') || 'Skill 校验失败')
+      const promptResult = await skillService.readSkillFile(skillId, 'SKILL.md')
+      if (!promptResult.success) throw new Error(promptResult.error || '无法读取已安装的 SKILL.md')
+      const row = dbService.createSkill(skillDbPayload(skillId, installed.config, promptResult.data))
+      return { success: true, data: row, config: installed.config, spec: installed.spec }
+    })
+  } catch (err) {
+    return { success: false, error: err.message }
+  }
+})
+
+ipcMain.handle('skill:save', async (event, skillId, skillData = {}) => {
+  try {
+    const existing = dbService.listSkills().find(skill => skill.id === skillId)
+    if (!existing || existing.source === 'platform' || existing.builtin) throw new Error('内置 Skill 不能编辑')
+    return await withSkillSnapshot(skillId, async () => {
+      const updated = await skillService.updateSkill(skillId, { ...skillData, source: 'custom' })
+      if (!updated.spec?.valid) throw new Error(updated.spec?.issues?.join('；') || 'Skill 校验失败')
+      const promptResult = await skillService.readSkillFile(skillId, 'SKILL.md')
+      if (!promptResult.success) throw new Error(promptResult.error || '无法读取已保存的 SKILL.md')
+      dbService.updateSkill(skillId, skillDbPayload(skillId, updated.config, promptResult.data))
+      const row = dbService.listSkills().find(skill => skill.id === skillId)
+      return { success: true, data: row, config: updated.config, spec: updated.spec }
+    })
+  } catch (err) {
+    return { success: false, error: err.message }
+  }
+})
+
+ipcMain.handle('skill:delete', async (event, skillId, options = {}) => {
+  try {
+    const existing = dbService.listSkills().find(skill => skill.id === skillId)
+    if (!existing) return { success: true, usedBy: [] }
+    if (existing.source === 'platform' || existing.builtin || skillService.isBuiltinSkillId(skillId)) throw new Error('内置 Skill 不能删除')
+    const refs = skillReferences(skillId)
+    if (refs.usedBy.length && !options.force) return { success: false, code: 'SKILL_IN_USE', usedBy: refs.usedBy }
+    return await withSkillSnapshot(skillId, async () => {
+      await skillService.uninstallSkill(skillId)
+      const removeFromDb = dbService.db.transaction(() => {
+        if (options.force) {
+          for (const agent of refs.agents) dbService.updateAgent(agent.id, { skills: agent.skills.filter(id => id !== skillId) })
+          for (const agent of refs.subAgents) dbService.updateSubAgent(agent.id, { skills: agent.skills.filter(id => id !== skillId) })
+        }
+        dbService.deleteSkill(skillId)
+      })
+      removeFromDb()
+      return { success: true, usedBy: refs.usedBy }
+    })
   } catch (err) {
     return { success: false, error: err.message }
   }
@@ -1200,6 +1474,7 @@ ipcMain.handle('skill:install', async (event, skillId, skillData) => {
 
 ipcMain.handle('skill:uninstall', async (event, skillId) => {
   try {
+    if (isPlatformSkillRecord(skillId)) throw new Error(`不能删除内置 Skill：${skillId}`)
     return await skillService.uninstallSkill(skillId)
   } catch (err) {
     return { success: false, error: err.message }
@@ -1218,6 +1493,116 @@ ipcMain.handle('skill:listFiles', async (event, skillId) => {
 ipcMain.handle('skill:readFile', async (event, skillId, relativePath) => {
   try {
     return await skillService.readSkillFile(skillId, relativePath)
+  } catch (err) {
+    return { success: false, error: err.message }
+  }
+})
+
+ipcMain.handle('skill:writeFile', async (event, skillId, relativePath, content) => {
+  try {
+    const existing = dbService.listSkills().find(skill => skill.id === skillId)
+    if (!existing || existing.source === 'platform' || existing.builtin) throw new Error('内置 Skill 不能编辑')
+    return await withSkillSnapshot(skillId, async () => {
+      const result = await skillService.writeSkillFile(skillId, relativePath, content)
+      if (!result.success) throw new Error(result.error || '文件保存失败')
+
+      const normalizedPath = String(relativePath || '').replace(/\\/g, '/').toLowerCase()
+      if (normalizedPath === 'skill.md') {
+        const updated = await skillService.updateSkill(skillId, {
+          ...existing,
+          description: result.spec?.description || existing.description || '',
+          promptContent: content,
+          source: 'custom',
+        })
+        if (!updated.spec?.valid) throw new Error(updated.spec?.issues?.join('；') || 'Skill 校验失败')
+        const promptResult = await skillService.readSkillFile(skillId, 'SKILL.md')
+        if (!promptResult.success) throw new Error(promptResult.error || '无法读取已保存的 SKILL.md')
+        dbService.updateSkill(skillId, skillDbPayload(skillId, updated.config, promptResult.data))
+        return { ...result, config: updated.config, spec: updated.spec }
+      }
+
+      return result
+    })
+  } catch (err) {
+    return { success: false, error: err.message }
+  }
+})
+
+ipcMain.handle('skill:pickImportSource', async (event, type = 'zip') => {
+  try {
+    const folder = type === 'folder'
+    const result = await dialog.showOpenDialog(win, {
+      title: folder ? '选择 Skill 文件夹' : type === 'skill' ? '选择 SKILL.md' : '选择 Skill ZIP',
+      properties: [folder ? 'openDirectory' : 'openFile'],
+      filters: folder ? undefined : type === 'skill'
+        ? [{ name: 'Skill Markdown', extensions: ['md', 'markdown'] }]
+        : [{ name: 'Skill ZIP', extensions: ['zip'] }],
+    })
+    if (result.canceled || !result.filePaths?.[0]) return { success: false, canceled: true }
+    const sourcePath = result.filePaths[0]
+    const customSkills = dbService.listSkills().filter(skill => skill.source !== 'platform')
+    const preview = await skillService.inspectSkillSource(sourcePath, { customSkills })
+    const sessionId = crypto.randomUUID()
+    const now = Date.now()
+    for (const [id, session] of skillImportSessions) {
+      if (now - session.createdAt > 10 * 60 * 1000) skillImportSessions.delete(id)
+    }
+    skillImportSessions.set(sessionId, {
+      sourcePath,
+      createdAt: now,
+      previewId: preview.id,
+      allowUpdate: preview.conflict === 'custom',
+    })
+    return { success: true, sessionId, sourceName: path.basename(sourcePath), data: preview }
+  } catch (err) {
+    return { success: false, error: err.message }
+  }
+})
+
+ipcMain.handle('skill:importSource', async (event, sessionId, options = {}) => {
+  try {
+    const sessionKey = String(sessionId || '')
+    const session = skillImportSessions.get(sessionKey)
+    if (!session || Date.now() - session.createdAt > 10 * 60 * 1000) {
+      skillImportSessions.delete(sessionKey)
+      throw new Error('导入会话已失效，请重新选择 Skill')
+    }
+    const allSkills = dbService.listSkills()
+    const requestedId = skillService.normalizeSkillId(options.id)
+    if (!skillService.isValidSkillId(requestedId)) throw new Error('请输入合法的英文 Skill ID')
+    if (skillService.isBuiltinSkillId(requestedId) || allSkills.some(skill => skill.id === requestedId && skill.source === 'platform')) {
+      throw new Error(`不能覆盖内置 Skill：${requestedId}`)
+    }
+
+    const existing = allSkills.find(skill => skill.id === requestedId && skill.source !== 'platform')
+    const diskConflict = skillService.isInstalled(requestedId)
+    let finalId = requestedId
+    if ((existing || diskConflict) && options.strategy === 'copy') {
+      let suffix = 2
+      while (allSkills.some(skill => skill.id === `${requestedId}-${suffix}`) || skillService.isInstalled(`${requestedId}-${suffix}`) || skillService.isBuiltinSkillId(`${requestedId}-${suffix}`)) suffix += 1
+      finalId = `${requestedId}-${suffix}`
+    } else if ((existing || diskConflict) && (
+      options.strategy !== 'update' ||
+      !session.allowUpdate ||
+      requestedId !== session.previewId
+    )) {
+      return { success: false, conflict: 'custom', existing }
+    }
+
+    skillImportSessions.delete(sessionKey)
+    return await withSkillSnapshot(finalId, async () => {
+      const installed = await skillService.importSkillSource(session.sourcePath, { ...options, id: finalId, source: 'custom' })
+      if (!installed.spec?.valid) throw new Error(installed.spec?.issues?.join('；') || 'Skill 校验失败')
+      const promptResult = await skillService.readSkillFile(finalId, 'SKILL.md')
+      if (!promptResult.success) throw new Error(promptResult.error || '无法读取导入的 SKILL.md')
+      const dbPayload = skillDbPayload(finalId, installed.config, promptResult.data)
+      let row
+      if (existing && finalId === requestedId) {
+        dbService.updateSkill(finalId, dbPayload)
+        row = dbService.listSkills().find(skill => skill.id === finalId)
+      } else row = dbService.createSkill(dbPayload)
+      return { success: true, data: { ...row, id: finalId, config: installed.config, spec: installed.spec } }
+    })
   } catch (err) {
     return { success: false, error: err.message }
   }
@@ -1429,11 +1814,55 @@ ipcMain.handle('pptx:exportCloud', async (_, htmlPath, outputPath) => {
   }
 })
 
-// Clear cache
-ipcMain.handle('app:clearCache', async () => {
+function getRendererSession(event) {
+  const rendererSession = event?.sender?.session || win?.webContents?.session
+  if (!rendererSession) throw new Error('当前窗口会话不可用')
+  return rendererSession
+}
+
+// Chromium HTTP cache
+ipcMain.handle('app:getCacheSize', async (event) => {
   try {
-    if (win) await win.webContents.session.clearCache()
-    return { success: true }
+    const bytes = await getRendererSession(event).getCacheSize()
+    return { success: true, data: { bytes, formatted: formatStorageSize(bytes) } }
+  } catch (err) {
+    return { success: false, error: err.message }
+  }
+})
+
+ipcMain.handle('app:clearCache', async (event) => {
+  try {
+    const rendererSession = getRendererSession(event)
+    const beforeBytes = await rendererSession.getCacheSize()
+    await rendererSession.clearCache()
+    const bytes = await rendererSession.getCacheSize()
+    return {
+      success: true,
+      data: {
+        bytes,
+        formatted: formatStorageSize(bytes),
+        clearedBytes: Math.max(0, beforeBytes - bytes),
+      },
+    }
+  } catch (err) {
+    return { success: false, error: err.message }
+  }
+})
+
+// Workspace temporary files (/tmp)
+ipcMain.handle('app:getTempSize', async () => {
+  try {
+    const data = await storageCleanupService.getTempSize(workDirService?.getRootPath?.() || '')
+    return { success: true, data }
+  } catch (err) {
+    return { success: false, error: err.message }
+  }
+})
+
+ipcMain.handle('app:clearTempFiles', async () => {
+  try {
+    const data = await storageCleanupService.clearTempFiles(workDirService?.getRootPath?.() || '')
+    return { success: true, data }
   } catch (err) {
     return { success: false, error: err.message }
   }
@@ -2730,6 +3159,7 @@ ipcMain.handle('agent:healthCheck', async (_, agentIds, options = {}) => {
 
 app.on('will-quit', () => {
   void localGateway?.stop?.()
+  learningMemoryService?.dispose?.()
   mediaModule?.runner?.stop?.()
   mediaModule?.maintenance?.stop?.()
   globalShortcut.unregisterAll()
@@ -2737,6 +3167,7 @@ app.on('will-quit', () => {
 })
 
 app.on('window-all-closed', () => {
+  learningMemoryService?.dispose?.()
   mediaModule?.runner?.stop?.()
   mediaModule?.maintenance?.stop?.()
   if (dbService) dbService.close()
@@ -2754,6 +3185,13 @@ app.on('activate', () => {
 
 app.whenReady().then(async () => {
   await applyPendingBackupRestore({ stateRoot: app.getPath('userData') })
+  themeService = new ThemeService(path.join(app.getPath('userData'), 'themes'), {
+    reservedIds: ['default', 'clarity', 'serene', 'contrast', 'neon-protocol', 'vermilion-archive', 'amber-terminal'],
+    guidePath: app.isPackaged
+      ? path.join(process.resourcesPath, 'builtin-assets', 'themes', 'THEMING.md')
+      : path.join(process.env.APP_ROOT, 'electron', 'builtin-assets', 'themes', 'THEMING.md'),
+  })
+  await themeService.init()
   // Handle reviva-file:// → stream local files to <img>/<audio>/<video> bypassing webSecurity
   protocol.handle('reviva-file', (request) => {
     try {
@@ -2853,6 +3291,15 @@ app.whenReady().then(async () => {
   agentService.init()
   agentService.setMediaModule?.(mediaModule)
 
+  learningMemoryService = new LearningMemoryService({
+    dbService,
+    workDirService,
+    getWin: () => win,
+  })
+  learningMemoryService.init()
+  agentService.setLearningMemoryService(learningMemoryService)
+  registerLearningMemoryIpcHandlers(learningMemoryService)
+
   skillService = new SkillService(workDirService, {
     builtinSkillsDir: app.isPackaged
       ? path.join(process.resourcesPath, 'builtin-assets', 'skills')
@@ -2918,10 +3365,13 @@ app.whenReady().then(async () => {
     }
   }
 
-  // Install all platform skills to disk on startup
-  skillService.installAllBuiltinSkills().catch(err => {
+  // Preserve custom Skills when an update introduces a builtin with the same ID.
+  try {
+    await migrateCustomSkillBuiltinCollisions()
+    await skillService.installAllBuiltinSkills()
+  } catch (err) {
     console.error('[SkillService] Failed to install builtin skills:', err.message)
-  })
+  }
 
   // Install all built-in conversational agents into DB
   const builtinAgentsDir = app.isPackaged
@@ -2933,7 +3383,12 @@ app.whenReady().then(async () => {
     console.error('[AgentService] Failed to install builtin agents:', err.message)
   }
 
-  registerDbHandlers(dbService, { notes: noteFileService, noteFolders: noteFileService, mediaLifecycle: mediaModule?.lifecycle })
+  registerDbHandlers(dbService, {
+    notes: noteFileService,
+    noteFolders: noteFileService,
+    mediaLifecycle: mediaModule?.lifecycle,
+    learningMemory: learningMemoryService,
+  })
   createWindow()
   initAutoUpdater(win)
   if (VITE_DEV_SERVER_URL) {

@@ -190,7 +190,7 @@ const permList = [
   { key: 'fileWrite', label: '文件写入', icon: 'ri-edit-line', desc: '在授权目录内创建或修改文件' },
   { key: 'fileDelete', label: '文件删除', icon: 'ri-delete-bin-line', desc: '删除授权目录内 outputs/ 下的文件' },
   { key: 'fileRename', label: '文件重命名', icon: 'ri-price-tag-3-line', desc: '在授权目录内重命名文件' },
-  { key: 'noteRead', label: '笔记读取', icon: 'ri-sticky-note-line', desc: '读取 MindSpace 笔记和笔记目录' },
+  { key: 'noteRead', label: '笔记读取', icon: 'ri-sticky-note-line', desc: '读取 Reviva 笔记和笔记目录' },
   { key: 'noteWrite', label: '笔记写入', icon: 'ri-sticky-note-add-line', desc: '创建、更新、移动笔记或将笔记移入回收站' },
   { key: 'execCommand', label: '执行命令', icon: 'ri-terminal-box-line', desc: '在沙盒环境中执行 shell 命令' },
 ]
@@ -336,7 +336,7 @@ function toggleSubAgentEnabled() {
             <span class="text-[13px] font-bold" :class="isDark ? 'text-wt-main' : 'text-lt-main'">{{ editAgent.name ? '编辑 · ' + editAgent.name : '新建智能体' }}</span>
           </div>
           <button @click="emit('cancel')" :class="isDark ? 'text-wt-aux hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub'">
-            <i class="ri-close-line text-[14px]" />
+            <i class="ri-close-line text-[20px]" />
           </button>
         </div>
 
@@ -345,7 +345,7 @@ function toggleSubAgentEnabled() {
           <div class="px-5 py-4 space-y-4">
 
             <!-- Basic Info -->
-            <div class="rounded-xl p-4" :class="isDark ? 'bg-d3 border border-bdr' : 'bg-l3 border border-bdrF'">
+            <div class="rounded-xl p-3" :class="isDark ? 'bg-d3 border border-bdr' : 'bg-l3 border border-bdrF'">
               <div class="flex items-center justify-between gap-3 mb-4">
                 <div class="flex items-center gap-2"><i class="ri-profile-line text-agent-400 text-[14px]" /><span class="section-title" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">基础信息</span></div>
                 <span v-if="isBuiltinAgent" class="ctx-pill text-[9px]" :class="isDark ? 'bg-blue-400/10 text-blue-400 border border-blue-400/20' : 'bg-blue-50 text-blue-600 border border-blue-100'"><i class="ri-lock-line text-[8px]" /> 系统内置</span>
@@ -353,10 +353,10 @@ function toggleSubAgentEnabled() {
               <div class="space-y-3">
                 <div>
                   <label class="block text-[11px] font-medium mb-1" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">名称 <span class="text-red-400">*</span></label>
-                  <input v-model="editAgent.name" type="text" placeholder="输入智能体名称" :readonly="isBuiltinAgent" class="w-full h-9 px-3 rounded-lg text-[12px] outline-none transition-colors" :class="[isBuiltinAgent ? 'cursor-not-allowed opacity-75' : '', isDark ? 'bg-d0 border border-d4 text-wt-sub placeholder-wt-dim focus:border-agent-400/40' : 'bg-l2 border border-bdrF text-lt-sub placeholder-lt-aux focus:border-agent-400']">
+                  <input v-model="editAgent.name" type="text" placeholder="输入智能体名称，用于展示" :readonly="isBuiltinAgent" class="w-full h-9 px-3 rounded-lg text-[12px] outline-none transition-colors" :class="[isBuiltinAgent ? 'cursor-not-allowed opacity-75' : '', isDark ? 'bg-d0 border border-d4 text-wt-sub placeholder-wt-dim focus:border-agent-400/40' : 'bg-l2 border border-bdrF text-lt-sub placeholder-lt-aux focus:border-agent-400']">
                 </div>
                 <div>
-                  <label class="block text-[11px] font-medium mb-1" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">英文名称 <span :class="isDark ? 'text-wt-dim' : 'text-lt-aux'" class="font-normal">(用于隔离目录，全局唯一)</span></label>
+                  <label class="block text-[11px] font-medium mb-1" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">英文名称 <span :class="isDark ? 'text-wt-dim' : 'text-lt-aux'" class="font-normal">(用于隔离目录，全局唯一，禁止包含空格)</span></label>
                   <input v-model="editAgent.englishName" type="text" placeholder="如: study-assistant" :readonly="isBuiltinAgent" class="w-full h-9 px-3 rounded-lg text-[12px] outline-none transition-colors" :class="[englishNameError ? 'border-red-400/60' : '', isBuiltinAgent ? 'cursor-not-allowed opacity-75' : '', isDark ? 'bg-d0 border border-d4 text-wt-sub placeholder-wt-dim focus:border-agent-400/40' : 'bg-l2 border border-bdrF text-lt-sub placeholder-lt-aux focus:border-agent-400']" @input="sanitizeEnglishName">
                   <div v-if="englishNameError" class="text-[10px] mt-1 text-red-400">{{ englishNameError }}</div>
                 </div>
@@ -398,13 +398,13 @@ function toggleSubAgentEnabled() {
             </div>
 
             <!-- System Prompt -->
-            <div class="rounded-xl p-4" :class="isDark ? 'bg-d3 border border-bdr' : 'bg-l3 border border-bdrF'">
-              <div class="flex items-center gap-2 mb-4"><i class="ri-double-quotes-l text-agent-400 text-[14px]" /><span class="section-title" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">系统提示词</span></div>
+            <div class="rounded-xl p-3" :class="isDark ? 'bg-d3 border border-bdr' : 'bg-l3 border border-bdrF'">
+              <div class="flex items-center gap-2 mb-2"><i class="ri-double-quotes-l text-agent-400 text-[14px]" /><span class="section-title" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">系统提示词</span></div>
               <textarea v-model="editAgent.prompt" rows="4" placeholder="定义智能体的行为逻辑、人设和工作流程..." class="w-full px-3 py-2 rounded-lg text-[12px] outline-none resize-y transition-colors leading-relaxed font-mono" :class="isDark ? 'bg-d0 border border-d4 text-wt-sub placeholder-wt-dim focus:border-agent-400/40' : 'bg-l2 border border-bdrF text-lt-sub placeholder-lt-aux focus:border-agent-400'"></textarea>
             </div>
 
             <!-- Runtime limits -->
-            <div class="rounded-xl p-4" :class="isDark ? 'bg-d3 border border-bdr' : 'bg-l3 border border-bdrF'">
+            <div class="rounded-xl p-3" :class="isDark ? 'bg-d3 border border-bdr' : 'bg-l3 border border-bdrF'">
               <div class="flex items-center gap-2 mb-3"><i class="ri-timer-line text-agent-400 text-[14px]" /><span class="section-title" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">运行限制</span></div>
               <div class="flex items-center gap-3">
                 <div class="flex items-center gap-1.5">
@@ -435,7 +435,7 @@ function toggleSubAgentEnabled() {
             </div>
 
             <!-- Model Config -->
-            <div class="rounded-xl p-4" :class="isDark ? 'bg-d3 border border-bdr' : 'bg-l3 border border-bdrF'">
+            <div class="rounded-xl p-3" :class="isDark ? 'bg-d3 border border-bdr' : 'bg-l3 border border-bdrF'">
               <div class="flex items-center justify-between mb-4">
                 <div class="flex items-center gap-2"><i class="ri-robot-2-line text-brand-400 text-[14px]" /><span class="section-title" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">模型配置</span></div>
                 <button @click="editAgent.showAdvanced = !editAgent.showAdvanced" class="text-[10px] font-medium flex items-center gap-1 transition-colors" :class="isDark ? 'text-wt-aux hover:text-brand-400' : 'text-lt-aux hover:text-brand-500'">
@@ -656,7 +656,7 @@ function toggleSubAgentEnabled() {
             </div>
 
             <!-- Permissions -->
-            <div class="rounded-xl p-4" :class="isDark ? 'bg-d3 border border-bdr' : 'bg-l3 border border-bdrF'">
+            <div class="rounded-xl p-3" :class="isDark ? 'bg-d3 border border-bdr' : 'bg-l3 border border-bdrF'">
               <div class="flex items-center gap-2 mb-3"><i class="ri-shield-check-line text-emerald-400 text-[14px]" /><span class="section-title" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">权限与能力</span></div>
               <div class="rounded-md px-3 py-2 mb-3" :class="isDark ? 'bg-d0' : 'bg-l2'">
                 <div class="flex items-center gap-2">
@@ -730,7 +730,7 @@ function toggleSubAgentEnabled() {
             </div>
 
             <!-- Tools -->
-            <div class="rounded-xl p-4" :class="isDark ? 'bg-d3 border border-bdr' : 'bg-l3 border border-bdrF'">
+            <div class="rounded-xl p-3" :class="isDark ? 'bg-d3 border border-bdr' : 'bg-l3 border border-bdrF'">
               <div class="flex items-center justify-between mb-3">
                 <div class="flex items-center gap-2"><i class="ri-tools-line text-emerald-400 text-[14px]" /><span class="section-title" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">工具</span></div>
                 <span class="text-[10px] font-medium" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">已选 {{ selectedToolCount }} / {{ store.toolList.length }}</span>
@@ -766,7 +766,7 @@ function toggleSubAgentEnabled() {
             </div>
 
             <!-- Skills -->
-            <div class="rounded-xl p-4" :class="isDark ? 'bg-d3 border border-bdr' : 'bg-l3 border border-bdrF'">
+            <div class="rounded-xl p-3" :class="isDark ? 'bg-d3 border border-bdr' : 'bg-l3 border border-bdrF'">
               <div class="flex items-center justify-between mb-3">
                 <div class="flex items-center gap-2"><i class="ri-flashlight-line text-brand-400 text-[14px]" /><span class="section-title" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">Skills</span></div>
                 <span class="text-[10px] font-medium" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">已选 {{ editAgent.skills.length }} / {{ store.skillList.length }}</span>
@@ -793,7 +793,7 @@ function toggleSubAgentEnabled() {
             </div>
 
             <!-- SubAgents -->
-            <div class="rounded-xl p-4" :class="isDark ? 'bg-d3 border border-bdr' : 'bg-l3 border border-bdrF'">
+            <div class="rounded-xl p-3" :class="isDark ? 'bg-d3 border border-bdr' : 'bg-l3 border border-bdrF'">
               <div class="flex items-center justify-between mb-3">
                 <div class="flex items-center gap-2"><i class="ri-team-line text-amber-400 text-[14px]" /><span class="section-title" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">SubAgents</span></div>
                 <div class="toggle shrink-0" :class="editAgent.subAgentEnabled ? 'on' : (isDark ? 'off' : 'light-off')" @click="toggleSubAgentEnabled" />
@@ -824,8 +824,8 @@ function toggleSubAgentEnabled() {
         <!-- Footer -->
         <div class="px-5 py-3 flex justify-end gap-2 shrink-0"
           :class="isDark ? 'border-t border-d4 bg-d4/30' : 'border-t border-bdrL bg-l4/30'">
-          <button @click="emit('cancel')" class="px-4 py-2 rounded-lg text-[11px] font-medium transition-colors" :class="isDark ? 'text-wt-aux hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub'">取消</button>
-          <button @click="emit('save')" class="px-4 py-2 rounded-lg text-[11px] font-semibold flex items-center gap-1 transition-colors" :class="isDark ? 'bg-agent-400 text-d0 hover:bg-agent-500' : 'bg-agent-500 text-white hover:bg-agent-600'"><i class="ri-check-line text-[12px]" /> 保存</button>
+          <button @click="emit('cancel')" class="px-4 py-2 rounded-lg text-[12px] font-medium transition-colors" :class="isDark ? 'text-wt-aux hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub'">取消</button>
+          <button @click="emit('save')" class="px-4 py-2 rounded-lg text-[12px] font-semibold flex items-center gap-1 transition-colors" :class="isDark ? 'bg-agent-400 text-d0 hover:bg-agent-500' : 'bg-agent-500 text-white hover:bg-agent-600'"><i class="ri-check-line text-[12px]" /> 保存</button>
         </div>
       </div>
     </div>

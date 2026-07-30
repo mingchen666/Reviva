@@ -105,6 +105,8 @@ import { ErrorClassifier } from './agents/ErrorClassifier.js'
 import { RunStateManager } from './agents/RunStateManager.js'
 import { TitleGenerator } from './agents/TitleGenerator.js'
 import { VisionAnalyzeService } from './tools/VisionAnalyzeService.js'
+import { buildLearningProfileRequestContext, createLearningProfileToolset } from './learning-memory/learning-profile-tools.js'
+import { buildLearningProfileSystemPrompt } from './learning-memory/learning-profile-prompts.js'
 
 
 
@@ -115,6 +117,7 @@ export class AgentService {
     this._workDirService = workDirService
     this._mcpService = mcpService || null
     this._noteFileService = noteFileService || null
+    this._learningMemoryService = null
     this._mediaIngestionService = null
     this._tokenRecorder = new TokenRecorder(dbService)
     this._errorClassifier = new ErrorClassifier()
@@ -195,6 +198,70 @@ export class AgentService {
   setMediaModule(mediaModule) {
     this._mediaIngestionService = mediaModule?.ingestion || null
     setMediaQueryServiceForTools(mediaModule?.query || null)
+  }
+
+  setLearningMemoryService(service) {
+    this._learningMemoryService = service || null
+  }
+
+  _learningSnapshotForRequest(request = {}) {
+    if (!this._learningMemoryService || request.learningProfileAllowed === false) return ''
+    const messages = Array.isArray(request.messages) ? request.messages : []
+    const userRequest = buildLearningProfileRequestContext(messages, request.userText)
+    try {
+      return this._learningMemoryService.getPromptSnapshot({
+        userRequest,
+        agentId: request.agentId || '',
+        maxChars: 1200,
+      })
+    } catch (error) {
+      console.warn('[AgentService] Learning snapshot failed:', error.message)
+      return ''
+    }
+  }
+
+  _learningRunContext(request = {}, assistantMessageId = '', runId = '') {
+    let userMessageId = String(request.userMessageId || '')
+    if (!userMessageId && request.conversationId && assistantMessageId) {
+      try {
+        userMessageId = this._db.getPreviousUserMsg(request.conversationId, assistantMessageId)?.id || ''
+      } catch { /* incomplete legacy requests simply cannot stage profile writes */ }
+    }
+    return {
+      conversationId: request.conversationId || '',
+      userMessageId,
+      assistantMessageId,
+      agentId: request.agentId || '',
+      agentEnglishName: request.agentEnglishName || '',
+      runId,
+    }
+  }
+
+  _learningProfileToolsForRun(request = {}, assistantMessageId = '', runId = '') {
+    if (request.learningProfileAllowed === false || !this._learningMemoryService?.isAgentToolEnabled?.()) return []
+    try {
+      return createLearningProfileToolset({
+        service: this._learningMemoryService,
+        runContext: this._learningRunContext(request, assistantMessageId, runId),
+      })
+    } catch (error) {
+      console.warn('[AgentService] Could not create learning profile tool:', error.message)
+      return []
+    }
+  }
+
+  _finalizeLearningProfileRun(runId, finalStatus) {
+    if (!this._learningMemoryService) return
+    if (finalStatus !== 'completed') {
+      this._learningMemoryService.discardAgentRunOperations?.(runId)
+      return
+    }
+    try {
+      this._learningMemoryService.commitAgentRunOperations?.(runId)
+    } catch (error) {
+      this._learningMemoryService.discardAgentRunOperations?.(runId)
+      console.warn('[AgentService] Could not commit learning profile operations:', error.message)
+    }
   }
 
   async _registerPreparedMediaContextItems(items = [], request = {}) {
@@ -1139,11 +1206,16 @@ export class AgentService {
       const memoryDirName = agentDirName
       let systemPrompt = request.systemPrompt || ''
       systemPrompt += '\n\n' + this._buildProjectSystemPrompt(workRoot, preparedCtxPaths, agentDirName, skillData.info, request.answerStyle, memoryDirName, request.cloudContext, visionOptions)
+      const runtimeSystemPrompt = systemPrompt
+      const learningSnapshot = this._learningSnapshotForRequest(request)
 
       // Write per-agent runtime files (AGENT.md, skills.json) to agent sandbox directory
       const agentDir = path.join(workRoot, 'agents', agentDirName)
       fs.mkdirSync(agentDir, { recursive: true })
-      fs.writeFileSync(path.join(agentDir, 'AGENT.md'), systemPrompt, 'utf-8')
+      // Keep the persistent runtime file free of the per-request learning snapshot.
+      // The snapshot is passed directly to createDeepAgent below and must not leak
+      // into a later run or another concurrent request using the same agent folder.
+      fs.writeFileSync(path.join(agentDir, 'AGENT.md'), runtimeSystemPrompt, 'utf-8')
       fs.writeFileSync(path.join(agentDir, 'skills.json'), JSON.stringify(request.skills || [], null, 2), 'utf-8')
       console.log('[AgentService] Wrote agent runtime files to:', agentDir)
 
@@ -1179,13 +1251,20 @@ export class AgentService {
       } catch (err) {
         console.error('[AgentService] MCP tool preparation failed:', err.message)
       }
-      const allCustomTools = [...customTools, ...mcpTools]
+      const baseTools = [...customTools, ...mcpTools]
+      const learningProfileTools = this._learningProfileToolsForRun(request, msgId, runId)
+      const rootTools = [...baseTools, ...learningProfileTools]
+      const learningProfilePrompt = buildLearningProfileSystemPrompt({
+        snapshot: learningSnapshot,
+        toolsBound: learningProfileTools.length > 0,
+      })
+      if (learningProfilePrompt) systemPrompt += `\n\n${learningProfilePrompt}`
 
       // Build DeepAgents subagents config
-      const subagents = this._buildSubagents(request.subAgents, allCustomTools, request)
+      const subagents = this._buildSubagents(request.subAgents, baseTools, request)
       const runtimeSubagents = this._withGeneralPurposeSubagent(subagents, {
         model,
-        tools: allCustomTools,
+        tools: baseTools,
         skills: skillData.paths,
       })
       console.log('[AgentService] Subagents:', runtimeSubagents?.map(s => s.name) || 'none')
@@ -1215,7 +1294,7 @@ export class AgentService {
       console.log('[AgentService] Creating DeepAgent...')
       const agent = createDeepAgent({
         model,
-        tools: allCustomTools,
+        tools: rootTools,
         systemPrompt,
         subagents: runtimeSubagents,
         interruptOn,
@@ -1285,7 +1364,7 @@ export class AgentService {
             this._interruptedRuns.set(runId, {
               runId,
               request,
-              agentConfig: { model, tools: allCustomTools, toolIds: effectiveToolIds, systemPrompt, subagents: runtimeSubagents, interruptOn, skills: skillData.paths, boundSkillIds: skillData.boundSkillIds, memory, memoryDirName, agentDirName },
+              agentConfig: { model, tools: rootTools, toolIds: effectiveToolIds, systemPrompt, subagents: runtimeSubagents, interruptOn, skills: skillData.paths, boundSkillIds: skillData.boundSkillIds, memory, memoryDirName, agentDirName },
               msgId,
               initialSteps: result.steps,
               initialIteration: result.iteration,
@@ -1323,7 +1402,7 @@ export class AgentService {
           this._interruptedRuns.set(runId, {
             runId,
             request,
-            agentConfig: { model, tools: allCustomTools, systemPrompt, subagents: runtimeSubagents, interruptOn, skills: skillData.paths, boundSkillIds: skillData.boundSkillIds, memory, memoryDirName, agentDirName },
+            agentConfig: { model, tools: rootTools, systemPrompt, subagents: runtimeSubagents, interruptOn, skills: skillData.paths, boundSkillIds: skillData.boundSkillIds, memory, memoryDirName, agentDirName },
             msgId,
             initialSteps: result.steps,
             initialIteration: result.iteration,
@@ -1397,6 +1476,8 @@ export class AgentService {
         completed_at: new Date().toISOString(),
       })
 
+      this._finalizeLearningProfileRun(runId, finalStatus)
+
       this._send('agent:runDone', {
         runId,
         content: fullContent,
@@ -1408,7 +1489,6 @@ export class AgentService {
         latencyMs,
         cost: totalUsage.cost,
       })
-
       this._notifyAgentTask(
         recursionHit ? 'failed' : 'done',
         request,
@@ -1431,6 +1511,7 @@ export class AgentService {
     } catch (err) {
       const isAborted = err.name === 'AbortError' || err.message === 'ABORTED' || abortController.signal.aborted
       console.error('[AgentService] Run error:', err.message, '| aborted:', isAborted, '| code:', err.code || 'none')
+      this._finalizeLearningProfileRun(runId, isAborted ? 'cancelled' : 'error')
 
       const partialLatencyMs = Date.now() - startTime
 
@@ -1464,7 +1545,17 @@ export class AgentService {
 
   handleCancelRun(runId) {
     const run = this._activeRuns.get(runId)
-    if (run) run.abortController.abort()
+    if (run) {
+      run.abortController.abort()
+      return
+    }
+    const interrupted = this._interruptedRuns.get(runId)
+    if (!interrupted) return
+    this._interruptedRuns.delete(runId)
+    this._learningMemoryService?.discardAgentRunOperations?.(runId)
+    this._db.updateMsg(interrupted.msgId, { status: 'cancelled' })
+    this._runStateManager.update(runId, { status: 'cancelled', completed_at: new Date().toISOString() })
+    this._send('agent:runCancelled', { runId })
   }
 
   // ── Human-in-the-Loop: Auth Resume ─────────────────────────────
@@ -1474,6 +1565,7 @@ export class AgentService {
     const interruptedRun = this._interruptedRuns.get(requestId)
     if (!interruptedRun) {
       console.warn('[AgentService] No interrupted run found for:', requestId)
+      this._learningMemoryService?.discardAgentRunOperations?.(requestId)
       return { requestId, approved, error: 'No interrupted run found' }
     }
 
@@ -1679,6 +1771,8 @@ export class AgentService {
         completed_at: new Date().toISOString(),
       })
 
+      this._finalizeLearningProfileRun(runId, finalStatus)
+
       this._send('agent:runDone', {
         runId,
         content: allContent,
@@ -1690,7 +1784,6 @@ export class AgentService {
         latencyMs,
         cost: allUsage.cost,
       })
-
       this._notifyAgentTask(
         result.recursionHit ? 'failed' : 'done',
         request,
@@ -1701,6 +1794,7 @@ export class AgentService {
       return { requestId, approved, resumed: true }
 
     } catch (err) {
+      this._finalizeLearningProfileRun(runId, 'error')
       const classified = this._errorClassifier.classify(err)
       this._db.updateMsg(msgId, { status: 'error', error_message: err.message, error_code: classified.code })
       this._send('agent:runError', { runId, error: { message: classified.userMessage, code: classified.code } })
@@ -1831,6 +1925,9 @@ export class AgentService {
       const memoryDirName = agentDirName
       let systemPrompt = request.systemPrompt || ''
       systemPrompt += '\n\n' + this._buildProjectSystemPrompt(workRoot, preparedCtxPaths, agentDirName, [], request.answerStyle, memoryDirName, request.cloudContext, visionOptions)
+      const learningSnapshot = this._learningSnapshotForRequest(request)
+      const learningProfilePrompt = buildLearningProfileSystemPrompt({ snapshot: learningSnapshot })
+      if (learningProfilePrompt) systemPrompt += `\n\n${learningProfilePrompt}`
 
       const model = this._createModel(
         request.providerId,
@@ -1903,7 +2000,6 @@ export class AgentService {
         steps,
         todos,
       })
-
       const chatModuleConfig = this._builtinModules?.find(m => m.english_name === request.agentEnglishName)
       if (chatModuleConfig) {
         this._registerArtifacts({

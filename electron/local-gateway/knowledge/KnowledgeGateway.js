@@ -7,8 +7,8 @@ function clean(value) {
 }
 
 export function registerKnowledgeGateway({ server, registry, dbService, wikiService, sendJson }) {
-  registry.registerResource({ id: 'spaces', version: '1.0', description: 'Read MindSpace workspaces' })
-  registry.registerResource({ id: 'wikis', version: '1.0', description: 'Read and search MindSpace Wikis' })
+  registry.registerResource({ id: 'spaces', version: '1.0', description: 'Read Reviva workspaces' })
+  registry.registerResource({ id: 'wikis', version: '1.0', description: 'Read and search Reviva Wikis' })
   registry.registerResource({ id: 'wiki-pages', version: '1.0', description: 'Read Wiki page indexes and content' })
 
   server.register('GET', '/api/v1/spaces', ({ response }) => sendJson(response, 200, { data: (dbService?.listSpaces?.() || []).map(clean) }))

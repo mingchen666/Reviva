@@ -274,18 +274,22 @@ function isSupportedPdfOcrProvider(provider) {
   return ['mineru', 'paddleocr'].includes(String(provider?.type || '').toLowerCase())
 }
 
+function isConfiguredPdfOcrProvider(provider) {
+  const type = String(provider?.type || '').toLowerCase()
+  return !!String(provider?.base_url || '').trim()
+    && (type === 'paddleocr' || !!String(provider?.api_key_ref || '').trim())
+}
+
 const enabledOcrProviders = computed(() => ocrProviders.value.filter(provider =>
   isOcrProviderEnabled(provider)
   && isSupportedPdfOcrProvider(provider)
-  && String(provider.base_url || '').trim()
-  && String(provider.api_key_ref || '').trim()
+  && isConfiguredPdfOcrProvider(provider)
 ))
 
 const supportedOcrProviders = computed(() => ocrProviders.value.filter(provider => isSupportedPdfOcrProvider(provider)))
 
 const configuredOcrProviders = computed(() => supportedOcrProviders.value.filter(provider =>
-  String(provider.base_url || '').trim()
-  && String(provider.api_key_ref || '').trim()
+  isConfiguredPdfOcrProvider(provider)
 ))
 
 function autoOcrProvider() {
@@ -1164,7 +1168,7 @@ async function uniqueRemoteReferencePath(targetDir, title, sourceType, currentPa
 
 function remoteReferenceContent({ mediaId, title, sourceType }) {
   const displayTitle = String(title || '远程音视频').replace(/[\r\n]+/g, ' ').trim()
-  return `---\nmindspaceMediaReference: 1\nmediaId: ${mediaId}\nsourceType: ${sourceType}\n---\n\n# ${displayTitle}\n\n这是 MindSpace 的远程音视频安全引用。原始或签名 URL 不会写入本文档；请通过“解析详情”查看转录、关键帧和历史版本。\n`
+  return `---\nRevivaMediaReference: 1\nmediaId: ${mediaId}\nsourceType: ${sourceType}\n---\n\n# ${displayTitle}\n\n这是 Reviva 的远程音视频安全引用。原始或签名 URL 不会写入本文档；请通过“解析详情”查看转录、关键帧和历史版本。\n`
 }
 
 async function confirmMediaAnalysis(count = 1) {

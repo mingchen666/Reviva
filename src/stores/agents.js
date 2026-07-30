@@ -313,7 +313,7 @@ const BUILTIN_TOOLS = [
     providerConfig: {}
   },
   {
-    id: 'note_tool', name: '笔记工具', icon: 'ri-sticky-note-line', color: '#10B981', cat: 'knowledge', desc: '读取、创建和维护 MindSpace 笔记，支持任意层级的嵌套目录',
+    id: 'note_tool', name: '笔记工具', icon: 'ri-sticky-note-line', color: '#10B981', cat: 'knowledge', desc: '读取、创建和维护 Reviva 笔记，支持任意层级的嵌套目录',
     permReq: 'noteRead', archCompat: ['全架构'], type: '',
     params: [
       { name: 'action', type: 'string', required: true, desc: 'list / get / create / update / delete / create_folder' },
@@ -958,17 +958,12 @@ export const useAgentsStore = defineStore('agents', () => {
   }
 
   async function addSkill(skill) {
-    // Deep-clone to strip Vue reactive proxies before IPC
     const raw = JSON.parse(JSON.stringify(skill))
-    // Use englishName as ID/directory name; fallback to slugified name
     const baseId = raw.englishName || slugify(raw.name) || 'skill-' + Date.now()
     function slugify(val) { return (val || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').trim() }
-    // Ensure uniqueness
-    const existingIds = customSkills.value.map(s => s.id)
-    let finalId = baseId
-    if (existingIds.includes(finalId)) {
-      finalId = baseId + '-' + Date.now()
-    }
+    const finalId = baseId
+    if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(finalId)) throw new Error('Skill ID 只能使用英文小写、数字和连字符')
+    if (skillList.value.some(item => item.id === finalId)) throw new Error(`Skill ID "${finalId}" 已存在`)
     const data = {
       id: finalId,
       name: raw.name || '未命名 Skill',
@@ -978,15 +973,16 @@ export const useAgentsStore = defineStore('agents', () => {
       prompt_template: raw.promptTemplate || raw.promptContent || '',
       prompt_content: raw.promptContent || raw.promptTemplate || '',
       category: raw.category || '',
+      source: 'custom',
+      version: raw.version || '', author: raw.author || '', license: raw.license || '',
+      allowed_tools: raw.allowedTools || [], output_types: raw.outputTypes || [],
+      enabled: 1, builtin: 0,
     }
     if (window.electronAPI?.db) {
-      const result = await dbSkills().create(data)
-      // Install skill files to disk ({root}/skills/{id}/)
-      if (window.electronAPI?.skill?.install) {
-        await window.electronAPI.skill.install(result.id, JSON.parse(JSON.stringify({ ...result, promptContent: result.prompt_content })))
-      }
-      customSkills.value.push({ ...result, desc: result.description })
-      return result
+      const result = await window.electronAPI?.skill?.create?.(finalId, JSON.parse(JSON.stringify({ ...data, promptContent: data.prompt_content })))
+      if (!result?.success) throw new Error(result?.error || 'Skill 创建失败')
+      await loadFromDb()
+      return result.data
     }
     const fallback = { id: finalId, ...data, builtin: false, usedBy: [], desc: data.description }
     customSkills.value.push(fallback)
@@ -994,9 +990,9 @@ export const useAgentsStore = defineStore('agents', () => {
   }
 
   async function updateSkill(id, data) {
-    // Deep-clone to strip Vue reactive proxies before IPC
+    const existing = customSkills.value.find(skill => skill.id === id)
+    if (!existing || existing.source === 'platform' || existing.builtin) throw new Error('内置 Skill 不能编辑')
     const raw = JSON.parse(JSON.stringify(data))
-    // Map camelCase UI props to snake_case DB columns
     const mapped = {
       name: raw.name,
       icon: raw.icon,
@@ -1005,29 +1001,32 @@ export const useAgentsStore = defineStore('agents', () => {
       prompt_template: raw.promptTemplate || raw.promptContent,
       prompt_content: raw.promptContent || raw.promptTemplate,
       category: raw.category,
+      source: 'custom',
     }
-    // Remove undefined keys so dynamicUpdate doesn't set them to NULL
     for (const k of Object.keys(mapped)) {
       if (mapped[k] === undefined) delete mapped[k]
     }
-    if (window.electronAPI?.db) await dbSkills().update(id, mapped)
-    // Re-install skill files to disk — deep-clone to strip reactive proxies
-    if (window.electronAPI?.skill?.install) {
-      const skillRow = customSkills.value.find(s => s.id === id)
-      if (skillRow) {
-        await window.electronAPI.skill.install(id, JSON.parse(JSON.stringify({ ...skillRow, ...mapped, promptContent: mapped.prompt_content })))
-      }
-    }
-    const idx = customSkills.value.findIndex(s => s.id === id)
-    if (idx !== -1) customSkills.value[idx] = { ...customSkills.value[idx], ...mapped, desc: mapped.description || customSkills.value[idx].desc }
+    const result = await window.electronAPI?.skill?.save?.(id, JSON.parse(JSON.stringify({ ...existing, ...mapped, promptContent: mapped.prompt_content })))
+    if (!result?.success) throw new Error(result?.error || 'Skill 保存失败')
+    await loadFromDb()
   }
 
-  async function removeSkill(id) {
-    if (window.electronAPI?.db) await dbSkills().delete(id)
-    if (window.electronAPI?.skill?.uninstall) {
-      await window.electronAPI.skill.uninstall(id)
-    }
-    customSkills.value = customSkills.value.filter(s => s.id !== id)
+  async function removeSkill(id, options = {}) {
+    const existing = customSkills.value.find(skill => skill.id === id)
+    if (!existing || existing.source === 'platform' || existing.builtin) return { success: false, code: 'BUILTIN_SKILL', error: '内置 Skill 不能删除' }
+    const result = window.electronAPI?.skill?.delete
+      ? await window.electronAPI.skill.delete(id, options)
+      : window.electronAPI?.db ? await dbSkills().delete(id, options) : { success: true }
+    if (!result?.success) return result
+    await loadFromDb()
+    return result
+  }
+
+  async function importSkill(sessionId, options = {}) {
+    const result = await window.electronAPI?.skill?.importSource?.(sessionId, JSON.parse(JSON.stringify(options)))
+    if (!result?.success) return result || { success: false, error: 'Skill 导入失败' }
+    await loadFromDb()
+    return result
   }
 
   async function addTool(tool) {
@@ -1141,7 +1140,7 @@ export const useAgentsStore = defineStore('agents', () => {
     healthCheckResults, healthChecking, healthCheckingIds,
     loadFromDb, addAgent, updateAgent, removeAgent, duplicateAgent,
     togglePlatformSkill, toggleBuiltinTool, _isConfigured, updateToolProviderConfig,
-    addSkill, updateSkill, removeSkill,
+    addSkill, updateSkill, removeSkill, importSkill,
     addTool, updateTool, removeTool,
     addSubAgent, updateSubAgent, removeSubAgent,
     runHealthCheck, clearHealthCheck,

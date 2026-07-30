@@ -29,6 +29,17 @@ test('selectOcrProvider ignores disabled or incomplete providers', () => {
   assert.equal(selectOcrProvider(providers, 'auto')?.id, 'usable-paddle')
 })
 
+test('selectOcrProvider accepts a local PaddleX endpoint without a key', () => {
+  const providers = [{
+    id: 'local-paddlex',
+    type: 'paddleocr',
+    enabled: 1,
+    base_url: 'http://127.0.0.1:8080/layout-parsing',
+    api_key_ref: '',
+  }]
+  assert.equal(selectOcrProvider(providers, 'auto')?.id, 'local-paddlex')
+})
+
 test('selectOcrProvider returns no provider for a missing explicit id', () => {
   const providers = [provider('paddle-current', 'paddleocr')]
   assert.equal(selectOcrProvider(providers, 'deleted-provider'), null)

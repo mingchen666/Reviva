@@ -8,9 +8,13 @@ function hexToRgba(hex, alpha) {
   return `rgba(${r},${g},${b},${alpha})`
 }
 
-const brandColors = { 50: '#eff6ff', 100: '#dbeafe', 200: '#bfdbfe', 300: '#93c5fd', 400: '#6C8AFF', 500: '#4A6CFF', 600: '#3A5CED' }
-const agentColors = { 50: '#f5f3ff', 100: '#ede9fe', 400: '#A78BFA', 500: '#7C3AED' }
-const outputColors = { 50: '#ecfdf5', 100: '#d1fae5', 400: '#34D399', 500: '#10B981' }
+function themeRgba(token, alpha) {
+  return `rgba(var(${token}),${alpha})`
+}
+
+const brandColors = { 50: 'var(--ui-brand-50)', 100: 'var(--ui-brand-100)', 200: 'var(--ui-brand-200)', 300: 'var(--ui-brand-300)', 400: 'var(--ui-brand-400)', 500: 'var(--ui-brand-500)', 600: 'var(--ui-brand-600)' }
+const agentColors = { 50: 'var(--ui-agent-50)', 100: 'var(--ui-agent-100)', 400: 'var(--ui-agent-400)', 500: 'var(--ui-agent-500)' }
+const outputColors = { 50: 'var(--ui-output-50)', 100: 'var(--ui-output-100)', 400: 'var(--ui-output-400)', 500: 'var(--ui-output-500)' }
 const violetColors = { 300: '#C4B5FD', 400: '#8B5CF6', 50: '#f5f3ff' }
 const skyColors = { 400: '#38BDF8', 50: '#f0f9ff' }
 const pinkColors = { 400: '#F472B6', 50: '#fdf2f8' }
@@ -18,9 +22,9 @@ const emeraldColors = { 400: '#34D399', 600: '#059669', 50: '#ecfdf5', 100: '#d1
 const amberColors = { 400: '#FACC15', 500: '#F59E0B', 600: '#D97706', 50: '#fffbeb', 100: '#fef3c7' }
 const roseColors = { 400: '#FB7185', 50: '#fff1f2' }
 const redColors = { 400: '#F87171', 50: '#fef2f2' }
-const dColors = { 0: '#0e0e12', 1: '#171720', 2: '#1c1c26', 3: '#252530', 4: '#2e2e3a' }
-const lColors = { 0: '#f8f7f6', 1: '#f1f0ef', 2: '#ffffff', 3: '#f5f4f3', 4: '#ebeae8' }
-const wtColors = { main: '#e8e8ed', sub: '#b0b0ba', aux: '#78788a', dim: '#555568' }
+const dColors = { 0: 'var(--ui-bg-0)', 1: 'var(--ui-bg-1)', 2: 'var(--ui-bg-2)', 3: 'var(--ui-bg-3)', 4: 'var(--ui-bg-4)' }
+const lColors = { ...dColors }
+const textColors = { main: 'var(--ui-text-main)', sub: 'var(--ui-text-sub)', aux: 'var(--ui-text-aux)', dim: 'var(--ui-text-dim)' }
 
 export default defineConfig({
   preflights: [
@@ -41,14 +45,14 @@ export default defineConfig({
 
   theme: {
     colors: {
-      d0: '#0e0e12', d1: '#171720', d2: '#1c1c26', d3: '#252530', d4: '#2e2e3a',
-      l0: '#f8f7f6', l1: '#f1f0ef', l2: '#ffffff', l3: '#f5f4f3', l4: '#ebeae8',
+      d0: dColors[0], d1: dColors[1], d2: dColors[2], d3: dColors[3], d4: dColors[4],
+      l0: lColors[0], l1: lColors[1], l2: lColors[2], l3: lColors[3], l4: lColors[4],
       brand: brandColors,
       agent: agentColors,
       output: outputColors,
-      wt: wtColors,
-      lt: { main: '#1a1a2e', sub: '#5a5a6e', aux: '#8a8a9e' },
-      bdr: '#353542', bdrL: '#dddcd9', bdrF: '#e2e1de',
+      wt: textColors,
+      lt: textColors,
+      bdr: 'var(--ui-border-card)', bdrL: 'var(--ui-border-panel)', bdrF: 'var(--ui-border-card)',
     },
     breakpoints: {
       xs: '640px',
@@ -78,26 +82,26 @@ export default defineConfig({
   ],
   rules: [
     // brand opacity variants
-    [/^bg-brand-(\d+)\/(\d+)$/, ([, s, o]) => ({ 'background-color': hexToRgba(brandColors[s], +o / 100) })],
-    [/^text-brand-(\d+)\/(\d+)$/, ([, s, o]) => ({ 'color': hexToRgba(brandColors[s], +o / 100) })],
-    [/^border-brand-(\d+)\/(\d+)$/, ([, s, o]) => ({ 'border-color': hexToRgba(brandColors[s], +o / 100) })],
+    [/^bg-brand-(\d+)\/(\d+)$/, ([, s, o]) => ({ 'background-color': themeRgba(`--ui-brand-${s}-rgb`, +o / 100) })],
+    [/^text-brand-(\d+)\/(\d+)$/, ([, s, o]) => ({ 'color': themeRgba(`--ui-brand-${s}-rgb`, +o / 100) })],
+    [/^border-brand-(\d+)\/(\d+)$/, ([, s, o]) => ({ 'border-color': themeRgba(`--ui-brand-${s}-rgb`, +o / 100) })],
     // agent opacity variants
-    [/^bg-agent-(\d+)\/(\d+)$/, ([, s, o]) => ({ 'background-color': hexToRgba(agentColors[s], +o / 100) })],
-    [/^text-agent-(\d+)\/(\d+)$/, ([, s, o]) => ({ 'color': hexToRgba(agentColors[s], +o / 100) })],
-    [/^border-agent-(\d+)\/(\d+)$/, ([, s, o]) => ({ 'border-color': hexToRgba(agentColors[s], +o / 100) })],
+    [/^bg-agent-(\d+)\/(\d+)$/, ([, s, o]) => ({ 'background-color': themeRgba(`--ui-agent-${s}-rgb`, +o / 100) })],
+    [/^text-agent-(\d+)\/(\d+)$/, ([, s, o]) => ({ 'color': themeRgba(`--ui-agent-${s}-rgb`, +o / 100) })],
+    [/^border-agent-(\d+)\/(\d+)$/, ([, s, o]) => ({ 'border-color': themeRgba(`--ui-agent-${s}-rgb`, +o / 100) })],
     // output opacity variants
-    [/^bg-output-(\d+)\/(\d+)$/, ([, s, o]) => ({ 'background-color': hexToRgba(outputColors[s], +o / 100) })],
+    [/^bg-output-(\d+)\/(\d+)$/, ([, s, o]) => ({ 'background-color': themeRgba(`--ui-output-${s}-rgb`, +o / 100) })],
     // dark layer opacity
-    [/^bg-d([0-4])\/(\d+)$/, ([, l, o]) => ({ 'background-color': hexToRgba(dColors[l], +o / 100) })],
+    [/^bg-d([0-4])\/(\d+)$/, ([, l, o]) => ({ 'background-color': themeRgba(`--ui-bg-${l}-rgb`, +o / 100) })],
     // light layer opacity
-    [/^bg-l([0-4])\/(\d+)$/, ([, l, o]) => ({ 'background-color': hexToRgba(lColors[l], +o / 100) })],
+    [/^bg-l([0-4])\/(\d+)$/, ([, l, o]) => ({ 'background-color': themeRgba(`--ui-bg-${l}-rgb`, +o / 100) })],
     // white opacity
     [/^bg-white\/(\d+)$/, ([, o]) => ({ 'background-color': `rgba(255,255,255,${+o / 100})` })],
     [/^text-white\/(\d+)$/, ([, o]) => ({ 'color': `rgba(255,255,255,${+o / 100})` })],
     // warm text opacity
-    [/^text-wt-(main|sub|aux|dim)\/(\d+)$/, ([, k, o]) => ({ 'color': hexToRgba(wtColors[k], +o / 100) })],
+    [/^text-wt-(main|sub|aux|dim)\/(\d+)$/, ([, k, o]) => ({ 'color': themeRgba(`--ui-text-${k}-rgb`, +o / 100) })],
     // border opacity
-    [/^border-bdr\/(\d+)$/, ([, o]) => ({ 'border-color': hexToRgba('#353542', +o / 100) })],
+    [/^border-bdr\/(\d+)$/, ([, o]) => ({ 'border-color': themeRgba('--ui-border-card-rgb', +o / 100) })],
     // emerald opacity variants
     [/^bg-emerald-(\d+)\/(\d+)$/, ([, s, o]) => ({ 'background-color': hexToRgba(emeraldColors[s], +o / 100) })],
     [/^text-emerald-(\d+)\/(\d+)$/, ([, s, o]) => ({ 'color': hexToRgba(emeraldColors[s], +o / 100) })],
@@ -123,6 +127,6 @@ export default defineConfig({
     [/^bg-pink-(\d+)\/(\d+)$/, ([, s, o]) => ({ 'background-color': hexToRgba(pinkColors[s], +o / 100) })],
     [/^border-pink-(\d+)\/(\d+)$/, ([, s, o]) => ({ 'border-color': hexToRgba(pinkColors[s], +o / 100) })],
     // brand-400/12 special for active nav
-    [/^bg-brand-400\/12$/, () => ({ 'background-color': hexToRgba(brandColors[400], 0.12) })],
+    [/^bg-brand-400\/12$/, () => ({ 'background-color': themeRgba('--ui-brand-400-rgb', 0.12) })],
   ],
 })

@@ -1,0 +1,142 @@
+/*
+ * Public theme contract.
+ *
+ * Built-in and user themes override these semantic variables on the app root.
+ * Keep fallback values aligned with the default light theme so a missing token
+ * never leaves the product unstyled.
+ */
+:root {
+  --ui-bg-0: #f8f7f6;
+  --ui-bg-1: #f1f0ef;
+  --ui-bg-2: #ffffff;
+  --ui-bg-3: #f5f4f3;
+  --ui-bg-4: #ebeae8;
+  --ui-bg-0-rgb: 248, 247, 246;
+  --ui-bg-1-rgb: 241, 240, 239;
+  --ui-bg-2-rgb: 255, 255, 255;
+  --ui-bg-3-rgb: 245, 244, 243;
+  --ui-bg-4-rgb: 235, 234, 232;
+
+  --ui-text-main: #1a1a2e;
+  --ui-text-sub: #5a5a6e;
+  --ui-text-aux: #8a8a9e;
+  --ui-text-dim: #b0b0ba;
+  --ui-text-main-rgb: 26, 26, 46;
+  --ui-text-sub-rgb: 90, 90, 110;
+  --ui-text-aux-rgb: 138, 138, 158;
+  --ui-text-dim-rgb: 176, 176, 186;
+
+  --ui-border-panel: #dddcd9;
+  --ui-border-card: #e2e1de;
+  --ui-border-panel-rgb: 221, 220, 217;
+  --ui-border-card-rgb: 226, 225, 222;
+  --ui-border-focus: rgba(var(--brand-rgb, 74, 108, 255), 0.5);
+
+  --ui-brand-50: #eff6ff;
+  --ui-brand-100: #dbeafe;
+  --ui-brand-200: #bfdbfe;
+  --ui-brand-300: #93c5fd;
+  --ui-brand-400: #6c8aff;
+  --ui-brand-500: #4a6cff;
+  --ui-brand-600: #3a5ced;
+  --ui-brand-50-rgb: 239, 246, 255;
+  --ui-brand-100-rgb: 219, 234, 254;
+  --ui-brand-200-rgb: 191, 219, 254;
+  --ui-brand-300-rgb: 147, 197, 253;
+  --ui-brand-400-rgb: 108, 138, 255;
+  --ui-brand-500-rgb: 74, 108, 255;
+  --ui-brand-600-rgb: 58, 92, 237;
+  --ui-accent-secondary: #a78bfa;
+  --ui-accent-secondary-rgb: 167, 139, 250;
+
+  --ui-agent-50: #f5f3ff;
+  --ui-agent-100: #ede9fe;
+  --ui-agent-400: #a78bfa;
+  --ui-agent-500: #7c3aed;
+  --ui-agent-50-rgb: 245, 243, 255;
+  --ui-agent-100-rgb: 237, 233, 254;
+  --ui-agent-400-rgb: 167, 139, 250;
+  --ui-agent-500-rgb: 124, 58, 237;
+  --ui-output-50: #ecfdf5;
+  --ui-output-100: #d1fae5;
+  --ui-output-400: #34d399;
+  --ui-output-500: #10b981;
+  --ui-output-50-rgb: 236, 253, 245;
+  --ui-output-100-rgb: 209, 250, 229;
+  --ui-output-400-rgb: 52, 211, 153;
+  --ui-output-500-rgb: 16, 185, 129;
+
+  --brand: var(--ui-brand-500);
+  --brand-hover: var(--ui-brand-600);
+  --brand-rgb: var(--ui-brand-500-rgb);
+  --agent-color: var(--ui-agent-500);
+  --output-color: var(--ui-output-500);
+  --success: #22c55e;
+  --warning: #eab308;
+  --error: #ef4444;
+
+  --ui-font-family: Inter, -apple-system, "SF Pro Text", "Segoe UI", sans-serif;
+  --ui-content-font-family: var(--ui-font-family);
+  --ui-font-scale: 1;
+  --ui-line-height: 1.6;
+  --ui-radius-small: 2px;
+  --ui-radius-control: 6px;
+  --ui-radius-medium: 8px;
+  --ui-radius-card: 12px;
+  --ui-radius-dialog: 16px;
+  --ui-border-width: 1px;
+  --ui-control-height: 34px;
+  --ui-page-gap: 20px;
+  --ui-section-gap: 16px;
+  --ui-card-padding: 16px;
+  --ui-shadow-small: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --ui-shadow-panel: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+  --ui-shadow-popup: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
+  --ui-shadow-dialog: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  --ui-motion-fast: 140ms;
+  --ui-motion-normal: 200ms;
+  --ui-motion-slow: 300ms;
+  --ui-motion-ease: cubic-bezier(0.2, 0, 0, 1);
+}
+
+/* Existing components consume these names while the UI migrates gradually. */
+.theme-light,
+.theme-dark {
+  --bg-l0: var(--ui-bg-0);
+  --bg-l1: var(--ui-bg-1);
+  --bg-l2: var(--ui-bg-2);
+  --bg-l3: var(--ui-bg-3);
+  --bg-l4: var(--ui-bg-4);
+  --border-panel: var(--ui-border-panel);
+  --border-card: var(--ui-border-card);
+  --border-focus: var(--ui-border-focus);
+  --text-main: var(--ui-text-main);
+  --text-sub: var(--ui-text-sub);
+  --text-aux: var(--ui-text-aux);
+  --text-dim: var(--ui-text-dim);
+  --brand: var(--ui-brand-500);
+  --brand-hover: var(--ui-brand-600);
+  --brand-rgb: var(--ui-brand-500-rgb);
+  --agent-color: var(--ui-agent-500);
+  --output-color: var(--ui-output-500);
+  --ui-fill-faint: rgba(var(--ui-text-main-rgb), 0.025);
+  --ui-fill-subtle: rgba(var(--ui-text-main-rgb), 0.045);
+  --ui-fill-hover: rgba(var(--ui-text-main-rgb), 0.075);
+  --ui-fill-active: rgba(var(--ui-text-main-rgb), 0.11);
+  --ui-divider: rgba(var(--ui-text-main-rgb), 0.1);
+  --ui-control-border: rgba(var(--ui-text-main-rgb), 0.18);
+  --ui-control-bg: rgba(var(--ui-text-main-rgb), 0.04);
+  --ui-control-bg-strong: var(--ui-bg-2);
+  --ui-popover-bg: var(--ui-bg-2);
+  --ui-on-accent: #ffffff;
+  --ui-on-accent-rgb: 255, 255, 255;
+  --ui-scrollbar: rgba(var(--ui-text-main-rgb), 0.24);
+  --ui-scrollbar-hover: rgba(var(--ui-text-main-rgb), 0.38);
+}
+
+/* Bridge existing utility classes only when a non-default theme is active. */
+[data-theme]:not([data-theme='default']) .rounded-sm { border-radius: var(--ui-radius-small); }
+[data-theme]:not([data-theme='default']) .rounded-md { border-radius: var(--ui-radius-control); }
+[data-theme]:not([data-theme='default']) .rounded-lg { border-radius: var(--ui-radius-medium); }
+[data-theme]:not([data-theme='default']) .rounded-xl { border-radius: var(--ui-radius-card); }
+[data-theme]:not([data-theme='default']) .rounded-2xl { border-radius: var(--ui-radius-dialog); }

@@ -74,6 +74,11 @@ function apiKey(provider, config) {
   return provider?.api_key_ref || config.apiKey || config.api_key || config.token || ''
 }
 
+function fileTypeFromPath(inputPath) {
+  const ext = path.extname(inputPath || '').toLowerCase()
+  return IMAGE_EXTENSIONS.has(ext) ? 1 : 0
+}
+
 function mimeTypeFromPath(inputPath) {
   const ext = path.extname(inputPath || '').toLowerCase()
   if (ext === '.pdf') return 'application/pdf'
@@ -86,18 +91,27 @@ function mimeTypeFromPath(inputPath) {
   return 'application/octet-stream'
 }
 
-function normalizePaddleJobsUrl(value) {
+function normalizePaddleEndpoint(value) {
   const raw = String(value || '').trim()
-  const base = raw || DEFAULT_PADDLE_JOBS_URL
-  if (/\/layout-parsing\/?$/i.test(base)) return base.replace(/\/layout-parsing\/?$/i, '/jobs').replace(/\/+$/, '')
-  if (/\/jobs\/?$/i.test(base)) return base.replace(/\/+$/, '')
-  if (/\/ocr\/?$/i.test(base)) return `${base.replace(/\/+$/, '')}/jobs`
-  return base.replace(/\/+$/, '')
+  const url = raw || DEFAULT_PADDLE_JOBS_URL
+  if (!/\/(jobs|layout-parsing)\/?$/i.test(paddleUrlPath(url))) {
+    throw new Error('PaddleOCR URL must end with /jobs or /layout-parsing')
+  }
+  return url.replace(/\/+$/, '')
+}
+
+function paddleUrlPath(value) {
+  try { return new URL(value).pathname }
+  catch { return String(value || '').split(/[?#]/, 1)[0] }
+}
+
+function paddleEndpointType(url) {
+  return /\/layout-parsing\/?$/i.test(paddleUrlPath(url)) ? 'layout-parsing' : 'jobs'
 }
 
 function paddleOptionalPayload(config) {
   const nested = asObject(config.optionalPayload || config.optional_payload)
-  return {
+  const payload = {
     useDocOrientationClassify: boolValue(
       firstValue(nested.useDocOrientationClassify, config.useDocOrientationClassify),
       false,
@@ -111,6 +125,19 @@ function paddleOptionalPayload(config) {
       false,
     ),
   }
+  payload.useLayoutDetection = boolValue(
+    firstValue(nested.useLayoutDetection, config.useLayoutDetection),
+    true,
+  )
+  payload.prettifyMarkdown = boolValue(
+    firstValue(nested.prettifyMarkdown, config.prettifyMarkdown),
+    true,
+  )
+  payload.visualize = boolValue(
+    firstValue(nested.visualize, config.visualize),
+    false,
+  )
+  return payload
 }
 
 function usageMetrics(payload) {
@@ -387,9 +414,13 @@ export class OcrProviderRunner {
   }
 
   async _runPaddleOcr({ provider, config, inputPath }) {
-    const url = normalizePaddleJobsUrl(provider.base_url || config.url || config.endpoint)
+    const url = normalizePaddleEndpoint(provider.base_url || config.url || config.endpoint)
+    const endpointType = paddleEndpointType(url)
+    if (endpointType === 'layout-parsing') {
+      return this._runPaddleLayoutParsing({ provider, config, inputPath, url })
+    }
+
     const key = apiKey(provider, config)
-    if (!key) throw new Error('PaddleOCR provider API token is required')
 
     const timeoutMs = Number(firstValue(config.timeoutMs, config.timeout_ms, DEFAULT_TIMEOUT_MS))
     const pollIntervalMs = Math.max(Number(firstValue(config.pollIntervalMs, config.poll_interval_ms, 5000)), 0)
@@ -405,12 +436,12 @@ export class OcrProviderRunner {
     for (const header of Object.keys(submitHeaders)) {
       if (header.toLowerCase() === 'content-type') delete submitHeaders[header]
     }
+    if (key) submitHeaders.Authorization = `bearer ${key}`
     const raw = { submit: null, statuses: [], result: null }
     const submitResponse = await fetchWithTimeout(url, {
       method: 'POST',
       headers: {
         ...submitHeaders,
-        Authorization: `bearer ${key}`,
         Accept: 'application/json',
       },
       body: form,
@@ -426,13 +457,14 @@ export class OcrProviderRunner {
     let completed = null
     for (let attempt = 0; attempt < maxPolls; attempt += 1) {
       if (pollIntervalMs > 0) await sleep(pollIntervalMs)
+      const statusHeaders = {
+        ...(config.headers || {}),
+        Accept: 'application/json',
+      }
+      if (key) statusHeaders.Authorization = `bearer ${key}`
       const statusResponse = await fetchWithTimeout(`${url}/${encodeURIComponent(jobId)}`, {
         method: 'GET',
-        headers: {
-          ...(config.headers || {}),
-          Authorization: `bearer ${key}`,
-          Accept: 'application/json',
-        },
+        headers: statusHeaders,
       }, timeoutMs)
       const { rawText: statusRawText, payload: statusPayload } = await readResponsePayload(statusResponse)
       ensureSuccessPayload(statusResponse, statusPayload, statusRawText, 'PaddleOCR job status')
@@ -496,6 +528,69 @@ export class OcrProviderRunner {
         provider_type: provider.type,
         model,
         job_id: jobId,
+        page_count: pages.length,
+        chars: pages.map(page => page.text).join('\n\n').length,
+      },
+    })
+  }
+
+  async _runPaddleLayoutParsing({ provider, config, inputPath, url }) {
+    const timeoutMs = Number(firstValue(config.timeoutMs, config.timeout_ms, DEFAULT_TIMEOUT_MS))
+    const buffer = await fs.promises.readFile(inputPath)
+    const payload = {
+      file: buffer.toString('base64'),
+      fileType: fileTypeFromPath(inputPath),
+      ...paddleOptionalPayload(config),
+      ...(asObject(config.body)),
+      ...(asObject(config.payload)),
+    }
+    const key = apiKey(provider, config)
+    const headers = {
+      ...(config.headers || {}),
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+    }
+    if (key) headers.Authorization = `token ${key}`
+
+    const response = await fetchWithTimeout(url, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(payload),
+    }, timeoutMs)
+    const { rawText, payload: responsePayload } = await readResponsePayload(response)
+    ensureSuccessPayload(response, responsePayload, rawText, 'PaddleOCR layout-parsing provider')
+    if (responsePayload.errorCode !== undefined && Number(responsePayload.errorCode) !== 0) {
+      throw new Error(`PaddleOCR layout-parsing provider failed: ${responsePayload.errorMsg || responsePayload.errorCode}`)
+    }
+
+    const result = asObject(responsePayload.result)
+    const layoutResults = firstArray(result.layoutParsingResults)
+    const pages = layoutResults.map((item, index) => {
+      const markdown = paddleMarkdownPayload(item)
+      return {
+        page: Number(markdown.page || index + 1),
+        text: String(markdown.text || '').trim(),
+        blocks: markdown.blocks,
+        images: markdown.images,
+        confidence: 0,
+      }
+    })
+    const hasReadablePage = pages.some(page => (
+      page.text
+      || page.blocks.length
+      || Object.keys(page.images || {}).length
+    ))
+    if (!hasReadablePage) throw new Error('PaddleOCR layout-parsing returned no readable Markdown pages')
+
+    return this._buildResult({
+      provider,
+      payload: responsePayload,
+      rawText,
+      pages,
+      extraMetrics: {
+        provider_id: provider.id,
+        provider_type: provider.type,
+        endpoint: 'layout-parsing',
         page_count: pages.length,
         chars: pages.map(page => page.text).join('\n\n').length,
       },

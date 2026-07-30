@@ -86,7 +86,7 @@ watch(() => userStore.isLoggedIn, (v) => {
           <i class="ri-user-unfollow-line text-[28px]" :class="isDark ? 'text-wt-aux' : 'text-lt-aux'" />
         </div>
                 <h2 class="text-[16px] font-bold mb-2" :class="isDark ? 'text-wt-main' : 'text-lt-main'">稍后再试</h2>
-        <p class="text-[12px] mb-5" :class="isDark ? 'text-wt-aux' : 'text-lt-aux'">目前正在内测阶段，暂不支持注册登录哦~</p>
+        <p class="text-[12px] mb-5" :class="isDark ? 'text-wt-aux' : 'text-lt-aux'">注册登录功能暂未开放。</p>
         <!-- <h2 class="text-[16px] font-bold mb-2" :class="isDark ? 'text-wt-main' : 'text-lt-main'">请先登录</h2>
         <p class="text-[12px] mb-5" :class="isDark ? 'text-wt-aux' : 'text-lt-aux'">登录后可查看个人信息、积分余额与云端配额</p> -->
         <div v-if="true" class="flex gap-3 justify-center">

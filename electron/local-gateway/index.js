@@ -67,7 +67,7 @@ function resolveAgentModel(dbService, agent) {
     ? providers.find(item => item.id === providerId && item.enabled !== false)
     : providers.find(item => item.enabled !== false && item.models?.some(model => model.id === modelId && model.enabled !== false))
   const model = provider?.models?.find(item => item.id === modelId && item.enabled !== false)
-  if (!provider || !model || !provider.apiKey) throw new GatewayError(GATEWAY_ERROR_CODES.SERVICE_DISABLED, 'Agent model is not configured in MindSpace', { status: 503 })
+  if (!provider || !model || !provider.apiKey) throw new GatewayError(GATEWAY_ERROR_CODES.SERVICE_DISABLED, 'Agent model is not configured in Reviva', { status: 503 })
   return { providerId: provider.id, apiFormat: provider.apiFormat || (provider.id === 'anthropic' ? 'anthropic' : 'openai'), apiKey: provider.apiKey, baseUrl: provider.baseUrl || '', model: model.id, modelHasVision: !!model.capabilities?.vision }
 }
 
@@ -87,7 +87,7 @@ export function createLocalGateway({ dbService, agentService = null, wikiService
 
   server.register('GET', '/api/v1/health', ({ response }) => {
     sendJson(response, 200, {
-      service: 'mindspace-local-gateway',
+      service: 'reviva-local-gateway',
       status: 'ok',
       protocolVersion: '1.0',
       appVersion,
@@ -153,7 +153,7 @@ export function createLocalGateway({ dbService, agentService = null, wikiService
     }
     const content = Buffer.from(encoded, 'base64')
     if (!content.length || content.length > 20 * 1024 * 1024) throw new GatewayError(GATEWAY_ERROR_CODES.INVALID_REQUEST, 'file size must be 1-20MB', { status: 400 })
-    const root = path.join(os.tmpdir(), 'mindspace-gateway-uploads')
+    const root = path.join(os.tmpdir(), 'reviva-gateway-uploads')
     const directory = path.resolve(root, ...segments)
     if (directory !== path.resolve(root) && !directory.startsWith(`${path.resolve(root)}${path.sep}`)) {
       throw new GatewayError(GATEWAY_ERROR_CODES.INVALID_REQUEST, 'relativePath escapes the upload directory', { status: 400 })
@@ -254,6 +254,7 @@ export function createLocalGateway({ dbService, agentService = null, wikiService
       topP: agent.topP, thinkingMode: agent.thinkingMode, thinkingIntensity: agent.thinkingIntensity,
       toolIds: agent.tools || [], permissions: agent.permissions || {}, skills: agent.skills || [], subAgents: [],
       toolProviderConfigs: dbService?.getSetting?.('toolProviderConfigMap') || {},
+      learningProfileAllowed: false,
     }
     if (!request.msgId) throw new GatewayError(GATEWAY_ERROR_CODES.INTERNAL_ERROR, 'failed to create Agent message', { status: 500 })
     Promise.resolve(agentService.handleStartRun(request)).catch(error => logger.error?.('[LocalGateway] Agent invoke failed:', error))
@@ -274,7 +275,7 @@ export function createLocalGateway({ dbService, agentService = null, wikiService
     const assistant = adapters.conversations.db?.createMsg?.({ id: `msg_${crypto.randomUUID()}`, conversationId, role: 'assistant', content: '', status: 'streaming' })
     if (!assistant?.id) throw new GatewayError(GATEWAY_ERROR_CODES.INTERNAL_ERROR, 'failed to create message', { status: 500 })
     const runId = `chatcmpl_${crypto.randomUUID()}`
-    const requestPayload = { runId, conversationId, agentId, agentEnglishName: agent.englishName || '', msgId: assistant.id, userMessageId: user?.id, systemPrompt: agent.prompt || '', messages, ...modelConfig, maxIterations: agent.maxIter, temperature: agent.temperature, maxTokens: agent.maxTokens, topP: agent.topP, thinkingMode: agent.thinkingMode, thinkingIntensity: agent.thinkingIntensity, toolIds: agent.tools || [], permissions: agent.permissions || {}, skills: agent.skills || [], subAgents: [], toolProviderConfigs: dbService?.getSetting?.('toolProviderConfigMap') || {} }
+    const requestPayload = { runId, conversationId, agentId, agentEnglishName: agent.englishName || '', msgId: assistant.id, userMessageId: user?.id, systemPrompt: agent.prompt || '', messages, ...modelConfig, maxIterations: agent.maxIter, temperature: agent.temperature, maxTokens: agent.maxTokens, topP: agent.topP, thinkingMode: agent.thinkingMode, thinkingIntensity: agent.thinkingIntensity, toolIds: agent.tools || [], permissions: agent.permissions || {}, skills: agent.skills || [], subAgents: [], toolProviderConfigs: dbService?.getSetting?.('toolProviderConfigMap') || {}, learningProfileAllowed: false }
     const stream = body?.stream === true
     if (!stream) {
       Promise.resolve(agentService.handleStartRun(requestPayload)).catch(error => logger.error?.('[LocalGateway] Chat completion failed:', error))
@@ -285,7 +286,7 @@ export function createLocalGateway({ dbService, agentService = null, wikiService
         if (['completed', 'failed', 'error', 'cancelled', 'canceled'].includes(status)) break
       }
       const finalMessage = adapters.conversations.messages(conversationId).filter(item => item.role === 'assistant').pop()
-      sendJson(response, 200, { id: runId, object: 'chat.completion', created: Math.floor(Date.now() / 1000), model: agentId, choices: [{ index: 0, message: { role: 'assistant', content: finalMessage?.content || '' }, finish_reason: status === 'completed' ? 'stop' : 'length' }], mindspace: { conversationId, status } })
+      sendJson(response, 200, { id: runId, object: 'chat.completion', created: Math.floor(Date.now() / 1000), model: agentId, choices: [{ index: 0, message: { role: 'assistant', content: finalMessage?.content || '' }, finish_reason: status === 'completed' ? 'stop' : 'length' }], reviva: { conversationId, status } })
       return
     }
     response.statusCode = 200

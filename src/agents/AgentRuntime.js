@@ -949,6 +949,7 @@ export class AgentRuntime {
       await window.electronAPI.agent.startRun(toPlain({
         runId,
         conversationId: convId,
+        userMessageId: userMsg.id,
         agentId,
         agentEnglishName: _resolveAgentEnglishName(agent),
         msgId: placeholder.id,

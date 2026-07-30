@@ -1,0 +1,138 @@
+/* Vermilion Archive: editorial paper, ink structure and restrained red marks. */
+.theme-vermilion-archive {
+  --ui-radius-small: 2px;
+  --ui-radius-control: 4px;
+  --ui-radius-medium: 5px;
+  --ui-radius-card: 6px;
+  --ui-radius-dialog: 8px;
+  --ui-control-height: 34px;
+  --ui-page-gap: 22px;
+  --ui-section-gap: 17px;
+  --ui-card-padding: 18px;
+  --ui-content-font-family: "Noto Serif SC", "Songti SC", SimSun, serif;
+  --ui-accent-secondary: #30444b;
+  --ui-accent-secondary-rgb: 48, 68, 75;
+  --ui-shadow-small: none;
+  --ui-shadow-panel: none;
+  --ui-shadow-popup: 0 14px 32px rgba(31, 28, 23, 0.14);
+  --ui-shadow-dialog: 0 22px 52px rgba(31, 28, 23, 0.2);
+  --ui-motion-fast: 120ms;
+  --ui-motion-normal: 190ms;
+  --ui-motion-slow: 270ms;
+}
+
+.theme-vermilion-archive .shadow-sm,
+.theme-vermilion-archive .shadow-md { box-shadow: none; }
+.theme-vermilion-archive .shadow-lg,
+.theme-vermilion-archive .shadow-xl { box-shadow: var(--ui-shadow-popup); }
+.theme-vermilion-archive .shadow-2xl { box-shadow: var(--ui-shadow-dialog); }
+
+.theme-vermilion-archive.theme-light {
+  --ui-bg-0: #f5f5f1;
+  --ui-bg-1: #eaeae5;
+  --ui-bg-2: #fcfcf9;
+  --ui-bg-3: #f0f0eb;
+  --ui-bg-4: #e2e2dc;
+  --ui-bg-0-rgb: 245, 245, 241;
+  --ui-bg-1-rgb: 234, 234, 229;
+  --ui-bg-2-rgb: 252, 252, 249;
+  --ui-bg-3-rgb: 240, 240, 235;
+  --ui-bg-4-rgb: 226, 226, 220;
+  --ui-text-main: #1d1c19;
+  --ui-text-sub: #514d45;
+  --ui-text-aux: #7b766c;
+  --ui-text-dim: #aaa59b;
+  --ui-text-main-rgb: 29, 28, 25;
+  --ui-text-sub-rgb: 81, 77, 69;
+  --ui-text-aux-rgb: 123, 118, 108;
+  --ui-text-dim-rgb: 170, 165, 155;
+  --ui-border-panel: #d8d6ce;
+  --ui-border-card: #c7c3b8;
+  --ui-border-panel-rgb: 216, 214, 206;
+  --ui-border-card-rgb: 199, 195, 184;
+  --ui-brand-50: #fbefed;
+  --ui-brand-100: #f4dcd8;
+  --ui-brand-200: #e8bcb5;
+  --ui-brand-300: #d88a7f;
+  --ui-brand-400: #c65b4e;
+  --ui-brand-500: #b43a2f;
+  --ui-brand-600: #8f2d25;
+  --ui-brand-50-rgb: 251, 239, 237;
+  --ui-brand-100-rgb: 244, 220, 216;
+  --ui-brand-200-rgb: 232, 188, 181;
+  --ui-brand-300-rgb: 216, 138, 127;
+  --ui-brand-400-rgb: 198, 91, 78;
+  --ui-brand-500-rgb: 180, 58, 47;
+  --ui-brand-600-rgb: 143, 45, 37;
+  --ui-border-focus: rgba(180, 58, 47, 0.48);
+}
+
+.theme-vermilion-archive.theme-dark {
+  --ui-bg-0: #141412;
+  --ui-bg-1: #1b1b18;
+  --ui-bg-2: #23231f;
+  --ui-bg-3: #2d2d28;
+  --ui-bg-4: #393832;
+  --ui-bg-0-rgb: 20, 20, 18;
+  --ui-bg-1-rgb: 27, 27, 24;
+  --ui-bg-2-rgb: 35, 35, 31;
+  --ui-bg-3-rgb: 45, 45, 40;
+  --ui-bg-4-rgb: 57, 56, 50;
+  --ui-text-main: #f1f0e8;
+  --ui-text-sub: #cbc8bd;
+  --ui-text-aux: #979388;
+  --ui-text-dim: #6c6961;
+  --ui-text-main-rgb: 241, 240, 232;
+  --ui-text-sub-rgb: 203, 200, 189;
+  --ui-text-aux-rgb: 151, 147, 136;
+  --ui-text-dim-rgb: 108, 105, 97;
+  --ui-border-panel: #44423b;
+  --ui-border-card: #58554c;
+  --ui-border-panel-rgb: 68, 66, 59;
+  --ui-border-card-rgb: 88, 85, 76;
+  --ui-brand-50: #321b18;
+  --ui-brand-100: #4b2521;
+  --ui-brand-200: #6c332d;
+  --ui-brand-300: #9d493f;
+  --ui-brand-400: #df6457;
+  --ui-brand-500: #c64f43;
+  --ui-brand-600: #a23c33;
+  --ui-brand-50-rgb: 50, 27, 24;
+  --ui-brand-100-rgb: 75, 37, 33;
+  --ui-brand-200-rgb: 108, 51, 45;
+  --ui-brand-300-rgb: 157, 73, 63;
+  --ui-brand-400-rgb: 223, 100, 87;
+  --ui-brand-500-rgb: 198, 79, 67;
+  --ui-brand-600-rgb: 162, 60, 51;
+  --ui-accent-secondary: #8fa9af;
+  --ui-accent-secondary-rgb: 143, 169, 175;
+  --ui-border-focus: rgba(223, 100, 87, 0.52);
+}
+
+.theme-vermilion-archive[data-theme='vermilion-archive'][data-color-mode] .md-content,
+.theme-vermilion-archive[data-theme='vermilion-archive'][data-color-mode] .note-preview {
+  font-family: var(--ui-content-font-family);
+  line-height: 1.8;
+}
+
+.theme-vermilion-archive[data-theme='vermilion-archive'][data-color-mode] .md-content h1,
+.theme-vermilion-archive[data-theme='vermilion-archive'][data-color-mode] .md-content h2,
+.theme-vermilion-archive[data-theme='vermilion-archive'][data-color-mode] .note-preview h1,
+.theme-vermilion-archive[data-theme='vermilion-archive'][data-color-mode] .note-preview h2 {
+  border-bottom: 1px solid var(--ui-border-card);
+}
+
+.theme-vermilion-archive[data-theme='vermilion-archive'][data-color-mode] .md-content blockquote,
+.theme-vermilion-archive[data-theme='vermilion-archive'][data-color-mode] .note-preview blockquote {
+  border-left: 3px solid var(--brand) !important;
+  background: rgba(var(--brand-rgb), 0.045);
+}
+
+.theme-vermilion-archive[data-theme='vermilion-archive'][data-color-mode] .user-message-bubble {
+  border: 1px solid var(--ui-accent-secondary);
+  box-shadow: none;
+}
+
+.theme-vermilion-archive[data-theme='vermilion-archive'][data-color-mode] .nav-btn[class*='bg-brand'] {
+  box-shadow: inset 3px 0 var(--brand);
+}

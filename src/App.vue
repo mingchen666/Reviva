@@ -13,11 +13,9 @@ import { useRoute, useRouter } from 'vue-router'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import CommandPalette from '@/components/CommandPalette.vue'
 import StartupGuideModal from '@/components/onboarding/StartupGuideModal.vue'
-import BetaExpiredScreen from '@/components/BetaExpiredScreen.vue'
 import AppUpdateModal from '@/components/update/AppUpdateModal.vue'
 import { useAppShortcuts } from '@/composables/useAppShortcuts'
 import { useAutoUpdate } from '@/composables/useAutoUpdate'
-import { BETA_RELEASE, isBetaExpired } from '@/config/beta'
 import { useMessage } from '@/components/MsMessage/useMessage'
 
 const appStore = useAppStore()
@@ -32,11 +30,17 @@ const showUpdateModal = ref(false)
 const isDark = computed(() => appStore.isDark)
 const { checking, updateInfo, downloading, downloadProgress, downloaded, error, checkForUpdate, downloadUpdate, installUpdate } =
   useAutoUpdate()
-const betaNow = ref(new Date())
-const betaExpired = computed(() => isBetaExpired(betaNow.value))
-let betaTimer = null
 let webImportNotificationHandler = null
 let trayNavigateHandler = null
+
+async function onEmergencyCustomCssReset(event) {
+  if (!(event.ctrlKey || event.metaKey) || !event.altKey || !event.shiftKey || event.key.toLowerCase() !== 'r') return
+  event.preventDefault()
+  event.stopImmediatePropagation()
+  const result = await settingsStore.resetCustomCss()
+  if (result?.success) msg.success('已清除自定义 CSS，并恢复当前主题')
+  else msg.error(result?.error || '紧急恢复自定义 CSS 失败')
+}
 
 // Show modal when update is available
 watch(updateInfo, (v) => {
@@ -54,6 +58,8 @@ useAppShortcuts({
 })
 
 const themeClass = computed(() => appStore.themeClass)
+const activeThemeId = computed(() => appStore.themeId)
+const activeColorMode = computed(() => appStore.colorMode)
 const showLayout = computed(() => {
   return !route.matched.some((r) => r.meta?.noLayout)
 })
@@ -109,12 +115,7 @@ function onPlaySound(name) {
 }
 
 onMounted(async () => {
-  betaNow.value = new Date()
-  betaTimer = window.setInterval(() => {
-    betaNow.value = new Date()
-  }, 60 * 1000)
-
-  if (betaExpired.value) return
+  window.addEventListener('keydown', onEmergencyCustomCssReset, true)
   if (!window.electronAPI?.db) return
   const spaces = useSpacesStore()
   const agents = useAgentsStore()
@@ -133,8 +134,11 @@ onMounted(async () => {
     recycleBin.loadFromDb(),
     notes.loadFromDb(),
   ])
-  settingsStore.applyAccentColor()
-  settingsStore.applyThemeMode()
+  await settingsStore.loadThemes()
+  const themeResult = await settingsStore.applyTheme()
+  if (!themeResult?.success) await settingsStore.applyTheme('default')
+  const customCssResult = await settingsStore.loadCustomCss()
+  if (!customCssResult?.success) msg.warning(customCssResult?.error || '自定义 CSS 未能加载')
 
   // Listen for play-sound events from main process
   window.electronAPI?.onPlaySound?.(onPlaySound)
@@ -157,7 +161,7 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
-  if (betaTimer) window.clearInterval(betaTimer)
+  window.removeEventListener('keydown', onEmergencyCustomCssReset, true)
   window.electronAPI?.webImport?.removeNotificationListener?.(webImportNotificationHandler)
   if (typeof trayNavigateHandler === 'function') {
     window.electronAPI?.removeTrayNavigateListener?.(trayNavigateHandler)
@@ -166,29 +170,30 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div :class="themeClass" class="h-full w-full">
-    <BetaExpiredScreen v-if="betaExpired" :release="BETA_RELEASE" />
-    <template v-else>
-      <router-view v-if="!showLayout" />
-      <AppLayout v-else :icon-rail-width="iconRailWidth">
-        <router-view />
-      </AppLayout>
-      <MsMessageContainer />
-      <CommandPalette :visible="commandPaletteVisible" @close="commandPaletteVisible = false" />
-      <StartupGuideModal v-model:show="showStartupGuide" />
+  <div
+    :class="themeClass"
+    :data-theme="activeThemeId"
+    :data-color-mode="activeColorMode"
+    class="h-full w-full">
+    <router-view v-if="!showLayout" />
+    <AppLayout v-else :icon-rail-width="iconRailWidth">
+      <router-view />
+    </AppLayout>
+    <MsMessageContainer />
+    <CommandPalette :visible="commandPaletteVisible" @close="commandPaletteVisible = false" />
+    <StartupGuideModal v-model:show="showStartupGuide" />
 
-      <AppUpdateModal
-        v-model:show="showUpdateModal"
-        :is-dark="isDark"
-        :checking="checking"
-        :update-info="updateInfo"
-        :downloading="downloading"
-        :download-progress="downloadProgress"
-        :downloaded="downloaded"
-        :error="error"
-        @check="checkForUpdate"
-        @download="downloadUpdate"
-        @install="installUpdate" />
-    </template>
+    <AppUpdateModal
+      v-model:show="showUpdateModal"
+      :is-dark="isDark"
+      :checking="checking"
+      :update-info="updateInfo"
+      :downloading="downloading"
+      :download-progress="downloadProgress"
+      :downloaded="downloaded"
+      :error="error"
+      @check="checkForUpdate"
+      @download="downloadUpdate"
+      @install="installUpdate" />
   </div>
 </template>

@@ -53,11 +53,12 @@ function isUsableProvider(provider, supported) {
     || provider?.enabled === 1
     || provider?.enabled === '1'
     || provider?.enabled === 'true'
+  const type = String(provider?.type || '').toLowerCase()
   return !!provider
     && enabled
     && !!String(provider.base_url || '').trim()
-    && !!String(provider.api_key_ref || '').trim()
-    && supported.has(String(provider.type || '').toLowerCase())
+    && (type === 'paddleocr' || !!String(provider.api_key_ref || '').trim())
+    && supported.has(type)
 }
 
 export function selectOcrProvider(providers = [], providerId = 'auto') {
@@ -89,7 +90,8 @@ export class PdfOcrService {
       }
       if (!provider) return { error: 'PDF_OCR_PROVIDER_NOT_CONFIGURED', message: '指定的 OCR provider 不存在。' }
       if (!provider.enabled) return { error: 'PDF_OCR_PROVIDER_DISABLED', message: '指定的 OCR provider 未启用。' }
-      if (!String(provider.base_url || '').trim() || !String(provider.api_key_ref || '').trim()) return { error: 'PDF_OCR_PROVIDER_NOT_CONFIGURED', message: '指定的 OCR provider 尚未配置完整 URL/API Key。' }
+      const type = String(provider.type || '').toLowerCase()
+      if (!String(provider.base_url || '').trim() || (type !== 'paddleocr' && !String(provider.api_key_ref || '').trim())) return { error: 'PDF_OCR_PROVIDER_NOT_CONFIGURED', message: '指定的 OCR provider 尚未配置完整 URL/API Key。' }
       if (!supported.has(String(provider.type || '').toLowerCase())) {
         return { error: 'PDF_OCR_PROVIDER_NOT_CONFIGURED', message: '当前 PDF OCR 仅支持 MinerU 和 PaddleOCR。' }
       }

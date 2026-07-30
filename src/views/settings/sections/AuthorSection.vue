@@ -2,128 +2,114 @@
 import { computed } from 'vue';
 import { useAppStore } from '@/stores/app';
 import logoUrl from '@/assets/logo-light.png';
-import { getAppVersion } from '@/utils/tools'
+import { getAppVersion } from '@/utils/tools';
 
-const appVersion = getAppVersion()
+const appVersion = getAppVersion();
 const appStore = useAppStore();
 const isDark = computed(() => appStore.isDark);
 
+/* ── 文案（对齐 README 定位） ── */
 const author = {
   name: '明辰',
   role: 'Reviva 设计与开发',
-  bio: 'AI 应该帮人学得更好，而不只是答得更快。Reviva 想做的是把 AI 和学习真正绑在一起——你带着自己的资料来，AI 基于你的上下文回答问题、帮你梳理知识、生成复习材料和学习产出，而不是给你一个脱离语境的通用答案。',
+  bio: 'AI 应该帮人学得更好，而不只是答得更快。',
   bioExtra:
-    'Reviva 是一个面向学习者的 AI 桌面应用，围绕你的资料完成问答、复习和创作输出，所有动作都在同一个本地工作区里连续完成。Reviva 1.0 已正式发布，欢迎分享使用体验和建议。',
-  email: '1906837163@qq.com'
+    'Reviva 是一个以 Agent 为核心的本地学习工作台——不是带一堆工具的聊天窗口，而是 Agent 理解你的资料、调用工具、遵循权限，把结果变成可复用学习产出的完整工作区。对话、文档、知识库、笔记、复习和创作输出，都在同一个本地空间里连续发生。',
+  email: '1906837163@qq.com',
 };
 
-const focus = ['AI 辅助学习', '资料驱动问答', '学练用一体', '创作工作台'];
+const focus = [
+  { text: 'Agent 驱动', tone: 'brand' },
+  { text: '本地优先', tone: 'purple' },
+  { text: '可视化学习', tone: 'emerald' },
+  { text: '知识持续捕获', tone: 'amber' },
+];
 
 const social = [
-  {
-    name: 'Email',
-    icon: 'ri-mail-line',
-    value: '1906837163@qq.com',
-    url: 'mailto:1906837163@qq.com',
-    color: 'brand',
-    svg: false
-  },
-  {
-    name: '抖音',
-    icon: 'ri-tiktok-line',
-    value: 'Reviva 抖音',
-    url: '',
-    color: 'tiktok',
-    svg: false
-  },
+  { name: 'Email', icon: 'ri-mail-line', value: '1906837163@qq.com', url: 'mailto:1906837163@qq.com', color: 'brand', svg: false },
+  { name: 'GitHub', icon: 'ri-github-fill', value: 'mingchen666/Reviva', url: 'https://github.com/mingchen666/Reviva', color: 'brand', svg: false },
+  { name: '抖音', icon: 'ri-tiktok-line', value: 'Reviva 抖音', url: '', color: 'tiktok', svg: false },
   { name: '小红书', icon: 'xiaohongshu', value: 'Reviva 小红书', url: '', color: 'red', svg: true },
-  {
-    name: 'Bilibili',
-    icon: 'ri-bilibili-line',
-    value: 'B站账号',
-    url: '',
-    color: 'pink',
-    svg: false
-  }
+  { name: 'Bilibili', icon: 'ri-bilibili-line', value: 'B站账号', url: '', color: 'pink', svg: false },
 ];
 
 const intent = [
   {
     icon: 'ri-book-open-line',
-    title: '带着资料学',
     num: '01',
-    desc: '导入 PDF、DOCX、Markdown 等学习资料后，AI 基于你的知识库回答问题。不是通用聊天，而是围绕你在学的内容对话。',
-    color: 'brand'
+    title: '你的资料，就是你的上下文',
+    desc: '导入文档、文件夹或 Wiki 知识库，选择 Agent 开始对话。用 @ 快速引用、/ 调用技能，AI 始终围绕你在学的内容回答。',
+    color: 'brand',
   },
   {
     icon: 'ri-mind-map',
-    title: '理解之后练',
     num: '02',
-    desc: '学完不等于记住。AI 帮你把资料变成闪卡、测验和导图，从"看过了"到"掌握了"之间，用主动回忆和结构梳理把知识扎牢。',
-    color: 'purple'
+    title: '从"看过"到"掌握"',
+    desc: 'AI 把资料变成测验、闪卡、导图、知识图谱和图表，用主动回忆和结构梳理把知识扎牢。',
+    color: 'purple',
   },
   {
     icon: 'ri-rocket-line',
-    title: '练完之后用',
     num: '03',
-    desc: '学习不该止步于笔记。把理解成果继续生成深度研究、播客、PPT 等可交付的内容——从"我学过"到"我产出了"。',
-    color: 'emerald'
-  }
+    title: '不止学过，还要产出',
+    desc: '生成 PPT、播客、深度研究报告等可交付内容，再存回笔记和 Wiki，产出继续喂给下一轮学习。',
+    color: 'emerald',
+  },
 ];
 
 const focusAreas = [
   {
-    title: 'AI 辅助学习',
-    items: ['资料驱动问答', '闪卡与测验', '知识导图梳理'],
-    icon: 'ri-book-open-line',
-    color: 'brand'
+    title: 'Agent 协作',
+    items: ['多 Agent 切换', '共享上下文', '全局记忆'],
+    icon: 'ri-robot-2-line',
+    color: 'brand',
   },
   {
-    title: '学习资料管理',
-    items: ['多格式导入', '上下文检索增强', 'Agent 输出联动'],
-    icon: 'ri-file-list-3-line',
-    color: 'purple'
+    title: '资料与知识库',
+    items: ['多格式导入', 'Wiki 知识管理', '上下文检索增强'],
+    icon: 'ri-database-2-line',
+    color: 'purple',
   },
   {
-    title: '学习成果产出',
-    items: ['深度研究与报告', 'PPT 与播客', '可交付内容生成'],
-    icon: 'ri-rocket-line',
-    color: 'emerald'
-  }
+    title: '学习与创作',
+    items: ['测验 / 闪卡 / 导图', 'PPT / 播客 / 图表', '深度研究报告'],
+    icon: 'ri-palette-line',
+    color: 'emerald',
+  },
 ];
 
 const milestones = [
   {
     icon: 'ri-seedling-line',
+    phase: '起点',
     title: '项目启动',
-    desc: '从"学完就忘、资料散落"的痛点出发，构思一个让 AI 围绕你的资料辅助学习的桌面工具',
-    color: 'brand'
+    desc: '从"学完就忘、资料散落、每次从空白对话开始"的痛点出发，构思一个以 Agent 为核心的本地学习工作台',
+    color: 'brand',
   },
   {
     icon: 'ri-rocket-line',
-    title: '正式发布',
-    desc: 'Reviva 1.0 正式上线，资料问答、学习巩固和创作输出形成完整工作流',
-    color: 'emerald'
+    phase: '里程碑',
+    title: '1.0 正式发布',
+    desc: 'Agent 工作台、资料问答、Wiki 知识库、学习巩固、创作输出形成完整闭环，支持 Windows 与 macOS',
+    color: 'emerald',
   },
   {
     icon: 'ri-road-map-line',
+    phase: '进行中',
     title: '持续迭代',
-    desc: '补齐学习统计、错误恢复等体验，逐步开放更多学习场景和创作能力',
-    color: 'emerald'
-  }
+    desc: '音视频解析与转写、更多 Agent 技能、学习统计、MCP 工具扩展，逐步开放更多学习场景',
+    color: 'purple',
+  },
 ];
 
 const stats = [
-  { label: '发布状态', value: '正式版', icon: 'ri-shield-check-line', iconColor: 'text-emerald-400' },
-  {
-    label: '当前版本',
-    value: appVersion,
-    icon: 'ri-code-s-slash-line',
-    iconColor: 'text-brand-400'
-  },
-  { label: '支持平台', value: 'Windows | macOS', icon: 'ri-windows-fill', iconColor: 'text-brand-400' }
+  { label: '发布状态', value: '正式版 · Stable', icon: 'ri-shield-check-line', iconColor: 'text-emerald-400' },
+  { label: '当前版本', value: `v${appVersion}`, icon: 'ri-code-s-slash-line', iconColor: 'text-brand-400' },
+  { label: '支持平台', value: 'Windows / macOS', icon: 'ri-computer-line', iconColor: 'text-purple-400' },
+  { label: '开源协议', value: 'AGPL-3.0 + 商用', icon: 'ri-open-source-line', iconColor: 'text-amber-400' },
 ];
 
+/* ── 工具函数 ── */
 function open(url) {
   if (!url) return;
   if (window.electronAPI?.openExternal) {
@@ -135,69 +121,50 @@ function open(url) {
   }
 }
 
-// 统一四色体系：brand / purple / emerald / amber
 function toneClass(tone) {
   const dark = {
     brand: 'bg-brand-400/10 text-brand-400 border-brand-400/20',
     purple: 'bg-purple-400/10 text-purple-400 border-purple-400/20',
     emerald: 'bg-emerald-400/10 text-emerald-400 border-emerald-400/20',
-    amber: 'bg-amber-400/10 text-amber-400 border-amber-400/20'
+    amber: 'bg-amber-400/10 text-amber-400 border-amber-400/20',
   };
   const light = {
     brand: 'bg-brand-50 text-brand-600 border-brand-100',
     purple: 'bg-purple-50 text-purple-600 border-purple-100',
     emerald: 'bg-emerald-50 text-emerald-600 border-emerald-100',
-    amber: 'bg-amber-50 text-amber-700 border-amber-100'
+    amber: 'bg-amber-50 text-amber-700 border-amber-100',
   };
   return (isDark.value ? dark : light)[tone] || dark.brand;
 }
 
-// 社交图标：各平台品牌色
+function toneText(tone) {
+  const dark = { brand: 'text-brand-400', purple: 'text-purple-400', emerald: 'text-emerald-400', amber: 'text-amber-400' };
+  const light = { brand: 'text-brand-600', purple: 'text-purple-600', emerald: 'text-emerald-600', amber: 'text-amber-600' };
+  return (isDark.value ? dark : light)[tone] || dark.brand;
+}
+
 function socialIconStyle(color) {
-  const dark = {
-    brand: 'text-brand-400',
-    tiktok: 'text-white',
-    red: 'text-red-400',
-    pink: 'text-pink-400'
-  };
-  const light = {
-    brand: 'text-brand-600',
-    tiktok: 'text-gray-800',
-    red: 'text-red-600',
-    pink: 'text-pink-600'
-  };
+  const dark = { brand: 'text-brand-400', tiktok: 'text-white', red: 'text-red-400', pink: 'text-pink-400' };
+  const light = { brand: 'text-brand-600', tiktok: 'text-gray-800', red: 'text-red-600', pink: 'text-pink-600' };
   return (isDark.value ? dark : light)[color] || dark.brand;
-}
-
-// 重点方向：三组各用 brand/purple/emerald
-function focusColor(color) {
-  const t = toneClass(color);
-  const parts = t.split(' ');
-  return { icon: parts[1], bg: parts[0], pill: t };
-}
-
-// 开发历程
-function milestoneColor(color) {
-  return toneClass(color);
 }
 </script>
 
 <template>
   <div class="max-w-5xl mx-auto px-6 lg:px-8 py-6 space-y-5">
-    <!-- Author Hero -->
+
+    <!-- ═══ Author Hero ═══ -->
     <div
       class="rounded-xl p-5 overflow-hidden relative"
       :class="isDark ? 'bg-d3 border border-bdr' : 'bg-l3 border border-bdrF'"
     >
-      <div
-        class="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-brand-400 via-purple-500 to-emerald-400"
-      ></div>
+      <div class="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-brand-400 via-purple-500 to-emerald-400" />
+
       <div class="flex items-start gap-4 pt-1">
-        <div
-          class="w-16 h-16 rounded-2xl flex items-center justify-center text-2xl font-black shrink-0"
-        >
+        <div class="w-16 h-16 rounded-2xl overflow-hidden shrink-0">
           <img :src="logoUrl" alt="" class="w-16 h-16 rounded-2xl" />
         </div>
+
         <div class="min-w-0 flex-1">
           <div class="flex items-center gap-2 flex-wrap mb-1">
             <h2 class="text-[21px] font-bold" :class="isDark ? 'text-wt-main' : 'text-lt-main'">
@@ -208,10 +175,8 @@ function milestoneColor(color) {
           <p class="text-[12px] mb-3 font-medium" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">
             {{ author.role }}
           </p>
-          <div
-            class="flex items-center gap-3 text-[11px] mb-3"
-            :class="isDark ? 'text-wt-aux' : 'text-lt-aux'"
-          >
+
+          <div class="flex items-center gap-3 text-[11px] mb-3" :class="isDark ? 'text-wt-aux' : 'text-lt-aux'">
             <a
               @click.prevent="open(`mailto:${author.email}`)"
               class="flex items-center gap-1 hover:underline cursor-pointer"
@@ -220,32 +185,67 @@ function milestoneColor(color) {
               {{ author.email }}
             </a>
           </div>
-          <p
-            class="text-[12px] leading-relaxed mb-2"
-            :class="isDark ? 'text-wt-aux' : 'text-lt-aux'"
-          >
+
+          <!-- 理念：稍大稍重 -->
+          <p class="text-[13px] leading-relaxed font-medium mb-1.5" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">
             {{ author.bio }}
           </p>
-          <p
-            class="text-[12px] leading-relaxed mb-3"
-            :class="isDark ? 'text-wt-aux' : 'text-lt-aux'"
-          >
+          <!-- 产品简介：辅助色、控行宽 -->
+          <p class="text-[12px] leading-relaxed mb-3 max-w-xl" :class="isDark ? 'text-wt-aux' : 'text-lt-aux'">
             {{ author.bioExtra }}
           </p>
+
           <div class="flex flex-wrap gap-1.5">
             <span
-              v-for="(tag, i) in focus"
-              :key="tag"
+              v-for="tag in focus"
+              :key="tag.text"
               class="ctx-pill border"
-              :class="toneClass(['brand', 'purple', 'emerald', 'amber'][i])"
-              >{{ tag }}</span
+              :class="toneClass(tag.tone)"
             >
+              {{ tag.text }}
+            </span>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- Stats + Contact -->
+    <!-- ═══ 设计意图 ═══ -->
+    <div
+      class="rounded-xl p-4"
+      :class="isDark ? 'bg-d3 border border-bdr' : 'bg-l3 border border-bdrF'"
+    >
+      <div class="flex items-center gap-2 mb-4">
+        <i class="ri-lightbulb-flash-line text-brand-400 text-[14px]" />
+        <span class="section-title" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">设计意图</span>
+        <span class="ml-auto text-[10px] tracking-wide" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">
+  导入 → 巩固 → 产出 → 沉淀
+        </span>
+      </div>
+
+      <div class="grid grid-cols-3 gap-3">
+        <div
+          v-for="item in intent"
+          :key="item.title"
+          class="rounded-lg p-3.5"
+          :class="isDark ? 'bg-d0' : 'bg-l2'"
+        >
+          <div class="flex items-center justify-between mb-2.5">
+            <i :class="[item.icon, 'text-[18px]', toneText(item.color)]" />
+            <span class="text-[10px] font-mono font-bold" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">
+              {{ item.num }}
+            </span>
+          </div>
+          <h4 class="text-[13px] font-bold mb-1.5" :class="isDark ? 'text-wt-main' : 'text-lt-main'">
+            {{ item.title }}
+          </h4>
+          <p class="text-[11px] leading-relaxed" :class="isDark ? 'text-wt-aux' : 'text-lt-aux'">
+            {{ item.desc }}
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ 产品状态 + 联系方式 ═══ -->
     <div class="grid grid-cols-2 gap-4">
       <div
         class="rounded-xl p-4"
@@ -253,9 +253,7 @@ function milestoneColor(color) {
       >
         <div class="flex items-center gap-2 mb-3">
           <i class="ri-bar-chart-box-line text-brand-400 text-[14px]" />
-          <span class="section-title" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'"
-            >产品状态</span
-          >
+          <span class="section-title" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">产品状态</span>
         </div>
         <div class="space-y-2">
           <div
@@ -266,14 +264,12 @@ function milestoneColor(color) {
           >
             <i :class="[stat.icon, 'text-[16px]', stat.iconColor]" />
             <div class="flex-1 min-w-0">
-              <span class="block text-[10px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">{{
-                stat.label
-              }}</span>
-              <span
-                class="block text-[12px] font-bold"
-                :class="isDark ? 'text-wt-main' : 'text-lt-main'"
-                >{{ stat.value }}</span
-              >
+              <span class="block text-[10px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">
+                {{ stat.label }}
+              </span>
+              <span class="block text-[12px] font-bold" :class="isDark ? 'text-wt-main' : 'text-lt-main'">
+                {{ stat.value }}
+              </span>
             </div>
           </div>
         </div>
@@ -285,9 +281,7 @@ function milestoneColor(color) {
       >
         <div class="flex items-center gap-2 mb-3">
           <i class="ri-links-line text-purple-400 text-[14px]" />
-          <span class="section-title" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'"
-            >联系方式</span
-          >
+          <span class="section-title" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">联系方式</span>
         </div>
         <div class="space-y-0.5">
           <div
@@ -295,7 +289,7 @@ function milestoneColor(color) {
             :key="item.name"
             class="flex items-center gap-2.5 py-1.5 px-2 rounded-lg transition-colors"
             :class="[
-              item.url ? 'cursor-pointer hover:bg-white/4' : '',
+              item.url ? 'cursor-pointer' : 'opacity-60',
               isDark ? (item.url ? 'hover:bg-white/4' : '') : item.url ? 'hover:bg-l4' : ''
             ]"
             @click="item.url && open(item.url)"
@@ -308,14 +302,12 @@ function milestoneColor(color) {
             />
             <i v-else :class="[item.icon, 'text-[16px]', socialIconStyle(item.color)]" />
             <span class="flex-1 min-w-0">
-              <span
-                class="block text-[11px] font-medium"
-                :class="isDark ? 'text-wt-sub' : 'text-lt-sub'"
-                >{{ item.name }}</span
-              >
-              <span class="block text-[10px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">{{
-                item.value
-              }}</span>
+              <span class="block text-[11px] font-medium" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">
+                {{ item.name }}
+              </span>
+              <span class="block text-[10px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">
+                {{ item.value }}
+              </span>
             </span>
             <i
               v-if="item.url"
@@ -327,44 +319,7 @@ function milestoneColor(color) {
       </div>
     </div>
 
-    <!-- Design Intent -->
-    <div
-      class="rounded-xl p-4"
-      :class="isDark ? 'bg-d3 border border-bdr' : 'bg-l3 border border-bdrF'"
-    >
-      <div class="flex items-center gap-2 mb-4">
-        <i class="ri-lightbulb-flash-line text-brand-400 text-[14px]" />
-        <span class="section-title" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">设计意图</span>
-      </div>
-      <div class="grid grid-cols-3 gap-3">
-        <div
-          v-for="item in intent"
-          :key="item.title"
-          class="rounded-lg p-3.5"
-          :class="isDark ? 'bg-d0' : 'bg-l2'"
-        >
-          <div class="flex items-center gap-2.5 mb-2.5">
-            <i :class="[item.icon, 'text-[18px]', toneClass(item.color).split(' ')[1]]" />
-            <span
-              class="text-[10px] font-mono font-bold"
-              :class="isDark ? 'text-wt-dim' : 'text-lt-aux'"
-              >{{ item.num }}</span
-            >
-          </div>
-          <h4
-            class="text-[13px] font-bold mb-1.5"
-            :class="isDark ? 'text-wt-main' : 'text-lt-main'"
-          >
-            {{ item.title }}
-          </h4>
-          <p class="text-[11px] leading-relaxed" :class="isDark ? 'text-wt-aux' : 'text-lt-aux'">
-            {{ item.desc }}
-          </p>
-        </div>
-      </div>
-    </div>
-
-    <!-- Focus + Milestones -->
+    <!-- ═══ 重点方向 + 开发历程 ═══ -->
     <div class="grid grid-cols-2 gap-4">
       <div
         class="rounded-xl p-4"
@@ -372,9 +327,7 @@ function milestoneColor(color) {
       >
         <div class="flex items-center gap-2 mb-4">
           <i class="ri-focus-3-line text-purple-400 text-[14px]" />
-          <span class="section-title" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'"
-            >重点方向</span
-          >
+          <span class="section-title" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">重点方向</span>
         </div>
         <div class="space-y-2.5">
           <div
@@ -384,19 +337,20 @@ function milestoneColor(color) {
             :class="isDark ? 'bg-d0' : 'bg-l2'"
           >
             <div class="flex items-center gap-2 mb-2">
-              <i :class="[area.icon, 'text-[15px]', focusColor(area.color).icon]" />
-              <span class="text-[12px] font-bold" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">{{
-                area.title
-              }}</span>
+              <i :class="[area.icon, 'text-[15px]', toneText(area.color)]" />
+              <span class="text-[12px] font-bold" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">
+                {{ area.title }}
+              </span>
             </div>
-            <div class="flex flex-wrap gap-1.5 pl-8">
+            <div class="flex flex-wrap gap-1.5 pl-7">
               <span
                 v-for="item in area.items"
                 :key="item"
                 class="ctx-pill border"
-                :class="focusColor(area.color).pill"
-                >{{ item }}</span
+                :class="toneClass(area.color)"
               >
+                {{ item }}
+              </span>
             </div>
           </div>
         </div>
@@ -408,9 +362,7 @@ function milestoneColor(color) {
       >
         <div class="flex items-center gap-2 mb-4">
           <i class="ri-road-map-line text-emerald-400 text-[14px]" />
-          <span class="section-title" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'"
-            >开发历程</span
-          >
+          <span class="section-title" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">开发历程</span>
         </div>
         <div class="space-y-2.5">
           <div
@@ -419,31 +371,32 @@ function milestoneColor(color) {
             class="rounded-lg p-3 flex items-start gap-3"
             :class="isDark ? 'bg-d0' : 'bg-l2'"
           >
-            <i :class="[m.icon, 'text-[16px]', milestoneColor(m.color).split(' ')[1]]" />
+            <i :class="[m.icon, 'text-[16px] mt-0.5', toneText(m.color)]" />
             <div class="min-w-0">
-              <span
-                class="block text-[12px] font-bold"
-                :class="isDark ? 'text-wt-sub' : 'text-lt-sub'"
-                >{{ m.title }}</span
-              >
-              <span
-                class="block text-[11px] leading-relaxed mt-0.5"
-                :class="isDark ? 'text-wt-aux' : 'text-lt-aux'"
-                >{{ m.desc }}</span
-              >
+              <div class="flex items-center gap-2 mb-0.5">
+                <span class="text-[12px] font-bold" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">
+                  {{ m.title }}
+                </span>
+                <span class="ctx-pill border text-[9px]" :class="toneClass(m.color)">
+                  {{ m.phase }}
+                </span>
+              </div>
+              <span class="block text-[11px] leading-relaxed" :class="isDark ? 'text-wt-aux' : 'text-lt-aux'">
+                {{ m.desc }}
+              </span>
             </div>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- Footer -->
+    <!-- ═══ Footer ═══ -->
     <div class="flex items-center justify-center gap-2 pt-2">
-      <div class="h-px flex-1" :class="isDark ? 'bg-bdr' : 'bg-bdrF'"></div>
+      <div class="h-px flex-1" :class="isDark ? 'bg-bdr' : 'bg-bdrF'" />
       <p class="text-[10px] px-3" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">
-        © 2026 Reviva · {{ author.name }} · 用心打磨中
+        © 2026 Reviva · {{ author.name }} · v{{ appVersion }} · AGPL-3.0
       </p>
-      <div class="h-px flex-1" :class="isDark ? 'bg-bdr' : 'bg-bdrF'"></div>
+      <div class="h-px flex-1" :class="isDark ? 'bg-bdr' : 'bg-bdrF'" />
     </div>
   </div>
 </template>

@@ -5,6 +5,7 @@ export function registerDbHandlers(db, services = {}) {
   const notes = services.notes || db
   const noteFolders = services.noteFolders || db
   const mediaLifecycle = services.mediaLifecycle || null
+  const learningMemory = services.learningMemory || null
   // ─── Spaces ───
   ipcMain.handle('db:spaces:list', () => db.listSpaces())
   ipcMain.handle('db:spaces:get', (_, id) => db.getSpace(id))
@@ -29,6 +30,7 @@ export function registerDbHandlers(db, services = {}) {
     const messages = mediaLifecycle ? db.listMsgs(id) : []
     const result = db.deleteConv(id)
     if (messages.length) mediaLifecycle.onMessagesDeleted(messages.map(message => message.id))
+    learningMemory?.deleteByConversation?.(id)
     return result
   })
 
@@ -49,6 +51,7 @@ export function registerDbHandlers(db, services = {}) {
   ipcMain.handle('db:msgs:delete', (_, id) => {
     const result = db.deleteMsg(id)
     mediaLifecycle?.onMessagesDeleted?.([id])
+    learningMemory?.deleteByMessage?.(id)
     return result
   })
 
@@ -64,7 +67,28 @@ export function registerDbHandlers(db, services = {}) {
   ipcMain.handle('db:skills:list', () => db.listSkills())
   ipcMain.handle('db:skills:create', (_, data) => db.createSkill(data))
   ipcMain.handle('db:skills:update', (_, id, data) => db.updateSkill(id, data))
-  ipcMain.handle('db:skills:delete', (_, id) => db.deleteSkill(id))
+  ipcMain.handle('db:skills:delete', (_, id, options = {}) => {
+    const skill = db.listSkills().find(item => item.id === id)
+    if (!skill) return { success: true }
+    if (skill.source === 'platform' || skill.builtin) return { success: false, code: 'BUILTIN_SKILL', error: '内置 Skill 不能删除' }
+
+    const agentRefs = db.listAgents().filter(agent => Array.isArray(agent.skills) && agent.skills.includes(id))
+    const subAgentRefs = db.listSubAgents().filter(agent => Array.isArray(agent.skills) && agent.skills.includes(id))
+    const usedBy = [
+      ...agentRefs.map(agent => ({ id: agent.id, name: agent.name, type: 'agent' })),
+      ...subAgentRefs.map(agent => ({ id: agent.id, name: agent.name, type: 'subagent' })),
+    ]
+    if (usedBy.length && !options.force) return { success: false, code: 'SKILL_IN_USE', usedBy }
+
+    const deleteFromDb = db.db.transaction(() => {
+      if (options.force) {
+        for (const agent of agentRefs) db.updateAgent(agent.id, { skills: agent.skills.filter(skillId => skillId !== id) })
+        for (const agent of subAgentRefs) db.updateSubAgent(agent.id, { skills: agent.skills.filter(skillId => skillId !== id) })
+      }
+      return db.deleteSkill(id)
+    })
+    return { ...deleteFromDb(), usedBy }
+  })
 
   // ─── Tools ───
   ipcMain.handle('db:tools:list', () => db.listTools())

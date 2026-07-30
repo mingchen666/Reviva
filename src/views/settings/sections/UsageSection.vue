@@ -12,16 +12,11 @@ const settingsStore = useSettingsStore()
 const agentsStore = useAgentsStore()
 const isDark = computed(() => appStore.isDark)
 
+/* ── 时间范围 ── */
 const usageRange = ref('today')
 const customDate = ref('')
 const customMonth = ref('')
-
-const activeRange = computed(() => {
-  if (customDate.value) return customDate.value
-  if (customMonth.value) return customMonth.value
-  return usageRange.value
-})
-
+const activeRange = computed(() => customDate.value || customMonth.value || usageRange.value)
 const rangeOptions = [
   { value: 'today', label: '今日' },
   { value: 'yesterday', label: '昨日' },
@@ -29,53 +24,69 @@ const rangeOptions = [
   { value: 'month', label: '本月' },
   { value: 'year', label: '本年' },
 ]
+function onPresetClick(val) {
+  usageRange.value = val
+  customDate.value = ''
+  customMonth.value = ''
+}
+function onCustomDateChange() { if (customDate.value) customMonth.value = '' }
+function onCustomMonthChange() { if (customMonth.value) customDate.value = '' }
 
+/* ── 颜色 & 分段 ── */
 const tokenColors = {
   input:       { dark: '#6C8AFF', light: '#4A6CFF' },
   output:      { dark: '#A78BFA', light: '#7C3AED' },
-  cache_read:  { dark: '#38BDF8', light: '#0ea5e9' },
-  cache_write: { dark: '#FACC15', light: '#eab308' },
-  thinking:    { dark: '#8B5CF6', light: '#7c3aed' },
+  cache_read:  { dark: '#38BDF8', light: '#0EA5E9' },
+  cache_write: { dark: '#FACC15', light: '#D9A406' },
+  thinking:    { dark: '#F472B6', light: '#EC4899' },
 }
-
 function tokenColor(type) {
   return isDark.value ? tokenColors[type].dark : tokenColors[type].light
 }
+const tokenSegments = [
+  { key: 'input_tokens', type: 'input', label: '输入' },
+  { key: 'output_tokens', type: 'output', label: '输出' },
+  { key: 'cache_read_tokens', type: 'cache_read', label: '缓存读' },
+  { key: 'cache_write_tokens', type: 'cache_write', label: '缓存写' },
+  { key: 'thinking_tokens', type: 'thinking', label: '推理' },
+]
 
-const summary = computed(() => tokenUsage.summary || { total_tokens: 0, input_tokens: 0, output_tokens: 0, cache_read_tokens: 0, cache_write_tokens: 0, thinking_tokens: 0, total_cost: 0, call_count: 0, avg_latency: 0 })
-
-const breakdownItems = computed(() => [
-  { key: 'input_tokens', label: '输入', type: 'input' },
-  { key: 'output_tokens', label: '输出', type: 'output' },
-  { key: 'cache_read_tokens', label: '缓存读', type: 'cache_read' },
-  { key: 'cache_write_tokens', label: '缓存写', type: 'cache_write' },
-  { key: 'thinking_tokens', label: '推理', type: 'thinking' },
-])
-
-const totalForBreakdown = computed(() => {
-  const s = summary.value
-  return (s.input_tokens || 0) + (s.output_tokens || 0) + (s.cache_read_tokens || 0) + (s.cache_write_tokens || 0) + (s.thinking_tokens || 0) || 1
+/* ── 汇总 ── */
+const summary = computed(() => tokenUsage.summary || {
+  total_tokens: 0, input_tokens: 0, output_tokens: 0,
+  cache_read_tokens: 0, cache_write_tokens: 0, thinking_tokens: 0,
+  total_cost: 0, call_count: 0, avg_latency: 0,
 })
 
 const breakdownPercent = computed(() => {
   const s = summary.value
-  const t = totalForBreakdown.value
+  const t = (s.input_tokens || 0) + (s.output_tokens || 0) + (s.cache_read_tokens || 0) +
+    (s.cache_write_tokens || 0) + (s.thinking_tokens || 0) || 1
   return {
-    input: ((s.input_tokens || 0) / t) * 100,
-    output: ((s.output_tokens || 0) / t) * 100,
-    cache_read: ((s.cache_read_tokens || 0) / t) * 100,
-    cache_write: ((s.cache_write_tokens || 0) / t) * 100,
-    thinking: ((s.thinking_tokens || 0) / t) * 100,
+    input: (s.input_tokens || 0) / t * 100,
+    output: (s.output_tokens || 0) / t * 100,
+    cache_read: (s.cache_read_tokens || 0) / t * 100,
+    cache_write: (s.cache_write_tokens || 0) / t * 100,
+    thinking: (s.thinking_tokens || 0) / t * 100,
   }
 })
 
+/* ── 缓存命中率（分母 = 全部输入侧 token） ── */
+const chartReady = ref(false)
+const cacheStats = computed(() => {
+  const s = summary.value
+  const read = s.cache_read_tokens || 0
+  const inputSide = read + (s.cache_write_tokens || 0) + (s.input_tokens || 0)
+  return { read, rate: inputSide > 0 ? read / inputSide : 0 }
+})
+
+/* ── 名称解析 ── */
 function normalizeAgentId(id) {
   const key = String(id || '').trim()
   const lower = key.toLowerCase()
   if (lower.startsWith('wiki-agent:') || ['wikiagent', 'wiki_agent', 'wiki-agent'].includes(lower)) return 'wikiagent'
   return key
 }
-
 function resolveAgentName(id) {
   const normalizedId = normalizeAgentId(id)
   if (!normalizedId) return '未知'
@@ -83,13 +94,10 @@ function resolveAgentName(id) {
   const a = agentsStore.agents.find(x => x.id === normalizedId || x.englishName === normalizedId || x.english_name === normalizedId)
   return a?.name || normalizedId
 }
-
 function resolveProviderName(providerId) {
   if (!providerId) return ''
-  const provider = settingsStore.providers.find(p => p.id === providerId)
-  return provider?.name || providerId
+  return settingsStore.providers.find(p => p.id === providerId)?.name || providerId
 }
-
 function resolveModelName(providerId, modelId) {
   const scopedRef = encodeModelRef(providerId, modelId)
   const scopedName = settingsStore.getModelName(scopedRef)
@@ -101,14 +109,11 @@ function resolveModelName(providerId, modelId) {
   return '未知模型'
 }
 
+/* ── 聚合工具 ── */
 function tokenTotal(item) {
-  return (item.input_tokens || 0) +
-    (item.output_tokens || 0) +
-    (item.cache_read_tokens || 0) +
-    (item.cache_write_tokens || 0) +
-    (item.thinking_tokens || 0)
+  return (item.input_tokens || 0) + (item.output_tokens || 0) +
+    (item.cache_read_tokens || 0) + (item.cache_write_tokens || 0) + (item.thinking_tokens || 0)
 }
-
 function mergeUsageTotals(target, item) {
   target.calls += item.call_count || 0
   target.input_tokens += item.input_tokens || 0
@@ -119,43 +124,37 @@ function mergeUsageTotals(target, item) {
   target.cost += item.cost || 0
 }
 
-const modelUsage = computed(() => {
-  const data = tokenUsage.byModel || []
-  return data.map(m => ({
-    name: resolveModelName(m.provider_id || '', m.model_id || ''),
-    rawId: encodeModelRef(m.provider_id || '', m.model_id || '') || m.model_id || '',
-    providerId: m.provider_id || '',
-    providerName: resolveProviderName(m.provider_id || ''),
-    modelId: m.model_id || '',
-    input_tokens: m.input_tokens || 0,
-    output_tokens: m.output_tokens || 0,
-    cache_read_tokens: m.cache_read_tokens || 0,
-    cache_write_tokens: m.cache_write_tokens || 0,
-    thinking_tokens: m.thinking_tokens || 0,
-    total: tokenTotal(m),
-    cost: m.cost || 0,
-  }))
-})
+/* ── 按模型（Token / 成本 切换） ── */
+const modelMetric = ref('tokens')
+const modelUsage = computed(() => (tokenUsage.byModel || []).map(m => ({
+  name: resolveModelName(m.provider_id || '', m.model_id || ''),
+  rawId: encodeModelRef(m.provider_id || '', m.model_id || '') || m.model_id || '',
+  input_tokens: m.input_tokens || 0,
+  output_tokens: m.output_tokens || 0,
+  cache_read_tokens: m.cache_read_tokens || 0,
+  cache_write_tokens: m.cache_write_tokens || 0,
+  thinking_tokens: m.thinking_tokens || 0,
+  total: tokenTotal(m),
+  cost: m.cost || 0,
+})))
+const maxModelTotal = computed(() => Math.max(1, ...modelUsage.value.map(m => m.total)))
+const modelGrandTotal = computed(() => modelUsage.value.reduce((s, m) => s + m.total, 0))
+const maxModelCost = computed(() => Math.max(0.01, ...modelUsage.value.map(m => m.cost)))
+const modelCostTotal = computed(() => modelUsage.value.reduce((s, m) => s + m.cost, 0))
 
+/* ── 按 Agent ── */
 const agentUsage = computed(() => {
-  const data = tokenUsage.byAgent || []
   const grouped = new Map()
-  for (const item of data) {
+  for (const item of tokenUsage.byAgent || []) {
     const rawId = item.agent_id || ''
     const normalizedId = normalizeAgentId(rawId)
     const key = normalizedId || 'unknown'
     if (!grouped.has(key)) {
       grouped.set(key, {
         name: resolveAgentName(normalizedId || rawId),
-        rawId: normalizedId,
-        sourceIds: [],
-        calls: 0,
-        input_tokens: 0,
-        output_tokens: 0,
-        cache_read_tokens: 0,
-        cache_write_tokens: 0,
-        thinking_tokens: 0,
-        cost: 0,
+        rawId: normalizedId, sourceIds: [], calls: 0,
+        input_tokens: 0, output_tokens: 0, cache_read_tokens: 0,
+        cache_write_tokens: 0, thinking_tokens: 0, cost: 0,
       })
     }
     const target = grouped.get(key)
@@ -166,39 +165,70 @@ const agentUsage = computed(() => {
     .map(a => ({ ...a, total: tokenTotal(a) }))
     .sort((a, b) => b.total - a.total)
 })
+const maxAgentTotal = computed(() => Math.max(1, ...agentUsage.value.map(a => a.total)))
+const agentGrandTotal = computed(() => agentUsage.value.reduce((s, a) => s + a.total, 0))
 
-const dailyUsage = computed(() => {
-  const data = tokenUsage.daily || []
-  return data.map(d => ({
-    day: d.date ? d.date.slice(5) : '',
-    input_tokens: d.input_tokens || 0,
-    output_tokens: d.output_tokens || 0,
-    cache_read_tokens: d.cache_read_tokens || 0,
-    cache_write_tokens: d.cache_write_tokens || 0,
-    thinking_tokens: d.thinking_tokens || 0,
-    total: (d.input_tokens || 0) + (d.output_tokens || 0) + (d.cache_read_tokens || 0) + (d.cache_write_tokens || 0) + (d.thinking_tokens || 0),
-  }))
+/* ── 每日趋势（>31 天按月聚合） ── */
+const dailyUsage = computed(() => (tokenUsage.daily || []).map(d => ({
+  date: d.date || '',
+  day: d.date ? d.date.slice(5) : '',
+  month: d.date ? d.date.slice(0, 7) : '',
+  input_tokens: d.input_tokens || 0,
+  output_tokens: d.output_tokens || 0,
+  cache_read_tokens: d.cache_read_tokens || 0,
+  cache_write_tokens: d.cache_write_tokens || 0,
+  thinking_tokens: d.thinking_tokens || 0,
+  total: tokenTotal(d),
+})))
+
+const trendData = computed(() => {
+  const raw = dailyUsage.value
+  if (raw.length <= 31) return raw.map(d => ({ ...d, label: d.day }))
+  const map = new Map()
+  for (const d of raw) {
+    const key = d.month || d.day
+    if (!map.has(key)) {
+      map.set(key, {
+        label: key.length >= 7 ? key.slice(2) : key,
+        input_tokens: 0, output_tokens: 0, cache_read_tokens: 0,
+        cache_write_tokens: 0, thinking_tokens: 0, total: 0,
+      })
+    }
+    const t = map.get(key)
+    t.input_tokens += d.input_tokens
+    t.output_tokens += d.output_tokens
+    t.cache_read_tokens += d.cache_read_tokens
+    t.cache_write_tokens += d.cache_write_tokens
+    t.thinking_tokens += d.thinking_tokens
+    t.total += d.total
+  }
+  return [...map.values()]
 })
+const maxTrend = computed(() => Math.max(1, ...trendData.value.map(d => d.total)))
 
-const maxDaily = computed(() => {
-  const vals = dailyUsage.value.map(d => d.total)
-  return vals.length ? Math.max(...vals) : 1
-})
+function barHeight(total) {
+  return Math.max(3, (total / maxTrend.value) * 78)
+}
+function showTrendLabel(i) {
+  const n = trendData.value.length
+  if (n <= 16) return true
+  if (n <= 32) return i % 2 === 0
+  return i % 3 === 0
+}
+function segWidth(row, seg) {
+  return ((row[seg.key] || 0) / (row.total || 1)) * 100 + '%'
+}
+function pctOf(v, total) {
+  return ((v || 0) / (total || 1) * 100).toFixed(1)
+}
 
-const maxModelTotal = computed(() => {
-  const vals = modelUsage.value.map(m => m.total)
-  return vals.length ? Math.max(...vals) : 1
-})
-
-const maxAgentTotal = computed(() => {
-  const vals = agentUsage.value.map(a => a.total)
-  return vals.length ? Math.max(...vals) : 1
-})
-
-const topDailyUsage = computed(() =>
-  [...dailyUsage.value].sort((a, b) => b.total - a.total)[0] || null
-)
-
+/* ── 消耗热点 ── */
+function fmtTokens(n) {
+  if (n >= 1_000_000) return (n / 1_000_000).toFixed(2) + 'M'
+  if (n >= 1_000) return (n / 1_000).toFixed(n >= 100_000 ? 0 : 1) + 'K'
+  return n.toString()
+}
+const topDailyUsage = computed(() => [...dailyUsage.value].sort((a, b) => b.total - a.total)[0] || null)
 const hotspotItems = computed(() => {
   const day = topDailyUsage.value
   const model = modelUsage.value[0] || null
@@ -206,44 +236,24 @@ const hotspotItems = computed(() => {
   const total = summary.value.total_tokens || 1
   return [
     {
-      key: 'day',
-      label: '峰值日期',
-      icon: 'ri-calendar-event-line',
-      tone: 'emerald',
-      name: day?.day || '暂无',
-      value: day ? fmtTokens(day.total) : '0',
-      meta: '当日 Token',
-      percent: day ? Math.min(100, (day.total / total) * 100) : 0,
+      key: 'day', label: '峰值日期', icon: 'ri-calendar-event-line', tone: 'emerald',
+      name: day?.day || '暂无', value: day ? fmtTokens(day.total) : '0', meta: '当日 Token',
+      percent: day ? Math.min(100, day.total / total * 100) : 0,
     },
     {
-      key: 'model',
-      label: '最高模型',
-      icon: 'ri-cpu-line',
-      tone: 'brand',
-      name: model?.name || '暂无',
-      value: model ? fmtTokens(model.total) : '0',
+      key: 'model', label: '最高模型', icon: 'ri-cpu-line', tone: 'brand',
+      name: model?.name || '暂无', value: model ? fmtTokens(model.total) : '0',
       meta: model ? `¥${model.cost.toFixed(2)}` : '无成本',
-      percent: model ? Math.min(100, (model.total / total) * 100) : 0,
+      percent: model ? Math.min(100, model.total / total * 100) : 0,
     },
     {
-      key: 'agent',
-      label: '最高 Agent',
-      icon: 'ri-sparkling-2-line',
-      tone: 'agent',
-      name: agent?.name || '暂无',
-      value: agent ? fmtTokens(agent.total) : '0',
+      key: 'agent', label: '最高 Agent', icon: 'ri-sparkling-2-line', tone: 'agent',
+      name: agent?.name || '暂无', value: agent ? fmtTokens(agent.total) : '0',
       meta: agent ? `${agent.calls} 次` : '无调用',
-      percent: agent ? Math.min(100, (agent.total / total) * 100) : 0,
+      percent: agent ? Math.min(100, agent.total / total * 100) : 0,
     },
   ]
 })
-
-function fmtTokens(n) {
-  if (n >= 1_000_000) return (n / 1_000_000).toFixed(2) + 'M'
-  if (n >= 1_000) return (n / 1_000).toFixed(n >= 100_000 ? 0 : 1) + 'K'
-  return n.toString()
-}
-
 function hotspotToneClass(tone) {
   const classes = {
     emerald: isDark.value ? 'bg-emerald-400/10 text-emerald-400' : 'bg-emerald-50 text-emerald-600',
@@ -252,7 +262,6 @@ function hotspotToneClass(tone) {
   }
   return classes[tone] || classes.brand
 }
-
 function hotspotBarColor(tone) {
   const colors = {
     emerald: isDark.value ? '#34D399' : '#10B981',
@@ -261,34 +270,18 @@ function hotspotBarColor(tone) {
   }
   return colors[tone] || colors.brand
 }
-
 function hotspotBarWidth(percent) {
   return percent > 0 ? `${Math.max(6, percent)}%` : '0%'
 }
 
-function barHeight(total) {
-  const ratio = total / maxDaily.value
-  return Math.max(4, ratio * 100)
-}
+/* ── 总览环境光 ── */
+const heroGlowStyle = computed(() => ({
+  background: isDark.value
+    ? 'radial-gradient(560px 240px at 6% -12%, rgba(108,138,255,0.12), transparent 70%), radial-gradient(420px 220px at 96% -4%, rgba(56,189,248,0.07), transparent 70%)'
+    : 'radial-gradient(560px 240px at 6% -12%, rgba(74,108,255,0.08), transparent 70%), radial-gradient(420px 220px at 96% -4%, rgba(14,165,233,0.06), transparent 70%)',
+}))
 
-function onPresetClick(val) {
-  usageRange.value = val
-  customDate.value = ''
-  customMonth.value = ''
-}
-
-function onCustomDateChange() {
-  if (customDate.value) {
-    customMonth.value = ''
-  }
-}
-
-function onCustomMonthChange() {
-  if (customMonth.value) {
-    customDate.value = ''
-  }
-}
-
+/* ── 加载 ── */
 async function loadPrefs() {
   if (!window.electronAPI?.db?.settings) return
   try {
@@ -296,32 +289,30 @@ async function loadPrefs() {
     if (savedRange) usageRange.value = savedRange
   } catch (e) { console.error('loadPrefs error:', e) }
 }
-
 async function refreshData() {
   await tokenUsage.fetchAll(activeRange.value)
 }
-
 watch(activeRange, refreshData)
-
 onMounted(async () => {
   await loadPrefs()
   await refreshData()
+  requestAnimationFrame(() => { chartReady.value = true })
 })
 </script>
 
 <template>
-  <div class="usage-section max-w-6xl mx-auto px-6 lg:px-8 py-6 space-y-5">
+  <div class="max-w-6xl mx-auto px-6 lg:px-8 py-7 space-y-5">
 
-    <!-- Time Range Pills + Date Pickers -->
-    <div class="flex items-center justify-between flex-wrap gap-3">
-      <div class="flex items-center gap-1.5">
+    <!-- ═══ 时间范围 ═══ -->
+    <div class="reveal flex items-center justify-between flex-wrap gap-3">
+      <div class="inline-flex items-center gap-0.5 p-1 rounded-lg" :class="isDark ? 'bg-d3 border border-bdr' : 'bg-l3 border border-bdrF'">
         <button
           v-for="opt in rangeOptions"
           :key="opt.value"
-          class="ctx-pill cursor-pointer transition-all"
+          class="h-7.5 px-3 rounded-md text-12px font-500 transition-all duration-150"
           :class="activeRange === opt.value
-            ? (isDark ? 'bg-emerald-400/15 text-emerald-400 border border-emerald-400/30' : 'bg-emerald-50 text-emerald-600 border border-emerald-200')
-            : (isDark ? 'bg-d3 text-wt-aux border border-transparent hover:border-d4' : 'bg-l3 text-lt-aux border border-transparent hover:border-bdrF')"
+            ? (isDark ? 'bg-emerald-400/15 text-emerald-400 shadow-sm' : 'bg-emerald-100 text-emerald-700 shadow-sm')
+            : (isDark ? 'text-wt-aux hover:text-wt-main' : 'text-lt-aux hover:text-lt-main')"
           @click="onPresetClick(opt.value)"
         >
           {{ opt.label }}
@@ -330,16 +321,14 @@ onMounted(async () => {
       <div class="flex items-center gap-2">
         <div class="usage-date-field" :class="isDark ? 'dark-field' : 'light-field'">
           <i class="ri-calendar-line date-field-icon" :class="isDark ? 'text-wt-aux' : 'text-lt-aux'" />
-          <input type="date" v-model="customDate"
-            aria-label="选择日期"
+          <input v-model="customDate" type="date" aria-label="选择日期"
             class="date-picker-input usage-date-input"
             :class="isDark ? 'bg-d3 text-wt-sub border-bdr' : 'bg-l3 text-lt-sub border-bdrF'"
             @change="onCustomDateChange" />
         </div>
         <div class="usage-date-field" :class="isDark ? 'dark-field' : 'light-field'">
           <i class="ri-calendar-2-line date-field-icon" :class="isDark ? 'text-wt-aux' : 'text-lt-aux'" />
-          <input type="month" v-model="customMonth"
-            aria-label="选择月份"
+          <input v-model="customMonth" type="month" aria-label="选择月份"
             class="date-picker-input usage-date-input"
             :class="isDark ? 'bg-d3 text-wt-sub border-bdr' : 'bg-l3 text-lt-sub border-bdrF'"
             @change="onCustomMonthChange" />
@@ -347,275 +336,309 @@ onMounted(async () => {
       </div>
     </div>
 
-    <!-- Stats Tiles -->
-    <div class="grid grid-cols-4 gap-3">
-      <!-- Total Tokens -->
-      <div class="rounded-xl p-4" :class="isDark ? 'bg-d2 border border-bdr' : 'bg-l2 border border-bdrF shadow-sm'">
-        <div class="flex items-center gap-2 mb-2">
-          <div class="w-8 h-8 rounded-lg flex items-center justify-center" :class="isDark ? 'bg-brand-400/8' : 'bg-brand-50'">
-            <i class="ri-coin-line text-[16px]" :class="isDark ? 'text-brand-400' : 'text-brand-500'" />
-          </div>
-          <span class="text-[11px] font-medium" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">总 Token</span>
-        </div>
-        <div class="text-[24px] font-bold" :class="isDark ? 'text-wt-main' : 'text-lt-main'">{{ fmtTokens(summary.total_tokens) }}</div>
-      </div>
+    <!-- ═══ 总览面板 ═══ -->
+    <div class="reveal reveal-1 relative overflow-hidden rounded-xl" :class="isDark ? 'bg-d2 border border-bdr' : 'bg-l2 border border-bdrF'">
+      <div class="pointer-events-none absolute inset-0" :style="heroGlowStyle" />
 
-      <!-- Total Cost -->
-      <div class="rounded-xl p-4" :class="isDark ? 'bg-d2 border border-bdr' : 'bg-l2 border border-bdrF shadow-sm'">
-        <div class="flex items-center gap-2 mb-2">
-          <div class="w-8 h-8 rounded-lg flex items-center justify-center" :class="isDark ? 'bg-amber-400/8' : 'bg-amber-50'">
-            <i class="ri-money-cny-circle-line text-[16px]" :class="isDark ? 'text-amber-400' : 'text-amber-500'" />
+      <div class="relative grid grid-cols-1 lg:grid-cols-[1.5fr_1.3fr]">
+        <!-- 左：总 Token + 构成条 + 图例 -->
+        <div class="p-5 lg:p-6">
+          <div class="flex items-center gap-2 mb-1.5">
+            <i class="ri-coin-line text-15px" :class="isDark ? 'text-brand-400' : 'text-brand-500'" />
+            <span class="text-11px font-600 tracking-wide" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">总 TOKEN</span>
           </div>
-          <span class="text-[11px] font-medium" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">总成本</span>
-        </div>
-        <div class="text-[24px] font-bold" :class="isDark ? 'text-wt-main' : 'text-lt-main'">&yen;{{ summary.total_cost.toFixed(2) }}</div>
-        <div class="text-[11px] mt-1.5" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">本周期成本</div>
-      </div>
+          <div class="text-42px leading-none font-bold font-mono tracking-tight" :class="isDark ? 'text-wt-main' : 'text-lt-main'">
+            {{ fmtTokens(summary.total_tokens) }}
+          </div>
 
-      <!-- Call Count -->
-      <div class="rounded-xl p-4" :class="isDark ? 'bg-d2 border border-bdr' : 'bg-l2 border border-bdrF shadow-sm'">
-        <div class="flex items-center gap-2 mb-2">
-          <div class="w-8 h-8 rounded-lg flex items-center justify-center" :class="isDark ? 'bg-agent-400/8' : 'bg-agent-50'">
-            <i class="ri-pulse-line text-[16px]" :class="isDark ? 'text-agent-400' : 'text-agent-500'" />
+          <div class="mt-4.5 h-2.5 rounded-full overflow-hidden flex" :class="isDark ? 'bg-d4/70' : 'bg-l4'">
+            <div
+              v-for="seg in tokenSegments"
+              :key="seg.type"
+              class="h-full transition-all duration-500"
+              :style="{ width: (chartReady ? breakdownPercent[seg.type] : 0) + '%', backgroundColor: tokenColor(seg.type) }"
+            />
           </div>
-          <span class="text-[11px] font-medium" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">调用次数</span>
-        </div>
-        <div class="text-[24px] font-bold" :class="isDark ? 'text-wt-main' : 'text-lt-main'">{{ summary.call_count }}</div>
-        <div class="text-[11px] mt-1.5" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">本周期请求</div>
-      </div>
-
-      <!-- Avg Response -->
-      <div class="rounded-xl p-4" :class="isDark ? 'bg-d2 border border-bdr' : 'bg-l2 border border-bdrF shadow-sm'">
-        <div class="flex items-center gap-2 mb-2">
-          <div class="w-8 h-8 rounded-lg flex items-center justify-center" :class="isDark ? 'bg-output-400/8' : 'bg-output-50'">
-            <i class="ri-timer-line text-[16px]" :class="isDark ? 'text-output-400' : 'text-output-500'" />
-          </div>
-          <span class="text-[11px] font-medium" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">平均响应</span>
-        </div>
-        <div class="text-[24px] font-bold" :class="isDark ? 'text-wt-main' : 'text-lt-main'">{{ (summary.avg_latency / 1000).toFixed(1) }}s</div>
-        <div class="text-[11px] mt-1.5" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">平均延迟</div>
-      </div>
-    </div>
-
-    <!-- Usage Hotspots -->
-    <div v-if="summary.call_count > 0" class="rounded-xl overflow-hidden" :class="isDark ? 'bg-d2 border border-bdr' : 'bg-l2 border border-bdrF'">
-      <div class="flex">
-        <div class="w-1 shrink-0 bg-sky-400" />
-        <div class="flex-1 px-4 pt-2 pb-4">
-          <div class="section-title flex items-center gap-2 mb-3">
-            <i class="ri-radar-line text-[16px]" :class="isDark ? 'text-sky-400' : 'text-sky-500'" />
-            <span class="text-[15px] font-semibold" :class="isDark ? 'text-wt-main' : 'text-lt-main'">消耗热点</span>
-          </div>
-          <div class="hotspot-grid" :class="isDark ? 'dark-grid' : 'light-grid'">
-            <div v-for="item in hotspotItems" :key="item.key" class="hotspot-item">
-              <div class="flex items-center gap-2 mb-2">
-                <span class="hotspot-icon" :class="hotspotToneClass(item.tone)">
-                  <i :class="item.icon" />
-                </span>
-                <span class="text-[12px] font-medium" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">{{ item.label }}</span>
-              </div>
-              <div class="text-[15px] font-semibold truncate" :class="isDark ? 'text-wt-main' : 'text-lt-main'" :title="item.name">
-                {{ item.name }}
-              </div>
-              <div class="mt-2 flex items-center justify-between gap-3">
-                <span class="text-[13px] font-semibold" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">{{ item.value }}</span>
-                <span class="text-[11px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">{{ item.meta }}</span>
-              </div>
-              <div class="mt-2 h-1 rounded-full overflow-hidden" :class="isDark ? 'bg-d4' : 'bg-l4'">
-                <div class="h-full rounded-full" :style="{ width: hotspotBarWidth(item.percent), backgroundColor: hotspotBarColor(item.tone) }" />
-              </div>
+          <div class="mt-3 flex items-center flex-wrap gap-x-4 gap-y-1.5">
+            <div v-for="seg in tokenSegments" :key="seg.type" class="flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full shrink-0" :style="{ backgroundColor: tokenColor(seg.type) }" />
+              <span class="text-11.5px" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">{{ seg.label }}</span>
+              <span class="text-11.5px font-mono font-600" :class="isDark ? 'text-wt-aux' : 'text-lt-aux'">{{ fmtTokens(summary[seg.key]) }}</span>
+              <span class="text-10.5px font-mono" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">{{ breakdownPercent[seg.type].toFixed(1) }}%</span>
             </div>
           </div>
         </div>
+
+        <!-- 右：四个指标，始终一行，图标常显 -->
+        <div
+          class="grid grid-cols-4 gap-px border-t lg:border-t-0 lg:border-l"
+          :class="isDark ? 'bg-white/6 border-bdr' : 'bg-black/6 border-bdrF'"
+        >
+          <div class="px-3 sm:px-3.5 py-5 flex flex-col justify-center gap-1 transition-colors" :class="isDark ? 'bg-d2 hover:bg-white/3' : 'bg-l2 hover:bg-black/3'">
+            <div class="flex items-center gap-1 sm:gap-1.5">
+              <i class="ri-money-cny-circle-line text-12px sm:text-13px shrink-0" :class="isDark ? 'text-amber-400' : 'text-amber-500'" />
+              <span class="text-10px sm:text-11px font-500 truncate" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">总成本</span>
+            </div>
+            <div class="text-17px sm:text-20px font-bold font-mono tracking-tight" :class="isDark ? 'text-wt-main' : 'text-lt-main'">&yen;{{ summary.total_cost.toFixed(2) }}</div>
+            <span class="text-10.5px truncate" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">本周期花费</span>
+          </div>
+          <div class="px-3 sm:px-3.5 py-5 flex flex-col justify-center gap-1 transition-colors" :class="isDark ? 'bg-d2 hover:bg-white/3' : 'bg-l2 hover:bg-black/3'">
+            <div class="flex items-center gap-1 sm:gap-1.5">
+              <i class="ri-pulse-line text-12px sm:text-13px shrink-0" :class="isDark ? 'text-agent-400' : 'text-agent-500'" />
+              <span class="text-10px sm:text-11px font-500 truncate" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">调用次数</span>
+            </div>
+            <div class="text-17px sm:text-20px font-bold font-mono tracking-tight" :class="isDark ? 'text-wt-main' : 'text-lt-main'">{{ summary.call_count }}</div>
+            <span class="text-10.5px truncate" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">本周期请求</span>
+          </div>
+          <div class="px-3 sm:px-3.5 py-5 flex flex-col justify-center gap-1 transition-colors" :class="isDark ? 'bg-d2 hover:bg-white/3' : 'bg-l2 hover:bg-black/3'">
+            <div class="flex items-center gap-1 sm:gap-1.5">
+              <i class="ri-timer-line text-12px sm:text-13px shrink-0" :class="isDark ? 'text-sky-400' : 'text-sky-500'" />
+              <span class="text-10px sm:text-11px font-500 truncate" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">平均响应</span>
+            </div>
+            <div class="text-17px sm:text-20px font-bold font-mono tracking-tight" :class="isDark ? 'text-wt-main' : 'text-lt-main'">{{ (summary.avg_latency / 1000).toFixed(1) }}s</div>
+            <span class="text-10.5px truncate" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">平均延迟</span>
+          </div>
+          <div class="px-3 sm:px-3.5 py-5 flex flex-col justify-center gap-1 transition-colors" :class="isDark ? 'bg-d2 hover:bg-white/3' : 'bg-l2 hover:bg-black/3'">
+            <div class="flex items-center gap-1 sm:gap-1.5">
+              <i class="ri-database-2-line text-12px sm:text-13px shrink-0" :class="isDark ? 'text-sky-400' : 'text-sky-500'" />
+              <span class="text-10px sm:text-11px font-500 truncate" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">缓存命中率</span>
+            </div>
+            <div class="text-17px sm:text-20px font-bold font-mono tracking-tight" :class="isDark ? 'text-wt-main' : 'text-lt-main'">{{ (cacheStats.rate * 100).toFixed(0) }}%</div>
+            <span class="text-10.5px truncate" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">缓存读 {{ fmtTokens(cacheStats.read) }}</span>
+          </div>
+        </div>
       </div>
-    </div>
 
-    <!-- Token Breakdown Card -->
-    <div v-if="summary.call_count > 0" class="rounded-xl overflow-hidden" :class="isDark ? 'bg-d2 border border-bdr' : 'bg-l2 border border-bdrF'">
-      <div class="flex">
-        <div class="w-1 shrink-0 bg-brand-400" />
-        <div class="flex-1 px-4 pt-2 pb-4">
-          <div class="section-title flex items-center gap-2 mb-3">
-            <i class="ri-pie-chart-2-line text-[16px]" :class="isDark ? 'text-brand-400' : 'text-brand-500'" />
-            <span class="text-[15px] font-semibold" :class="isDark ? 'text-wt-main' : 'text-lt-main'">Token 构成</span>
+      <!-- 消耗热点 -->
+      <div
+        v-if="summary.call_count > 0"
+        class="relative grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x border-t"
+        :class="isDark ? 'divide-white/6 border-bdr' : 'divide-black/6 border-bdrF'"
+      >
+        <div
+          v-for="item in hotspotItems"
+          :key="item.key"
+          class="px-5 py-3.5 transition-colors"
+          :class="isDark ? 'hover:bg-white/2' : 'hover:bg-black/2'"
+        >
+          <div class="flex items-center gap-2 mb-1.5">
+            <span class="w-6 h-6 rounded-md flex items-center justify-center text-13px shrink-0" :class="hotspotToneClass(item.tone)">
+              <i :class="item.icon" />
+            </span>
+            <span class="text-11px font-500" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">{{ item.label }}</span>
           </div>
-
-          <!-- Stacked Bar -->
-          <div class="h-3 rounded-full overflow-hidden" :class="isDark ? 'bg-d4' : 'bg-l4'">
-            <div class="h-full flex">
-              <div v-for="item in breakdownItems" :key="item.type"
-                class="transition-all duration-300"
-                :style="{ width: breakdownPercent[item.type] + '%', backgroundColor: tokenColor(item.type) }" />
-            </div>
+          <div class="text-13.5px font-600 truncate" :class="isDark ? 'text-wt-main' : 'text-lt-main'" :title="item.name">{{ item.name }}</div>
+          <div class="mt-0.5 flex items-baseline gap-2">
+            <span class="text-12.5px font-mono font-600" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">{{ item.value }}</span>
+            <span class="text-11px" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">{{ item.meta }}</span>
           </div>
-
-          <!-- Detail Rows -->
-          <div class="grid grid-cols-5 gap-3 mt-3">
-            <div v-for="item in breakdownItems" :key="item.key" class="flex items-center gap-1.5">
-              <span class="inline-block w-2 h-2 rounded-full shrink-0" :style="{ backgroundColor: tokenColor(item.type) }" />
-              <span class="text-[12px] font-medium" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">{{ item.label }}</span>
-              <span class="text-[12px] font-semibold" :class="isDark ? 'text-wt-aux' : 'text-lt-aux'">{{ fmtTokens(summary[item.key]) }}</span>
-            </div>
+          <div class="mt-2 h-1.5 rounded-full overflow-hidden" :class="isDark ? 'bg-d4' : 'bg-l4'">
+            <div class="h-full rounded-full transition-all duration-500" :style="{ width: hotspotBarWidth(item.percent), backgroundColor: hotspotBarColor(item.tone) }" />
           </div>
         </div>
       </div>
     </div>
 
-    <!-- Daily Trend Stacked Bar Chart -->
-    <div v-if="dailyUsage.length > 0" class="rounded-xl overflow-hidden" :class="isDark ? 'bg-d2 border border-bdr' : 'bg-l2 border border-bdrF'">
-      <div class="flex">
-        <div class="w-1 shrink-0 bg-emerald-400" />
-        <div class="flex-1 px-5 pt-1 pb-5">
-          <div class="section-title flex items-center gap-2 mb-8">
-            <i class="ri-bar-chart-grouped-line text-[16px]" :class="isDark ? 'text-emerald-400' : 'text-emerald-500'" />
-            <span class="text-[15px] font-semibold" :class="isDark ? 'text-wt-main' : 'text-lt-main'">每日趋势</span>
-          </div>
-
-          <div class="flex items-end gap-3 h-[120px]">
-            <div v-for="d in dailyUsage" :key="d.day" class="flex-1 flex flex-col items-center gap-1.5">
-              <span class="text-[11px] font-medium" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">{{ fmtTokens(d.total) }}</span>
-              <div class="w-full relative" style="height: 100px">
-                <div class="absolute bottom-0 w-full flex rounded-t-md overflow-hidden transition-all duration-300"
-                  :style="{ height: barHeight(d.total) + '%' }">
-                  <div :style="{ width: (d.input_tokens / d.total * 100) + '%', backgroundColor: tokenColor('input') }" />
-                  <div :style="{ width: (d.output_tokens / d.total * 100) + '%', backgroundColor: tokenColor('output') }" />
-                  <div :style="{ width: (d.cache_read_tokens / d.total * 100) + '%', backgroundColor: tokenColor('cache_read') }" />
-                  <div :style="{ width: (d.cache_write_tokens / d.total * 100) + '%', backgroundColor: tokenColor('cache_write') }" />
-                  <div :style="{ width: (d.thinking_tokens / d.total * 100) + '%', backgroundColor: tokenColor('thinking') }" />
-                </div>
-              </div>
-              <span class="text-[11px] font-medium" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">{{ d.day }}</span>
-            </div>
-          </div>
+    <!-- ═══ 每日趋势 ═══ -->
+    <section v-if="trendData.length > 0 && summary.call_count > 0" class="reveal reveal-2 rounded-xl overflow-hidden" :class="isDark ? 'bg-d2 border border-bdr' : 'bg-l2 border border-bdrF'">
+      <div class="px-5 pt-4 pb-5">
+        <div class="flex items-center gap-2.5 mb-5">
+          <span class="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" :class="isDark ? 'bg-emerald-400/10' : 'bg-emerald-50'">
+            <i class="ri-bar-chart-grouped-line text-15px" :class="isDark ? 'text-emerald-400' : 'text-emerald-600'" />
+          </span>
+          <span class="text-14px font-600" :class="isDark ? 'text-wt-main' : 'text-lt-main'">每日趋势</span>
+          <span class="ml-auto text-11px font-mono px-2 py-0.5 rounded-md" :class="isDark ? 'bg-d3 text-wt-dim' : 'bg-l3 text-lt-aux'">
+            峰值 {{ fmtTokens(maxTrend) }}
+          </span>
         </div>
-      </div>
-    </div>
 
-    <!-- Model & Agent Distribution (2-column) -->
-    <div class="grid grid-cols-2 gap-4">
-      <!-- Model Distribution -->
-      <div v-if="modelUsage.length > 0" class="rounded-xl overflow-hidden" :class="isDark ? 'bg-d2 border border-bdr' : 'bg-l2 border border-bdrF'">
-        <div class="flex">
-          <div class="w-1 shrink-0 bg-brand-400" />
-          <div class="flex-1 px-5 pt-2 pb-5">
-            <div class="section-title flex items-center gap-2 mb-3">
-              <i class="ri-cpu-line text-[16px]" :class="isDark ? 'text-brand-400' : 'text-brand-500'" />
-              <span class="text-[15px] font-semibold" :class="isDark ? 'text-wt-main' : 'text-lt-main'">按模型分布</span>
-            </div>
-            <div class="space-y-3">
-              <div v-for="m in modelUsage" :key="m.rawId">
-                <div class="flex items-center justify-between mb-1">
-                  <span class="text-[13px] font-medium truncate" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'" :title="m.rawId">{{ m.name }}</span>
-                  <div class="flex items-center gap-2">
-                    <span class="text-[12px] font-semibold" :class="isDark ? 'text-wt-aux' : 'text-lt-aux'">{{ fmtTokens(m.total) }}</span>
-                    <span class="text-[11px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">&yen;{{ m.cost.toFixed(2) }}</span>
+        <div class="relative">
+          <div class="absolute left-0 right-0 top-0 bottom-6 pointer-events-none">
+            <div class="absolute inset-x-0 top-1/4 border-t border-dashed" :class="isDark ? 'border-white/8' : 'border-black/8'" />
+            <div class="absolute inset-x-0 top-2/4 border-t border-dashed" :class="isDark ? 'border-white/8' : 'border-black/8'" />
+            <div class="absolute inset-x-0 top-3/4 border-t border-dashed" :class="isDark ? 'border-white/8' : 'border-black/8'" />
+          </div>
+
+          <div class="relative flex items-stretch gap-1 sm:gap-2 h-44">
+            <div
+              v-for="(d, i) in trendData"
+              :key="d.label + i"
+              class="group relative flex-1 min-w-0 flex flex-col cursor-default"
+            >
+              <div
+                class="pointer-events-none absolute left-1/2 -translate-x-1/2 z-20 hidden group-hover:block whitespace-nowrap rounded-md px-2 py-1 text-11px font-mono shadow-lg"
+                :class="isDark ? 'bg-d0 text-wt-main border border-d4' : 'bg-white text-lt-main border border-bdrF'"
+                :style="{ bottom: `calc(${barHeight(d.total)}% + 30px)` }"
+              >
+                {{ d.label }} · {{ fmtTokens(d.total) }}
+              </div>
+              <div class="flex-1 flex items-end justify-center">
+                <div
+                  class="w-full max-w-9 overflow-hidden rounded-t-md transition-all duration-300 group-hover:opacity-80"
+                  :style="{ height: barHeight(d.total) + '%' }"
+                >
+                  <div class="h-full flex">
+                    <div
+                      v-for="seg in tokenSegments"
+                      :key="seg.type"
+                      class="h-full"
+                      :style="{ width: segWidth(d, seg), backgroundColor: tokenColor(seg.type) }"
+                    />
                   </div>
                 </div>
-                <div class="h-2 rounded-full overflow-hidden flex" :class="isDark ? 'bg-d4' : 'bg-l4'">
-                  <div class="h-full transition-all duration-400" :style="{ width: (m.input_tokens / maxModelTotal * 100) + '%', backgroundColor: tokenColor('input') }" />
-                  <div class="h-full transition-all duration-400" :style="{ width: (m.output_tokens / maxModelTotal * 100) + '%', backgroundColor: tokenColor('output') }" />
-                  <div class="h-full transition-all duration-400" :style="{ width: (m.cache_read_tokens / maxModelTotal * 100) + '%', backgroundColor: tokenColor('cache_read') }" />
-                  <div class="h-full transition-all duration-400" :style="{ width: (m.cache_write_tokens / maxModelTotal * 100) + '%', backgroundColor: tokenColor('cache_write') }" />
-                  <div class="h-full transition-all duration-400" :style="{ width: (m.thinking_tokens / maxModelTotal * 100) + '%', backgroundColor: tokenColor('thinking') }" />
+              </div>
+              <span
+                class="mt-2 h-4 text-10px font-mono text-center truncate"
+                :class="showTrendLabel(i) ? (isDark ? 'text-wt-dim' : 'text-lt-aux') : 'opacity-0'"
+              >{{ d.label }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══ 模型 / Agent 分布 ═══ -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+
+      <!-- 按模型（Token / 成本 切换） -->
+      <section v-if="modelUsage.length > 0" class="reveal reveal-3 rounded-xl overflow-hidden" :class="isDark ? 'bg-d2 border border-bdr' : 'bg-l2 border border-bdrF'">
+        <div class="px-5 pt-4 pb-4">
+          <div class="flex items-center gap-2.5 mb-3">
+            <span class="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" :class="isDark ? 'bg-brand-400/10' : 'bg-brand-50'">
+              <i class="ri-cpu-line text-15px" :class="isDark ? 'text-brand-400' : 'text-brand-500'" />
+            </span>
+            <span class="text-14px font-600" :class="isDark ? 'text-wt-main' : 'text-lt-main'">按模型分布</span>
+            <div class="ml-auto inline-flex items-center gap-0.5 p-0.5 rounded-md" :class="isDark ? 'bg-d3' : 'bg-l3'">
+              <button
+                v-for="opt in [{ v: 'tokens', l: 'Token' }, { v: 'cost', l: '成本' }]"
+                :key="opt.v"
+                class="h-6 px-2 rounded text-11px font-500 transition-all duration-150"
+                :class="modelMetric === opt.v
+                  ? (isDark ? 'bg-d0 text-wt-main shadow-sm' : 'bg-white text-lt-main shadow-sm')
+                  : (isDark ? 'text-wt-dim hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub')"
+                @click="modelMetric = opt.v"
+              >
+                {{ opt.l }}
+              </button>
+            </div>
+          </div>
+
+          <div class="space-y-1 max-h-88 overflow-y-auto thin-scroll pr-1">
+            <div
+              v-for="m in modelUsage"
+              :key="m.rawId"
+              class="group rounded-lg px-2.5 py-2 transition-colors"
+              :class="isDark ? 'hover:bg-white/3' : 'hover:bg-black/3'"
+            >
+              <div class="flex items-center gap-2 mb-1.5">
+                <span class="flex-1 min-w-0 text-12.5px font-500 truncate" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'" :title="m.rawId">{{ m.name }}</span>
+                <template v-if="modelMetric === 'tokens'">
+                  <span class="shrink-0 text-12px font-mono font-600" :class="isDark ? 'text-wt-main' : 'text-lt-main'">{{ fmtTokens(m.total) }}</span>
+                  <span class="shrink-0 w-11 text-right text-10.5px font-mono hidden sm:inline" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">{{ pctOf(m.total, modelGrandTotal) }}%</span>
+                  <span class="shrink-0 w-13 text-right text-11px font-mono" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">&yen;{{ m.cost.toFixed(2) }}</span>
+                </template>
+                <template v-else>
+                  <span class="shrink-0 text-12px font-mono font-600" :class="isDark ? 'text-amber-400' : 'text-amber-600'">&yen;{{ m.cost.toFixed(2) }}</span>
+                  <span class="shrink-0 w-11 text-right text-10.5px font-mono hidden sm:inline" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">{{ pctOf(m.cost, modelCostTotal) }}%</span>
+                  <span class="shrink-0 w-13 text-right text-11px font-mono" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">{{ fmtTokens(m.total) }}</span>
+                </template>
+              </div>
+
+              <div class="h-2 rounded-full overflow-hidden" :class="isDark ? 'bg-d4/70' : 'bg-l4'">
+                <div
+                  v-if="modelMetric === 'tokens'"
+                  class="h-full flex overflow-hidden rounded-full transition-all duration-500"
+                  :style="{ width: Math.max(2, m.total / maxModelTotal * 100) + '%' }"
+                >
+                  <div
+                    v-for="seg in tokenSegments"
+                    :key="seg.type"
+                    class="h-full"
+                    :style="{ width: segWidth(m, seg), backgroundColor: tokenColor(seg.type) }"
+                  />
+                </div>
+                <div
+                  v-else
+                  class="h-full rounded-full transition-all duration-500"
+                  :style="{ width: Math.max(2, m.cost / maxModelCost * 100) + '%', backgroundColor: isDark ? '#FBBF24' : '#F59E0B' }"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 按 Agent -->
+      <section v-if="agentUsage.length > 0" class="reveal reveal-3 rounded-xl overflow-hidden" :class="isDark ? 'bg-d2 border border-bdr' : 'bg-l2 border border-bdrF'">
+        <div class="px-5 pt-4 pb-4">
+          <div class="flex items-center gap-2.5 mb-3">
+            <span class="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" :class="isDark ? 'bg-agent-400/10' : 'bg-agent-50'">
+              <i class="ri-sparkling-2-line text-15px" :class="isDark ? 'text-agent-400' : 'text-agent-500'" />
+            </span>
+            <span class="text-14px font-600" :class="isDark ? 'text-wt-main' : 'text-lt-main'">按 Agent 分布</span>
+            <span class="ml-auto text-11px font-mono px-2 py-0.5 rounded-md" :class="isDark ? 'bg-d3 text-wt-dim' : 'bg-l3 text-lt-aux'">{{ agentUsage.length }} 个 Agent</span>
+          </div>
+
+          <div class="space-y-1 max-h-88 overflow-y-auto thin-scroll pr-1">
+            <div
+              v-for="a in agentUsage"
+              :key="a.rawId || a.name"
+              class="group rounded-lg px-2.5 py-2 transition-colors"
+              :class="isDark ? 'hover:bg-white/3' : 'hover:bg-black/3'"
+            >
+              <div class="flex items-center gap-2 mb-1.5">
+                <span class="flex-1 min-w-0 text-12.5px font-500 truncate" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'" :title="a.rawId">{{ a.name }}</span>
+                <span class="shrink-0 text-12px font-mono font-600" :class="isDark ? 'text-wt-main' : 'text-lt-main'">{{ fmtTokens(a.total) }}</span>
+                <span class="shrink-0 w-11 text-right text-10.5px font-mono hidden sm:inline" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">{{ pctOf(a.total, agentGrandTotal) }}%</span>
+                <span class="shrink-0 w-13 text-right text-11px font-mono" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">{{ a.calls }} 次</span>
+              </div>
+              <div class="h-2 rounded-full overflow-hidden" :class="isDark ? 'bg-d4/70' : 'bg-l4'">
+                <div
+                  class="h-full flex overflow-hidden rounded-full transition-all duration-500"
+                  :style="{ width: Math.max(2, a.total / maxAgentTotal * 100) + '%' }"
+                >
+                  <div
+                    v-for="seg in tokenSegments"
+                    :key="seg.type"
+                    class="h-full"
+                    :style="{ width: segWidth(a, seg), backgroundColor: tokenColor(seg.type) }"
+                  />
                 </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
-
-      <!-- Agent Distribution -->
-      <div v-if="agentUsage.length > 0" class="rounded-xl overflow-hidden" :class="isDark ? 'bg-d2 border border-bdr' : 'bg-l2 border border-bdrF'">
-        <div class="flex">
-          <div class="w-1 shrink-0 bg-agent-400" />
-          <div class="flex-1 px-5 pt-2 pb-5">
-            <div class="section-title flex items-center gap-2 mb-3">
-              <i class="ri-sparkling-2-line text-[16px]" :class="isDark ? 'text-agent-400' : 'text-agent-500'" />
-              <span class="text-[15px] font-semibold" :class="isDark ? 'text-wt-main' : 'text-lt-main'">按 Agent 分布</span>
-            </div>
-            <div class="space-y-3">
-              <div v-for="a in agentUsage" :key="a.rawId || a.name">
-                <div class="flex items-center justify-between mb-1">
-                  <span class="text-[13px] font-medium truncate" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'" :title="a.rawId">{{ a.name }}</span>
-                  <div class="flex items-center gap-2">
-                    <span class="text-[12px] font-semibold" :class="isDark ? 'text-wt-aux' : 'text-lt-aux'">{{ fmtTokens(a.total) }}</span>
-                    <span class="text-[11px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">{{ a.calls }} 次</span>
-                  </div>
-                </div>
-                <div class="h-2 rounded-full overflow-hidden flex" :class="isDark ? 'bg-d4' : 'bg-l4'">
-                  <div class="h-full transition-all duration-400" :style="{ width: (a.input_tokens / maxAgentTotal * 100) + '%', backgroundColor: tokenColor('input') }" />
-                  <div class="h-full transition-all duration-400" :style="{ width: (a.output_tokens / maxAgentTotal * 100) + '%', backgroundColor: tokenColor('output') }" />
-                  <div class="h-full transition-all duration-400" :style="{ width: (a.cache_read_tokens / maxAgentTotal * 100) + '%', backgroundColor: tokenColor('cache_read') }" />
-                  <div class="h-full transition-all duration-400" :style="{ width: (a.cache_write_tokens / maxAgentTotal * 100) + '%', backgroundColor: tokenColor('cache_write') }" />
-                  <div class="h-full transition-all duration-400" :style="{ width: (a.thinking_tokens / maxAgentTotal * 100) + '%', backgroundColor: tokenColor('thinking') }" />
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+      </section>
     </div>
 
-    <!-- Empty state when no data -->
-    <div v-if="summary.call_count === 0" class="rounded-xl p-8 flex flex-col items-center justify-center gap-3" :class="isDark ? 'bg-d2 border border-bdr' : 'bg-l2 border border-bdrF'">
-      <i class="ri-bar-chart-box-line text-[32px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'" />
-      <span class="text-[14px] font-medium" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">暂无使用数据</span>
-      <span class="text-[12px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">与 AI 对话后将自动记录 Token 消耗</span>
+    <!-- ═══ 空状态 ═══ -->
+    <div
+      v-if="summary.call_count === 0"
+      class="reveal reveal-2 rounded-xl py-14 flex flex-col items-center justify-center gap-2 border border-dashed"
+      :class="isDark ? 'bg-d2/50 border-d4' : 'bg-l2 border-bdrF'"
+    >
+      <span class="w-12 h-12 rounded-full flex items-center justify-center mb-1" :class="isDark ? 'bg-emerald-400/10' : 'bg-emerald-50'">
+        <i class="ri-bar-chart-box-line text-22px" :class="isDark ? 'text-emerald-400' : 'text-emerald-500'" />
+      </span>
+      <span class="text-14px font-600" :class="isDark ? 'text-wt-main' : 'text-lt-main'">暂无使用数据</span>
+      <span class="text-12px" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">与 AI 对话后将自动记录 Token 消耗</span>
     </div>
-
   </div>
 </template>
 
 <style scoped>
-.ctx-pill {
-  font-size: 12px;
-  border-radius: 7px;
-  padding: 5px 10px;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  transition: all .15s;
-  line-height: 1.35;
+@keyframes usage-rise {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
 }
-.section-title {
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+.reveal { animation: usage-rise .5s cubic-bezier(.21, .75, .35, 1) both; }
+.reveal-1 { animation-delay: .06s; }
+.reveal-2 { animation-delay: .12s; }
+.reveal-3 { animation-delay: .18s; }
+@media (prefers-reduced-motion: reduce) {
+  .reveal { animation: none; }
 }
-.hotspot-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-.hotspot-item {
-  min-width: 0;
-  padding: 0 16px;
-}
-.hotspot-item:first-child {
-  padding-left: 0;
-}
-.hotspot-item:last-child {
-  padding-right: 0;
-}
-.hotspot-item + .hotspot-item {
-  border-left: 1px solid;
-}
-.hotspot-grid.dark-grid .hotspot-item + .hotspot-item {
-  border-color: rgba(255, 255, 255, 0.08);
-}
-.hotspot-grid.light-grid .hotspot-item + .hotspot-item {
-  border-color: rgba(20, 24, 40, 0.08);
-}
-.hotspot-icon {
-  width: 24px;
-  height: 24px;
-  border-radius: 7px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  font-size: 14px;
-}
+
 .usage-date-field {
   position: relative;
   display: inline-flex;
@@ -634,9 +657,7 @@ onMounted(async () => {
   border: 1px solid rgba(20, 24, 40, 0.08);
   box-shadow: 0 1px 2px rgba(20, 24, 40, 0.04);
 }
-.usage-date-field:hover {
-  border-color: rgba(16, 185, 129, 0.42);
-}
+.usage-date-field:hover { border-color: rgba(16, 185, 129, 0.42); }
 .usage-date-field:focus-within {
   border-color: rgba(16, 185, 129, 0.64);
   box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.12);
@@ -648,7 +669,7 @@ onMounted(async () => {
   font-size: 15px;
   pointer-events: none;
 }
-.usage-section .usage-date-input {
+.usage-date-input {
   width: 100%;
   height: 100%;
   border: 0;
@@ -660,10 +681,8 @@ onMounted(async () => {
   line-height: 34px;
   color-scheme: light;
 }
-.usage-section .dark-field .usage-date-input {
-  color-scheme: dark;
-}
-.usage-section .usage-date-input::-webkit-calendar-picker-indicator {
+.dark-field .usage-date-input { color-scheme: dark; }
+.usage-date-input::-webkit-calendar-picker-indicator {
   width: 18px;
   height: 18px;
   padding: 5px;
@@ -672,7 +691,7 @@ onMounted(async () => {
   opacity: .7;
   transition: background-color .15s ease, opacity .15s ease;
 }
-.usage-section .usage-date-input::-webkit-calendar-picker-indicator:hover {
+.usage-date-input::-webkit-calendar-picker-indicator:hover {
   background-color: rgba(16, 185, 129, 0.12);
   opacity: 1;
 }

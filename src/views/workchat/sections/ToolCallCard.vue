@@ -236,7 +236,7 @@ function formatResult(result) {
           :class="authDecision === 'approved'
             ? (isDark ? 'bg-output-400/12 text-output-400' : 'bg-emerald-50 text-emerald-600')
             : (isDark ? 'bg-red-400/12 text-red-400' : 'bg-red-50 text-red-600')">
-          <i :class="authDecision === 'approved' ? 'ri-check-line' : 'ri-close-line'" class="text-[9px]" />
+          <i :class="authDecision === 'approved' ? 'ri-check-line' : 'ri-close-line'" class="text-[10px]" />
           {{ authDecision === 'approved' ? '已授权' : '已拒绝' }}
           <span v-if="authDuration" class="text-[9px] opacity-60">{{ authDuration }}</span>
         </span>
@@ -261,7 +261,7 @@ function formatResult(result) {
     <!-- expand toggle -->
     <button @click="showDetails = !showDetails" class="shrink-0 mt-0.5 h-5 w-5 rounded flex items-center justify-center"
       :class="isDark ? 'text-wt-dim hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub'">
-      <i :class="showDetails ? 'ri-arrow-down-s-line' : 'ri-arrow-right-s-line'" class="text-[11px]" />
+      <i :class="showDetails ? 'ri-arrow-down-s-line' : 'ri-arrow-right-s-line'" class="text-[14px]" />
     </button>
   </div>
 </template>

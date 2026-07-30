@@ -197,10 +197,22 @@ const router = createRouter({
           meta: { title: '记忆管理' },
         },
         {
+          path: 'learning-memory',
+          name: 'SettingsLearningMemory',
+          component: () => import('@/views/settings/sections/LearningMemorySection.vue'),
+          meta: { title: '成长画像' },
+        },
+        {
           path: 'usage',
           name: 'SettingsUsage',
           component: () => import('@/views/settings/sections/UsageSection.vue'),
           meta: { title: '用量统计' },
+        },
+        {
+          path: 'theme',
+          name: 'SettingsTheme',
+          component: () => import('@/views/settings/sections/ThemeSection.vue'),
+          meta: { title: '主题' },
         },
         {
           path: 'preference',

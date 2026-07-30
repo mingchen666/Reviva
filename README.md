@@ -26,7 +26,7 @@
 </p>
 
 <p>
-  <img src="https://img.shields.io/badge/version-1.0.0-4A6CFF" alt="Version 1.0.0" />
+  <img src="https://img.shields.io/badge/version-1.1.0-4A6CFF" alt="Version 1.1.0" />
   <img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS-2E2E3A" alt="Platform Windows and macOS" />
   <img src="https://img.shields.io/github/downloads/mingchen666/Reviva/total?logo=github&label=Downloads" alt="Downloads" />
   <img src="https://img.shields.io/badge/SQLite-Local--First-003B57?logo=sqlite&logoColor=white" alt="Local First" />
@@ -58,11 +58,11 @@ Reviva = 本地资料库 + Wiki 知识库 + AI Agent + 知识库检索 + 笔记�
 <table width="100%">
   <tr>
     <td align="center">
-      <h2>🎉 Reviva v1.0.0 正式发布</h2>
+      <h2>🎉 Reviva v1.0系列 正式发布</h2>
       <p>以 Agent 为核心，连接本地资料、知识库、笔记与学习工具，完成从理解、复习到创作输出的完整学习工作流。</p>
       <p><b>Agent 驱动 · 本地优先 · 多资料对话 · 可视化学习 · 知识持续沉淀</b></p>
       <p>
-        <a href="https://github.com/mingchen666/Reviva/releases/latest"><img src="https://img.shields.io/badge/Download-Reviva_1.0.0-4A6CFF?style=for-the-badge&logo=github&logoColor=white" alt="下载 Reviva 1.0.0" /></a>
+        <a href="https://github.com/mingchen666/Reviva/releases/latest"><img src="https://img.shields.io/badge/Download-Reviva_1.1.0-4A6CFF?style=for-the-badge&logo=github&logoColor=white" alt="下载 Reviva 1.1.0" /></a>
         <a href="https://github.com/mingchen666/Reviva/releases"><img src="https://img.shields.io/badge/Release-更新日志-111827?style=for-the-badge" alt="查看发布说明" /></a>
         <a href="#联系与交流"><img src="https://img.shields.io/badge/Join-交流群-16A34A?style=for-the-badge" alt="加入用户交流群" /></a>
       </p>
@@ -299,7 +299,7 @@ Reviva 不只输出文本答案。学习工作台可以把当前对话、选中�
 
 ## 项目状态
 
-Reviva 当前正式版本为 `1.0.0`，功能和界面仍在持续更新。项目主要面向 Windows 和 macOS 桌面端，建议在长期使用前做好重要数据备份。
+Reviva 当前正式版本为 `1.1.0`，功能和界面仍在持续更新。项目主要面向 Windows 和 macOS 桌面端，建议在长期使用前做好重要数据备份。
 
 遇到问题欢迎提交 [GitHub Issues](https://github.com/mingchen666/Reviva/issues)。
 

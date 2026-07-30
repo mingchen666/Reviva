@@ -56,8 +56,8 @@ const shortcutGroups = [
     items: [
       { key: 'input_send', name: '发送消息', desc: '发送当前输入框内容' },
       { key: 'input_newline', name: '换行', desc: '在输入框中插入新行' },
-      { key: 'input_mention', name: '提及 Agent', desc: '在对话中 @ 某个 Agent' },
-      { key: 'input_command', name: '斜杠命令', desc: '输入 / 触发快捷指令' },
+      { key: 'input_mention', name: '快捷输入', desc: '在对话中输入 @ 实现快捷输入' },
+      { key: 'input_command', name: '斜杠命令', desc: '在对话中输入 / 触发skill调用' },
     ],
   },
 ]

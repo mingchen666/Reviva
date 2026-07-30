@@ -32,9 +32,24 @@ const PADDLE_OPTIONS = [
     desc: '处理褶皱、倾斜等图像形变',
   },
   {
+    key: 'useLayoutDetection',
+    label: '版面分析',
+    desc: '检测文档区域并按阅读顺序整理',
+  },
+  {
     key: 'useChartRecognition',
     label: '图表识别',
     desc: '将图表解析为更易编辑的结构',
+  },
+  {
+    key: 'prettifyMarkdown',
+    label: 'Markdown 美化',
+    desc: '输出更规整的 Markdown 文本',
+  },
+  {
+    key: 'visualize',
+    label: '返回可视化图',
+    desc: '会增加响应体大小和处理耗时',
   },
 ]
 
@@ -53,7 +68,7 @@ const SERVICES = [
     type: 'paddleocr',
     name: 'PaddleOCR',
     headline: 'PaddleOCR-VL 版面解析',
-    desc: '异步 Jobs 版面解析，适合图片型 PDF、截图和通用文字识别',
+    desc: '支持异步 Jobs 与本地 PaddleX 版面解析',
     icon: paddleocrIcon,
     accent: '#10B981',
     urlPlaceholder: PADDLE_DEFAULT_URL,
@@ -72,6 +87,12 @@ const enabledServices = computed(() => SERVICES.filter(item => forms[item.type]?
 const enabledService = computed(() => enabledServices.value[0] || null)
 const activeReady = computed(() => providerReady(activeType.value))
 const showPaddleOptions = computed(() => activeType.value === 'paddleocr')
+const paddleEndpointType = computed(() => detectPaddleEndpoint(activeForm.value?.base_url))
+const paddleEndpointNote = computed(() => {
+  if (paddleEndpointType.value === 'jobs') return '异步 Jobs：提交文件后轮询任务，再下载 JSONL 版面结果。'
+  if (paddleEndpointType.value === 'layout-parsing') return '同步 PaddleX：以 JSON + Base64 提交文件，直接读取版面结果。'
+  return '请求 URL 需要以 /jobs 或 /layout-parsing 结尾。'
+})
 const statusText = computed(() => {
   if (enabledService.value) return `${enabledService.value.name} 生效中`
   return '远程 OCR 已停用'
@@ -87,17 +108,26 @@ function defaultBaseUrl(type) {
 }
 
 function normalizePaddleUrl(value) {
-  const url = String(value || PADDLE_DEFAULT_URL).trim() || PADDLE_DEFAULT_URL
-  if (/\/layout-parsing\/?$/i.test(url)) return url.replace(/\/layout-parsing\/?$/i, '/jobs').replace(/\/+$/, '')
-  if (/\/ocr\/?$/i.test(url)) return `${url.replace(/\/+$/, '')}/jobs`
-  return url.replace(/\/+$/, '')
+  return String(value || PADDLE_DEFAULT_URL).trim() || PADDLE_DEFAULT_URL
+}
+
+function detectPaddleEndpoint(value) {
+  const url = String(value || '').trim()
+  let pathname = url
+  try { pathname = new URL(url).pathname } catch { pathname = url.split(/[?#]/, 1)[0] }
+  if (/\/jobs\/?$/i.test(pathname)) return 'jobs'
+  if (/\/layout-parsing\/?$/i.test(pathname)) return 'layout-parsing'
+  return 'unsupported'
 }
 
 function defaultPaddleConfig() {
   return {
     useDocOrientationClassify: false,
     useDocUnwarping: false,
+    useLayoutDetection: true,
     useChartRecognition: false,
+    prettifyMarkdown: true,
+    visualize: false,
   }
 }
 
@@ -192,8 +222,8 @@ function disableAll() {
 function providerReady(type) {
   const form = forms[type]
   return !!form?.base_url?.trim()
-    && !!form?.api_key_ref?.trim()
-    && (type !== 'paddleocr' || !!String(form.model || '').trim())
+    && (type === 'paddleocr' || !!form?.api_key_ref?.trim())
+    && (type !== 'paddleocr' || detectPaddleEndpoint(form.base_url) !== 'unsupported')
 }
 
 function providerOptionMeta(type) {
@@ -221,7 +251,10 @@ function defaultConfig(type) {
     optionalPayload: {
       useDocOrientationClassify: !!paddle.useDocOrientationClassify,
       useDocUnwarping: !!paddle.useDocUnwarping,
+      useLayoutDetection: !!paddle.useLayoutDetection,
       useChartRecognition: !!paddle.useChartRecognition,
+      prettifyMarkdown: !!paddle.prettifyMarkdown,
+      visualize: !!paddle.visualize,
     },
     pollIntervalMs: 5000,
     maxPolls: 120,
@@ -241,10 +274,9 @@ function buildPayload(type) {
   const form = forms[type]
   if (!service || !form) throw new Error('未知 OCR 服务商')
   if (form.enabled && !form.base_url.trim()) throw new Error(`请填写 ${service.name} 服务 URL`)
-  if (form.enabled && !form.api_key_ref.trim()) throw new Error(`请填写 ${service.name} API Key`)
-  if (type === 'paddleocr' && form.enabled && !String(form.model || '').trim()) throw new Error('请填写 PaddleOCR 模型 ID')
-  if (type === 'paddleocr' && form.enabled && !/\/jobs\/?$/i.test(normalizePaddleUrl(form.base_url))) {
-    throw new Error('PaddleOCR 请求 URL 必须是 Jobs 接口地址')
+  if (type !== 'paddleocr' && form.enabled && !form.api_key_ref.trim()) throw new Error(`请填写 ${service.name} API Key`)
+  if (type === 'paddleocr' && form.enabled && detectPaddleEndpoint(form.base_url) === 'unsupported') {
+    throw new Error('PaddleOCR 请求 URL 必须以 /jobs 或 /layout-parsing 结尾')
   }
   return {
     id: form.id || undefined,
@@ -399,7 +431,7 @@ async function saveCurrent() {
           :class="isDark ? 'bg-emerald-400/6 text-wt-aux border border-emerald-400/15' : 'bg-emerald-50/60 text-lt-aux border border-emerald-100'">
           <i class="ri-route-line text-emerald-400 text-[13px] shrink-0" />
           <span>
-            当前使用官方异步 Jobs 接口：提交文件后后台轮询任务，再下载 JSONL 版面结果。
+            {{ paddleEndpointNote }}
           </span>
         </div>
 
@@ -414,7 +446,7 @@ async function saveCurrent() {
               :type="showApiKey ? 'text' : 'password'"
               class="config-input"
               :class="isDark ? 'text-wt-sub placeholder:text-wt-dim' : 'text-lt-sub placeholder:text-lt-aux'"
-              :placeholder="activeService.keyPlaceholder" />
+              :placeholder="showPaddleOptions ? '可选；云端服务通常需要 Token' : activeService.keyPlaceholder" />
             <button
               class="key-toggle"
               type="button"
@@ -481,7 +513,7 @@ async function saveCurrent() {
 
       <div class="mt-4 pt-3 border-t flex items-center justify-between gap-3 flex-wrap" :class="isDark ? 'border-d4' : 'border-bdrF'">
         <button
-          class="h-8 px-2.5 rounded-lg text-[11px] font-medium transition-colors"
+          class="h-8 px-2.5 rounded-lg text-[11.5px] font-medium transition-colors"
           :class="isDark ? 'text-wt-aux hover:text-red-300 hover:bg-red-400/8' : 'text-lt-aux hover:text-red-500 hover:bg-red-50'"
           type="button"
           @click="disableAll">
@@ -489,7 +521,7 @@ async function saveCurrent() {
         </button>
         <div class="flex items-center gap-2">
           <button
-            class="h-8 px-3 rounded-lg text-[11px] font-medium flex items-center gap-1.5 transition-colors disabled:opacity-50"
+            class="h-8 px-3 rounded-lg text-[12px] font-medium flex items-center gap-1.5 transition-colors disabled:opacity-50"
             :class="isDark ? 'bg-d0 text-wt-aux hover:text-wt-sub border border-d4' : 'bg-l2 text-lt-aux hover:text-lt-sub border border-bdrF'"
             :disabled="loading || saving"
             @click="loadProviders">
@@ -497,7 +529,7 @@ async function saveCurrent() {
             重新载入
           </button>
           <button
-            class="h-8 px-3 rounded-lg text-[11px] font-semibold bg-brand-500 text-white hover:bg-brand-600 transition-colors disabled:opacity-50"
+            class="h-8 px-3 rounded-lg text-[12px] font-semibold bg-brand-500 text-white hover:bg-brand-600 transition-colors disabled:opacity-50"
             :disabled="saving"
             @click="saveCurrent">
             <i class="ri-save-3-line text-[12px] mr-1" />
@@ -698,7 +730,7 @@ async function saveCurrent() {
 }
 
 .config-row {
-  min-height: 42px;
+  min-height: 36px;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -726,12 +758,12 @@ async function saveCurrent() {
 .config-input {
   width: 100%;
   min-width: 0;
-  height: 26px;
+  height: 24px;
   border: 0;
   outline: none;
   background: transparent;
-  font-size: 12px;
-  line-height: 26px;
+  font-size: 14px;
+  line-height: 24px;
 }
 
 .config-input-wrap {

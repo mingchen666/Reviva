@@ -6,7 +6,7 @@ const props = defineProps({
   show: { type: Boolean, default: false },
   agent: { type: Object, default: null },
   modelOptions: { type: Array, default: () => [] },
-  defaultModelLabel: { type: String, default: '全局聊天模型' },
+  defaultModelLabel: { type: String, default: '全局默认对话模型' },
   globalWebResearchEnabled: { type: Boolean, default: false },
   isDark: { type: Boolean, default: false },
 })
@@ -35,7 +35,7 @@ const modeOptions = [
 ]
 
 const modelSelectOptions = computed(() => {
-  const opts = [{ value: '', label: '跟随全局聊天模型', description: props.defaultModelLabel, icon: 'ri-sparkling-2-line' }]
+  const opts = [{ value: '', label: '跟随全局默认对话模型', description: props.defaultModelLabel, icon: 'ri-sparkling-2-line' }]
   for (const group of props.modelOptions) {
     for (const child of group.children || []) {
       opts.push({ value: child.value, label: child.label, badge: group.label })

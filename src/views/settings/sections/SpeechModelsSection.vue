@@ -454,7 +454,7 @@ async function checkSelectedProvider() {
     <section v-else class="tts-future" :class="isDark ? 'panel-dark' : 'panel-light'">
       <div class="tts-future__mark"><i class="ri-volume-up-line" /></div>
       <span class="future-label">即将支持</span>
-      <h3 :class="isDark ? 'text-wt-main' : 'text-lt-main'">文本转语音配置将在后续版本开放</h3>
+      <h3 :class="isDark ? 'text-wt-main' : 'text-lt-main'">文本转语音配置将在后续开放</h3>
     </section>
   </div>
 </template>

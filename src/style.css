@@ -2,8 +2,8 @@
 
 /* @import url('markstream-vue/index.css') layer(components); */
 :root {
-  font-family: Inter, -apple-system, "SF Pro Text", "Segoe UI", sans-serif;
-  line-height: 1.6;
+  font-family: var(--ui-font-family, Inter, -apple-system, "SF Pro Text", "Segoe UI", sans-serif);
+  line-height: var(--ui-line-height, 1.6);
   font-weight: 400;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -32,6 +32,9 @@ button{
   cursor: pointer;
   background: none;
 }
+textarea{
+  resize: none !important;
+}
 ::-webkit-scrollbar {
   width: 5px;
   height: 5px;
@@ -52,55 +55,6 @@ button{
 }
 .no-drag {
   -webkit-app-region: no-drag;
-}
-
-/* Accent color defaults (overridden by applyAccentColor on :root) */
-:root {
-  --brand: #4A6CFF;
-  --brand-hover: #3A5CED;
-  --brand-rgb: 74,108,255;
-}
-
-/* Theme: Dark (default) */
-.theme-dark {
-  --bg-l0: #0e0e12;
-  --bg-l1: #171720;
-  --bg-l2: #1c1c26;
-  --bg-l3: #252530;
-  --bg-l4: #2e2e3a;
-  --border-panel: #2e2e3a;
-  --border-card: #353542;
-  --border-focus: rgba(var(--brand-rgb, 108,138,255), 0.35);
-  --text-main: #e8e8ed;
-  --text-sub: #b0b0ba;
-  --text-aux: #78788a;
-  --text-dim: #555568;
-  --agent-color: #A78BFA;
-  --output-color: #34D399;
-  --success: #4ADE80;
-  --warning: #FACC15;
-  --error: #F87171;
-}
-
-/* Theme: Light */
-.theme-light {
-  --bg-l0: #f8f7f6;
-  --bg-l1: #f1f0ef;
-  --bg-l2: #ffffff;
-  --bg-l3: #f5f4f3;
-  --bg-l4: #ebeae8;
-  --border-panel: #dddcd9;
-  --border-card: #e2e1de;
-  --border-focus: rgba(var(--brand-rgb, 74,108,255), 0.5);
-  --text-main: #1a1a2e;
-  --text-sub: #5a5a6e;
-  --text-aux: #8a8a9e;
-  --text-dim: #b0b0ba;
-  --agent-color: #7C3AED;
-  --output-color: #10B981;
-  --success: #22c55e;
-  --warning: #eab308;
-  --error: #ef4444;
 }
 
 /* Naive UI theme overrides for dark mode */
@@ -212,9 +166,9 @@ button{
 
 /* Context pills */
 .ctx-pill {
-  font-size: 11px;
+  font-size: 13px;
   border-radius: 6px;
-  padding: 3px 8px;
+  padding: 4px 8px;
   display: inline-flex;
   align-items: center;
   gap: 4px;

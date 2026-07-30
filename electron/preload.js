@@ -7,6 +7,20 @@ const api = {
   openFile: (options) => ipcRenderer.invoke('dialog:openFile', options),
   saveTextFile: (options, content) => ipcRenderer.invoke('dialog:saveTextFile', options, content),
 
+  // Product themes
+  theme: {
+    list: () => ipcRenderer.invoke('theme:list'),
+    readCss: (id) => ipcRenderer.invoke('theme:readCss', id),
+    import: () => ipcRenderer.invoke('theme:import'),
+    remove: (id) => ipcRenderer.invoke('theme:remove', id),
+    openDirectory: () => ipcRenderer.invoke('theme:openDirectory'),
+    readCustomCss: () => ipcRenderer.invoke('theme:readCustomCss'),
+    stageCustomCss: (css) => ipcRenderer.invoke('theme:stageCustomCss', css),
+    commitCustomCss: () => ipcRenderer.invoke('theme:commitCustomCss'),
+    discardPendingCustomCss: () => ipcRenderer.invoke('theme:discardPendingCustomCss'),
+    resetCustomCss: () => ipcRenderer.invoke('theme:resetCustomCss'),
+  },
+
   // File system
   readFile: (filePath, options) => ipcRenderer.invoke('fs:readFile', filePath, options),
   writeFile: (filePath, content, options) => ipcRenderer.invoke('fs:writeFile', filePath, content, options),
@@ -54,7 +68,10 @@ const api = {
   // App
   getVersion: () => ipcRenderer.invoke('app:getVersion'),
   getPath: (name) => ipcRenderer.invoke('app:getPath', name),
+  getCacheSize: () => ipcRenderer.invoke('app:getCacheSize'),
   clearCache: () => ipcRenderer.invoke('app:clearCache'),
+  getTempSize: () => ipcRenderer.invoke('app:getTempSize'),
+  clearTempFiles: () => ipcRenderer.invoke('app:clearTempFiles'),
   relaunch: () => ipcRenderer.invoke('app:relaunch'),
   quit: () => ipcRenderer.invoke('app:quit'),
   getDataSize: () => ipcRenderer.invoke('app:getDataSize'),
@@ -188,6 +205,22 @@ const api = {
     cleanup: (beforeDate) => ipcRenderer.invoke('tokenUsage:cleanup', beforeDate),
   },
 
+  // Long-term learning & capability profile
+  learningMemory: {
+    getSettings: () => ipcRenderer.invoke('learningMemory:getSettings'),
+    updateSettings: (patch) => ipcRenderer.invoke('learningMemory:updateSettings', patch),
+    getOverview: () => ipcRenderer.invoke('learningMemory:getOverview'),
+    getRuntimeStatus: () => ipcRenderer.invoke('learningMemory:getRuntimeStatus'),
+    retractEvent: (traceId) => ipcRenderer.invoke('learningMemory:retractEvent', traceId),
+    clearAll: () => ipcRenderer.invoke('learningMemory:clearAll'),
+    onUpdated: (callback) => {
+      const handler = (_event, data) => callback(data)
+      ipcRenderer.on('learning-memory:updated', handler)
+      return () => ipcRenderer.removeListener('learning-memory:updated', handler)
+    },
+    removeUpdatedListeners: () => ipcRenderer.removeAllListeners('learning-memory:updated'),
+  },
+
   // Logs
   logs: {
     read: (date, filters) => ipcRenderer.invoke('logs:read', date, filters),
@@ -283,9 +316,16 @@ const api = {
   // Skill directory operations
   skill: {
     install: (skillId, skillData) => ipcRenderer.invoke('skill:install', skillId, skillData),
+    update: (skillId, skillData) => ipcRenderer.invoke('skill:update', skillId, skillData),
+    create: (skillId, skillData) => ipcRenderer.invoke('skill:create', skillId, skillData),
+    save: (skillId, skillData) => ipcRenderer.invoke('skill:save', skillId, skillData),
+    delete: (skillId, options) => ipcRenderer.invoke('skill:delete', skillId, options),
     uninstall: (skillId) => ipcRenderer.invoke('skill:uninstall', skillId),
     listFiles: (skillId) => ipcRenderer.invoke('skill:listFiles', skillId),
     readFile: (skillId, relativePath) => ipcRenderer.invoke('skill:readFile', skillId, relativePath),
+    writeFile: (skillId, relativePath, content) => ipcRenderer.invoke('skill:writeFile', skillId, relativePath, content),
+    pickImportSource: (type) => ipcRenderer.invoke('skill:pickImportSource', type),
+    importSource: (sessionId, options) => ipcRenderer.invoke('skill:importSource', sessionId, options),
     isInstalled: (skillId) => ipcRenderer.invoke('skill:isInstalled', skillId),
     listBuiltin: () => ipcRenderer.invoke('skill:listBuiltin'),
   },
@@ -432,7 +472,7 @@ const api = {
       list: () => ipcRenderer.invoke('db:skills:list'),
       create: (data) => ipcRenderer.invoke('db:skills:create', data),
       update: (id, data) => ipcRenderer.invoke('db:skills:update', id, data),
-      delete: (id) => ipcRenderer.invoke('db:skills:delete', id),
+      delete: (id, options) => ipcRenderer.invoke('db:skills:delete', id, options),
     },
     // Tools
     tools: {

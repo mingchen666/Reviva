@@ -21,6 +21,7 @@ defineEmits(['select-provider', 'toggle-provider'])
           {{ providers.length }}
         </span>
       </div>
+
       <div class="flex items-center gap-3 mt-2">
         <div class="flex items-center gap-1.5 text-[11px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">
           <span class="w-1.5 h-1.5 rounded-full bg-emerald-400" />
@@ -43,7 +44,7 @@ defineEmits(['select-provider', 'toggle-provider'])
           : (isDark ? 'text-wt-sub hover:bg-white/4' : 'text-lt-sub hover:bg-l4')"
         @click="$emit('select-provider', provider.id)"
       >
-        <span v-show="selectedProviderId === provider.id" class="absolute left-0 top-2 bottom-2 w-[2px] rounded-r" :style="{ backgroundColor: accentHex }" />
+        <span v-show="selectedProviderId === provider.id" class="absolute left-0 top-2 bottom-2 w-[2.5px] rounded-r" :style="{ backgroundColor: accentHex }" />
         <div v-if="provider.iconName" class="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 overflow-hidden">
           <SvgIcon :icon-class="provider.iconName" :size="20" />
         </div>

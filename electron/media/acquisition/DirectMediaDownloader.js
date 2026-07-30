@@ -54,7 +54,7 @@ export class DirectMediaDownloader {
       method: 'GET',
       headers: {
         Accept: 'audio/*,video/*,application/octet-stream;q=0.8,*/*;q=0.1',
-        'User-Agent': 'MindSpace-Desktop/1.0',
+        'User-Agent': 'Reviva-Desktop/1.0',
         ...headers,
       },
       lookup,

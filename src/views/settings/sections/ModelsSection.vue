@@ -759,101 +759,128 @@ const COST_FIELDS = [
           </div>
         </Transition>
 
-        <div class="max-w-4xl mx-auto px-4 lg:px-6 py-4 space-y-4">
-        <ProviderHeader
-          :provider="selectedProvider"
-          :is-dark="isDark"
-          :accent-hex="accentHex"
-          @toggle-provider="toggleProviderEnabled"
-        />
+<div class="max-w-4xl mx-auto px-4 lg:px-6 py-4 space-y-4">
+  <ProviderHeader
+    :provider="selectedProvider"
+    :is-dark="isDark"
+    :accent-hex="accentHex"
+    @toggle-provider="toggleProviderEnabled"
+  />
 
-        <OfficialProviderPanel
-          v-if="isOfficialProvider"
-          :provider="selectedProvider"
-          :is-dark="isDark"
-          :user-logged-in="userStore.isLoggedIn"
-          :official-status="officialStatus"
-          :official-balance-loading="officialBalanceLoading"
-          :official-balance="officialBalance"
-          :official-balance-loaded="officialBalanceLoaded"
-          :official-key-loading="officialKeyLoading"
-          :official-key-error="officialKeyError"
-          :fetching-models="fetchingModels"
-          :is-provider-configured="isProviderConfigured"
-          @refresh="loadOfficialProviderData()"
-          @reset-key="resetOfficialApiKey"
-          @copy-api-key="copyApiKey(selectedProvider.id)"
-          @test="openTestModal"
-        />
+  <!-- [占位] 官方服务商 -  -->
+  <div v-if="isOfficialProvider"
+    class="rounded-xl border py-16 flex flex-col items-center justify-center gap-3 select-none"
+    :class="isDark ? 'border-bdr' : 'border-bdrF'">
+    <div class="w-14 h-14 rounded-2xl flex items-center justify-center"
+      :class="isDark ? 'bg-brand-400/8' : 'bg-brand-50'">
+      <i class="ri-rocket-2-line text-[26px]" :class="isDark ? 'text-brand-400' : 'text-brand-500'" />
+    </div>
+    <p class="text-[15px] font-semibold" :class="isDark ? 'text-wt-main' : 'text-lt-main'">
+      官方模型服务即将上线
+    </p>
+    <p class="text-[12px] max-w-[280px] text-center leading-relaxed"
+      :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">
+      我们正在打磨云端模型调用、积分计费与用量统计等能力，敬请期待。
+    </p>
+    <span class="mt-1 inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-medium"
+      :class="isDark ? 'bg-amber-400/8 text-amber-400 border border-amber-400/20' : 'bg-amber-50 text-amber-600 border border-amber-200'">
+      <i class="ri-time-line text-[12px]" />Coming Soon
+    </span>
+  </div>
 
-        <ProviderConfigPanel
-          v-else
-          :provider="selectedProvider"
-          :is-dark="isDark"
-          :is-provider-configured="isProviderConfigured"
-          :show-api-key="!!showApiKeys[selectedProvider.id]"
-          :can-edit-base-url="canEditBaseUrl"
-          :is-base-url-default="isBaseUrlDefault"
-          :api-format="providerApiFormat(selectedProvider)"
-          :base-url-help-text="baseUrlHelpText(selectedProvider)"
-          @test="openTestModal"
-          @toggle-api-key="toggleApiKeyVisibility(selectedProvider.id)"
-          @copy-api-key="copyApiKey(selectedProvider.id)"
-          @api-key-input="value => { selectedProvider.apiKey = value; onApiKeyInput(selectedProvider.id) }"
-          @base-url-input="value => { selectedProvider.baseUrl = value; onBaseUrlInput() }"
-          @reset-base-url="resetBaseUrlToDefault"
-          @select-api-format="selectApiFormat"
-        />
+  <!--  
+  <OfficialProviderPanel
+    v-if="isOfficialProvider"
+    :provider="selectedProvider"
+    :is-dark="isDark"
+    :user-logged-in="userStore.isLoggedIn"
+    :official-status="officialStatus"
+    :official-balance-loading="officialBalanceLoading"
+    :official-balance="officialBalance"
+    :official-balance-loaded="officialBalanceLoaded"
+    :official-key-loading="officialKeyLoading"
+    :official-key-error="officialKeyError"
+    :fetching-models="fetchingModels"
+    :is-provider-configured="isProviderConfigured"
+    @refresh="loadOfficialProviderData()"
+    @reset-key="resetOfficialApiKey"
+    @copy-api-key="copyApiKey(selectedProvider.id)"
+    @test="openTestModal"
+  />
+  -->
 
-        <!-- Unconfigured hint -->
-        <div v-if="!isProviderConfigured" class="rounded-lg px-3 py-2 flex items-center gap-2"
-          :class="isDark ? 'bg-amber-400/6 border border-amber-400/15' : 'bg-amber-50 border border-amber-100'">
-          <i class="ri-information-line text-[13px]" :class="isDark ? 'text-amber-400' : 'text-amber-500'" />
-          <span class="text-[11px]" :class="isDark ? 'text-amber-400/80' : 'text-amber-600'">
-            {{ providerConfigHint() }}
-          </span>
-        </div>
+  <ProviderConfigPanel
+    v-if="!isOfficialProvider"
+    :provider="selectedProvider"
+    :is-dark="isDark"
+    :is-provider-configured="isProviderConfigured"
+    :show-api-key="!!showApiKeys[selectedProvider.id]"
+    :can-edit-base-url="canEditBaseUrl"
+    :is-base-url-default="isBaseUrlDefault"
+    :api-format="providerApiFormat(selectedProvider)"
+    :base-url-help-text="baseUrlHelpText(selectedProvider)"
+    @test="openTestModal"
+    @toggle-api-key="toggleApiKeyVisibility(selectedProvider.id)"
+    @copy-api-key="copyApiKey(selectedProvider.id)"
+    @api-key-input="value => { selectedProvider.apiKey = value; onApiKeyInput(selectedProvider.id) }"
+    @base-url-input="value => { selectedProvider.baseUrl = value; onBaseUrlInput() }"
+    @reset-base-url="resetBaseUrlToDefault"
+    @select-api-format="selectApiFormat"
+  />
 
-        <ModelList
-          :provider="selectedProvider"
-          :is-dark="isDark"
-          :accent-hex="accentHex"
-          :is-official-provider="isOfficialProvider"
-          :official-models-loaded="officialModelsLoaded"
-          :fetch-error="fetchError"
-          :can-fetch-models="canFetchModels"
-          :fetching-models="fetchingModels"
-          :is-provider-configured="isProviderConfigured"
-          :capability-meta="CAPABILITY_META"
-          :tier-label="tierLabel"
-          :tier-color="tierColor"
-          :cap-class="capClass"
-          :get-active-capabilities="getActiveCapabilities"
-          :format-cost="formatCost"
-          :cost-unit-label="costUnitLabel"
-          @fetch-models="fetchModelList"
-          @add-model="openAddModal"
-          @edit-model="openEditModal"
-          @delete-model="requestDeleteModel"
-          @toggle-model="toggleModelEnabled"
-        />
+  <!-- Unconfigured hint -->
+  <div v-if="!isOfficialProvider && !isProviderConfigured" class="rounded-lg px-3 py-2 flex items-center gap-2"
+    :class="isDark ? 'bg-amber-400/6 border border-amber-400/15' : 'bg-amber-50 border border-amber-100'">
+    <i class="ri-information-line text-[13px]" :class="isDark ? 'text-amber-400' : 'text-amber-500'" />
+    <span class="text-[11px]" :class="isDark ? 'text-amber-400/80' : 'text-amber-600'">
+      {{ providerConfigHint() }}
+    </span>
+  </div>
 
-        <OfficialUsageRecords
-          v-if="isOfficialProvider"
-          v-model:status-filter="usageStatusFilter"
-          v-model:model-filter="usageModelFilter"
-          :is-dark="isDark"
-          :user-logged-in="userStore.isLoggedIn"
-          :records="usageRecords"
-          :total="usageRecordsTotal"
-          :has-next="usageRecordsHasNext"
-          :loading="usageRecordsLoading"
-          :error="usageRecordsError"
-          :summary="usageRecordSummary"
-          @reload="reloadUsageRecords"
-          @load-more="loadMoreUsageRecords"
-        />
-        </div>
+  <!-- 官方模式下隐藏模型列表 -->
+  <ModelList
+    v-if="!isOfficialProvider"
+    :provider="selectedProvider"
+    :is-dark="isDark"
+    :accent-hex="accentHex"
+    :is-official-provider="false"
+    :official-models-loaded="false"
+    :fetch-error="fetchError"
+    :can-fetch-models="canFetchModels"
+    :fetching-models="fetchingModels"
+    :is-provider-configured="isProviderConfigured"
+    :capability-meta="CAPABILITY_META"
+    :tier-label="tierLabel"
+    :tier-color="tierColor"
+    :cap-class="capClass"
+    :get-active-capabilities="getActiveCapabilities"
+    :format-cost="formatCost"
+    :cost-unit-label="costUnitLabel"
+    @fetch-models="fetchModelList"
+    @add-model="openAddModal"
+    @edit-model="openEditModal"
+    @delete-model="requestDeleteModel"
+    @toggle-model="toggleModelEnabled"
+  />
+
+  <!-- 
+  <OfficialUsageRecords
+    v-if="isOfficialProvider"
+    v-model:status-filter="usageStatusFilter"
+    v-model:model-filter="usageModelFilter"
+    :is-dark="isDark"
+    :user-logged-in="userStore.isLoggedIn"
+    :records="usageRecords"
+    :total="usageRecordsTotal"
+    :has-next="usageRecordsHasNext"
+    :loading="usageRecordsLoading"
+    :error="usageRecordsError"
+    :summary="usageRecordSummary"
+    @reload="reloadUsageRecords"
+    @load-more="loadMoreUsageRecords"
+  />
+  -->
+</div>
       </template>
 
       <!-- Empty State -->
@@ -1034,32 +1061,32 @@ const COST_FIELDS = [
         <div>
           <label class="text-[11px] font-medium mb-1 block" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">模型 ID</label>
           <input v-model="addForm.id" type="text" placeholder="如 gpt-4o-2024-08-06"
-            class="w-full h-9 rounded-lg px-3 text-[12px] font-mono outline-none transition-colors"
+            class="w-full h-8 rounded-lg px-3 text-[13.5px] font-mono outline-none transition-colors"
             :class="isDark ? 'bg-d0 border border-d4 text-wt-sub placeholder-wt-dim focus:border-brand-400/40' : 'bg-l2 border border-bdrL text-lt-sub placeholder-lt-aux focus:border-brand-400'" />
         </div>
         <div>
           <label class="text-[11px] font-medium mb-1 block" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">显示名称</label>
           <input v-model="addForm.name" type="text" placeholder="如 GPT-4o (2024-08)"
-            class="w-full h-9 rounded-lg px-3 text-[12px] outline-none transition-colors"
+            class="w-full h-8 rounded-lg px-3 text-[13.5px] outline-none transition-colors"
             :class="isDark ? 'bg-d0 border border-d4 text-wt-sub placeholder-wt-dim focus:border-brand-400/40' : 'bg-l2 border border-bdrL text-lt-sub placeholder-lt-aux focus:border-brand-400'" />
         </div>
         <div class="flex items-center gap-3">
           <div class="flex-1">
             <label class="text-[11px] font-medium mb-1 block" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">上下文大小</label>
             <input v-model="addForm.ctx" type="text" placeholder="如 128K"
-              class="w-full h-9 rounded-lg px-3 text-[12px] outline-none transition-colors"
+              class="w-full h-8 rounded-lg px-3 text-[13.5px] outline-none transition-colors"
               :class="isDark ? 'bg-d0 border border-d4 text-wt-sub placeholder-wt-dim focus:border-brand-400/40' : 'bg-l2 border border-bdrL text-lt-sub placeholder-lt-aux focus:border-brand-400'" />
           </div>
           <div class="flex-1">
             <label class="text-[11px] font-medium mb-1 block" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">最大输出</label>
             <input v-model="addForm.maxOutput" type="text" placeholder="如 16K"
-              class="w-full h-9 rounded-lg px-3 text-[12px] outline-none transition-colors"
+              class="w-full h-8 rounded-lg px-3 text-[13.5px] outline-none transition-colors"
               :class="isDark ? 'bg-d0 border border-d4 text-wt-sub placeholder-wt-dim focus:border-brand-400/40' : 'bg-l2 border border-bdrL text-lt-sub placeholder-lt-aux focus:border-brand-400'" />
           </div>
           <div class="flex-1">
             <label class="text-[11px] font-medium mb-1 block" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">层级</label>
             <select v-model="addForm.tier"
-              class="w-full h-9 rounded-lg px-3 text-[12px] outline-none transition-colors appearance-none"
+              class="w-full h-8 rounded-lg px-3 text-[13px] outline-none transition-colors appearance-none"
               :class="isDark ? 'bg-d0 border border-d4 text-wt-sub focus:border-brand-400/40' : 'bg-l2 border border-bdrL text-lt-sub focus:border-brand-400'">
               <option value="flagship">旗舰</option>
               <option value="balanced">均衡</option>
@@ -1072,25 +1099,25 @@ const COST_FIELDS = [
           <label class="text-[11px] font-medium mb-1.5 block" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">模型能力</label>
           <div class="flex items-center gap-2 flex-wrap">
             <button v-for="(meta, key) in CAPABILITY_META" :key="key" @click="toggleAddCapability(key)"
-              class="ctx-pill border cursor-pointer transition-colors"
+              class="flex items-center ctx-pill border cursor-pointer transition-colors"
               :class="addForm.capabilities[key] ? capClass(key) : (isDark ? 'text-wt-dim bg-d4 border-bdr' : 'text-lt-aux bg-l4 border-bdrF')">
-              <i :class="meta.icon" class="text-[9px]" />{{ meta.label }}
+              <i :class="meta.icon" class="text-[12px]" /><span>{{ meta.label }}</span>
             </button>
           </div>
         </div>
         <!-- Cost fields -->
         <div>
           <label class="text-[11px] font-medium mb-1.5 block" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">
-            <i class="ri-money-cny-circle-line text-[10px]" />Token 成本（元 / 100万 tokens）
+            <i class="ri-money-cny-circle-line text-[12.5px]" />Token 成本（元 / 100万 tokens）
           </label>
           <div class="grid grid-cols-3 gap-2">
             <div v-for="field in COST_FIELDS" :key="field.key">
               <div class="flex items-center gap-1 mb-1">
-                <i :class="[field.icon, 'text-[9px]', isDark ? 'text-wt-dim' : 'text-lt-aux']" />
-                <span class="text-[10px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">{{ field.label }}</span>
+                <i :class="[field.icon, 'text-[13px]', isDark ? 'text-wt-dim' : 'text-lt-aux']" />
+                <span class="text-[12px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">{{ field.label }}</span>
               </div>
               <input v-model.number="addForm[field.key]" type="number" step="0.001" min="0" :placeholder="field.placeholder"
-                class="w-full h-8 rounded-lg px-2 text-[12px] font-mono outline-none transition-colors"
+                class="w-full h-8 rounded-lg px-2 text-[13.5px] font-mono outline-none transition-colors"
                 :class="isDark ? 'bg-d0 border border-d4 text-wt-sub placeholder-wt-dim focus:border-brand-400/40' : 'bg-l2 border border-bdrL text-lt-sub placeholder-lt-aux focus:border-brand-400'" />
             </div>
           </div>
@@ -1098,10 +1125,10 @@ const COST_FIELDS = [
       </div>
 
       <template #footer="{ close }">
-        <button @click="close()" class="px-4 py-2 rounded-lg text-[11px] font-medium transition-colors"
+        <button @click="close()" class="px-4 py-2 rounded-lg text-[12px] font-medium transition-colors"
           :class="isDark ? 'text-wt-aux hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub'">取消</button>
         <button @click="confirmAddModel(); close()" :disabled="!addForm.id"
-          class="px-4 py-2 rounded-lg text-[11px] font-medium transition-colors"
+          class="px-4 py-2 rounded-lg text-[12px] font-medium transition-colors"
           :class="addForm.id
             ? (isDark ? 'bg-brand-400 text-d0 hover:bg-brand-500' : 'bg-brand-500 text-white hover:bg-brand-600')
             : (isDark ? 'bg-d4 text-wt-dim' : 'bg-l4 text-lt-aux')">
@@ -1125,32 +1152,32 @@ const COST_FIELDS = [
         <div>
           <label class="text-[11px] font-medium mb-1 block" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">模型 ID</label>
           <input :value="editForm.modelId" type="text" disabled
-            class="w-full h-9 rounded-lg px-3 text-[12px] font-mono outline-none"
+            class="w-full h-8 rounded-lg px-3 text-[13.5px] font-mono outline-none"
             :class="isDark ? 'bg-d4 text-wt-dim border border-d4' : 'bg-l4 text-lt-aux border border-l4'" />
         </div>
         <div>
           <label class="text-[11px] font-medium mb-1 block" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">显示名称</label>
           <input v-model="editForm.name" type="text" placeholder="模型显示名称"
-            class="w-full h-9 rounded-lg px-3 text-[12px] outline-none transition-colors"
+            class="w-full h-8 rounded-lg px-3 text-[13.5px] outline-none transition-colors"
             :class="isDark ? 'bg-d0 border border-d4 text-wt-sub placeholder-wt-dim focus:border-brand-400/40' : 'bg-l2 border border-bdrL text-lt-sub placeholder-lt-aux focus:border-brand-400'" />
         </div>
         <div class="flex items-center gap-3">
           <div class="flex-1">
             <label class="text-[11px] font-medium mb-1 block" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">上下文大小</label>
             <input v-model="editForm.ctx" type="text" placeholder="如 128K"
-              class="w-full h-9 rounded-lg px-3 text-[12px] outline-none transition-colors"
+              class="w-full h-8 rounded-lg px-3 text-[13px] outline-none transition-colors"
               :class="isDark ? 'bg-d0 border border-d4 text-wt-sub placeholder-wt-dim focus:border-brand-400/40' : 'bg-l2 border border-bdrL text-lt-sub placeholder-lt-aux focus:border-brand-400'" />
           </div>
           <div class="flex-1">
             <label class="text-[11px] font-medium mb-1 block" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">最大输出</label>
             <input v-model="editForm.maxOutput" type="text" placeholder="如 16K"
-              class="w-full h-9 rounded-lg px-3 text-[12px] outline-none transition-colors"
+              class="w-full h-8 rounded-lg px-3 text-[13px] outline-none transition-colors"
               :class="isDark ? 'bg-d0 border border-d4 text-wt-sub placeholder-wt-dim focus:border-brand-400/40' : 'bg-l2 border border-bdrL text-lt-sub placeholder-lt-aux focus:border-brand-400'" />
           </div>
           <div class="flex-1">
             <label class="text-[11px] font-medium mb-1 block" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">层级</label>
             <select v-model="editForm.tier"
-              class="w-full h-9 rounded-lg px-3 text-[12px] outline-none transition-colors appearance-none"
+              class="w-full h-8 rounded-lg px-3 text-[13px] outline-none transition-colors appearance-none"
               :class="isDark ? 'bg-d0 border border-d4 text-wt-sub focus:border-brand-400/40' : 'bg-l2 border border-bdrL text-lt-sub focus:border-brand-400'">
               <option value="flagship">旗舰</option>
               <option value="balanced">均衡</option>
@@ -1163,22 +1190,22 @@ const COST_FIELDS = [
           <label class="text-[11px] font-medium mb-1.5 block" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">模型能力</label>
           <div class="flex items-center gap-2 flex-wrap">
             <button v-for="(meta, key) in CAPABILITY_META" :key="key" @click="toggleEditCapability(key)"
-              class="ctx-pill border cursor-pointer transition-colors"
+              class="ctx-pill flex items-center border cursor-pointer transition-colors"
               :class="editForm.capabilities[key] ? capClass(key) : (isDark ? 'text-wt-dim bg-d4 border-bdr' : 'text-lt-aux bg-l4 border-bdrF')">
-              <i :class="meta.icon" class="text-[9px]" />{{ meta.label }}
+              <i :class="meta.icon" class="text-[13px]" /><span>{{ meta.label }}</span>
             </button>
           </div>
         </div>
         <!-- Cost fields -->
         <div>
           <label class="text-[11px] font-medium mb-1.5 block" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">
-            <i class="ri-money-cny-circle-line text-[10px]" />Token 成本（元 / 100万 tokens）
+            <i class="ri-money-cny-circle-line text-[12.5px]" />Token 成本（元 / 100万 tokens）
           </label>
           <div class="grid grid-cols-3 gap-2">
             <div v-for="field in COST_FIELDS" :key="field.key">
               <div class="flex items-center gap-1 mb-1">
-                <i :class="[field.icon, 'text-[9px]', isDark ? 'text-wt-dim' : 'text-lt-aux']" />
-                <span class="text-[10px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">{{ field.label }}</span>
+                <i :class="[field.icon, 'text-[12px]', isDark ? 'text-wt-dim' : 'text-lt-aux']" />
+                <span class="text-[11px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">{{ field.label }}</span>
               </div>
               <input v-model.number="editForm[field.key]" type="number" step="0.001" min="0" :placeholder="field.placeholder"
                 class="w-full h-8 rounded-lg px-2 text-[12px] font-mono outline-none transition-colors"
@@ -1189,10 +1216,10 @@ const COST_FIELDS = [
       </div>
 
       <template #footer="{ close }">
-        <button @click="close()" class="px-4 py-2 rounded-lg text-[11px] font-medium transition-colors"
+        <button @click="close()" class="px-4 py-2 rounded-lg text-[12px] font-medium transition-colors"
           :class="isDark ? 'text-wt-aux hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub'">取消</button>
         <button @click="confirmEditModel(); close()"
-          class="px-4 py-2 rounded-lg text-[11px] font-medium transition-colors"
+          class="px-4 py-2 rounded-lg text-[12px] font-medium transition-colors"
           :class="isDark ? 'bg-brand-400 text-d0 hover:bg-brand-500' : 'bg-brand-500 text-white hover:bg-brand-600'">
           保存修改
         </button>

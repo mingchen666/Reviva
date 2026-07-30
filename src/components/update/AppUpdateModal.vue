@@ -1,7 +1,7 @@
 <script setup>
 import { computed } from 'vue'
 import MsModal from '@/components/MsModal/MsModal.vue'
-import { BETA_RELEASE } from '@/config/beta'
+import { RELEASE_CONFIG } from '@/config/release'
 
 const props = defineProps({
   show: Boolean,
@@ -16,8 +16,8 @@ const props = defineProps({
 
 const emit = defineEmits(['update:show', 'check', 'download', 'install'])
 
-const fallbackUrl = computed(() => props.updateInfo?.fallbackUrl || BETA_RELEASE.downloadUrl || '')
-const fallbackLabel = computed(() => BETA_RELEASE.fallbackLabel || '夸克网盘下载')
+const fallbackUrl = computed(() => props.updateInfo?.fallbackUrl || RELEASE_CONFIG.downloadUrl || '')
+const fallbackLabel = computed(() => RELEASE_CONFIG.fallbackLabel || '夸克网盘下载')
 const safeProgress = computed(() => Math.max(0, Math.min(100, Number(props.downloadProgress) || 0)))
 
 function setShow(value) {

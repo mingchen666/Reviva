@@ -59,7 +59,7 @@ export function registerResponsesCompatibility({ server, registry, dbService, ag
     const cleanup = () => { if (!persistent) { dbService?.deleteMsg?.(user?.id); dbService?.deleteMsg?.(assistant?.id); dbService?.deleteConv?.(conversationId) } }
     const modelConfig = resolveAgentModel(dbService, agent)
     const systemPrompt = [agent.prompt || '', String(body?.instructions || '')].filter(Boolean).join('\n\n')
-    const runRequest = { runId: responseId, conversationId, agentId, agentEnglishName: agent.englishName || '', msgId: assistant?.id, userMessageId: user?.id, systemPrompt, messages, ...modelConfig, maxIterations: agent.maxIter, temperature: body?.temperature ?? agent.temperature, maxTokens: body?.max_output_tokens ?? agent.maxTokens, topP: body?.top_p ?? agent.topP, thinkingMode: agent.thinkingMode, thinkingIntensity: reasoningEffort(body?.reasoning?.effort, agent.thinkingIntensity), toolIds: agent.tools || [], permissions: agent.permissions || {}, skills: agent.skills || [], subAgents: [], toolProviderConfigs: dbService?.getSetting?.('toolProviderConfigMap') || {} }
+    const runRequest = { runId: responseId, conversationId, agentId, agentEnglishName: agent.englishName || '', msgId: assistant?.id, userMessageId: user?.id, systemPrompt, messages, ...modelConfig, maxIterations: agent.maxIter, temperature: body?.temperature ?? agent.temperature, maxTokens: body?.max_output_tokens ?? agent.maxTokens, topP: body?.top_p ?? agent.topP, thinkingMode: agent.thinkingMode, thinkingIntensity: reasoningEffort(body?.reasoning?.effort, agent.thinkingIntensity), toolIds: agent.tools || [], permissions: agent.permissions || {}, skills: agent.skills || [], subAgents: [], toolProviderConfigs: dbService?.getSetting?.('toolProviderConfigMap') || {}, learningProfileAllowed: false }
 
     if (body?.stream !== true) {
       try { await agentService.handleStartRun(runRequest) } catch (error) { cleanup(); throw error }
@@ -68,7 +68,7 @@ export function registerResponsesCompatibility({ server, registry, dbService, ag
       if (message?.thinkingContent) output.push({ type: 'reasoning', id: `rs_${crypto.randomUUID()}`, summary: [{ type: 'summary_text', text: message.thinkingContent }] })
       output.push({ type: 'message', id: `msg_${crypto.randomUUID()}`, status: 'completed', role: 'assistant', content: [{ type: 'output_text', text: message?.content || '', annotations: [] }] })
       cleanup()
-      sendJson(response, 200, { id: responseId, object: 'response', created_at: created(), status: 'completed', model: agentId, output, error: null, usage: responseUsage(message), mindspace_usage: extendedUsage(message, message?.latencyMs), mindspace: { conversationId } })
+      sendJson(response, 200, { id: responseId, object: 'response', created_at: created(), status: 'completed', model: agentId, output, error: null, usage: responseUsage(message), reviva_usage: extendedUsage(message, message?.latencyMs), reviva: { conversationId } })
       return
     }
 
@@ -87,7 +87,7 @@ export function registerResponsesCompatibility({ server, registry, dbService, ag
       else if (channel === 'agent:chunk' && chunk.type === 'content') emit({ type: 'response.output_text.delta', item_id: assistant.id, output_index: 0, content_index: 0, delta: chunk.text || '' })
       else if (channel === 'agent:chunk' && chunk.type === 'tool_start') emit({ type: 'response.output_item.added', output_index: 0, item: { id: chunk.toolId || `tool_${crypto.randomUUID()}`, type: 'function_call', name: chunk.toolName || '', arguments: JSON.stringify(chunk.input || {}), status: 'in_progress' } })
       else if (channel === 'agent:chunk' && (chunk.type === 'tool_end' || chunk.type === 'tool_error')) emit({ type: 'response.output_item.done', output_index: 0, item: { id: chunk.toolId || '', type: 'function_call', name: chunk.toolName || '', status: chunk.type === 'tool_end' ? 'completed' : 'failed' } })
-      else if (channel === 'agent:runDone') { cleanup(); emit({ type: 'response.completed', response: { id: responseId, object: 'response', status: 'completed', model: agentId, usage: responseUsage(payload.usage), mindspace_usage: extendedUsage(payload.usage, payload.latencyMs) } }); response.end(); unsubscribe() }
+      else if (channel === 'agent:runDone') { cleanup(); emit({ type: 'response.completed', response: { id: responseId, object: 'response', status: 'completed', model: agentId, usage: responseUsage(payload.usage), reviva_usage: extendedUsage(payload.usage, payload.latencyMs) } }); response.end(); unsubscribe() }
       else if (channel === 'agent:runError' || channel === 'agent:runCancelled') { cleanup(); emit({ type: 'response.failed', response: { id: responseId, object: 'response', status: 'failed', error: payload.error || { message: channel } } }); response.end(); unsubscribe() }
     })
     response.on('close', () => {

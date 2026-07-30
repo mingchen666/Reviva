@@ -20,8 +20,8 @@ const accentHex = computed(() => settingsStore.currentAccentHex)
 const navGroups = [
   { label: '模型', keys: ['default-models', 'models', 'speech-models', 'ocr'] },
   { label: '工作台', keys: ['directory', 'environment',  'sandbox'] },
-  { label: '记录与统计', keys: ['memory', 'usage'] },
-  { label: '界面与桌面', keys: ['preference', 'shortcuts', 'quick-inputs', 'notifications'] },
+  { label: '记录与统计', keys: ['memory', 'learning-memory', 'usage'] },
+  { label: '界面与桌面', keys: ['theme', 'preference', 'shortcuts', 'quick-inputs', 'notifications'] },
   { label: '数据与系统', keys: ['local-gateway', 'data', 'about', 'author'] },//['network', 'data', 'about']
 ]
 
@@ -35,9 +35,11 @@ const sectionMap = {
   ocr: { name: 'OCR 模型配置', icon: 'ri-scan-2-line', color: 'emerald', hint: '配置 PaddleOCR、MinerU等服务商' },
   sandbox: { name: '沙箱与限流', icon: 'ri-shield-check-line', color: 'amber', hint: 'Agent 沙箱执行环境的全局配置' },
   memory: { name: '记忆管理', icon: 'ri-brain-line', color: 'rose', hint: '管理 Agent 与对话使用的长期记忆' },
+  'learning-memory': { name: '成长画像', icon: 'ri-seedling-line', color: 'brand', hint: '管理长期学习、能力与协作偏好的个性化画像' },
   usage: { name: '用量统计', icon: 'ri-line-chart-line', color: 'emerald', hint: '查看 Token 消耗与成本' },
-  preference: { name: '偏好配置', icon: 'ri-equalizer-line', color: 'agent', hint: '外观、语气风格等界面偏好' },
-  shortcuts: { name: '快捷键', icon: 'ri-keyboard-line', color: 'brand', hint: '全局与应用内键盘快捷键' },
+  theme: { name: '主题配置', icon: 'ri-palette-line', color: 'agent', hint: '界面主题、颜色模式与自定义 CSS' },
+  preference: { name: '偏好配置', icon: 'ri-equalizer-line', color: 'agent', hint: '回答风格等使用偏好' },
+  shortcuts: { name: '系统快捷键', icon: 'ri-keyboard-line', color: 'brand', hint: '全局与应用内键盘快捷键' },
   'quick-inputs': { name: '快捷输入', icon: 'ri-at-line', color: 'brand', hint: '管理聊天中的 @ 快捷输入' },
   notifications: { name: '通知与启动', icon: 'ri-notification-3-line', color: 'amber', hint: '声音通知、托盘与开机自启' },
   'local-gateway': { name: '网关服务', icon: 'ri-router-line', color: 'brand', hint: '通过 HTTP 对外开放 Reviva 能力' },
@@ -83,7 +85,7 @@ const currentSectionInfo = computed(() => sectionMap[activeSection.value])
                   : (isDark ? 'text-wt-sub hover:bg-white/4' : 'text-lt-sub hover:bg-l4')"
                 @click="router.push('/settings/' + k)"
               >
-                <span v-show="activeSection === k" class="absolute left-0 top-2 bottom-2 w-[2px] rounded-r" :style="{ backgroundColor: accentHex }" />
+                <span v-show="activeSection === k" class="absolute left-0 top-2 bottom-2 w-[2.5px] rounded-r" :style="{ backgroundColor: accentHex }" />
                 <div class="w-[22px] h-[22px] rounded-md flex items-center justify-center shrink-0" :class="activeSection === k ? (isDark ? 'bg-d0' : 'bg-l2') : ''">
                   <i :class="`${sectionMap[k].icon} text-[15px] ${activeSection === k ? (isDark ? 'text-brand-400' : 'text-brand-500') : ''}`" />
                 </div>

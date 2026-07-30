@@ -3,6 +3,7 @@ import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAppStore } from '@/stores/app'
 import { useConversationsStore } from '@/stores/conversations'
+import { useSettingsStore } from '@/stores/settings'
 
 const props = defineProps({ visible: Boolean })
 const emit = defineEmits(['close'])
@@ -10,6 +11,7 @@ const emit = defineEmits(['close'])
 const router = useRouter()
 const route = useRoute()
 const appStore = useAppStore()
+const settingsStore = useSettingsStore()
 const convStore = useConversationsStore()
 const isDark = computed(() => appStore.isDark)
 
@@ -50,7 +52,8 @@ const SETTINGS_ITEMS = [
   { id: 'set-sandbox', label: '沙箱与限流', icon: 'ri-shield-keyhole-line', path: '/settings/sandbox', group: '设置' },
   { id: 'set-memory', label: '记忆管理', icon: 'ri-brain-line', path: '/settings/memory', group: '设置' },
   { id: 'set-usage', label: '用量统计', icon: 'ri-bar-chart-line', path: '/settings/usage', group: '设置' },
-  { id: 'set-preference', label: '偏好配置', icon: 'ri-palette-line', path: '/settings/preference', group: '设置' },
+  { id: 'set-theme', label: '主题', icon: 'ri-palette-line', path: '/settings/theme', group: '设置' },
+  { id: 'set-preference', label: '偏好配置', icon: 'ri-equalizer-line', path: '/settings/preference', group: '设置' },
   { id: 'set-shortcuts', label: '快捷键', icon: 'ri-keyboard-line', path: '/settings/shortcuts', group: '设置' },
   {
     id: 'set-notifications',
@@ -127,7 +130,8 @@ function execute(item) {
   } else if (item.action === 'createAgent') {
     router.push('/agents/create')
   } else if (item.action === 'toggleTheme') {
-    appStore.toggleTheme()
+    const next = settingsStore.themeMode === 'dark' ? 'light' : 'dark'
+    settingsStore.savePreference('themeMode', next)
   } else if (item.action === 'toggleSidebar') {
     appStore.toggleRightPanel()
   } else if (item.action === 'openConv') {
