@@ -313,11 +313,10 @@ For issues, please open a [GitHub Issue](https://github.com/mingchen666/Reviva/i
 - [x] Audio and video parsing
 - [x] Wiki links and audio/video parsing
 - [x] Responses API format
-- [ ] Custom Skills
+- [x] Custom Skills
 - [ ] More built-in Agents and Skills
 - [x] Improved import, export, and backup capabilities
-- [ ] Agent memory and long-term learning
-- [ ] Agent autonomous learning growth loop (accumulate user preferences, learning profiles, and weak points over time; keep all growth results auditable, reversible, and evaluable)
+- [x] Agent autonomous learning growth loop (accumulate user preferences, learning profiles, and weak points over time; keep all growth results auditable, reversible, and evaluable)(beta)
 - [ ] More...
 
 ## License and Commercial Use
