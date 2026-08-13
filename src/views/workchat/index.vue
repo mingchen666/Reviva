@@ -41,6 +41,7 @@ const SaveMessageToNoteModal = defineAsyncComponent(() => import('./sections/exp
 const MindmapModal = defineAsyncComponent(() => import('./sections/rightpanel/modals/MindmapModal.vue'))
 const GraphModal = defineAsyncComponent(() => import('./sections/rightpanel/modals/GraphModal.vue'))
 const FlashcardModal = defineAsyncComponent(() => import('./sections/rightpanel/modals/FlashcardModal.vue'))
+const KnowledgeToolModal = defineAsyncComponent(() => import('./sections/rightpanel/modals/KnowledgeToolModal.vue'))
 const QuizModal = defineAsyncComponent(() => import('./sections/rightpanel/modals/QuizModal.vue'))
 const ChartModal = defineAsyncComponent(() => import('./sections/rightpanel/modals/ChartModal.vue'))
 const PodcastModal = defineAsyncComponent(() => import('./sections/rightpanel/modals/PodcastModal.vue'))
@@ -137,6 +138,9 @@ const showPptModal = ref(false)
 const showMindmapModal = ref(false)
 const showGraphModal = ref(false)
 const showFlashcardModal = ref(false)
+const showQaModal = ref(false)
+const showGlossaryModal = ref(false)
+const showCheatsheetModal = ref(false)
 const showQuizModal = ref(false)
 const showChartModal = ref(false)
 const showPodcastModal = ref(false)
@@ -146,6 +150,9 @@ const renderedModals = reactive({
   mindmap: false,
   graph: false,
   flashcard: false,
+  qa: false,
+  glossary: false,
+  cheatsheet: false,
   quiz: false,
   chart: false,
   podcast: false,
@@ -180,6 +187,9 @@ const lazyModalVisibility = {
   mindmap: showMindmapModal,
   graph: showGraphModal,
   flashcard: showFlashcardModal,
+  qa: showQaModal,
+  glossary: showGlossaryModal,
+  cheatsheet: showCheatsheetModal,
   quiz: showQuizModal,
   chart: showChartModal,
   podcast: showPodcastModal,
@@ -247,6 +257,10 @@ function findBuiltinAgentByEnglishName(englishName, fallbackIds = []) {
 const currentCtxItems = computed(() => globalCtxItems.value)
 const selectedWikiIds = ref([])
 const availableWikis = computed(() => wikiStore.wikis || [])
+const selectedWikiRefs = computed(() => selectedWikiIds.value.map((id) => {
+  const wiki = availableWikis.value.find(item => item.id === id)
+  return { id, name: wiki?.name || id, type: 'wiki', icon: 'ri-book-2-line' }
+}))
 const wikiContext = computed(() => ({
   enabled: selectedWikiIds.value.length > 0,
   mode: 'selected',
@@ -928,6 +942,12 @@ function handleBuiltinTool(tool) {
     showGraphModal.value = true
   } else if (tool.id === 'flashcard') {
     showFlashcardModal.value = true
+  } else if (tool.id === 'qa') {
+    showQaModal.value = true
+  } else if (tool.id === 'glossary') {
+    showGlossaryModal.value = true
+  } else if (tool.id === 'cheatsheet') {
+    showCheatsheetModal.value = true
   } else if (tool.id === 'quiz') {
     showQuizModal.value = true
   } else if (tool.id === 'chart') {
@@ -946,14 +966,14 @@ function providerInfoFromModelRef(modelRef) {
     const provider = settingsStore.providers.find(p => p.id === parsed.providerId && p.enabled && providerConfigured(p))
     const model = provider?.models?.find(m => m.id === parsed.modelId && modelUsable(m))
     return provider && model
-      ? { providerId: provider.id, apiFormat: providerApiFormat(provider), apiKey: provider.apiKey, baseUrl: provider.baseUrl, model: model.id, modelHasVision: !!model.capabilities?.vision }
+      ? { providerId: provider.id, apiFormat: providerApiFormat(provider), apiKey: provider.apiKey, baseUrl: provider.baseUrl, model: model.id, modelCtx: model.ctx || model.context_window || model.contextWindow || '', modelHasVision: !!model.capabilities?.vision }
       : null
   }
 
   for (const provider of settingsStore.providers) {
     if (!provider.enabled || !providerConfigured(provider)) continue
     const model = provider.models?.find(m => m.id === parsed.modelId && modelUsable(m))
-    if (model) return { providerId: provider.id, apiFormat: providerApiFormat(provider), apiKey: provider.apiKey, baseUrl: provider.baseUrl, model: model.id, modelHasVision: !!model.capabilities?.vision }
+    if (model) return { providerId: provider.id, apiFormat: providerApiFormat(provider), apiKey: provider.apiKey, baseUrl: provider.baseUrl, model: model.id, modelCtx: model.ctx || model.context_window || model.contextWindow || '', modelHasVision: !!model.capabilities?.vision }
   }
   return null
 }
@@ -973,7 +993,7 @@ function resolveGenerationProviderInfo() {
   for (const provider of settingsStore.providers) {
     if (!provider.enabled || !providerConfigured(provider)) continue
     const model = provider.models?.find(m => m.enabled && m.tier !== 'embedding')
-    if (model) return { providerId: provider.id, apiFormat: providerApiFormat(provider), apiKey: provider.apiKey, baseUrl: provider.baseUrl, model: model.id, modelHasVision: !!model.capabilities?.vision }
+    if (model) return { providerId: provider.id, apiFormat: providerApiFormat(provider), apiKey: provider.apiKey, baseUrl: provider.baseUrl, model: model.id, modelCtx: model.ctx || model.context_window || model.contextWindow || '', modelHasVision: !!model.capabilities?.vision }
   }
   return null
 }
@@ -998,6 +1018,17 @@ function cloneToolProviderConfigs() {
     return JSON.parse(JSON.stringify(agentsStore.toolProviderConfigMap || {}))
   } catch (_) {
     return {}
+  }
+}
+
+function normalizeGenerationWebSearch(params = {}) {
+  const raw = params?.webSearch
+  if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+    return { enabled: raw.enabled === true, provider: raw.provider || 'auto' }
+  }
+  return {
+    enabled: params?.enableWebSearch === true || params?.enable_web_search === true,
+    provider: 'auto',
   }
 }
 
@@ -1040,6 +1071,9 @@ async function handleGenTaskSubmit(payload) {
   if (toolId === 'mindmap') showMindmapModal.value = false
   else if (toolId === 'graph') showGraphModal.value = false
   else if (toolId === 'flashcard') showFlashcardModal.value = false
+  else if (toolId === 'qa') showQaModal.value = false
+  else if (toolId === 'glossary') showGlossaryModal.value = false
+  else if (toolId === 'cheatsheet') showCheatsheetModal.value = false
   else if (toolId === 'quiz') showQuizModal.value = false
   else if (toolId === 'chart') showChartModal.value = false
   else if (toolId === 'podcast') showPodcastModal.value = false
@@ -1064,10 +1098,13 @@ async function handleGenTaskSubmit(payload) {
   }
 
   const ctxSnapshot = JSON.parse(JSON.stringify(currentCtxItems.value || []))
-  if (['mindmap', 'graph', 'flashcard', 'quiz', 'chart'].includes(toolId) && !String(payload.topic || '').trim() && !readableGenerationContexts(ctxSnapshot).length) {
-    msg.warning('请填写主题，或选择具体文件/知识库')
+  const needsTopicOrSource = ['mindmap', 'graph', 'flashcard', 'quiz', 'chart', 'qa', 'glossary', 'cheatsheet'].includes(toolId)
+  if (needsTopicOrSource && !String(payload.topic || '').trim() && !readableGenerationContexts(ctxSnapshot).length && !selectedWikiRefs.value.length) {
+    msg.warning('请填写主题，或选择具体文件、知识库或 Wiki')
     return
   }
+
+  const webSearch = normalizeGenerationWebSearch(payload.params || {})
 
   const req = {
     toolId,
@@ -1077,6 +1114,12 @@ async function handleGenTaskSubmit(payload) {
     groupId: currentGroupId.value,
     conversationId: currentConvId.value || '',
     ctxItems: ctxSnapshot,
+    wikiContext: { enabled: selectedWikiRefs.value.length > 0, mode: 'selected', wikiIds: [...selectedWikiIds.value] },
+    sourceScope: {
+      wikiIds: [...selectedWikiIds.value],
+      wikiRefs: JSON.parse(JSON.stringify(selectedWikiRefs.value)),
+      web: webSearch,
+    },
     toolProviderConfigs: cloneToolProviderConfigs(),
     cloudContext: buildCloudContext(ctxSnapshot),
     visionModel: resolveVisionProviderInfo(),
@@ -1091,15 +1134,16 @@ async function handleGenTaskSubmit(payload) {
 
   // Notify right-panel to refresh task list
   window.dispatchEvent(new CustomEvent('reviva:gen-task-created', { detail: res.task }))
-  msg.success(`已开始生成${{ mindmap: '思维导图', graph: '知识图谱', flashcard: '闪卡', quiz: '测验', chart: '图表', podcast: '播客', research: '深度研究', ppt: 'PPT' }[toolId] || ''}`)
+  msg.success(`已开始生成${{ mindmap: '思维导图', graph: '知识图谱', flashcard: '闪卡', quiz: '测验', chart: '图表', qa: 'Q&A 问答卡', glossary: '术语表', cheatsheet: '速查表', podcast: '播客', research: '深度研究', ppt: 'PPT' }[toolId] || ''}`)
 }
 
 async function handleResearchStart({ requirement, settings }) {
   const ctxItems = currentCtxItems.value
-  const fileNames = ctxItems.map(i => i.name || i.path).join('、')
+  const sourceItems = [...ctxItems, ...selectedWikiRefs.value]
+  const fileNames = sourceItems.map(i => i.name || i.path).join('、')
   const mode = settings?.mode === 'cloud' ? 'cloud' : 'local'
-  if (mode === 'local' && !ctxItems.length) {
-    msg.warning('请先选择要研究的文件、文件夹或知识库')
+  if (mode === 'local' && !sourceItems.length) {
+    msg.warning('请先选择要研究的文件、文件夹、知识库或 Wiki')
     return
   }
   await handleGenTaskSubmit({
@@ -1122,11 +1166,12 @@ async function handleResearchStart({ requirement, settings }) {
 
 async function handlePptStart({ requirement, settings }) {
   const ctxItems = currentCtxItems.value
-  const fileNames = ctxItems.map(i => i.name || i.path).join('、')
+  const sourceItems = [...ctxItems, ...selectedWikiRefs.value]
+  const fileNames = sourceItems.map(i => i.name || i.path).join('、')
   const mode = settings?.mode === 'cloud' ? 'cloud' : 'local'
   const outputFormat = normalizePptOutputFormat(settings?.format)
-  if (mode === 'local' && !ctxItems.length) {
-    msg.warning('请先选择要处理的文件、文件夹或知识库')
+  if (mode === 'local' && !sourceItems.length) {
+    msg.warning('请先选择要处理的文件、文件夹、知识库或 Wiki')
     return
   }
   await handleGenTaskSubmit({
@@ -1581,7 +1626,7 @@ function animateTitle(convId, targetTitle, tab) {
                   <button @click.stop="closeTab(tab.id)"
                     class="tab-close ml-auto h-5 w-5 rounded flex items-center justify-center shrink-0"
                     :class="isDark ? 'hover:text-red-400' : 'hover:text-red-500'">
-                    <i class="ri-close-line text-[14px]" />
+                    <i class="ri-close-line text-[16px]" />
                   </button>
                   <div v-if="activeTabId === tab.id" class="absolute bottom-0 left-1 right-1 h-[2px] rounded-t-md bg-brand-400" />
                 </div>
@@ -1725,6 +1770,7 @@ function animateTitle(convId, targetTitle, tab) {
       v-if="renderedModals.research"
       v-model:show="showResearchModal"
       :ctx-items="currentCtxItems"
+      :wiki-items="selectedWikiRefs"
       @start="handleResearchStart"
     />
 
@@ -1732,6 +1778,7 @@ function animateTitle(convId, targetTitle, tab) {
       v-if="renderedModals.ppt"
       v-model:show="showPptModal"
       :ctx-items="currentCtxItems"
+      :wiki-items="selectedWikiRefs"
       @start="handlePptStart"
     />
 
@@ -1740,30 +1787,59 @@ function animateTitle(convId, targetTitle, tab) {
       v-if="renderedModals.mindmap"
       v-model:show="showMindmapModal"
       :ctx-items="currentCtxItems"
+      :wiki-items="selectedWikiRefs"
       @submit="handleGenTaskSubmit"
     />
     <GraphModal
       v-if="renderedModals.graph"
       v-model:show="showGraphModal"
       :ctx-items="currentCtxItems"
+      :wiki-items="selectedWikiRefs"
       @submit="handleGenTaskSubmit"
     />
     <FlashcardModal
       v-if="renderedModals.flashcard"
       v-model:show="showFlashcardModal"
       :ctx-items="currentCtxItems"
+      :wiki-items="selectedWikiRefs"
+      @submit="handleGenTaskSubmit"
+    />
+    <KnowledgeToolModal
+      v-if="renderedModals.qa"
+      v-model:show="showQaModal"
+      tool-id="qa"
+      :ctx-items="currentCtxItems"
+      :wiki-items="selectedWikiRefs"
+      @submit="handleGenTaskSubmit"
+    />
+    <KnowledgeToolModal
+      v-if="renderedModals.glossary"
+      v-model:show="showGlossaryModal"
+      tool-id="glossary"
+      :ctx-items="currentCtxItems"
+      :wiki-items="selectedWikiRefs"
+      @submit="handleGenTaskSubmit"
+    />
+    <KnowledgeToolModal
+      v-if="renderedModals.cheatsheet"
+      v-model:show="showCheatsheetModal"
+      tool-id="cheatsheet"
+      :ctx-items="currentCtxItems"
+      :wiki-items="selectedWikiRefs"
       @submit="handleGenTaskSubmit"
     />
     <QuizModal
       v-if="renderedModals.quiz"
       v-model:show="showQuizModal"
       :ctx-items="currentCtxItems"
+      :wiki-items="selectedWikiRefs"
       @submit="handleGenTaskSubmit"
     />
     <ChartModal
       v-if="renderedModals.chart"
       v-model:show="showChartModal"
       :ctx-items="currentCtxItems"
+      :wiki-items="selectedWikiRefs"
       @submit="handleGenTaskSubmit"
     />
     <PodcastModal

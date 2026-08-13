@@ -2,12 +2,24 @@ import { kbSearch, resetTaskCounters, setCloudContext } from '../agents/langchai
 
 const DEFAULT_KB_SEARCH_MODES = ['vector', 'fulltext', 'graph', 'summary']
 
+function normalizeRequestedQueries(value) {
+  const seen = new Set()
+  return (Array.isArray(value) ? value : [])
+    .map(query => String(query || '').replace(/\s+/g, ' ').trim().slice(0, 180))
+    .filter(query => {
+      if (!query || seen.has(query)) return false
+      seen.add(query)
+      return true
+    })
+    .slice(0, 2)
+}
+
 export class KnowledgeContextSearcher {
   constructor({ emitProgress }) {
     this._emitProgress = emitProgress
   }
 
-  async search({ taskId, toolId, moduleConfig, topic, ctxItems, cloudContext, abortSignal }) {
+  async search({ taskId, toolId, moduleConfig, topic, ctxItems, cloudContext, abortSignal, queries: requestedQueries, queryOffset = 0, maxRounds: requestedRounds, progressStart = 28 }) {
     setCloudContext(cloudContext || {})
     resetTaskCounters()
 
@@ -17,16 +29,23 @@ export class KnowledgeContextSearcher {
       return []
     }
 
-    const queries = this._buildKnowledgeQueries(toolId, topic, ctxItems)
-    const maxRounds = Math.min(
+    const plannedQueries = normalizeRequestedQueries(requestedQueries)
+    const queries = plannedQueries.length ? plannedQueries : this._buildKnowledgeQueries(toolId, topic, ctxItems)
+    const configuredRounds = Number(moduleConfig.retrieval_iterations || moduleConfig.max_iterations || 2)
+    const availableRounds = Math.min(
       queries.length,
-      Math.max(1, Number(moduleConfig.retrieval_iterations || moduleConfig.max_iterations || 2)),
+      Math.min(3, Math.max(2, Number.isFinite(configuredRounds) ? Math.trunc(configuredRounds) : 2)),
     )
+    const offset = Math.min(availableRounds, Math.max(0, Math.trunc(Number(queryOffset) || 0)))
+    const rounds = Number.isFinite(Number(requestedRounds))
+      ? Math.max(1, Math.trunc(Number(requestedRounds)))
+      : availableRounds - offset
+    const selectedQueries = queries.slice(offset, Math.min(availableRounds, offset + rounds))
     const blocks = []
-    for (let i = 0; i < maxRounds; i++) {
+    for (const [index, query] of selectedQueries.entries()) {
       if (abortSignal?.aborted) break
-      const query = queries[i]
-      this._emitProgress?.(taskId, 36 + i * 4, `检索知识库 ${i + 1}/${maxRounds}...`)
+      const roundIndex = offset + index
+      this._emitProgress?.(taskId, progressStart + index * 4, `检索知识库 ${roundIndex + 1}/${availableRounds}...`)
       try {
         const raw = await kbSearch.invoke({
           query,
@@ -51,6 +70,9 @@ export class KnowledgeContextSearcher {
     const fallbackByTool = {
       graph: '知识图谱 实体 关系 抽取',
       flashcard: '闪卡 主动回忆 核心概念 易混点',
+      qa: '问答 常见问题 核心概念 原因 步骤 易错点',
+      glossary: '术语 缩写 定义 别名 易混概念',
+      cheatsheet: '公式 关键数据 步骤 规则 易错点 速查',
       quiz: '测验 练习题 答案解析 考点',
       chart: '图表 可视化 信息图 数据洞察 结构关系',
       mindmap: '思维导图 核心概念 层级结构',
@@ -67,6 +89,21 @@ export class KnowledgeContextSearcher {
         seed,
         `${seed} 定义 公式 概念 对比 易混点`,
         `${seed} 主动回忆 问答 关键事实`,
+      ],
+      qa: [
+        seed,
+        `${seed} 常见问题 定义 原因 过程 易错点`,
+        `${seed} 核心概念 比较 应用 场景`,
+      ],
+      glossary: [
+        seed,
+        `${seed} 专业术语 缩写 别名 定义`,
+        `${seed} 概念辨析 分类 易混术语`,
+      ],
+      cheatsheet: [
+        seed,
+        `${seed} 公式 关键数据 步骤 规则`,
+        `${seed} 边界条件 易错点 速查`,
       ],
       quiz: [
         seed,

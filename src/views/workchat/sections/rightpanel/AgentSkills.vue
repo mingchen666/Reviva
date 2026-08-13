@@ -60,10 +60,10 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocumentClick, tru
 </script>
 
 <template>
-  <div id="agent-skills-panel" class="relative shrink-0 px-2 pt-2 pb-2" :class="isDark ? 'border-b border-d4' : 'border-b border-bdrL'">
+  <div id="agent-skills-panel" class="relative shrink-0 px-1 py-1" :class="isDark ? 'border-b border-d4' : 'border-b border-bdrL'">
     <div class="flex items-center gap-2 mb-2.5">
-      <i class="ri-sparkling-2-line text-[14px]" :class="isDark ? 'text-agent-400' : 'text-agent-500'" />
-      <span class="text-[13px] font-semibold" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">Agent 技能</span>
+      <i class="ri-flashlight-line text-[14px]" :class="isDark ? 'text-agent-400' : 'text-agent-500'" />
+      <span class="text-[12.5px] font-semibold" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">Agent 技能</span>
       <span v-if="selectedAgent" class="text-[11px] px-1.5 py-0.5 rounded truncate max-w-[92px]"
         :class="isDark ? 'bg-agent-400/8 text-agent-400' : 'bg-agent-50 text-agent-500'">{{ selectedAgent.name }}</span>
       <span v-if="agentSkills.length" class="ml-auto text-[11px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">
@@ -71,18 +71,18 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocumentClick, tru
       </span>
     </div>
 
-    <div v-if="agentSkills.length" class="grid grid-cols-4 gap-2">
+    <div v-if="agentSkills.length" class="grid grid-cols-4 gap-1.5">
       <button v-for="s in visibleSkills" :key="s.id"
         @click="handleSkillClick(s)"
         :title="`${s.name}${skillDescription(s) ? '：' + skillDescription(s) : ''}`"
         class="flex flex-col items-center justify-center p-1.5 rounded-xl transition-all group"
         :class="isDark ? 'border border-transparent hover:border-agent-400/20 hover:bg-agent-400/6' : 'border border-transparent hover:border-agent-200 hover:bg-agent-50/50'">
-        <div class="w-8 h-8 rounded-lg flex items-center justify-center text-[17px] mb-1 transition-transform group-hover:scale-110"
+        <div class="w-7 h-7 rounded-lg flex items-center justify-center text-[17px] mb-1 transition-transform group-hover:scale-110"
           :class="isDark ? 'bg-agent-400/8 text-agent-400' : 'bg-agent-50 text-agent-500'">
           <span v-if="s.icon && !isRemixIcon(s.icon)" class="text-[15px]">{{ s.icon }}</span>
           <i v-else :class="s.icon || 'ri-magic-line'" :style="s.color ? { color: s.color } : {}" />
         </div>
-        <span class="text-[12px] font-medium truncate max-w-[64px]" :class="isDark ? 'text-wt-aux group-hover:text-wt-sub' : 'text-lt-aux group-hover:text-lt-sub'">{{ s.name }}</span>
+        <span class="text-[11.5px] font-medium truncate max-w-[64px]" :class="isDark ? 'text-wt-aux group-hover:text-wt-sub' : 'text-lt-aux group-hover:text-lt-sub'">{{ s.name }}</span>
       </button>
 
       <button v-if="hasOverflow"
@@ -91,12 +91,12 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocumentClick, tru
         :class="moreOpen
           ? (isDark ? 'border border-agent-400/30 bg-agent-400/10' : 'border border-agent-200 bg-agent-50')
           : (isDark ? 'border border-transparent hover:border-agent-400/20 hover:bg-agent-400/6' : 'border border-transparent hover:border-agent-200 hover:bg-agent-50/50')">
-        <div class="w-8 h-8 rounded-lg flex items-center justify-center text-[17px] mb-1 transition-transform group-hover:scale-110"
+        <div class="w-7 h-7 rounded-lg flex items-center justify-center text-[17px] mb-1 transition-transform group-hover:scale-110"
           :class="isDark ? 'bg-agent-400/8 text-agent-400' : 'bg-agent-50 text-agent-500'">
           <i class="ri-more-line" />
         </div>
         <span class="text-[12px] font-medium truncate max-w-[64px]" :class="isDark ? 'text-wt-aux group-hover:text-wt-sub' : 'text-lt-aux group-hover:text-lt-sub'">
-          更多 {{ hiddenSkillCount }}
+          更多({{ hiddenSkillCount }})
         </span>
       </button>
     </div>

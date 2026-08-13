@@ -35,6 +35,7 @@ const showFetchModal = ref(false)
 const fetchSearchQuery = ref('')
 const fetchedModels = ref([])
 const fetchSelectedIds = ref([])
+const fetchCapabilityDrafts = ref({})
 
 // Add model modal state
 const showAddModal = ref(false)
@@ -92,6 +93,12 @@ watch(() => userStore.isLoggedIn, (loggedIn) => {
   if (!selectedProvider.value?.official) return
   if (loggedIn) loadOfficialProviderData({ silent: true })
   else resetOfficialCloudState()
+})
+
+watch(showFetchModal, (visible) => {
+  if (visible) return
+  fetchSelectedIds.value = []
+  fetchCapabilityDrafts.value = {}
 })
 
 const isOfficialProvider = computed(() => !!selectedProvider.value?.official)
@@ -194,6 +201,20 @@ function capClass(key) {
 function getActiveCapabilities(capabilities) {
   if (!capabilities) return []
   return Object.entries(capabilities).filter(([, v]) => v).map(([k]) => k)
+}
+
+function normalizeCapabilities(capabilities) {
+  return Object.fromEntries(
+    Object.keys(CAPABILITY_META).map(key => [key, !!capabilities?.[key]])
+  )
+}
+
+function fetchCapabilitiesFor(model) {
+  const existing = selectedProvider.value?.models?.find(item => item.id === model.id)
+  const hasSavedCapabilities = Object.keys(CAPABILITY_META)
+    .some(key => Object.hasOwn(existing?.capabilities || {}, key))
+  if (hasSavedCapabilities) return normalizeCapabilities(existing.capabilities)
+  return fetchCapabilityDrafts.value[model.id] || normalizeCapabilities(model.capabilities)
 }
 
 function formatCost(val) {
@@ -341,6 +362,9 @@ async function fetchModelList() {
       fetchedModels.value = result.models || []
       fetchSearchQuery.value = ''
       fetchSelectedIds.value = []
+      fetchCapabilityDrafts.value = Object.fromEntries(
+        fetchedModels.value.map(model => [model.id, normalizeCapabilities(model.capabilities)])
+      )
       showFetchModal.value = true
     } else {
       fetchError.value = result.error || '获取失败'
@@ -497,12 +521,33 @@ async function resetOfficialApiKey() {
 function toggleFetchSelect(modelId) {
   const idx = fetchSelectedIds.value.indexOf(modelId)
   if (idx >= 0) fetchSelectedIds.value.splice(idx, 1)
-  else fetchSelectedIds.value.push(modelId)
+  else {
+    const model = fetchedModels.value.find(item => item.id === modelId)
+    if (!fetchCapabilityDrafts.value[modelId]) {
+      fetchCapabilityDrafts.value[modelId] = normalizeCapabilities(model?.capabilities)
+    }
+    fetchSelectedIds.value.push(modelId)
+  }
+}
+
+function toggleFetchCapability(modelId, key) {
+  const model = fetchedModels.value.find(item => item.id === modelId)
+  const isExisting = selectedProvider.value?.models?.some(item => item.id === modelId)
+  if (!model || isExisting || !CAPABILITY_META[key]) return
+  if (!fetchCapabilityDrafts.value[modelId]) {
+    fetchCapabilityDrafts.value[modelId] = normalizeCapabilities(model.capabilities)
+  }
+  fetchCapabilityDrafts.value[modelId][key] = !fetchCapabilityDrafts.value[modelId][key]
 }
 
 function confirmFetchAdd() {
   if (!selectedProvider.value || fetchSelectedIds.value.length === 0) return
-  const modelsToAdd = fetchedModels.value.filter(m => fetchSelectedIds.value.includes(m.id))
+  const modelsToAdd = fetchedModels.value
+    .filter(m => fetchSelectedIds.value.includes(m.id))
+    .map(model => ({
+      ...model,
+      capabilities: { ...fetchCapabilitiesFor(model) },
+    }))
   settingsStore.addFetchedModels(selectedProvider.value.id, modelsToAdd)
   hasUnsavedChanges.value = true
   showFetchModal.value = false
@@ -1008,19 +1053,23 @@ const COST_FIELDS = [
               <i v-if="fetchSelectedIds.includes(model.id)" class="ri-check-line text-[12px] text-white" />
               <i v-else-if="existingModelIds.includes(model.id)" class="ri-check-line text-[12px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'" />
             </div>
-            <div class="flex-1 min-w-0">
-              <span class="text-[12px] truncate block" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">{{ model.id }}</span>
-              <div class="flex items-center gap-1 flex-wrap mt-0.5">
-                <span v-for="capKey in getActiveCapabilities(model.capabilities)" :key="capKey"
-                  class="ctx-pill border" :class="capClass(capKey)" style="font-size:9px;padding:1px 4px">
-                  <i :class="CAPABILITY_META[capKey].icon" class="text-[7px]" />{{ CAPABILITY_META[capKey].label }}
-                </span>
-                <span v-if="model.maxOutput && model.maxOutput !== '?'"
-                  class="ctx-pill" :class="isDark ? 'text-wt-dim bg-d0 border border-bdr' : 'text-lt-aux bg-l2 border border-bdrF'"
-                  style="font-size:9px;padding:1px 4px">
-                  {{ model.maxOutput }}
-                </span>
-              </div>
+            <span class="flex-1 min-w-0 truncate text-[12px]" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">{{ model.id }}</span>
+            <div class="flex items-center gap-1 shrink-0" @click.stop>
+              <button v-for="(meta, key) in CAPABILITY_META" :key="key" type="button"
+                class="flex items-center ctx-pill border cursor-pointer transition-colors"
+                :disabled="existingModelIds.includes(model.id)"
+                :class="fetchCapabilitiesFor(model)[key]
+                  ? capClass(key)
+                  : (isDark ? 'text-wt-dim bg-d4 border-bdr' : 'text-lt-aux bg-l4 border-bdrF')"
+                style="font-size:10px;padding:2px 5px"
+                @click="toggleFetchCapability(model.id, key)">
+                <i :class="meta.icon" class="text-[9px]" />{{ meta.label }}
+              </button>
+              <span v-if="model.maxOutput && model.maxOutput !== '?'"
+                class="ctx-pill" :class="isDark ? 'text-wt-dim bg-d0 border border-bdr' : 'text-lt-aux bg-l2 border border-bdrF'"
+                style="font-size:9px;padding:1px 4px">
+                {{ model.maxOutput }}
+              </span>
             </div>
             <span v-if="existingModelIds.includes(model.id)" class="ctx-pill shrink-0" :class="isDark ? 'text-wt-dim bg-d4 border border-bdr' : 'text-lt-aux bg-l4 border border-bdrF'">已添加</span>
           </div>
@@ -1028,16 +1077,16 @@ const COST_FIELDS = [
             <span class="text-[12px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">无匹配模型</span>
           </div>
         </div>
-        <p v-if="fetchSelectedIds.length > 0" class="text-[11px]" :class="isDark ? 'text-brand-400' : 'text-brand-600'">
-          已选择 {{ fetchSelectedIds.length }} 个模型
-        </p>
       </div>
 
       <template #footer="{ close }">
-        <button @click="close()" class="px-4 py-2 rounded-lg text-[11px] font-medium transition-colors"
+        <div class="flex-1 text-[11px]" :class="isDark ? 'text-brand-400' : 'text-brand-600'">
+          <span v-if="fetchSelectedIds.length > 0">已选择 {{ fetchSelectedIds.length }} 个模型</span>
+        </div>
+        <button @click="close()" class="px-4 py-2 rounded-lg text-[12px] font-medium transition-colors"
           :class="isDark ? 'text-wt-aux hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub'">取消</button>
         <button @click="confirmFetchAdd(); close()" :disabled="fetchSelectedIds.length === 0"
-          class="px-4 py-2 rounded-lg text-[11px] font-medium transition-colors"
+          class="px-4 py-2 rounded-lg text-[12px] font-medium transition-colors"
           :class="fetchSelectedIds.length === 0
             ? (isDark ? 'bg-d4 text-wt-dim' : 'bg-l4 text-lt-aux')
             : (isDark ? 'bg-brand-400 text-d0 hover:bg-brand-500' : 'bg-brand-500 text-white hover:bg-brand-600')">

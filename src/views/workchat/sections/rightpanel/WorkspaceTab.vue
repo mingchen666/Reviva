@@ -3,6 +3,7 @@ import { ref, watch, onMounted, onBeforeUnmount } from 'vue'
 import { useMessage } from '@/components/MsMessage/useMessage'
 import { useMessageBox } from '@/components/MsMessageBox/useMessageBox'
 import { useRecycleBinStore } from '@/stores/recycleBin'
+import { GENERATION_TASK_TOOL_IDS } from '@/config/creationTools'
 import BuiltinTools from './BuiltinTools.vue'
 import AgentSkills from './AgentSkills.vue'
 import ArtifactList from './ArtifactList.vue'
@@ -19,7 +20,7 @@ const artifacts = ref([])
 const tasks = ref([])
 const refreshingResults = ref(false)
 let refreshRequestId = 0
-const TASK_TOOLS = ['mindmap', 'graph', 'flashcard', 'quiz', 'chart', 'podcast', 'research', 'ppt']
+const TASK_TOOLS = GENERATION_TASK_TOOL_IDS
 const msg = useMessage()
 const mbox = useMessageBox()
 const recycleBin = useRecycleBinStore()

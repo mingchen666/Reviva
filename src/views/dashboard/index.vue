@@ -182,7 +182,7 @@ function formatTime(value) {
 
       <section class="hero-section" aria-labelledby="dashboard-hero-title">
         <div class="hero-copy reveal" v-reveal>
-          <h1 id="dashboard-hero-title">让每份资料，都变成<em>你的学习成果</em>。</h1>
+          <h1 id="dashboard-hero-title">Reviva——<em>以Agent为核心的AI学习工作台</em>。</h1>
           <p>
             Reviva 将资料库、Wiki 知识库、Agent、技能与创作工具放进同一个本地工作空间。不是又一个聊天框——Agent
             理解你的资料、调用工具，把结果变成可复习、可复用的成果。

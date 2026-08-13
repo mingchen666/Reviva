@@ -12,10 +12,39 @@ import {
   isObject,
   uniqueStringArray,
   arrayDiff,
-  mergeOfficialArray,
   dynamicUpdate,
 } from '../helpers.js'
 import { BaseRepository } from './BaseRepository.js'
+
+function deriveArrayOverride(values, base) {
+  const added = arrayDiff(values, base)
+  const removed = arrayDiff(base, values)
+  return { added, removed }
+}
+
+function normalizeArrayOverride(override, base) {
+  const baseValues = uniqueStringArray(base)
+  const baseSet = new Set(baseValues)
+  const raw = isObject(override) ? override : {}
+  const removed = uniqueStringArray(raw.removed).filter(item => baseSet.has(item))
+  const removedSet = new Set(removed)
+  const added = uniqueStringArray(raw.added)
+    .filter(item => !baseSet.has(item) && !removedSet.has(item))
+  return { added, removed }
+}
+
+function applyArrayOverride(base, override) {
+  const normalized = normalizeArrayOverride(override, base)
+  const removed = new Set(normalized.removed)
+  return uniqueStringArray([
+    ...uniqueStringArray(base).filter(item => !removed.has(item)),
+    ...normalized.added,
+  ])
+}
+
+function hasArrayOverride(override) {
+  return (override?.added?.length || 0) > 0 || (override?.removed?.length || 0) > 0
+}
 
 export class AgentRepository extends BaseRepository {
   _normalizeAgentField(field, value) {
@@ -105,8 +134,8 @@ export class AgentRepository extends BaseRepository {
     for (const field of BUILTIN_AGENT_ARRAY_MERGE_FIELDS) {
       const current = this._agentRowFieldValue(row, field)
       const base = this._normalizeAgentField(field, template[field])
-      const added = arrayDiff(current, base)
-      if (added.length) overrides[field] = { added }
+      const override = deriveArrayOverride(current, base)
+      if (hasArrayOverride(override)) overrides[field] = override
     }
     return overrides
   }
@@ -124,13 +153,15 @@ export class AgentRepository extends BaseRepository {
     for (const field of BUILTIN_AGENT_ARRAY_MERGE_FIELDS) {
       const stored = storedOverrides[field]
       const previousBase = this._normalizeAgentField(field, hasPreviousTemplate ? previousTemplate[field] : nextTemplate[field])
-      const additions = []
-      if (Array.isArray(stored)) additions.push(...arrayDiff(stored, previousBase))
-      else if (isObject(stored)) additions.push(...uniqueStringArray(stored.added))
-      const current = this._agentRowFieldValue(row, field)
-      additions.push(...arrayDiff(current, previousBase))
-      const normalized = uniqueStringArray(additions)
-      if (normalized.length) overrides[field] = { added: normalized }
+      const hasStoredOverride = Object.prototype.hasOwnProperty.call(storedOverrides, field)
+      const legacyOverride = Array.isArray(stored)
+        ? { added: arrayDiff(stored, previousBase) }
+        : (isObject(stored) ? stored : null)
+      const rawOverride = hasStoredOverride && legacyOverride
+        ? legacyOverride
+        : deriveArrayOverride(this._agentRowFieldValue(row, field), previousBase)
+      const normalized = normalizeArrayOverride(rawOverride, nextTemplate[field])
+      if (hasArrayOverride(normalized)) overrides[field] = normalized
     }
 
     return overrides
@@ -144,7 +175,7 @@ export class AgentRepository extends BaseRepository {
     }
     for (const field of BUILTIN_AGENT_ARRAY_MERGE_FIELDS) {
       const override = isObject(overrides[field]) ? overrides[field] : {}
-      next[field] = mergeOfficialArray(templatePayload[field], override.added)
+      next[field] = applyArrayOverride(templatePayload[field], override)
     }
     return next
   }
@@ -168,9 +199,9 @@ export class AgentRepository extends BaseRepository {
       if (!Object.prototype.hasOwnProperty.call(data, field)) continue
       const incoming = this._normalizeAgentField(field, data[field])
       const base = this._normalizeAgentField(field, template[field])
-      const added = arrayDiff(incoming, base)
-      payload[field] = mergeOfficialArray(base, added)
-      if (added.length) overrides[field] = { added }
+      const override = deriveArrayOverride(incoming, base)
+      payload[field] = incoming
+      if (hasArrayOverride(override)) overrides[field] = override
       else delete overrides[field]
     }
     return { ...payload, user_overrides: overrides }

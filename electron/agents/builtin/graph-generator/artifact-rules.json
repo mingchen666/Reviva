@@ -1,7 +1,7 @@
 {
   "storage_type": "data",
   "artifact_type": "graph",
-  "icon": "ri-share-circle-line",
+  "icon": "ri-node-tree",
   "color": "amber",
   "title_template": "{title}"
 }

@@ -10,10 +10,11 @@ const props = defineProps({
 })
 
 const summary = computed(() => {
-  const result = { kb: 0, doc: 0, local: 0 }
+  const result = { kb: 0, doc: 0, wiki: 0, local: 0 }
   for (const item of props.items || []) {
     if (item?.type === 'cloud_kb') result.kb += 1
     else if (item?.type === 'cloud_doc') result.doc += 1
+    else if (item?.type === 'wiki') result.wiki += 1
     else result.local += 1
   }
   return result
@@ -21,7 +22,7 @@ const summary = computed(() => {
 
 const summaryText = computed(() => {
   const s = summary.value
-  if (s.kb || s.doc) return `知识库 ${s.kb} · 文档 ${s.doc} · 本地 ${s.local}`
+  if (s.kb || s.doc || s.wiki) return `知识库 ${s.kb} · 文档 ${s.doc} · Wiki ${s.wiki} · 本地 ${s.local}`
   return String(props.items.length)
 })
 
@@ -49,6 +50,7 @@ function fileIcon(name) {
 function ctxIcon(item) {
   if (item?.type === 'cloud_kb') return 'ri-book-open-line'
   if (item?.type === 'cloud_doc') return 'ri-file-list-3-line'
+  if (item?.type === 'wiki') return 'ri-book-2-line'
   if (item?.type === 'reference_name') return 'ri-bookmark-3-line'
   if (item?.isDirectory || item?.type === 'folder' || item?.type === 'local_folder') return 'ri-folder-line'
   return item?.icon || fileIcon(item?.name || item?.path)
@@ -57,13 +59,14 @@ function ctxIcon(item) {
 function ctxPrefix(item) {
   if (item?.type === 'cloud_kb') return '已选择知识库'
   if (item?.type === 'cloud_doc') return '已选择知识库文档'
+  if (item?.type === 'wiki') return '已选择 Wiki'
   if (item?.type === 'reference_name') return '已选择资料'
   if (item?.isDirectory || item?.type === 'folder' || item?.type === 'local_folder') return '已选择文件夹'
   return '已选择文件'
 }
 
-function isCloudContext(item) {
-  return item?.type === 'cloud_kb' || item?.type === 'cloud_doc'
+function isKnowledgeContext(item) {
+  return item?.type === 'cloud_kb' || item?.type === 'cloud_doc' || item?.type === 'wiki'
 }
 </script>
 
@@ -85,11 +88,11 @@ function isCloudContext(item) {
         v-for="(item, index) in items"
         :key="item.id || item.kbId || item.docId || item.path || index"
         class="inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-[10px] font-medium max-w-full"
-        :class="isCloudContext(item)
+        :class="isKnowledgeContext(item)
           ? (isDark ? 'bg-brand-400/8 border border-brand-400/18 text-brand-200' : 'bg-brand-50 border border-brand-100 text-brand-700')
           : (isDark ? 'bg-d0 border border-d4 text-wt-sub' : 'bg-white border border-bdrF text-lt-sub')"
       >
-        <i :class="[ctxIcon(item), 'text-[10px] shrink-0', isCloudContext(item) ? (isDark ? 'text-brand-300' : 'text-brand-500') : (isDark ? 'text-wt-dim' : 'text-lt-aux')]" />
+        <i :class="[ctxIcon(item), 'text-[10px] shrink-0', isKnowledgeContext(item) ? (isDark ? 'text-brand-300' : 'text-brand-500') : (isDark ? 'text-wt-dim' : 'text-lt-aux')]" />
         <span class="shrink-0" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">{{ ctxPrefix(item) }}</span>
         <span class="min-w-0 truncate max-w-[180px]">{{ item.name || item.path || '未命名资料' }}</span>
       </span>

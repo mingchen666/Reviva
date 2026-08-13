@@ -12,6 +12,7 @@ const isDark = computed(() => appStore.isDark)
 const props = defineProps({
   show: { type: Boolean, default: false },
   ctxItems: { type: Array, default: () => [] },
+  wikiItems: { type: Array, default: () => [] },
 })
 const emit = defineEmits(['update:show', 'start'])
 
@@ -37,7 +38,8 @@ const modeOptions = [
   { value: 'cloud', label: '云端', icon: 'ri-cloud-line', description: '调用云端 PPT 服务', badge: '云端', accent: 'brand' },
 ]
 
-const hasContext = computed(() => props.ctxItems.length > 0)
+const sourceItems = computed(() => [...(props.ctxItems || []), ...(props.wikiItems || [])])
+const hasContext = computed(() => sourceItems.value.length > 0)
 const canSubmit = computed(() => {
   if (settings.value.mode !== 'cloud' && !hasContext.value) return false
   return requirement.value.trim().length > 0 || hasContext.value
@@ -155,10 +157,10 @@ function handleSubmit() {
       </div>
 
       <ReferenceContextList
-        :items="ctxItems"
+        :items="sourceItems"
         :is-dark="isDark"
         title="参考资料"
-        :empty-text="settings.mode !== 'cloud' ? '本地模式请在左侧“文档”或“知识库”选择资料' : '未选择资料时，将仅根据你的 PPT 需求生成'"
+        :empty-text="settings.mode !== 'cloud' ? '本地模式请在左侧“文档”、知识库或 Wiki 选择资料' : '未选择资料时，将仅根据你的 PPT 需求生成'"
         accent-class="text-brand-400"
       />
 

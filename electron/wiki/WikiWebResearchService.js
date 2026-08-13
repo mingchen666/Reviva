@@ -92,6 +92,23 @@ export async function assertPublicWikiWebUrl(value = '') {
   return parsed
 }
 
+export async function fetchPublicWikiWebSource(url, options = {}, maxRedirects = 5) {
+  let currentUrl = String(url || '')
+  for (let redirectCount = 0; redirectCount <= maxRedirects; redirectCount += 1) {
+    await assertPublicWikiWebUrl(currentUrl)
+    const response = await fetch(currentUrl, { ...options, redirect: 'manual' })
+    if (![301, 302, 303, 307, 308].includes(response.status)) {
+      return { response, finalUrl: currentUrl }
+    }
+    const location = response.headers.get('location')
+    try { await response.body?.cancel?.() } catch {}
+    if (!location) throw new Error(`Web source redirect is missing a location header (HTTP ${response.status})`)
+    if (redirectCount >= maxRedirects) throw new Error(`Web source exceeded the ${maxRedirects}-redirect limit`)
+    currentUrl = new URL(location, currentUrl).toString()
+  }
+  throw new Error(`Web source exceeded the ${maxRedirects}-redirect limit`)
+}
+
 export async function readWikiWebResponseText(response, { maxBytes = 5 * 1024 * 1024 } = {}) {
   if (!response?.body?.getReader) throw new Error('Web source response body is unavailable')
   const reader = response.body.getReader()
@@ -172,8 +189,9 @@ export class WikiWebResearchService {
     this.registeredSources += 1
   }
 
-  async search({ query, complexity = 'simple', maxResults = 5, language = 'zh-CN' } = {}) {
+  async search({ query, complexity = 'simple', maxResults = 5, language = 'zh-CN', signal } = {}) {
     if (!this.settings.enabled) return { success: false, code: 'WEB_RESEARCH_DISABLED', message: 'Wiki web research is disabled' }
+    if (signal?.aborted) return { success: false, code: 'ABORTED', message: 'Web search was cancelled' }
     const cleanQuery = sanitizeWikiResearchQuery(query)
     if (!cleanQuery) return { success: false, code: 'EMPTY_QUERY', message: 'Search query is empty after privacy filtering' }
     const budget = budgetFor(this.settings, complexity)
@@ -187,6 +205,7 @@ export class WikiWebResearchService {
 
     const attempts = []
     for (const providerId of this.settings.providerOrder) {
+      if (signal?.aborted) return { success: false, code: 'ABORTED', message: 'Web search was cancelled', attempts }
       if (this.providerCalls >= this.settings.hardLimit) break
       const entry = providerTool(this.toolEntries, providerId)
       if (!entry?.tool?.invoke) {
@@ -198,7 +217,7 @@ export class WikiWebResearchService {
         const input = providerId === 'mcp:exa'
           ? { query: cleanQuery, numResults: Math.min(Math.max(Number(maxResults || 5), 1), 10) }
           : { query: cleanQuery, max_results: Math.min(Math.max(Number(maxResults || 5), 1), 10), language }
-        const raw = await entry.tool.invoke(input)
+        const raw = await entry.tool.invoke(input, { signal })
         const payload = toolPayload(raw)
         if (isUseful(payload)) {
           return {

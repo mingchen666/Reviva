@@ -61,11 +61,11 @@ const costDisplay = computed(() => {
     <div v-if="showTokenBar" class="flex items-center gap-2 text-[11px] select-none flex-1 min-w-0 overflow-hidden">
       <template v-if="showTokenBar">
         <div class="flex items-center gap-0.5 shrink-0" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">
-          <i class="ri-arrow-down-line text-[10px]" :class="isDark ? 'text-brand-400' : 'text-brand-500'" />
+          <i class="ri-arrow-down-line text-[12px]" :class="isDark ? 'text-brand-400' : 'text-brand-500'" />
           <span class="font-semibold" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">{{ fmt(msg.inputTokens || 0) }}</span>
         </div>
         <div class="flex items-center gap-0.5 shrink-0" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">
-          <i class="ri-arrow-up-line text-[10px]" :class="isDark ? 'text-output-400' : 'text-output-500'" />
+          <i class="ri-arrow-up-line text-[12px]" :class="isDark ? 'text-output-400' : 'text-output-500'" />
           <span class="font-semibold" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">{{ fmt(msg.outputTokens || 0) }}</span>
         </div>
         <div v-if="cacheTokens" class="flex items-center gap-0.5 shrink-0" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">

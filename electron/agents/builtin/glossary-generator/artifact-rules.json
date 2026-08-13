@@ -1,0 +1,7 @@
+{
+  "storage_type": "data",
+  "artifact_type": "glossary",
+  "icon": "ri-book-2-line",
+  "color": "agent",
+  "title_template": "{title}"
+}

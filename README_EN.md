@@ -25,8 +25,7 @@ Desktop · Local-First · AI Agent · Learning Toolkit
 </p>
 
 <p>
-  <img src="https://img.shields.io/badge/status-stable-16A34A" alt="Status Stable" />
-  <img src="https://img.shields.io/badge/version-1.0.0-4A6CFF" alt="Version 1.0.0" />
+
   <img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS-2E2E3A" alt="Platform Windows and macOS" />
   <img src="https://img.shields.io/github/downloads/mingchen666/Reviva/total?logo=github&label=Downloads" alt="Downloads" />
   <img src="https://img.shields.io/badge/SQLite-Local--First-003B57?logo=sqlite&logoColor=white" alt="Local First" />

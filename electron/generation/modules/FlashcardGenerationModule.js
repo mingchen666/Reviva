@@ -16,6 +16,7 @@ export class FlashcardGenerationModule {
     return this._jsonRunner.run({
       ...request,
       toolId: this.toolId,
+      includeExternalSources: true,
       validateResult: data => this._validate(data),
     })
   }

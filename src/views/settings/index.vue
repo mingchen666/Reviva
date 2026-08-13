@@ -19,7 +19,7 @@ const accentHex = computed(() => settingsStore.currentAccentHex)
 
 const navGroups = [
   { label: '模型', keys: ['default-models', 'models', 'speech-models', 'ocr'] },
-  { label: '工作台', keys: ['directory', 'environment',  'sandbox'] },
+  { label: '工作台', keys: ['directory', 'environment', 'sandbox', 'creation-tools'] },
   { label: '记录与统计', keys: ['memory', 'learning-memory', 'usage'] },
   { label: '界面与桌面', keys: ['theme', 'preference', 'shortcuts', 'quick-inputs', 'notifications'] },
   { label: '数据与系统', keys: ['local-gateway', 'data', 'about', 'author'] },//['network', 'data', 'about']
@@ -34,6 +34,7 @@ const sectionMap = {
   environment: { name: '环境管理', icon: 'ri-tools-line', color: 'emerald', hint: '检测 Python / Node / FFmpeg / Pandoc 等系统依赖' },
   ocr: { name: 'OCR 模型配置', icon: 'ri-scan-2-line', color: 'emerald', hint: '配置 PaddleOCR、MinerU等服务商' },
   sandbox: { name: '沙箱与限流', icon: 'ri-shield-check-line', color: 'amber', hint: 'Agent 沙箱执行环境的全局配置' },
+  'creation-tools': { name: '创作工具', icon: 'ri-quill-pen-ai-line', color: 'brand', hint: '控制创作中心工具的显示与顺序' },
   memory: { name: '记忆管理', icon: 'ri-brain-line', color: 'rose', hint: '管理 Agent 与对话使用的长期记忆' },
   'learning-memory': { name: '成长画像', icon: 'ri-seedling-line', color: 'brand', hint: '管理长期学习、能力与协作偏好的个性化画像' },
   usage: { name: '用量统计', icon: 'ri-line-chart-line', color: 'emerald', hint: '查看 Token 消耗与成本' },

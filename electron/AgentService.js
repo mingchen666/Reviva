@@ -22,8 +22,10 @@ import { calcCost } from './agents/runtime/modelCosts.js'
 import { iterateDeepStream } from './agents/runtime/streamDeepAgent.js'
 import {
   filterWebSearchTools,
+  isWebSearchToolId,
   normalizeNonNegativeLimit,
   recursionLimitForMaxIterations,
+  restrictWebSearchToolsToBindings,
   withContextualAgentTools,
   withDefaultAgentTools,
   withPermissionAgentTools,
@@ -105,6 +107,7 @@ import { ErrorClassifier } from './agents/ErrorClassifier.js'
 import { RunStateManager } from './agents/RunStateManager.js'
 import { TitleGenerator } from './agents/TitleGenerator.js'
 import { VisionAnalyzeService } from './tools/VisionAnalyzeService.js'
+import { resolveEffectiveBuiltinAgentConfig } from './agents/builtin/EffectiveBuiltinAgentConfig.js'
 import { buildLearningProfileRequestContext, createLearningProfileToolset } from './learning-memory/learning-profile-tools.js'
 import { buildLearningProfileSystemPrompt } from './learning-memory/learning-profile-prompts.js'
 
@@ -119,6 +122,7 @@ export class AgentService {
     this._noteFileService = noteFileService || null
     this._learningMemoryService = null
     this._mediaIngestionService = null
+    this._mediaQueryService = null
     this._tokenRecorder = new TokenRecorder(dbService)
     this._errorClassifier = new ErrorClassifier()
     this._runStateManager = new RunStateManager(dbService)
@@ -188,16 +192,23 @@ export class AgentService {
   }
 
   setWikiService(wikiService) {
+    this._wikiService = wikiService || null
     setWikiServiceForTools(wikiService)
   }
 
   setMediaQueryService(mediaQueryService) {
+    this._mediaQueryService = mediaQueryService || null
     setMediaQueryServiceForTools(mediaQueryService)
   }
 
   setMediaModule(mediaModule) {
     this._mediaIngestionService = mediaModule?.ingestion || null
+    this._mediaQueryService = mediaModule?.query || null
     setMediaQueryServiceForTools(mediaModule?.query || null)
+  }
+
+  getMediaQueryService() {
+    return this._mediaQueryService || null
   }
 
   setLearningMemoryService(service) {
@@ -466,7 +477,10 @@ export class AgentService {
    * Build DeepAgents subagents array from agent config
    */
   _buildSubagentTools(toolIds, allTools, skillIds = [], cloudContext = {}, options = {}) {
-    const requestedIds = this._withSkillTools(toolIds, skillIds)
+    const requestedIds = restrictWebSearchToolsToBindings(
+      this._withSkillTools(toolIds, skillIds),
+      options.allowedWebToolIds,
+    )
     if (!requestedIds.length) return allTools
 
     const effectiveIds = filterWebSearchTools(
@@ -577,12 +591,17 @@ export class AgentService {
   _buildSubagents(subAgentConfigs, allTools, request) {
     if (!subAgentConfigs?.length) return undefined
 
-    const webSearchEnabled = request?.params?.enableWebSearch !== false && request?.params?.enable_web_search !== false
+    const webSearchEnabled = request?.webSearchEnabled ?? (request?.params?.enableWebSearch !== false && request?.params?.enable_web_search !== false)
     return subAgentConfigs.map(sa => {
-      const saRequestedTools = this._withSkillTools(sa.tools || [], sa.skills || [])
+      const rawRequestedTools = this._withSkillTools(sa.tools || [], sa.skills || [])
+      const saRequestedTools = restrictWebSearchToolsToBindings(rawRequestedTools, request?.allowedWebToolIds)
       const saTools = saRequestedTools.length
-        ? this._buildSubagentTools(sa.tools, allTools, sa.skills, request.cloudContext, { webSearchEnabled, ...this._visionToolOptionsFromRequest(request) })
-        : allTools // inherit parent tools if not specified
+        ? this._buildSubagentTools(sa.tools, allTools, sa.skills, request.cloudContext, {
+          webSearchEnabled,
+          allowedWebToolIds: request?.allowedWebToolIds,
+          ...this._visionToolOptionsFromRequest(request),
+        })
+        : (rawRequestedTools.length ? [] : allTools) // an explicitly configured-but-disallowed subagent must not inherit parent tools
 
       const subConfig = {
         name: sa.name,
@@ -637,7 +656,8 @@ export class AgentService {
   }
 
   _getBuiltinModule(englishName) {
-    return this._builtinModules?.find(m => m.english_name === englishName) || null
+    const config = this._builtinModules?.find(m => m.english_name === englishName) || null
+    return resolveEffectiveBuiltinAgentConfig(config, this._db)
   }
 
   _findSubAgentMeta(name, subAgentRows = null) {
@@ -708,7 +728,7 @@ export class AgentService {
     return { tools, clients }
   }
 
-  _buildBuiltinTaskUserText({ toolId, topic, params = {}, ctxItems = [] }) {
+  _buildBuiltinTaskUserText({ toolId, topic, params = {}, ctxItems = [], sourceScope = {}, moduleConfig = {} }) {
     const fileNames = (ctxItems || [])
       .map(i => i?.name || i?.path)
       .filter(Boolean)
@@ -728,10 +748,27 @@ export class AgentService {
       parts.push(topic || '请基于用户资料完成任务')
     }
 
-    const webSearchEnabled = params.enableWebSearch !== false && params.enable_web_search !== false
-    parts.push(webSearchEnabled
-      ? '[联网搜索]\n本次已启用联网搜索。需要外部资料、最新信息或来源交叉验证时，使用当前已配置且可用的联网搜索、网页读取或公开来源检索工具；优先选择高质量、可核验来源，只有确有必要阅读全文时才读取网页原文。'
-      : '[联网搜索]\n本次未启用联网搜索。禁止调用任何联网搜索、网页读取、浏览、爬取类工具；深度研究任务不要委托 web-researcher 子 agent。只使用用户选择的本地资料、知识库检索结果和模型已有常识，并在信息不足时说明限制。')
+    const wikiNames = (Array.isArray(sourceScope?.wikiRefs) ? sourceScope.wikiRefs : [])
+      .map(item => String(item?.name || item?.id || '').trim())
+      .filter(Boolean)
+    if (wikiNames.length) {
+      parts.push(`[已选择 Wiki]\n${wikiNames.join('、')}\n请优先使用受限的 Wiki 检索工具查询这些 Wiki；不要访问未选择的 Wiki。`)
+    }
+
+    const sessionWebSearchEnabled = params.enableWebSearch !== false && params.enable_web_search !== false
+    const hasBoundWebTool = (moduleConfig?.tools || []).some(isWebSearchToolId)
+    const canUseWebSearch = sessionWebSearchEnabled
+      && moduleConfig?.permissions?.webSearch === true
+      && hasBoundWebTool
+    if (canUseWebSearch) {
+      parts.push('[联网搜索]\n本次已启用联网搜索。需要外部资料、最新信息或来源交叉验证时，只使用当前 Agent 已绑定且可用的联网搜索、网页读取或公开来源检索工具；优先选择高质量、可核验来源，只有确有必要阅读全文时才读取网页原文。')
+    } else if (!sessionWebSearchEnabled) {
+      parts.push('[联网搜索]\n本次未启用联网搜索。禁止调用任何联网搜索、网页读取、浏览、爬取类工具；深度研究任务不要委托 web-researcher 子 agent。只使用用户选择的本地资料、知识库检索结果和模型已有常识，并在信息不足时说明限制。')
+    } else if (moduleConfig?.permissions?.webSearch !== true) {
+      parts.push('[联网搜索]\n该 Agent 的联网权限已关闭。禁止调用任何联网搜索、网页读取、浏览、爬取类工具；只使用本地资料、知识库、Wiki 和模型已有常识。')
+    } else {
+      parts.push('[联网搜索]\n该 Agent 未绑定联网搜索工具。禁止调用任何联网搜索、网页读取、浏览、爬取类工具；只使用本地资料、知识库、Wiki 和模型已有常识，并在信息不足时说明限制。')
+    }
     return parts.join('\n\n')
   }
 
@@ -800,11 +837,19 @@ export class AgentService {
         ...subAgentConfigs.flatMap(sa => Array.isArray(sa.tools) ? sa.tools : []),
       ].filter(Boolean))]
 
-      const webSearchEnabled = request.params?.enableWebSearch !== false && request.params?.enable_web_search !== false
-      const effectiveToolIds = filterWebSearchTools(withContextualAgentTools(withPermissionAgentTools(this._withSkillTools(allToolIds, [
+      const sessionWebSearchEnabled = request.params?.enableWebSearch !== false && request.params?.enable_web_search !== false
+      const hasBoundWebTool = (moduleConfig.tools || []).some(isWebSearchToolId)
+      const webSearchEnabled = sessionWebSearchEnabled
+        && moduleConfig.permissions?.webSearch === true
+        && hasBoundWebTool
+      const skillAugmentedToolIds = this._withSkillTools(allToolIds, [
         ...(moduleConfig.skills || []),
         ...subAgentConfigs.flatMap(sa => Array.isArray(sa.skills) ? sa.skills : []),
-      ]), moduleConfig.permissions), request.cloudContext, visionOptions), webSearchEnabled)
+      ])
+      const effectiveToolIds = filterWebSearchTools(withContextualAgentTools(withPermissionAgentTools(
+        restrictWebSearchToolsToBindings(skillAugmentedToolIds, moduleConfig.tools || []),
+        moduleConfig.permissions,
+      ), request.cloudContext, visionOptions), webSearchEnabled)
       const preparedAllowedMediaIds = this._allowedMediaIdsFromRequest({ ...request, ctxPaths: preparedCtxPaths })
       setToolRunContext({ agentEnglishName: agentDirName, permissions: moduleConfig.permissions || {}, wikiContext: request.wikiContext || {}, boundSkillIds: skillData.boundSkillIds, toolIds: effectiveToolIds, allowedMediaIds: preparedAllowedMediaIds, vision: this._visionContextFromRequest(request) })
       const customTools = this._buildLocalRuntimeTools(effectiveToolIds, { includeDefaults: false })
@@ -823,6 +868,8 @@ export class AgentService {
 
       const subagents = this._buildSubagents(subAgentConfigs, allCustomTools, {
         ...request,
+        webSearchEnabled,
+        allowedWebToolIds: moduleConfig.tools || [],
         providerId: request.providerId,
         apiKey: request.apiKey,
         baseUrl: request.baseUrl,
@@ -873,6 +920,8 @@ export class AgentService {
         topic: request.topic,
         params: request.params,
         ctxItems: request.ctxItems || request.ctxPaths || [],
+        sourceScope: request.sourceScope,
+        moduleConfig,
       })
 
       const preparedMessages = this._prepareMessageAttachments(

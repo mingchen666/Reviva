@@ -191,6 +191,12 @@ const router = createRouter({
           meta: { title: '沙箱与限流' },
         },
         {
+          path: 'creation-tools',
+          name: 'SettingsCreationTools',
+          component: () => import('@/views/settings/sections/CreationToolsSection.vue'),
+          meta: { title: '创作工具' },
+        },
+        {
           path: 'memory',
           name: 'SettingsMemory',
           component: () => import('@/views/settings/sections/MemorySection.vue'),

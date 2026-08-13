@@ -37,7 +37,7 @@
     </div>
 
     <div v-else
-      class="relative w-full max-w-3xl flashcard-perspective cursor-pointer group"
+      class="relative w-full max-w-4xl flashcard-perspective cursor-pointer group"
       style="height: min(460px, 62vh);"
       @click="toggleFlip">
       <div class="w-full h-full relative transition-transform duration-700 transform-style-preserve-3d"
@@ -67,7 +67,7 @@
             :class="showHint ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'">
             <div class="w-full px-5 py-3 rounded-2xl text-sm text-center shadow-sm"
               :class="isDark ? 'bg-amber-400/10 border border-amber-400/25 text-amber-300' : 'bg-amber-50 border border-amber-200 text-amber-800'">
-              <span class="font-black mr-2">提示</span>
+              <span class="font-black mr-2">提示:</span>
               <span class="opacity-90">{{ hintText || '暂无提示' }}</span>
             </div>
           </div>

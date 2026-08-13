@@ -1,12 +1,15 @@
 import { BuiltinAgentTaskRunner } from './BuiltinAgentTaskRunner.js'
 import { ChartGenerationModule } from './modules/ChartGenerationModule.js'
+import { CheatsheetGenerationModule } from './modules/CheatsheetGenerationModule.js'
 import { CloudBusinessTaskRunner } from './CloudBusinessTaskRunner.js'
 import { FlashcardGenerationModule } from './modules/FlashcardGenerationModule.js'
+import { GlossaryGenerationModule } from './modules/GlossaryGenerationModule.js'
 import { JsonArtifactRunner } from './JsonArtifactRunner.js'
 import { GraphGenerationModule } from './modules/GraphGenerationModule.js'
 import { MindmapGenerationModule } from './modules/MindmapGenerationModule.js'
 import { PodcastGenerationModule } from './modules/PodcastGenerationModule.js'
 import { PptGenerationModule } from './modules/PptGenerationModule.js'
+import { QaGenerationModule } from './modules/QaGenerationModule.js'
 import { QuizGenerationModule } from './modules/QuizGenerationModule.js'
 import { ResearchGenerationModule } from './modules/ResearchGenerationModule.js'
 
@@ -20,7 +23,7 @@ export function generationTaskName(module, topic) {
 
 export class GenerationModuleRegistry {
   constructor({ db, workDirService, agentService, emitProgress, send }) {
-    const jsonRunner = new JsonArtifactRunner({ db, workDirService, emitProgress, send })
+    const jsonRunner = new JsonArtifactRunner({ db, workDirService, agentService, emitProgress, send })
     const agentRunner = new BuiltinAgentTaskRunner({ db, agentService, emitProgress })
     const cloudRunner = new CloudBusinessTaskRunner({ db, workDirService, emitProgress })
     this._modules = new Map([
@@ -29,6 +32,9 @@ export class GenerationModuleRegistry {
       ['flashcard', new FlashcardGenerationModule({ jsonRunner })],
       ['quiz', new QuizGenerationModule({ jsonRunner })],
       ['chart', new ChartGenerationModule({ jsonRunner })],
+      ['qa', new QaGenerationModule({ jsonRunner })],
+      ['glossary', new GlossaryGenerationModule({ jsonRunner })],
+      ['cheatsheet', new CheatsheetGenerationModule({ jsonRunner })],
       ['ppt', new PptGenerationModule({ agentRunner, cloudRunner })],
       ['research', new ResearchGenerationModule({ agentRunner, cloudRunner })],
       ['podcast', new PodcastGenerationModule({ cloudRunner })],

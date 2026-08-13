@@ -1,0 +1,7 @@
+{
+  "storage_type": "data",
+  "artifact_type": "qa",
+  "icon": "ri-question-answer-line",
+  "color": "brand",
+  "title_template": "{title}"
+}

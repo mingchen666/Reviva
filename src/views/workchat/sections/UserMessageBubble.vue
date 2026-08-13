@@ -222,7 +222,7 @@ onMounted(() => quickInputsStore.ensureLoaded().catch(() => {}))
           </div>
         </div>
       </div>
-      <div v-else ref="bubbleRef" class="user-message-bubble px-3.5 py-2.5 rounded-md rounded-tr-md text-[0.84375rem] leading-relaxed text-white whitespace-pre-wrap"
+      <div v-else ref="bubbleRef" class="user-message-bubble px-2.5 py-1.5 rounded-md rounded-tr-md text-[0.84375rem] leading-relaxed text-white whitespace-pre-wrap"
         style="background: linear-gradient(135deg, #6c8aff, #4a6cff)">
         <template v-for="(segment, index) in originalDocument" :key="`${index}:${segment.type}`">
           <span v-if="segment.type === 'text'">{{ segment.text }}</span>

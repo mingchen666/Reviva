@@ -26,7 +26,7 @@
 </p>
 
 <p>
-  <img src="https://img.shields.io/badge/version-1.1.0-4A6CFF" alt="Version 1.1.0" />
+
   <img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS-2E2E3A" alt="Platform Windows and macOS" />
   <img src="https://img.shields.io/github/downloads/mingchen666/Reviva/total?logo=github&label=Downloads" alt="Downloads" />
   <img src="https://img.shields.io/badge/SQLite-Local--First-003B57?logo=sqlite&logoColor=white" alt="Local First" />
@@ -312,6 +312,7 @@ Reviva 当前正式版本为 `1.1.0`，功能和界面仍在持续更新。项�
 - [x] 支持response api格式
 - [x] 自定义skill
 - [ ] 更丰富的内置 Agent 和 Skills
+- [ ] 对话页面导航功能
 - [x] 更完善的导入导出与备份能力
 - [x] Agent 自主学习成长闭环（长期积累用户偏好、学习画像、薄弱点，所有成长结果可审计、可撤销、可评测）目前beta
 - [ ] 更多......
@@ -324,7 +325,7 @@ Reviva 当前正式版本为 `1.1.0`，功能和界面仍在持续更新。项�
 
 - 个人学习、研究和自用永久免费，无需付费或申请授权。
 - 你可以在 AGPL-3.0 协议下自由使用、修改和自部署 Reviva。
-- 修改后的版本如通过网络提供服务，需按 AGPL-3.0 要求开放源码。
+- 修改后的版本，需按 AGPL-3.0 要求开放源码。
 
 ### 商业与多人使用
 

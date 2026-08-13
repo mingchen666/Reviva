@@ -7,6 +7,9 @@ import KnowledgeGraphPreview from '@/components/preview/KnowledgeGraphPreview.vu
 import FlashcardPreview from '@/components/preview/FlashcardPreview.vue'
 import QuizPreview from '@/components/preview/QuizPreview.vue'
 import ChartsPreview from '@/components/preview/ChartsPreview.vue'
+import QaPreview from '@/components/preview/QaPreview.vue'
+import GlossaryPreview from '@/components/preview/GlossaryPreview.vue'
+import CheatsheetPreview from '@/components/preview/CheatsheetPreview.vue'
 import ReferenceContextList from './modals/ReferenceContextList.vue'
 
 const props = defineProps({
@@ -19,7 +22,7 @@ const emit = defineEmits(['close', 'delete'])
 
 const typeLabels = {
   summary: '摘要', mindmap: '思维导图', flashcard: '闪卡',
-  quiz: '测验', chart: '图表', ppt: 'PPT', presentation: 'PPT', podcast: '播客', graph: '知识图谱', research: '深度研究', custom: '自定义',
+  quiz: '测验', chart: '图表', qa: 'Q&A 问答卡', glossary: '术语表', cheatsheet: '速查表', ppt: 'PPT', presentation: 'PPT', podcast: '播客', graph: '知识图谱', research: '深度研究', custom: '自定义',
 }
 
 const typeLabel = computed(() => typeLabels[props.artifact?.type] || props.artifact?.type || '')
@@ -29,7 +32,23 @@ const referenceItems = computed(() => {
   const savedItems = Array.isArray(params.ctxItems)
     ? params.ctxItems.filter(item => item?.name || item?.path || item?.kbId || item?.docId)
     : []
-  if (savedItems.length) return savedItems
+  const wikiItems = Array.isArray(params?.sourceScope?.wikiRefs)
+    ? params.sourceScope.wikiRefs.filter(item => item?.id || item?.name).map(item => ({
+      id: item.id,
+      name: item.name || item.id,
+      type: 'wiki',
+      icon: item.icon || 'ri-book-2-line',
+    }))
+    : []
+  if (savedItems.length || wikiItems.length) {
+    const seen = new Set()
+    return [...savedItems, ...wikiItems].filter(item => {
+      const key = item.id || item.path || item.kbId || item.docId || item.name
+      if (!key || seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
+  }
 
   const savedNames = Array.isArray(params.ctxNames)
     ? params.ctxNames.map(name => String(name || '').trim()).filter(Boolean)
@@ -56,12 +75,15 @@ const isGraph = computed(() => props.artifact?.type === 'graph')
 const isFlashcard = computed(() => props.artifact?.type === 'flashcard')
 const isQuiz = computed(() => props.artifact?.type === 'quiz')
 const isChart = computed(() => props.artifact?.type === 'chart')
+const isQa = computed(() => props.artifact?.type === 'qa')
+const isGlossary = computed(() => props.artifact?.type === 'glossary')
+const isCheatsheet = computed(() => props.artifact?.type === 'cheatsheet')
 const isPodcast = computed(() => props.artifact?.type === 'podcast')
 
 // For structured data renderers: parse JSON from artifact.content and adapt to preview props.
 const parsedDataPayload = computed(() => {
   if (!isData.value || !props.artifact?.content) return null
-  if (!isMindmap.value && !isGraph.value && !isFlashcard.value && !isQuiz.value && !isChart.value) return null
+  if (!isMindmap.value && !isGraph.value && !isFlashcard.value && !isQuiz.value && !isChart.value && !isQa.value && !isGlossary.value && !isCheatsheet.value) return null
   try {
     const json = JSON.parse(props.artifact.content)
     return { result_json: { artifact_id: props.artifact.id, ...json } }
@@ -184,7 +206,7 @@ const renderedContent = computed(() => {
 // JSON viewer for unsupported data types (not mindmap/graph)
 const isRawJsonData = computed(() => {
   if (!isData.value || !props.artifact?.content) return false
-  return !['summary', 'research', 'mindmap', 'graph', 'flashcard', 'quiz', 'chart'].includes(props.artifact.type)
+  return !['summary', 'research', 'mindmap', 'graph', 'flashcard', 'quiz', 'chart', 'qa', 'glossary', 'cheatsheet'].includes(props.artifact.type)
 })
 
 function openFile() {
@@ -198,7 +220,7 @@ function showInFolder() {
 function handleDelete() { emit('delete', props.artifact) }
 
 // Mindmap / Graph render in fullscreen modal — different sizing
-const isFullscreenRenderer = computed(() => isMindmap.value || isGraph.value || isFlashcard.value || isQuiz.value || isChart.value || isHtmlFile.value)
+const isFullscreenRenderer = computed(() => isMindmap.value || isGraph.value || isFlashcard.value || isQuiz.value || isChart.value || isQa.value || isGlossary.value || isCheatsheet.value || isHtmlFile.value)
 </script>
 
 <template>
@@ -245,7 +267,7 @@ const isFullscreenRenderer = computed(() => isMindmap.value || isGraph.value || 
         <button @click="emit('close')"
           class="h-7 w-7 rounded-lg flex items-center justify-center transition-colors"
           :class="isDark ? 'text-wt-aux hover:text-wt-sub hover:bg-white/5' : 'text-lt-aux hover:text-lt-sub hover:bg-l4'">
-          <i class="ri-close-line text-[16px]" />
+          <i class="ri-close-line text-[20px]" />
         </button>
       </div>
 
@@ -285,8 +307,20 @@ const isFullscreenRenderer = computed(() => isMindmap.value || isGraph.value || 
         <ChartsPreview v-else-if="isChart && parsedDataPayload"
           :data="parsedDataPayload" :is-dark="isDark" />
 
+        <!-- Q&A renderer -->
+        <QaPreview v-else-if="isQa && parsedDataPayload"
+          :data="parsedDataPayload" :is-dark="isDark" />
+
+        <!-- Glossary renderer -->
+        <GlossaryPreview v-else-if="isGlossary && parsedDataPayload"
+          :data="parsedDataPayload" :is-dark="isDark" />
+
+        <!-- Cheat sheet renderer -->
+        <CheatsheetPreview v-else-if="isCheatsheet && parsedDataPayload"
+          :data="parsedDataPayload" :is-dark="isDark" />
+
         <!-- Parse error for structured data renderers -->
-        <div v-else-if="(isMindmap || isGraph || isFlashcard || isQuiz || isChart) && !parsedDataPayload"
+        <div v-else-if="(isMindmap || isGraph || isFlashcard || isQuiz || isChart || isQa || isGlossary || isCheatsheet) && !parsedDataPayload"
           class="flex flex-col items-center gap-2 py-8"
           :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">
           <i class="ri-error-warning-line text-[24px]" />

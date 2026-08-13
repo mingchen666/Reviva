@@ -508,7 +508,7 @@ defineExpose({
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   font-size: .875rem;
-  line-height: 1.625;
+  line-height: 1.425;
   cursor: text;
 }
 .chat-token-editor-surface:empty::before { content: attr(data-placeholder); pointer-events: none; }

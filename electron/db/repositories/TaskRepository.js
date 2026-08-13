@@ -7,6 +7,21 @@ import {
 } from '../helpers.js'
 import { BaseRepository } from './BaseRepository.js'
 
+const SQLITE_UTC_DATETIME = /^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?$/
+const TERMINAL_TASK_STATUSES = new Set(['completed', 'done', 'failed', 'cancelled'])
+
+function toUtcIsoTimestamp(value, fallback = '') {
+  const raw = String(value || '').trim()
+  if (!raw) return fallback
+  const input = SQLITE_UTC_DATETIME.test(raw) ? `${raw.replace(' ', 'T')}Z` : raw
+  const timestamp = new Date(input).getTime()
+  return Number.isFinite(timestamp) ? new Date(timestamp).toISOString() : fallback
+}
+
+function isTerminalTaskStatus(status) {
+  return TERMINAL_TASK_STATUSES.has(String(status || '').toLowerCase())
+}
+
 export class TaskRepository extends BaseRepository {
   listTasks() {
     return this.db.prepare('SELECT * FROM tasks ORDER BY created_at DESC').all()
@@ -33,20 +48,35 @@ export class TaskRepository extends BaseRepository {
 
   createTask(data) {
     const id = data.id || 'task_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8)
-    this.db.prepare(`INSERT INTO tasks (id, name, type, status, architecture, space_id, agent_id, skill_type, progress, steps, result, error, tool_id, mode, conversation_id, group_id, params_json, artifact_id, cloud_task_id)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
-      id, data.name || '', data.type || 'agent', data.status || 'pending', data.architecture || '',
+    const now = new Date().toISOString()
+    const status = data.status || 'pending'
+    const createdAt = toUtcIsoTimestamp(data.created_at || data.createdAt, now)
+    const completedAt = toUtcIsoTimestamp(
+      data.completed_at || data.completedAt,
+      isTerminalTaskStatus(status) ? now : '',
+    )
+    this.db.prepare(`INSERT INTO tasks (id, name, type, status, architecture, space_id, agent_id, skill_type, progress, steps, result, error, tool_id, mode, conversation_id, group_id, params_json, artifact_id, cloud_task_id, created_at, updated_at, completed_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
+      id, data.name || '', data.type || 'agent', status, data.architecture || '',
       data.space_id || '', data.agent_id || '', data.skill_type || '', data.progress || 0,
       stringifyJSON(data.steps || []), data.result || '', data.error || '',
       data.tool_id || '', data.mode || 'local',
       data.conversation_id || '', data.group_id || 'default',
       stringifyJSON(data.params || data.params_json || {}),
-      data.artifact_id || '', data.cloud_task_id || '')
+      data.artifact_id || '', data.cloud_task_id || '', createdAt, now, completedAt || null)
     return this.getTask(id)
   }
 
-  updateTask(id, data) {
-    const payload = { ...data, updated_at: new Date().toISOString() }
+  updateTask(id, data = {}) {
+    const now = new Date().toISOString()
+    const payload = { ...data, updated_at: now }
+    if (data.completed_at !== undefined || data.completedAt !== undefined) {
+      payload.completed_at = toUtcIsoTimestamp(data.completed_at || data.completedAt, '')
+      delete payload.completedAt
+    }
+    if (isTerminalTaskStatus(data.status) && !payload.completed_at) {
+      payload.completed_at = now
+    }
     if (data.params !== undefined && data.params_json === undefined) {
       payload.params_json = data.params
       delete payload.params

@@ -11,6 +11,7 @@ const isDark = computed(() => appStore.isDark)
 const props = defineProps({
   show: { type: Boolean, default: false },
   ctxItems: { type: Array, default: () => [] },
+  wikiItems: { type: Array, default: () => [] },
 })
 const emit = defineEmits(['update:show', 'start'])
 
@@ -21,14 +22,15 @@ const showModal = computed({
 
 const requirement = ref('')
 const mode = ref('local')
-const enableWebSearch = ref(true)
+const enableWebSearch = ref(false)
 
 const modeOptions = [
   { value: 'local', label: '本地', icon: 'ri-computer-line', description: '使用本地智能体处理选中资料', badge: '本地', accent: 'sky' },
   { value: 'cloud', label: '云端', icon: 'ri-cloud-line', description: '调用云端深度研究服务', badge: '云端', accent: 'sky' },
 ]
 
-const hasContext = computed(() => props.ctxItems.length > 0)
+const sourceItems = computed(() => [...(props.ctxItems || []), ...(props.wikiItems || [])])
+const hasContext = computed(() => sourceItems.value.length > 0)
 const canSubmit = computed(() => {
   if (mode.value !== 'cloud' && !hasContext.value) return false
   return requirement.value.trim().length > 0 || hasContext.value
@@ -43,7 +45,7 @@ watch(() => props.show, (visible) => {
   if (visible) {
     requirement.value = ''
     mode.value = 'local'
-    enableWebSearch.value = true
+    enableWebSearch.value = false
   }
 })
 
@@ -103,10 +105,10 @@ function handleSubmit() {
       </div>
 
       <ReferenceContextList
-        :items="ctxItems"
+        :items="sourceItems"
         :is-dark="isDark"
         title="参考资料"
-        :empty-text="mode !== 'cloud' ? '本地模式请在左侧“文档”或“知识库”选择资料' : '未选择资料时，将仅根据你的研究需求生成'"
+        :empty-text="mode !== 'cloud' ? '本地模式请在左侧“文档”、知识库或 Wiki 选择资料' : '未选择资料时，将仅根据你的研究需求生成'"
         accent-class="text-sky-400"
       />
 

@@ -26,7 +26,11 @@ export const WEB_IMPORT_STATUSES = new Set(['pending', 'running', 'succeeded', '
 export const WEB_IMPORT_STAGES = new Set(['queued', 'fetching', 'processing', 'writing', 'completed'])
 export const WEB_IMPORT_FINISHED_STATUSES = ['succeeded', 'partial', 'failed', 'interrupted']
 export const BUILTIN_AGENT_ARRAY_MERGE_FIELDS = ['tools', 'skills', 'sub_agents']
+export const BUILTIN_AGENT_RUNTIME_FIELDS = [
+  'permissions', 'prompt', 'max_iterations', 'tool_call_limit', 'model_call_limit',
+]
 export const BUILTIN_AGENT_USER_SCALAR_FIELDS = [
+  ...BUILTIN_AGENT_RUNTIME_FIELDS,
   'model', 'temperature', 'top_p', 'max_tokens', 'presence_penalty', 'frequency_penalty',
   'thinking_mode', 'thinking_intensity', 'reviewer_model', 'use_same_model',
 ]
@@ -35,10 +39,7 @@ export const BUILTIN_AGENT_SYSTEM_FIELDS = [
   'name', 'english_name', 'description', 'icon', 'color', 'architecture',
   'reflect_persist', 'planning_model', 'plan_steps', 'complexity_classifier',
 ]
-export const BUILTIN_AGENT_RUNTIME_FIELDS = [
-  'permissions', 'prompt', 'max_iterations', 'tool_call_limit', 'model_call_limit',
-]
-export const BUILTIN_AGENT_EDITABLE_FIELDS = [...BUILTIN_AGENT_RUNTIME_FIELDS, ...BUILTIN_AGENT_USER_FIELDS]
+export const BUILTIN_AGENT_EDITABLE_FIELDS = [...new Set([...BUILTIN_AGENT_RUNTIME_FIELDS, ...BUILTIN_AGENT_USER_FIELDS])]
 export const BUILTIN_AGENT_TEMPLATE_FIELDS = [...BUILTIN_AGENT_SYSTEM_FIELDS, ...BUILTIN_AGENT_EDITABLE_FIELDS]
 
 export function parseJSON(field) {

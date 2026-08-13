@@ -15,7 +15,7 @@ import { WikiSchemaService } from './wiki/WikiSchemaService.js'
 import { WikiSearchService } from './wiki/WikiSearchService.js'
 import { WikiSemanticAuditService } from './wiki/WikiSemanticAuditService.js'
 import {
-  assertPublicWikiWebUrl,
+  fetchPublicWikiWebSource,
   htmlToWikiMarkdown,
   normalizeWikiWebResearchSettings,
   readWikiWebResponseText,
@@ -94,23 +94,6 @@ function readJsonSync(filePath, fallback) {
 async function writeJson(filePath, data) {
   await fs.promises.mkdir(path.dirname(filePath), { recursive: true })
   await fs.promises.writeFile(filePath, JSON.stringify(data, null, 2), 'utf-8')
-}
-
-async function fetchPublicWikiWebSource(url, options = {}, maxRedirects = 5) {
-  let currentUrl = String(url || '')
-  for (let redirectCount = 0; redirectCount <= maxRedirects; redirectCount += 1) {
-    await assertPublicWikiWebUrl(currentUrl)
-    const response = await fetch(currentUrl, { ...options, redirect: 'manual' })
-    if (![301, 302, 303, 307, 308].includes(response.status)) {
-      return { response, finalUrl: currentUrl }
-    }
-    const location = response.headers.get('location')
-    try { await response.body?.cancel?.() } catch {}
-    if (!location) throw new Error(`Web source redirect is missing a location header (HTTP ${response.status})`)
-    if (redirectCount >= maxRedirects) throw new Error(`Web source exceeded the ${maxRedirects}-redirect limit`)
-    currentUrl = new URL(location, currentUrl).toString()
-  }
-  throw new Error(`Web source exceeded the ${maxRedirects}-redirect limit`)
 }
 
 function isPathInside(parent, child) {

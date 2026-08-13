@@ -483,7 +483,7 @@ function toggleSubAgentEnabled() {
                       class="w-full flex items-center gap-2.5 px-3 py-2 text-[12px] transition-colors"
                       :class="selectedModelInfo?.value === m.value ? (isDark ? 'bg-brand-400/8 text-brand-400' : 'bg-brand-50 text-brand-500') : (isDark ? 'text-wt-sub hover:bg-white/5' : 'text-lt-sub hover:bg-l4')">
                       <span class="font-medium">{{ m.name }}</span>
-                      <span class="ctx-pill text-[9px]" :class="isDark ? 'bg-d4 text-wt-dim' : 'bg-l4 text-lt-aux'">{{ m.ctx }}k</span>
+                      <span class="ctx-pill text-[9px]" :class="isDark ? 'bg-d4 text-wt-dim' : 'bg-l4 text-lt-aux'">{{ m.ctx }}</span>
                       <i v-if="selectedModelInfo?.value === m.value" class="ri-check-line text-[12px] ml-auto text-brand-400" />
                     </button>
                   </template>

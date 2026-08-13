@@ -57,21 +57,21 @@ function close() {
         :class="isDark ? 'text-wt-sub hover:bg-white/8' : 'text-lt-sub hover:bg-l3'"
         @click="minimize"
         aria-label="最小化">
-        <i class="ri-subtract-line text-[14px]" />
+        <i class="ri-subtract-line text-[16px]" />
       </button>
       <button
         class="title-btn"
         :class="isDark ? 'text-wt-sub hover:bg-white/8' : 'text-lt-sub hover:bg-l3'"
         @click="toggleMax"
         :aria-label="isMaximized ? '还原' : '最大化'">
-        <i :class="isMaximized ? 'ri-file-copy-line' : 'ri-checkbox-blank-line'" class="text-[12px]" />
+        <i :class="isMaximized ? 'ri-file-copy-line' : 'ri-checkbox-blank-line'" class="text-[14px]" />
       </button>
       <button
         class="title-btn close-btn"
         :class="isDark ? 'text-wt-sub' : 'text-lt-sub'"
         @click="close"
         aria-label="关闭">
-        <i class="ri-close-line text-[14px]" />
+        <i class="ri-close-line text-[18px]" />
       </button>
     </div>
   </div>

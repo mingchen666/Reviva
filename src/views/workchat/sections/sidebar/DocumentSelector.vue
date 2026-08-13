@@ -150,7 +150,7 @@ watch(() => settingsStore.workDirRoot, (newVal) => {
           class="flex items-center gap-1.5 px-2 py-1.5 cursor-pointer transition-all duration-150 group relative"
           :class="isSelected(item.path)
             ? (isDark ? 'bg-brand-400/10 text-brand-400' : 'bg-brand-50 text-brand-600')
-            : (isDark ? 'hover:bg-wt-dim/5 text-wt-sub' : 'hover:bg-lt-aux/10 text-lt-sub')"
+            : (isDark ? 'text-wt-sub hover:bg-brand-400/8 hover:text-brand-400' : 'text-lt-sub hover:bg-brand-50/80 hover:text-brand-600')"
           :style="{ paddingLeft: (12 + item.depth * 16) + 'px' }">
 
           <!-- Selection Indicator Line -->
@@ -175,7 +175,7 @@ watch(() => settingsStore.workDirRoot, (newVal) => {
           </div>
 
           <!-- Icon -->
-          <i :class="[fileIcon(item.name, item.isDirectory, expandedFolders[item.path]), fileIconColor(item.name, item.isDirectory,props.isDark)]"
+          <i :class="[fileIcon(item.name, item.isDirectory, expandedFolders[item.path]), fileIconColor(item.name, item.isDirectory,props.isDark), isSelected(item.path) ? '' : (isDark ? 'group-hover:text-brand-400' : 'group-hover:text-brand-600')]"
             class="text-[15px] shrink-0 transition-transform duration-200"
             :style="{ opacity: isSelected(item.path) ? 1 : 0.75 }" />
 

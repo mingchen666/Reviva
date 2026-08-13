@@ -12,7 +12,7 @@ const searchQuery = ref('')
 
 const CREATION_CENTER_ENGLISH_NAMES = new Set([
   'quiz-generator', 'ppt-generator', 'mindmap-generator', 'graph-generator',
-  'flashcard-generator', 'chart-generator', 'deep-researcher', 'lab-report-assistant',
+  'flashcard-generator', 'chart-generator', 'qa-generator', 'glossary-generator', 'cheatsheet-generator', 'deep-researcher', 'lab-report-assistant',
 ])
 
 const customAgents = computed(() => props.agents.filter(a => !a.builtin))

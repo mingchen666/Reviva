@@ -49,6 +49,21 @@ export function filterWebSearchTools(toolIds, enabled = true) {
   return (toolIds || []).filter(id => !isWebSearchToolId(id))
 }
 
+// A server-level MCP binding (for example `mcp:exa`) permits its own child tools,
+// while a tool-level binding permits only that exact tool. This keeps skills and
+// subagents from silently reintroducing a web capability the parent Agent removed.
+export function restrictWebSearchToolsToBindings(toolIds, boundToolIds) {
+  if (!Array.isArray(boundToolIds)) return toolIds || []
+  const bindings = boundToolIds
+    .map(id => String(id || '').trim().toLowerCase())
+    .filter(Boolean)
+  return (toolIds || []).filter((toolId) => {
+    if (!isWebSearchToolId(toolId)) return true
+    const id = String(toolId || '').trim().toLowerCase()
+    return bindings.some(binding => id === binding || id.startsWith(`${binding}:`))
+  })
+}
+
 export function normalizeNonNegativeLimit(value, fallback = 0) {
   if (value === undefined || value === null || value === '') return fallback
   const n = Number(value)

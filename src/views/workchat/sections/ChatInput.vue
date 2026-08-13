@@ -270,7 +270,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick, true))
         <div
           class="absolute right-4 bottom-2.5 text-[12px] tabular-nums select-none pointer-events-none transition-colors"
           :class="
-            charCount > MAX_INPUT_LENGTH ? 'text-red-500 font-medium' : isDark ? 'text-wt-dim/120' : 'text-lt-aux/60'
+            charCount > MAX_INPUT_LENGTH ? 'text-red-500 font-600' : isDark ? 'text-wt-dim/120' : 'text-lt-aux/60'
           ">
           {{ charCount }} / {{ MAX_INPUT_LENGTH }}
         </div>

@@ -9,6 +9,7 @@ import {
   GenerationModuleRegistry,
   generationTaskName,
 } from './generation/GenerationModuleRegistry.js'
+import { hasGenerationSource, normalizeGenerationSourceScope } from './generation/GenerationSourceScope.js'
 
 export class GenerationTaskService {
   constructor(dbService, getWin, workDirService, agentService = null) {
@@ -18,7 +19,7 @@ export class GenerationTaskService {
     this._agentService = agentService
     this._activeRuns = new Map()
     this._cloudPollTimers = new Map()
-    this._moduleLoader = new BuiltinModuleLoader()
+    this._moduleLoader = new BuiltinModuleLoader({ db: dbService })
     this._moduleRegistry = new GenerationModuleRegistry({
       db: dbService,
       workDirService,
@@ -43,7 +44,7 @@ export class GenerationTaskService {
     const {
       toolId, mode = 'local', topic = '', groupId = 'default', conversationId = '',
       params = {}, ctxItems = [],
-      providerId, apiFormat, apiKey, baseUrl, model, modelHasVision = false, visionModel = null, toolProviderConfigs = {}, cloudContext = {},
+      providerId, apiFormat, apiKey, baseUrl, model, modelCtx = '', contextWindow = '', modelHasVision = false, visionModel = null, toolProviderConfigs = {}, cloudContext = {}, sourceScope = {}, wikiContext = {},
     } = request || {}
 
     const module = this._moduleRegistry.get(toolId)
@@ -69,6 +70,16 @@ export class GenerationTaskService {
     }
 
     const referenceCtxItems = this._toReferenceCtxItems(ctxItems)
+    const normalizedSourceScope = normalizeGenerationSourceScope({
+      ctxItems: referenceCtxItems,
+      sourceScope,
+      wikiContext,
+      params,
+    })
+    if (module.requiresTopicOrContext && !String(topic || '').trim() && !hasGenerationSource(normalizedSourceScope)) {
+      return { success: false, error: '请填写主题，或选择具体文件、知识库或 Wiki' }
+    }
+    const taskStartedAt = new Date().toISOString()
     const task = this._db.createTask({
       name: generationTaskName(module, topic),
       type: 'generation',
@@ -80,16 +91,29 @@ export class GenerationTaskService {
       mode,
       conversation_id: conversationId,
       group_id: groupId,
+      created_at: taskStartedAt,
       params: {
         topic,
         ...params,
         ctxItems: referenceCtxItems,
         ctxNames: referenceCtxItems.map(c => c.name).filter(Boolean).slice(0, 8),
+        sourceScope: normalizedSourceScope,
       },
     })
 
     const abortController = new AbortController()
     this._activeRuns.set(task.id, abortController)
+    const hardTimeoutMs = Number(moduleConfig.hard_timeout_ms)
+    let timeoutHandle = null
+    const timeoutPromise = Number.isFinite(hardTimeoutMs) && hardTimeoutMs > 0
+      ? new Promise((_, reject) => {
+        timeoutHandle = setTimeout(() => {
+          const error = new Error('任务执行超时')
+          if (!abortController.signal.aborted) abortController.abort(error)
+          reject(error)
+        }, hardTimeoutMs)
+      })
+      : null
 
     const runner = module.run({
       task,
@@ -103,14 +127,18 @@ export class GenerationTaskService {
       apiKey,
       baseUrl,
       model,
+      modelCtx,
+      contextWindow,
       modelHasVision,
       visionModel,
       toolProviderConfigs,
       cloudContext,
+      sourceScope: normalizedSourceScope,
+      wikiContext: { enabled: normalizedSourceScope.wikiIds.length > 0, mode: 'selected', wikiIds: normalizedSourceScope.wikiIds },
       abortController,
     })
 
-    this._runTask(task, abortController, runner)
+    this._runTask(task, abortController, timeoutPromise ? Promise.race([runner, timeoutPromise]) : runner, timeoutHandle)
     return { success: true, task }
   }
 
@@ -122,13 +150,18 @@ export class GenerationTaskService {
     }
     const t = this._db.getTask(taskId)
     if (t && t.status === 'running') {
-      this._db.updateTask(taskId, { status: 'cancelled', error: '用户取消', progress: 0 })
+      this._db.updateTask(taskId, {
+        status: 'cancelled',
+        error: '用户取消',
+        progress: 0,
+        completed_at: new Date().toISOString(),
+      })
       this._send('genTask:failed', { taskId, error: '用户取消' })
     }
     return { success: true }
   }
 
-  _runTask(task, abortController, runnerPromise) {
+  _runTask(task, abortController, runnerPromise, timeoutHandle = null) {
     runnerPromise
       .then(result => {
         if (result && !abortController.signal.aborted) this._send('genTask:completed', result)
@@ -137,12 +170,16 @@ export class GenerationTaskService {
         console.error('[GenerationTaskService] generation task failed:', err)
         if (abortController.signal.aborted) {
           const latest = this._db.getTask(task.id)
-          if (latest?.status === 'running') this._markFailed(task.id, '任务已中断或超时')
+          if (latest?.status === 'running') {
+            const reason = abortController.signal.reason?.message || '任务已中断或超时'
+            this._markFailed(task.id, reason)
+          }
           return
         }
         this._markFailed(task.id, this._formatRunError(err))
       })
       .finally(() => {
+        if (timeoutHandle) clearTimeout(timeoutHandle)
         this._activeRuns.delete(task.id)
       })
   }
@@ -153,7 +190,12 @@ export class GenerationTaskService {
   }
 
   _markFailed(taskId, error) {
-    this._db.updateTask(taskId, { status: 'failed', error, progress: 0 })
+    this._db.updateTask(taskId, {
+      status: 'failed',
+      error,
+      progress: 0,
+      completed_at: new Date().toISOString(),
+    })
     this._send('genTask:failed', { taskId, error })
   }
 
@@ -178,6 +220,9 @@ export class GenerationTaskService {
       if (item?.path) ref.path = item.path
       if (item?.kbId) ref.kbId = item.kbId
       if (item?.docId) ref.docId = item.docId
+      if (item?.mediaId || item?.media_id) ref.mediaId = item.mediaId || item.media_id
+      if (item?.mediaType || item?.media_type) ref.mediaType = item.mediaType || item.media_type
+      if (item?.mime || item?.mimeType || item?.mime_type) ref.mime = item.mime || item.mimeType || item.mime_type
       if (item?.isDirectory !== undefined) ref.isDirectory = !!item.isDirectory
       return ref
     }).filter(item => item.name || item.path || item.kbId || item.docId)

@@ -87,13 +87,13 @@
   :deep(h3:first-child) { margin-top: 0.2em; }
 
   /* ── Paragraphs & lists ────────────────────────────────────────────── */
-  :deep(p) { margin: 0.55em 0; }
+  :deep(p) { margin: 0.5em 0; line-height: 1.45;}
   :deep(p:first-child) { margin-top: 0; }
   :deep(p:last-child) { margin-bottom: 0; }
 
   :deep(ul),
   :deep(ol) {
-    margin: 0.55em 0;
+    margin: 0.5em 0;
     padding-left: 1.45em;
   }
   :deep(ul) { list-style: disc; }
@@ -171,9 +171,8 @@
   margin: 0.85em 0;
   font-size: 0.84375rem;
   
-  /* 👇 修改点 1：删除 display: block，恢复默认或显式声明为 table */
   display: table; 
-  /* 👇 修改点 2：启用自动表格布局，让列宽智能分配，最后一列自动撑满剩余空间 */
+  /* 启用自动表格布局，让列宽智能分配，最后一列自动撑满剩余空间 */
   table-layout: auto; 
   
   overflow-x: auto;
@@ -183,7 +182,6 @@
   border-radius: 8px;
 }
 
-/* 以下保持你的原样即可 */
 :deep(thead th) {
   background: var(--md-table-head);
   font-weight: 600;
@@ -408,7 +406,7 @@
     background: transparent !important;
     overflow-x: auto;
     font-size: 0.8125rem;
-    line-height: 1.7;
+    line-height: 1.6;
   }
   :deep(.code-block-container pre code),
   :deep(.code-pre-fallback code) {

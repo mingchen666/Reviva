@@ -29,10 +29,13 @@ let searchTimer = null
 
 const taskTools = {
   mindmap: { name: '思维导图', icon: 'ri-mind-map', color: 'emerald' },
-  graph: { name: '知识图谱', icon: 'ri-share-circle-line', color: 'amber' },
+  graph: { name: '知识图谱', icon: 'ri-node-tree', color: 'amber' },
   flashcard: { name: '闪卡', icon: 'ri-stack-line', color: 'pink' },
   quiz: { name: '测验', icon: 'ri-questionnaire-line', color: 'emerald' },
   chart: { name: '图表', icon: 'ri-bar-chart-box-line', color: 'sky' },
+  qa: { name: 'Q&A 问答卡', icon: 'ri-question-answer-line', color: 'brand' },
+  glossary: { name: '术语表', icon: 'ri-book-2-line', color: 'agent' },
+  cheatsheet: { name: '速查表', icon: 'ri-file-list-3-line', color: 'amber' },
   podcast: { name: '播客', icon: 'ri-mic-2-line', color: 'agent' },
   research: { name: '深度研究', icon: 'ri-search-eye-line', color: 'sky' },
   ppt: { name: 'PPT', icon: 'ri-slideshow-line', color: 'brand' },
@@ -52,6 +55,9 @@ const artifactTypeLabels = {
   flashcard: '闪卡',
   quiz: '测验',
   chart: '图表',
+  qa: 'Q&A 问答卡',
+  glossary: '术语表',
+  cheatsheet: '速查表',
   ppt: 'PPT',
   presentation: 'PPT',
   podcast: '播客',
@@ -429,11 +435,16 @@ function menuCanRename() {
 </script>
 
 <template>
-  <div class="flex-1 min-h-0 flex flex-col px-3 pt-2.5" :class="isDark ? 'border-b border-d4' : 'border-b border-bdrL'">
+  <div class="flex-1 min-h-0 flex flex-col px-3 pt-.5" :class="isDark ? 'border-b border-d4' : 'border-b border-bdrL'">
     <div class="flex items-center justify-between mb-2 shrink-0">
-      <span class="text-[12px] font-bold uppercase tracking-wider" :class="isDark ? 'text-wt-aux' : 'text-lt-aux'">
-        生成结果
-      </span>
+  <div class="flex items-center gap-2">
+    <i class="ri-sparkling-2-fill text-[14px] shrink-0"
+      :class="isDark ? 'text-agent-400' : 'text-agent-500'" />
+    <span class="text-[12.5px] font-bold uppercase tracking-wider"
+      :class="isDark ? 'text-wt-aux' : 'text-lt-aux'">
+      生成结果
+    </span>
+  </div>
       <div class="flex items-center gap-1.5">
         <span class="text-[11px] flex items-center gap-1" :class="isSearching ? 'text-brand-400' : (isDark ? 'text-wt-dim' : 'text-lt-aux')"
           role="status" aria-live="polite">
@@ -461,7 +472,7 @@ function menuCanRename() {
     ]"
    class="absolute left-2.5 top-1/2 -translate-y-1/2 text-[12px] pointer-events-none" />
       <input v-model="searchQuery" type="text" placeholder="搜索标题、摘要或请求参数"
-        class="w-full h-8 rounded-lg pl-8 pr-8 text-[12px] outline-none transition-colors"
+        class="w-full h-7 rounded-lg pl-8 pr-8 text-[12px] outline-none transition-colors"
         :class="isDark
           ? 'bg-d0 border border-d4 text-wt-sub placeholder:text-wt-dim focus:border-brand-400/50'
           : 'bg-l2 border border-bdrF text-lt-sub placeholder:text-lt-aux focus:border-brand-300'" />
@@ -469,7 +480,7 @@ function menuCanRename() {
         class="absolute right-1.5 top-1/2 -translate-y-1/2 h-5 w-5 rounded flex items-center justify-center"
         :class="isDark ? 'text-wt-dim hover:text-wt-sub hover:bg-white/5' : 'text-lt-aux hover:text-lt-sub hover:bg-l4'"
         aria-label="清空搜索">
-        <i class="ri-close-line text-[13px]" />
+        <i class="ri-close-line text-[14px]" />
       </button>
     </div>
 
@@ -483,14 +494,14 @@ function menuCanRename() {
         <div
           v-if="entry.kind === 'task'"
           @click="viewTask(entry.task)"
-          class="rounded-lg p-2.5 transition-colors group relative"
+          class="rounded-lg p-2 transition-colors group relative"
           :class="[
             isDark ? 'hover:bg-brand-400/8' : 'hover:bg-brand-50',
             primaryTaskArtifact(entry.task) ? 'cursor-pointer' : '',
           ]">
           <div class="flex items-start gap-2.5">
             <div
-              class="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
+              class="w-6 h-6 rounded-lg flex items-center justify-center shrink-0"
               :class="colorClasses(taskMeta(entry.task).color, !isDark)">
               <i :class="taskMeta(entry.task).icon + ' text-[16px]'" />
             </div>
@@ -521,7 +532,7 @@ function menuCanRename() {
                   : 'text-lt-aux hover:text-red-500 hover:bg-l4'
               "
               title="取消">
-              <i class="ri-close-line text-[12px]" />
+              <i class="ri-close-line text-[14px]" />
             </button>
             <button
               v-else
@@ -531,19 +542,18 @@ function menuCanRename() {
                 isDark ? 'text-wt-aux hover:text-wt-sub hover:bg-white/4' : 'text-lt-aux hover:text-lt-sub hover:bg-l4'
               "
               title="更多">
-              <i class="ri-more-2-fill text-[12px]" />
+              <i class="ri-more-2-fill text-[14px]" />
             </button>
           </div>
 
-          <div
-            v-if="entry.task.status === 'running' || entry.task.status === 'pending'"
-            class="mt-2 h-1 rounded-full overflow-hidden"
-            :class="isDark ? 'bg-d4' : 'bg-l4'">
-            <div
-              class="h-full rounded-full transition-all duration-300"
-              :class="progressBarClass(entry.task)"
-              :style="{ width: progressWidth(entry.task) }" />
-          </div>
+<div
+  v-if="entry.task.status === 'running' || entry.task.status === 'pending'"
+  class="mt-2 h-1 rounded-full overflow-hidden"
+  :class="isDark ? 'bg-d4' : 'bg-l4'">
+  <div
+    class="h-full rounded-full progress-indeterminate"
+    :class="progressBarClass(entry.task)" />
+</div>
 
           <div v-else-if="taskArtifacts(entry.task).length > 1" class="mt-2 ml-9 space-y-1">
             <button
@@ -644,3 +654,14 @@ function menuCanRename() {
     </div>
   </Teleport>
 </template>
+
+<style scoped>
+.progress-indeterminate {
+  width: 40%;
+  animation: progress-slide 1.3s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+}
+@keyframes progress-slide {
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(250%); }
+}
+</style>

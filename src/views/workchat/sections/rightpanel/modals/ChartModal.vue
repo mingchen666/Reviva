@@ -3,7 +3,7 @@ import { computed, ref, watch } from 'vue'
 import { useAppStore } from '@/stores/app'
 import MsModal from '@/components/MsModal/MsModal.vue'
 import { readableGenerationContexts } from '@/utils/generationContext'
-import ReferenceContextList from './ReferenceContextList.vue'
+import GenerationSourceOptions from './GenerationSourceOptions.vue'
 
 const appStore = useAppStore()
 const isDark = computed(() => appStore.isDark)
@@ -11,6 +11,7 @@ const isDark = computed(() => appStore.isDark)
 const props = defineProps({
   show: { type: Boolean, default: false },
   ctxItems: { type: Array, default: () => [] },
+  wikiItems: { type: Array, default: () => [] },
 })
 const emit = defineEmits(['update:show', 'submit'])
 
@@ -23,11 +24,13 @@ const topic = ref('')
 const count = ref(3)
 const focus = ref('auto')
 const style = ref('auto')
+const webEnabled = ref(false)
 
 const usableCtxItems = computed(() => readableGenerationContexts(props.ctxItems))
-const canSubmit = computed(() => topic.value.trim().length > 0 || usableCtxItems.value.length > 0)
+const hasWikiSource = computed(() => (props.wikiItems || []).some(item => item?.id || item?.wikiId))
+const canSubmit = computed(() => topic.value.trim().length > 0 || usableCtxItems.value.length > 0 || hasWikiSource.value)
 const hint = computed(() => {
-  if (!topic.value.trim() && !usableCtxItems.value.length) return '请输入主题或勾选具体文件/知识库'
+  if (!canSubmit.value) return '请输入主题，或勾选具体文件、知识库或 Wiki'
   return ''
 })
 
@@ -79,6 +82,7 @@ watch(() => props.show, (v) => {
     count.value = 3
     focus.value = 'auto'
     style.value = 'auto'
+    webEnabled.value = false
   }
 })
 
@@ -94,6 +98,7 @@ function handleSubmit() {
       style: style.value,
       styleLabel: styleOptions.find(item => item.value === style.value)?.label || '',
       focusLabel: selectedFocus.value?.label || '',
+      webSearch: { enabled: webEnabled.value, provider: 'auto' },
     },
   })
 }
@@ -216,7 +221,14 @@ function handleSubmit() {
         </div>
       </div>
 
-      <ReferenceContextList :items="usableCtxItems" :is-dark="isDark" accent-class="text-sky-400" />
+      <GenerationSourceOptions
+        :items="usableCtxItems"
+        :wiki-items="wikiItems"
+        :is-dark="isDark"
+        accent-class="text-sky-400"
+        active-class="bg-sky-500"
+        v-model:web-enabled="webEnabled"
+      />
     </div>
 
     <template #footer="{ close }">

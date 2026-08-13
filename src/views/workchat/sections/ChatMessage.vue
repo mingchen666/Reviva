@@ -296,7 +296,7 @@ function onMarkdownLinkClick({ href }) {
         <template v-if="timelineBlocks.length">
           <template v-for="(block, bi) in timelineBlocks" :key="bi">
             <!-- Thinking -->
-            <div v-if="block.type === 'thinking'" class="px-4 pt-2.5 pb-1">
+            <div v-if="block.type === 'thinking'" class="px-4 pt-2.5">
               <button @click="toggleProcessBlock('thinking-' + bi)"
                 class="flex items-center gap-1.5 text-[11px] font-medium leading-none transition-colors py-1.5 px-2 -ml-2 rounded-md"
                 :class="isDark ? 'text-wt-dim hover:text-wt-sub hover:bg-white/4' : 'text-lt-aux hover:text-lt-sub hover:bg-l4'">

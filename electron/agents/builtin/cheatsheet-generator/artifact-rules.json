@@ -1,0 +1,7 @@
+{
+  "storage_type": "data",
+  "artifact_type": "cheatsheet",
+  "icon": "ri-file-list-3-line",
+  "color": "amber",
+  "title_template": "{title}"
+}

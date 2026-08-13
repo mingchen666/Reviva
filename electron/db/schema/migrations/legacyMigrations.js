@@ -624,7 +624,7 @@ export class LegacyMigrationManager extends BaseRepository {
       `).run(
         'agent_graph', '知识图谱生成器', 'graph-generator',
         '根据资料抽取实体与关系，生成知识图谱（JSON）',
-        'ri-share-circle-line', '#F59E0B', 'plan_exec', 1,
+        'ri-node-tree', '#F59E0B', 'plan_exec', 1,
         JSON.stringify({ fileRead: true, fileWrite: false, webSearch: false, fileDelete: false, fileRename: false, execCommand: false }),
         JSON.stringify(['file_read', 'kb_search']),
         JSON.stringify([]),

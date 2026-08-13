@@ -2,6 +2,16 @@ import MarkdownIt from 'markdown-it'
 import hljs from 'highlight.js'
 import katex from 'katex'
 
+function escapeHtml(value) {
+  return String(value).replace(/[&<>"']/g, char => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;',
+  }[char]))
+}
+
 // ─── KaTeX inline ($...$) and block ($$...$$) plugin ───
 // Lightweight inline implementation — avoids extra dependency.
 function katexPlugin(md) {
@@ -71,14 +81,14 @@ function katexPlugin(md) {
     try {
       return katex.renderToString(tokens[idx].content, { throwOnError: false, displayMode: false })
     } catch (e) {
-      return `<code class="math-err" title="${e.message}">${tokens[idx].content}</code>`
+      return `<code class="math-err" title="${escapeHtml(e?.message || 'Invalid LaTeX')}">${escapeHtml(tokens[idx].content)}</code>`
     }
   }
   md.renderer.rules.math_block = (tokens, idx) => {
     try {
       return `<div class="math-block">${katex.renderToString(tokens[idx].content, { throwOnError: false, displayMode: true })}</div>`
     } catch (e) {
-      return `<pre class="math-err" title="${e.message}">${tokens[idx].content}</pre>`
+      return `<pre class="math-err" title="${escapeHtml(e?.message || 'Invalid LaTeX')}">${escapeHtml(tokens[idx].content)}</pre>`
     }
   }
 }

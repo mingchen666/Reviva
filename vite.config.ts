@@ -46,11 +46,7 @@ export default defineConfig({
       'markdown-it',
       'highlight.js',
       'katex',
-      'mathjs',
       'mermaid',
-      '@antv/g6',
-      'simple-mind-map',
-      'pptxgenjs',
       'markstream-vue',
       'stream-markdown'
     ]
@@ -119,6 +115,7 @@ export default defineConfig({
                 '@langchain/langgraph',
                 '@langchain/tavily',
                 'langsmith',
+                'jsonrepair',
                 'zod'
               ]
             }
