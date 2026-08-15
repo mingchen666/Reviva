@@ -1,7 +1,7 @@
 <script setup>
 import MarkdownView from '@/components/MarkdownView.vue'
 import { getErrorInfo } from '@/utils/errorCodes'
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useAgentsStore } from '@/stores/agents'
 import { useSettingsStore } from '@/stores/settings'
 import MessageDeleteConfirm from './MessageDeleteConfirm.vue'
@@ -34,14 +34,16 @@ const props = defineProps({
 
 const emit = defineEmits([
   'preview-file', 'retry', 'copy', 'copy-error', 'edit', 'save-edit', 'delete',
-  'branch', 'export-markdown', 'save-to-note', 'media-detail',
+  'branch', 'export-markdown', 'export-word', 'save-to-note', 'media-detail',
   'compress-context', 'auth-approve', 'auth-deny',
 ])
 
 const agentsStore = useAgentsStore()
 const settingsStore = useSettingsStore()
 const processBlockOpen = ref({})
+const processBlockManual = ref({})
 const thinkingOpen = ref(false)
+const thinkingManual = ref(false)
 const showDeleteConfirm = ref(false)
 const plainCopied = ref(false)
 const markdownCopied = ref(false)
@@ -127,6 +129,33 @@ const timelineBlocks = computed(() => {
   return blocks
 })
 
+function resetCollapseState() {
+  processBlockOpen.value = {}
+  processBlockManual.value = {}
+  thinkingOpen.value = false
+  thinkingManual.value = false
+}
+
+watch(() => props.msg?.id, resetCollapseState)
+watch(() => props.isStreaming, (streaming, previousStreaming) => {
+  // A retry can reuse the same message id. Start that generation with the
+  // automatic open/close policy instead of carrying the previous click state.
+  if (streaming && previousStreaming === false) resetCollapseState()
+})
+
+function syncStreamingThinkingBlocks() {
+  for (let bi = 0; bi < timelineBlocks.value.length; bi += 1) {
+    const block = timelineBlocks.value[bi]
+    if (block.type !== 'thinking' || processBlockManual.value['thinking-' + bi]) continue
+    processBlockOpen.value['thinking-' + bi] = props.isStreaming
+  }
+}
+
+watch([
+  () => props.isStreaming,
+  () => timelineBlocks.value.map(block => block.type).join('|'),
+], syncStreamingThinkingBlocks, { immediate: true })
+
 const timelineToolIds = computed(() => {
   const ids = new Set()
   for (const step of displaySteps.value) {
@@ -175,6 +204,15 @@ const thinkingContent = computed(() => {
   if (props.isStreaming && props.streamingThinking) return props.streamingThinking
   return props.msg.thinkingContent || ''
 })
+
+watch([
+  () => props.isStreaming,
+  () => thinkingContent.value,
+], ([streaming, content], previous = []) => {
+  if (thinkingManual.value) return
+  if (streaming && content) thinkingOpen.value = true
+  else if (!streaming && previous[0]) thinkingOpen.value = false
+}, { immediate: true })
 
 const thinkingDuration = computed(() => {
   const tokens = props.msg.thinkingTokens || 0
@@ -229,7 +267,14 @@ const iterationDisplay = computed(() => {
   return ''
 })
 
-function toggleProcessBlock(key) { processBlockOpen.value[key] = !processBlockOpen.value[key] }
+function toggleProcessBlock(key) {
+  processBlockManual.value[key] = true
+  processBlockOpen.value[key] = !processBlockOpen.value[key]
+}
+function toggleThinking() {
+  thinkingManual.value = true
+  thinkingOpen.value = !thinkingOpen.value
+}
 function fmtTokens(n) {
   if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M'
   if (n >= 1000) return (n / 1000).toFixed(1) + 'K'
@@ -276,7 +321,7 @@ function onMarkdownLinkClick({ href }) {
     @delete="emit('delete')" />
 
   <!-- ═══ Assistant Message ═══ -->
-  <div v-if="isAssistant" class="group relative flex gap-3 max-w-[95%] sm:max-w-[82%] fade-up">
+  <div v-if="isAssistant" class="group relative flex gap-3 max-w-[95%] sm:max-w-[82%]">
     <!-- Avatar -->
     <div class="w-[28px] h-[28px] rounded-full flex items-center justify-center shrink-0 mt-0.5"
       :class="agent ? (isDark ? 'bg-agent-400/12 border-[1.5px] border-agent-400/30' : 'bg-agent-50 border-[1.5px] border-agent-100') : (isDark ? 'bg-brand-400/12 border border-brand-400/20' : 'bg-brand-50 border border-brand-100')">
@@ -311,7 +356,7 @@ function onMarkdownLinkClick({ href }) {
                 <div v-if="processBlockOpen['thinking-' + bi]"
                   class="mt-1.5 px-3 py-2.5 rounded-lg text-[0.8125rem] leading-relaxed overflow-auto max-h-[320px] thin-scroll"
                   :class="isDark ? 'bg-d4/60 border border-d4 border-l-2 border-l-agent-400/40 text-wt-dim' : 'bg-l4/80 border border-bdrF border-l-2 border-l-agent-300 text-lt-aux'">
-                  <MarkdownView :content="block.content" :is-dark="isDark" :work-root="workRoot" @file-click="onMarkdownFileClick" />
+                  <MarkdownView :content="block.content" :is-dark="isDark" :is-streaming="isStreaming" :work-root="workRoot" @file-click="onMarkdownFileClick" />
                 </div>
               </Transition>
             </div>
@@ -334,7 +379,7 @@ function onMarkdownLinkClick({ href }) {
             <div v-else-if="block.type === 'text'" class="px-4 py-2.5">
               <div class="text-[0.84375rem] leading-relaxed md-content"
                 :class="[isDark ? 'text-wt-main' : 'text-lt-main', agent && block.isLast ? 'border-l-2 border-l-agent-400' : '']">
-                <MarkdownView :content="block.content" :is-dark="isDark" :work-root="workRoot" @file-click="onMarkdownFileClick" />
+                <MarkdownView :content="block.content" :is-dark="isDark" :is-streaming="isStreaming" :work-root="workRoot" @file-click="onMarkdownFileClick" />
               </div>
             </div>
           </template>
@@ -387,7 +432,7 @@ function onMarkdownLinkClick({ href }) {
             <TodoListCard :todos="displayTodos" :is-dark="isDark" />
           </div>
           <div v-if="showThinking" class="px-4 pt-3">
-            <button @click="thinkingOpen = !thinkingOpen"
+            <button @click="toggleThinking"
               class="flex items-center gap-1.5 text-[11px] font-medium leading-none transition-colors py-1.5 px-2 -ml-2 rounded-md"
               :class="isDark ? 'text-wt-dim hover:text-wt-sub hover:bg-white/4' : 'text-lt-aux hover:text-lt-sub hover:bg-l4'">
               <i :class="thinkingOpen ? 'ri-arrow-down-s-line' : 'ri-arrow-right-s-line'" class="text-[12px] leading-none transition-transform" />
@@ -469,6 +514,7 @@ function onMarkdownLinkClick({ href }) {
         :copied="markdownCopied" :branching="branching" :exporting="exporting"
         @copy-raw="copyRawMarkdown" @retry="emit('retry')"
         @export-markdown="emit('export-markdown')"
+        @export-word="emit('export-word')"
         @save-to-note="emit('save-to-note')"
         @branch="emit('branch')"
         @delete="showDeleteConfirm = true"
@@ -541,8 +587,6 @@ function onMarkdownLinkClick({ href }) {
 .md-content th, .md-content td { border: 1px solid #353542; padding: 6px 10px; }
 .md-content th { font-weight: 600; }
 .md-content img { max-width: 100%; border-radius: 8px; }
-.fade-up { animation: fadeUp 0.2s ease-out; }
-@keyframes fadeUp { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
 .loading-dots .dot { animation: dotPulse 1.4s ease-in-out infinite; }
 .loading-dots .dot:nth-child(1) { animation-delay: 0s; }
 .loading-dots .dot:nth-child(2) { animation-delay: 0.2s; }

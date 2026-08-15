@@ -5,7 +5,7 @@
   "description": "面向任何学科和学习阶段的通用学习入口，可根据目标与资料自动选择讲解、练习、复习、规划、整理和掌握检查方式。",
   "icon": "ri-graduation-cap-line",
   "color": "#14B8A6",
-  "builtin_version": "1.0.0",
+  "builtin_version": "1.1.0",
 
   "architecture": "hybrid",
   "model": "",
@@ -25,6 +25,7 @@
     "document_read",
     "media_read",
     "vision_analyze",
+    "exec_command",
     "office_write",
     "kb_search",
     "wiki_tool",
@@ -44,7 +45,8 @@
     "exam-prep",
     "flashcard-generator",
     "note-skill",
-    "learning-visualization-skill"
+    "learning-visualization-skill",
+    "edu-chem-reaction"
   ],
   "sub_agents": [],
   "permissions": {
@@ -54,7 +56,7 @@
     "fileRename": false,
     "noteRead": true,
     "noteWrite": true,
-    "execCommand": false,
+    "execCommand": true,
     "webSearch": true,
     "kbSearch": true
   }

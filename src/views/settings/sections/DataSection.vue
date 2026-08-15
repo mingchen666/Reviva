@@ -4,6 +4,7 @@ import { useAppStore } from '@/stores/app'
 import { useSettingsStore } from '@/stores/settings'
 import { useMessage } from '@/components/MsMessage/useMessage'
 import { useMessageBox } from '@/components/MsMessageBox/useMessageBox'
+import { setShortcutBindings } from '@/config/shortcuts'
 
 const appStore = useAppStore()
 const ss = useSettingsStore()
@@ -156,7 +157,11 @@ async function applyImportedRuntimeSettings(importedKeys = []) {
       if (!shortcutBindings || typeof shortcutBindings !== 'object') {
         return { ok: false, error: '快捷键配置不可用' }
       }
-      return api.shortcuts.register(shortcutBindings)
+      const result = await api.shortcuts.register(shortcutBindings)
+      // Keep renderer shortcuts (app actions and input bindings) in sync with
+      // a full settings import without requiring a reload.
+      if (result?.ok !== false && !result?.failed?.length) setShortcutBindings(shortcutBindings)
+      return result
     })
   }
   const results = await Promise.allSettled(jobs)
@@ -267,7 +272,7 @@ async function resetSettings() {
   const defaults = {
     themeMode: 'light', accentColor: 'brand', customAccentHex: '#4A6CFF',
     fontSize: 'medium', langPref: 'zh', animations: true, reducedMotion: false,
-    answerStyle: 'default', conflictStrategy: 'ask',
+    answerStyle: 'default', conflictStrategy: 'ask', chatNavigationEnabled: true, chatNavigationStyle: 'directory',
     proxyMode: 'system', proxyType: 'http', proxyHost: '127.0.0.1', proxyPort: '7890',
     proxyAuth: false, proxyUser: '', proxyPass: '',
     maxIter: 100, maxTaskMin: 5, searchLimit: 10, fileOpLimit: 30,

@@ -20,6 +20,11 @@ import { registerWebImportGateway } from './web/WebImportGateway.js'
 import { registerMediaGateway } from './media/MediaGateway.js'
 import { registerUrlImportGateway } from './imports/UrlImportGateway.js'
 import { registerNotesGateway } from './notes/NotesGateway.js'
+import { LearningSourceCatalog } from './learning/LearningSourceCatalog.js'
+import { LearningContextResolver } from './learning/LearningContextResolver.js'
+import { LearningCitationBuilder } from './learning/LearningCitationBuilder.js'
+import { LearningGenerationService } from './learning/LearningGenerationService.js'
+import { registerLearningGenerationGateway } from './learning/LearningGenerationGateway.js'
 import { AgentAdapter, NoteAdapter, TaskAdapter, ConversationAdapter, DocumentAdapter, ExecutionAdapter, OutputAdapter } from './adapters/ResourceAdapters.js'
 
 const INSTANCE_ID_SETTING = 'localGatewayInstanceId'
@@ -317,6 +322,23 @@ export function createLocalGateway({ dbService, agentService = null, wikiService
   registerMediaGateway({ server, registry, mediaModule, workDirService, sendJson })
   registerUrlImportGateway({ server, registry, dbService, workDirService, webImportJobService, mediaModule, sendJson })
   registerNotesGateway({ server, registry, dbService, noteFileService, sendJson })
+  const learningResults = dbService?.learningRunResults || null
+  const learningSources = new LearningSourceCatalog({ dbService, wikiService, workDirService, mediaModule })
+  const learningContext = new LearningContextResolver({
+    sourceCatalog: learningSources, dbService, wikiService, workDirService, mediaModule,
+  })
+  const learningService = new LearningGenerationService({
+    dbService,
+    agentService,
+    sourceCatalog: learningSources,
+    contextResolver: learningContext,
+    citationBuilder: new LearningCitationBuilder(),
+    results: learningResults,
+    resolveAgentModel: agent => resolveAgentModel(dbService, agent),
+    logger,
+  })
+  learningService.initialize().catch(error => logger.warn?.('[LearningGateway] Startup recovery failed:', error?.message || error))
+  registerLearningGenerationGateway({ server, registry, learningService, sendJson })
   registerResource('outputs', adapters.outputs, '/api/v1/outputs', '/api/v1/outputs/:id')
   registry.registerResource({ id: 'artifacts', version: '1.0', description: 'Read generated artifacts' })
   server.register('GET', '/api/v1/artifacts', ({ response, url }) => {

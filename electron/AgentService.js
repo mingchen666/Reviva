@@ -215,8 +215,13 @@ export class AgentService {
     this._learningMemoryService = service || null
   }
 
+  _learningProfileAllowed(request = {}) {
+    return request.learningProfileAllowed !== false
+      && request.permissions?.learningProfile !== false
+  }
+
   _learningSnapshotForRequest(request = {}) {
-    if (!this._learningMemoryService || request.learningProfileAllowed === false) return ''
+    if (!this._learningMemoryService || !this._learningProfileAllowed(request)) return ''
     const messages = Array.isArray(request.messages) ? request.messages : []
     const userRequest = buildLearningProfileRequestContext(messages, request.userText)
     try {
@@ -249,7 +254,7 @@ export class AgentService {
   }
 
   _learningProfileToolsForRun(request = {}, assistantMessageId = '', runId = '') {
-    if (request.learningProfileAllowed === false || !this._learningMemoryService?.isAgentToolEnabled?.()) return []
+    if (!this._learningProfileAllowed(request) || !this._learningMemoryService?.isAgentToolEnabled?.()) return []
     try {
       return createLearningProfileToolset({
         service: this._learningMemoryService,

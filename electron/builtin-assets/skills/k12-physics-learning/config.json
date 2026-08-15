@@ -1,0 +1,23 @@
+{
+  "id": "k12-physics-learning",
+  "name": "K12 物理学习",
+  "description": "按题目条件完成 K12 物理建模、单位校验、实验理解、错因反馈、多题考点归纳与按需示意图。",
+  "icon": "ri-atom-line",
+  "color": "#D97706",
+  "category": "学习",
+  "source": "platform",
+  "allowedTools": [
+    "file_read",
+    "document_read",
+    "vision_analyze",
+    "calculator",
+    "mcp:exa"
+  ],
+  "outputTypes": [
+    "Markdown",
+    "TXT"
+  ],
+  "version": "1.0.0",
+  "author": "reviva",
+  "license": "MIT"
+}

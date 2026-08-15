@@ -1,0 +1,23 @@
+{
+  "id": "k12-english-learning",
+  "name": "K12 英语学习",
+  "description": "按语境处理 K12 英语词汇、语法、听读证据、写作修改、翻译反馈与按需结构可视化。",
+  "icon": "ri-translate-2",
+  "color": "#16A34A",
+  "category": "学习",
+  "source": "platform",
+  "allowedTools": [
+    "file_read",
+    "document_read",
+    "media_read",
+    "vision_analyze",
+    "mcp:exa"
+  ],
+  "outputTypes": [
+    "Markdown",
+    "TXT"
+  ],
+  "version": "1.0.0",
+  "author": "reviva",
+  "license": "MIT"
+}

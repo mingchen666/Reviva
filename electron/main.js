@@ -234,8 +234,15 @@ function createWindow() {
     try {
       if (dbService) {
         const saved = dbService.getSetting('shortcutBindings')
-        const bindings = saved || {
-          global_invoke: ['Ctrl', 'Shift', 'Space'],
+        const legacyDefault = 'CmdOrCtrl+Shift+Space'
+        const defaultGlobalInvoke = ['Ctrl', 'Alt', 'Space']
+        const bindings = saved && typeof saved === 'object' ? { ...saved } : {}
+        // The former default collides with several Chinese input methods. Migrate
+        // it before registering so a fresh update does not keep failing at boot.
+        if (!Array.isArray(bindings.global_invoke)
+          || acceleratorFromCombo(bindings.global_invoke) === legacyDefault) {
+          bindings.global_invoke = defaultGlobalInvoke
+          if (saved && typeof saved === 'object') dbService.setSetting('shortcutBindings', bindings)
         }
         await registerGlobalShortcuts(bindings)
         // Apply saved notification/startup settings
@@ -499,6 +506,50 @@ ipcMain.handle('dialog:saveTextFile', async (event, options = {}, content = '') 
     return { success: true, path: filePath }
   } catch (error) {
     return { success: false, error: error.message }
+  }
+})
+
+// Convert Markdown to DOCX in the main process, then save the binary file via
+// the native save dialog. Keeping conversion here avoids sending a DOCX buffer
+// through the renderer/contextBridge and keeps markdown-docx out of the UI bundle.
+ipcMain.handle('dialog:saveMarkdownDocx', async (event, options = {}, markdown = '') => {
+  try {
+    if (typeof markdown !== 'string' || !markdown.trim()) {
+      return { success: false, error: 'INVALID_MARKDOWN_CONTENT' }
+    }
+
+    const result = await dialog.showSaveDialog(win, {
+      title: options.title || '导出 Word',
+      defaultPath: options.defaultPath || '',
+      filters: Array.isArray(options.filters) && options.filters.length
+        ? options.filters
+        : [{ name: 'Word 文档', extensions: ['docx'] }],
+    })
+    if (result.canceled || !result.filePath) return { success: false, canceled: true }
+
+    const existingExtension = path.extname(result.filePath)
+    const filePath = existingExtension
+      ? result.filePath
+      : `${result.filePath}.docx`
+
+    const { default: markdownDocx, Packer } = require('markdown-docx')
+    const doc = await markdownDocx(markdown, {
+      gfm: true,
+      theme: {
+        bodySize: 11,
+        lineSpacing: 1.35,
+        margin: '2cm 2.2cm',
+        heading1: '2F5597',
+        heading2: '5B9BD5',
+        codeBackground: 'F3F4F6',
+      },
+    })
+    const buffer = await Packer.toBuffer(doc)
+    await fs.promises.writeFile(filePath, buffer)
+    return { success: true, path: filePath }
+  } catch (error) {
+    console.error('[Export] Failed to convert Markdown to DOCX:', error)
+    return { success: false, error: error?.message || 'DOCX_EXPORT_FAILED' }
   }
 })
 
@@ -2588,36 +2639,75 @@ ipcMain.handle('workspace:cleanupFailedMigration', async (event, targetRoot) => 
 })
 
 // Shortcut registration
+const activeGlobalAccelerators = new Map()
+
 function acceleratorFromCombo(combo) {
   if (!Array.isArray(combo)) return ''
   return combo.map(k => {
-    const map = { Ctrl: 'CmdOrCtrl', Space: 'Space' }
+    const map = {
+      Ctrl: 'CmdOrCtrl', Control: 'CmdOrCtrl', Meta: 'CmdOrCtrl',
+      Spacebar: 'Space', ' ': 'Space',
+      ArrowUp: 'Up', ArrowDown: 'Down', ArrowLeft: 'Left', ArrowRight: 'Right',
+      Escape: 'Esc',
+    }
     return map[k] || k
   }).join('+')
 }
 
 async function registerGlobalShortcuts(bindings) {
-  globalShortcut.unregisterAll()
   const globalKeys = ['global_invoke']
+  const previous = new Map(activeGlobalAccelerators)
+  for (const accelerator of previous.values()) {
+    try { globalShortcut.unregister(accelerator) } catch (_) {}
+  }
+  activeGlobalAccelerators.clear()
+
   const failed = []
+  const registeredAccelerators = []
   for (const key of globalKeys) {
-    const combo = bindings[key]
+    const candidate = bindings?.[key]
+    const combo = Array.isArray(candidate) && acceleratorFromCombo(candidate)
+      ? candidate
+      : ['Ctrl', 'Alt', 'Space']
     if (!combo) continue
     const accel = acceleratorFromCombo(combo)
     if (!accel) continue
     try {
-      const registered = globalShortcut.register(accel, () => {
+      const didRegister = globalShortcut.register(accel, () => {
         if (!win) return
         if (win.isVisible()) win.hide()
         else { win.show(); win.focus() }
       })
-      if (!registered) {
+      if (!didRegister) {
         console.warn(`[Shortcut] Failed to register: ${accel} (${key})`)
         failed.push({ key, accel, reason: 'conflict' })
+      } else {
+        activeGlobalAccelerators.set(key, accel)
+        registeredAccelerators.push(accel)
       }
     } catch (e) {
       console.warn(`[Shortcut] Error registering ${key}:`, e.message)
       failed.push({ key, accel, reason: e.message })
+    }
+  }
+
+  // Do not leave the app without a working global shortcut when the new
+  // accelerator is occupied by another application. Restore the last known
+  // working registration and let the settings UI show the conflict warning.
+  if (failed.length) {
+    for (const accelerator of registeredAccelerators) {
+      try { globalShortcut.unregister(accelerator) } catch (_) {}
+    }
+    activeGlobalAccelerators.clear()
+    for (const [key, accelerator] of previous.entries()) {
+      try {
+        const restored = globalShortcut.register(accelerator, () => {
+          if (!win) return
+          if (win.isVisible()) win.hide()
+          else { win.show(); win.focus() }
+        })
+        if (restored) activeGlobalAccelerators.set(key, accelerator)
+      } catch (_) {}
     }
   }
   return failed

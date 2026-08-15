@@ -1,6 +1,14 @@
 ---
 name: concept-visualization-generator
-description: Design and generate concept-first learning artifacts: concept cards, visual explanations, diagrams, interactive HTML demos, Manim/math visualizations, matplotlib scientific plots, misconception checks, and short retrieval practice. Use this skill whenever the user wants to understand, teach, review, visualize, make a knowledge card for, or interactively explore a concept, especially when the best output format is not obvious. This skill should choose and orchestrate the right learning artifact instead of defaulting to plain text, video, or HTML.
+description: >-
+  Design and generate concept-first learning artifacts: concept cards, visual
+  explanations, diagrams, interactive HTML demos, Manim/math visualizations,
+  matplotlib scientific plots, misconception checks, and short retrieval
+  practice. Use this skill whenever the user wants to understand, teach,
+  review, visualize, make a knowledge card for, or interactively explore a
+  concept, especially when the best output format is not obvious. This skill
+  should choose and orchestrate the right learning artifact instead of
+  defaulting to plain text, video, or HTML.
 ---
 
 # Concept Visualization Generator

@@ -404,8 +404,14 @@ const ANSWER_STYLE_KEYS = new Set([
   'exam_trainer',
 ])
 
+const CHAT_NAVIGATION_STYLE_KEYS = new Set(['directory', 'minimap'])
+
 function _sanitizeAnswerStyle(style) {
   return ANSWER_STYLE_KEYS.has(style) ? style : 'default'
+}
+
+function _sanitizeChatNavigationStyle(style) {
+  return CHAT_NAVIGATION_STYLE_KEYS.has(style) ? style : 'directory'
 }
 
 function hexToRgb(hex) {
@@ -600,6 +606,8 @@ export const useSettingsStore = defineStore('settings', () => {
   const conflictStrategy = ref('ask')
   const quickInputEnabled = ref(false)
   const creationToolPreferences = ref(normalizeCreationToolPreferences())
+  const chatNavigationEnabled = ref(true)
+  const chatNavigationStyle = ref('directory')
 
   // ─── Network ───
   const proxyMode = ref('system')
@@ -1020,7 +1028,7 @@ export const useSettingsStore = defineStore('settings', () => {
   async function savePreference(key, value) {
     const refsMap = {
       themeId, themeMode, accentColor, customAccentHex, fontSize,
-      langPref, animations, reducedMotion, answerStyle, conflictStrategy, quickInputEnabled, creationToolPreferences,
+      langPref, animations, reducedMotion, answerStyle, conflictStrategy, quickInputEnabled, creationToolPreferences, chatNavigationEnabled, chatNavigationStyle,
       proxyMode, proxyType, proxyHost, proxyPort, proxyAuth, proxyUser, proxyPass, wikiWebResearchSettings,
       maxIter, maxTaskMin, searchLimit, fileOpLimit, toolCallLimit, modelCallLimit, loopGuard, auditDays, pathRedact, allowFileDelete, deleteScope, allowExecCommand, commandWhitelist, commandBlacklist,
       notifyTaskDone, notifyTaskFailed, notifySound, notifySoundType, notifyDND,
@@ -1033,6 +1041,12 @@ export const useSettingsStore = defineStore('settings', () => {
     } else if (key === 'creationToolPreferences') {
       value = normalizeCreationToolPreferences(value)
       creationToolPreferences.value = value
+    } else if (key === 'chatNavigationEnabled') {
+      value = value !== false
+      chatNavigationEnabled.value = value
+    } else if (key === 'chatNavigationStyle') {
+      value = _sanitizeChatNavigationStyle(value)
+      chatNavigationStyle.value = value
     } else if (refsMap[key]) {
       refsMap[key].value = value
     }
@@ -1101,6 +1115,8 @@ export const useSettingsStore = defineStore('settings', () => {
       conflictStrategy.value = all.conflictStrategy ?? 'ask'
       quickInputEnabled.value = all.quickInputEnabled === true
       creationToolPreferences.value = normalizeCreationToolPreferences(all.creationToolPreferences)
+      chatNavigationEnabled.value = all.chatNavigationEnabled !== false
+      chatNavigationStyle.value = _sanitizeChatNavigationStyle(all.chatNavigationStyle)
 
       // Network
       proxyMode.value = all.proxyMode ?? 'system'
@@ -1423,7 +1439,7 @@ export const useSettingsStore = defineStore('settings', () => {
     themeId, themeMode, accentColor, customAccentHex, fontSize, langPref,
     userThemes, themeLoadErrors, themesLoading, availableThemes,
     customCss, pendingCustomCss, customCssPreviewing, customCssBusy, customCssSecondsRemaining,
-    animations, reducedMotion, answerStyle, conflictStrategy, quickInputEnabled, creationToolPreferences,
+    animations, reducedMotion, answerStyle, conflictStrategy, quickInputEnabled, creationToolPreferences, chatNavigationEnabled, chatNavigationStyle,
     ACCENT_PRESETS, BUILTIN_THEMES,
     // Network
     proxyMode, proxyType, proxyHost, proxyPort, proxyAuth, proxyUser, proxyPass, wikiWebResearchSettings,

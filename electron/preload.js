@@ -6,6 +6,7 @@ const api = {
   openDirectory: () => ipcRenderer.invoke('dialog:openDirectory'),
   openFile: (options) => ipcRenderer.invoke('dialog:openFile', options),
   saveTextFile: (options, content) => ipcRenderer.invoke('dialog:saveTextFile', options, content),
+  saveMarkdownDocx: (options, markdown) => ipcRenderer.invoke('dialog:saveMarkdownDocx', options, markdown),
 
   // Product themes
   theme: {

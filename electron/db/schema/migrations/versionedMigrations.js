@@ -5,6 +5,7 @@ import { createModelProviderTables } from '../../schema/ModelProviderSchema.js'
 import { ModelProviderRepository } from '../../repositories/ModelProviderRepository.js'
 import { createSpeechProviderTables } from '../../schema/SpeechProviderSchema.js'
 import { createLearningMemoryTables } from '../../../learning-memory/LearningMemorySchema.js'
+import { createLearningRunResultTables } from '../LearningRunResultSchema.js'
 
 export class VersionedMigrationManager extends BaseRepository {
   _ensureSchemaMigrationsTable() {
@@ -225,6 +226,11 @@ export class VersionedMigrationManager extends BaseRepository {
           `)
           createLearningMemoryTables(db)
         },
+      },
+      {
+        version: 11,
+        name: 'create_learning_run_results',
+        up: db => createLearningRunResultTables(db),
       },
     ]
   }

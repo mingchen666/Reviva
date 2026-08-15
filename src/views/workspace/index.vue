@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useAppStore } from '@/stores/app'
 
 const appStore = useAppStore()
@@ -16,6 +16,15 @@ const showCtx = ref(false)
 const renamingId = ref(null)
 const renameVal = ref('')
 const inputText = ref('')
+
+function handleShortcutPanelToggle(event) {
+  const side = event?.detail?.side
+  if (side === 'left') leftOpen.value = !leftOpen.value
+  if (side === 'right') rightOpen.value = !rightOpen.value
+}
+
+onMounted(() => window.addEventListener('mindspace:workchat-toggle-panel', handleShortcutPanelToggle))
+onBeforeUnmount(() => window.removeEventListener('mindspace:workchat-toggle-panel', handleShortcutPanelToggle))
 
 const kbInfo = ref({ name: '高等数学', icon: 'ri-calculator-line', color: '#6C8AFF', docs: 24 })
 

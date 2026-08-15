@@ -116,7 +116,8 @@ export default defineConfig({
                 '@langchain/tavily',
                 'langsmith',
                 'jsonrepair',
-                'zod'
+                'zod',
+                'markdown-docx'
               ]
             }
           }

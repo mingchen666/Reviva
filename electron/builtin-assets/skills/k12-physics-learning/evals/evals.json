@@ -1,0 +1,25 @@
+{
+  "skill_name": "k12-physics-learning",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "一个 2 kg 物体受到 10 N 水平拉力和 4 N 摩擦力，求加速度，并检查单位。",
+      "expected_output": "明确合力、方向、牛顿第二定律和 m/s^2 单位检查，不只给 3。",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "我发了电路图截图，为什么电流表读数为零？如果开关状态是关键，请给我一张状态变化图。",
+      "expected_output": "先用 vision_analyze 识别可见连接和标注，图不清时请求补充；将回路、开关、量程或接法作为待核查项，不臆造元件。确有必要时用 concept-visualization-generator 或 learning-visualization-skill 表示状态变化，并保留元件、方向和假设。",
+      "files": [
+        "circuit.png"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "我上传了两套电学试卷，先归纳每套的考点和错因，再按共有范围出一套 20 分钟练习，先隐藏答案。",
+      "expected_output": "先读取材料并用 exam2knowledge 做基于样本的考点、建模套路和错因归纳，再用 practice-quiz 出相邻练习；标明样本覆盖限制，不称为官方高频或地区标准卷，按需要提示年级/教材并隐藏答案。",
+      "files": []
+    }
+  ]
+}

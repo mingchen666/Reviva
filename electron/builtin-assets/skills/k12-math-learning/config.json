@@ -1,0 +1,23 @@
+{
+  "id": "k12-math-learning",
+  "name": "K12 数学学习",
+  "description": "按当前题目和学习目标完成 K12 数学讲解、条件检查、变式训练、错因反馈、多题考点归纳与按需图表可视化。",
+  "icon": "ri-function-line",
+  "color": "#2563EB",
+  "category": "学习",
+  "source": "platform",
+  "allowedTools": [
+    "file_read",
+    "document_read",
+    "vision_analyze",
+    "calculator",
+    "mcp:exa"
+  ],
+  "outputTypes": [
+    "Markdown",
+    "TXT"
+  ],
+  "version": "1.0.0",
+  "author": "reviva",
+  "license": "MIT"
+}

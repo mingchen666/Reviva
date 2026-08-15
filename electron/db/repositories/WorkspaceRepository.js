@@ -36,6 +36,17 @@ export class WorkspaceRepository extends BaseRepository {
     return this.db.prepare('SELECT * FROM documents WHERE space_id = ? ORDER BY created_at DESC').all(spaceId)
   }
 
+  listLearningDocuments() {
+    return this.db.prepare(`SELECT d.*, s.name AS space_name
+      FROM documents d LEFT JOIN spaces s ON s.id = d.space_id
+      ORDER BY COALESCE(d.updated_at, d.created_at) DESC, d.id ASC`).all()
+  }
+
+  getLearningDocument(id) {
+    return this.db.prepare(`SELECT d.*, s.name AS space_name
+      FROM documents d LEFT JOIN spaces s ON s.id = d.space_id WHERE d.id = ?`).get(String(id || '')) || null
+  }
+
   createDoc(data) {
     const id = data.id || 'doc_' + Date.now()
     this.db.prepare(`INSERT INTO documents (id, space_id, name, type, size, status, progress, file_path)

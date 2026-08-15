@@ -1,5 +1,5 @@
 <script setup>
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useAgentsStore } from '@/stores/agents'
 
 const agentsStore = useAgentsStore()
@@ -13,21 +13,39 @@ const categories = computed(() => {
 })
 
 const activeCat = defineModel('activeCat', { default: '全部' })
+const searchQuery = ref('')
+const normalizedSearchQuery = computed(() => searchQuery.value.trim().toLocaleLowerCase())
 
 const filtered = computed(() => {
-  if (activeCat.value === '全部') return platformSkills.value
-  return platformSkills.value.filter(s => s.category === activeCat.value)
+  const categorySkills = activeCat.value === '全部'
+    ? platformSkills.value
+    : platformSkills.value.filter(s => s.category === activeCat.value)
+  const query = normalizedSearchQuery.value
+  if (!query) return categorySkills
+
+  return categorySkills.filter(skill => [skill.name, skill.id, skill.desc, skill.description]
+    .filter(Boolean)
+    .join(' ')
+    .toLocaleLowerCase()
+    .includes(query))
 })
 </script>
 
 <template>
-  <div class="flex-1 flex flex-col overflow-hidden">
+  <div class="h-full min-h-0 flex flex-col overflow-hidden">
     <!-- Header -->
-    <div class="h-10 flex items-center px-5 shrink-0" :class="isDark ? 'border-b border-d4' : 'border-b border-bdrL'">
-      <div class="flex items-center gap-2">
+    <div class="h-10 flex items-center gap-4 px-5 shrink-0" :class="isDark ? 'border-b border-d4' : 'border-b border-bdrL'">
+      <div class="flex items-center gap-2 min-w-0">
         <i class="ri-shield-star-line text-[14px]" :class="isDark ? 'text-wt-aux' : 'text-lt-aux'" />
         <span class="text-[13px] font-semibold" :class="isDark ? 'text-wt-main' : 'text-lt-main'">内置 Skills</span>
         <span class="text-[11px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">· 跟随应用，默认启用</span>
+      </div>
+      <div v-if="platformSkills.length" class="relative ml-auto w-64 shrink min-w-0">
+        <i class="ri-search-line absolute left-3 top-1/2 -translate-y-1/2 text-[14px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'" />
+        <input v-model="searchQuery" type="text" placeholder="搜索名称、ID 或描述" class="w-full h-8 pl-9 pr-8 rounded-md text-[12px] outline-none transition-colors" :class="isDark ? 'bg-d0 border border-d4 text-wt-sub placeholder-wt-dim focus:border-brand-400/35' : 'bg-l2 border border-bdrF text-lt-sub placeholder-lt-aux focus:border-brand-300'">
+        <button v-if="searchQuery" type="button" class="absolute right-2.5 top-1/2 -translate-y-1/2" :class="isDark ? 'text-wt-dim hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub'" title="清空搜索" aria-label="清空搜索" @click="searchQuery = ''">
+          <i class="ri-close-circle-line text-[14px]" />
+        </button>
       </div>
     </div>
 
@@ -52,6 +70,21 @@ const filtered = computed(() => {
         </div>
         <p class="text-[13px] mb-1" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">尚未安装内置 Skills</p>
         <p class="text-[11px] leading-relaxed" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">把 skill 文件夹放入 <code class="px-1 rounded" :class="isDark ? 'bg-d3 text-brand-400' : 'bg-l3 text-brand-500'">electron/builtin-assets/skills/</code> 后重启应用即可。</p>
+      </div>
+    </div>
+
+    <!-- Search empty state -->
+    <div v-else-if="!filtered.length" class="flex-1 flex items-center justify-center px-8">
+      <div class="text-center max-w-md">
+        <div class="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4"
+          :class="isDark ? 'bg-d3 border border-bdr' : 'bg-l3 border border-bdrF'">
+          <i class="ri-search-eye-line text-[26px]" :class="isDark ? 'text-wt-aux' : 'text-lt-aux'" />
+        </div>
+        <p class="text-[13px] mb-1" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">当前分类下未找到匹配的内置 Skills</p>
+        <p class="text-[11px] leading-relaxed" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">试试调整关键词，或清空搜索查看当前分类的全部技能。</p>
+        <button type="button" class="mt-4 h-7 px-3 rounded-md text-[11px] font-medium transition-colors" :class="isDark ? 'bg-d3 text-wt-sub hover:bg-d4' : 'bg-l3 text-lt-sub hover:bg-l4'" @click="searchQuery = ''">
+          <i class="ri-close-circle-line mr-1" />清空搜索
+        </button>
       </div>
     </div>
 

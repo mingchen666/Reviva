@@ -139,7 +139,7 @@ onMounted(() => quickInputsStore.ensureLoaded().catch(() => {}))
 </script>
 
 <template>
-  <div class="group relative flex justify-end fade-up">
+  <div class="group relative flex justify-end">
     <div :class="isEditing ? 'w-[85%] sm:w-[68%] max-w-[760px]' : 'max-w-[85%] sm:max-w-[68%]'">
       <div v-if="normalizedImageAttachments.length" class="flex flex-wrap justify-end gap-2 mb-1">
         <button v-for="img in normalizedImageAttachments" :key="img._key"
@@ -278,8 +278,6 @@ onMounted(() => quickInputsStore.ensureLoaded().catch(() => {}))
 </template>
 
 <style scoped>
-.fade-up { animation: fadeUp 0.2s ease-out; }
-@keyframes fadeUp { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
 .message-edit-token-editor :deep(.chat-token-editor-surface) { min-height: 82px; max-height: 260px; overflow-y: auto; padding-bottom: 6px; }
 .message-inline-token { display: inline-flex; align-items: center; height: 22px; margin: 0 2px; padding: 0 6px; border-radius: 5px; border: 1px solid rgba(255,255,255,.34); color: white; background: rgba(255,255,255,.16); font-size: 11px; line-height: 1; font-weight: 650; vertical-align: middle; cursor: pointer; }
 .message-inline-token:hover { background: rgba(255,255,255,.24); }

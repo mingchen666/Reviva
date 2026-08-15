@@ -1,102 +1,95 @@
-import { ref, onMounted, onBeforeUnmount } from 'vue'
+import { onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import { useConversationsStore } from '@/stores/conversations'
-import { useAppStore } from '@/stores/app'
+import {
+  loadShortcutBindings,
+  shortcutBindings,
+  shortcutEventMatches,
+} from '@/config/shortcuts'
 
-const defaultBindings = {
-  app_new: ['Ctrl', 'N'],
-  app_search: ['Ctrl', 'K'],
-  app_switch: ['Ctrl', 'Tab'],
-  app_sidebar: ['Ctrl', 'Shift', 'L'],
-  app_sidebar2: ['Ctrl', 'B'],
+const EDITABLE_TARGETS = new Set(['INPUT', 'TEXTAREA', 'SELECT'])
+
+function isEditableTarget(target) {
+  return !!target && (EDITABLE_TARGETS.has(target.tagName) || target.isContentEditable)
 }
 
-const bindings = ref({ ...defaultBindings })
-
-function comboMatches(e, combo) {
-  if (!combo || !combo.length) return false
-  const mods = { ctrl: e.ctrlKey || e.metaKey, shift: e.shiftKey, alt: e.altKey }
-  const key = e.key
-
-  let expectedMods = { ctrl: false, shift: false, alt: false }
-  let expectedKey = ''
-
-  for (const part of combo) {
-    if (part === 'Ctrl') expectedMods.ctrl = true
-    else if (part === 'Shift') expectedMods.shift = true
-    else if (part === 'Alt') expectedMods.alt = true
-    else expectedKey = part
-  }
-
-  if (mods.ctrl !== expectedMods.ctrl) return false
-  if (mods.shift !== expectedMods.shift) return false
-  if (mods.alt !== expectedMods.alt) return false
-
-  if (!expectedKey) return false
-  const keyLower = key.toLowerCase()
-  const expectedLower = expectedKey.toLowerCase()
-  return keyLower === expectedLower
+function recentConversations(conversations) {
+  return [...(conversations || [])]
+    .filter(item => item?.id)
+    .sort((a, b) => {
+      const left = Date.parse(a.updatedAt || a.createdAt || '') || 0
+      const right = Date.parse(b.updatedAt || b.createdAt || '') || 0
+      return right - left
+    })
 }
 
-async function loadBindings() {
-  if (!window.electronAPI?.db?.settings) return
-  try {
-    const saved = await window.electronAPI.db.settings.get('shortcutBindings')
-    if (saved && typeof saved === 'object') {
-      bindings.value = { ...defaultBindings, ...saved }
-    }
-  } catch (e) { /* ignore */ }
+function dispatch(name, detail = {}) {
+  if (typeof window === 'undefined') return
+  window.dispatchEvent(new CustomEvent(name, { detail }))
 }
 
 export function useAppShortcuts(callbacks = {}) {
   const router = useRouter()
   const convStore = useConversationsStore()
-  const appStore = useAppStore()
 
-  async function onKeydown(e) {
-    // Don't intercept when typing in input/textarea/contenteditable
-    const tag = e.target.tagName
-    if (tag === 'INPUT' || tag === 'TEXTAREA' || e.target.isContentEditable) return
-
-    // app_new: Ctrl+N → new conversation
-    if (comboMatches(e, bindings.value.app_new)) {
-      e.preventDefault()
+  async function switchConversation(direction = 1) {
+    const list = recentConversations(convStore.conversations)
+    if (list.length < 2) return
+    const currentIndex = list.findIndex(item => item.id === convStore.currentConvId)
+    if (currentIndex < 0) {
+      const first = list[0]
+      if (!first) return
       await router.push('/workchat')
-      convStore.createConv({ title: '新对话' })
+      convStore.setCurrentConv(first.id)
+      dispatch('mindspace:workchat-activate-conversation', { conversationId: first.id })
+      callbacks.onConversationSwitch?.(first)
+      return
+    }
+    const nextIndex = (currentIndex + direction + list.length) % list.length
+    const next = list[nextIndex]
+    if (!next || next.id === convStore.currentConvId) return
+    await router.push('/workchat')
+    convStore.setCurrentConv(next.id)
+    dispatch('mindspace:workchat-activate-conversation', { conversationId: next.id })
+    callbacks.onConversationSwitch?.(next)
+  }
+
+  async function onKeydown(event) {
+    const editable = isEditableTarget(event.target)
+    // The chat editor owns its send/newline bindings. App-level shortcuts are
+    // intentionally disabled while typing so Ctrl+B, Ctrl+N, etc. never
+    // surprise the user or override native text editing behavior.
+    if (editable) return
+
+    if (shortcutEventMatches(event, shortcutBindings.value.app_new)) {
+      event.preventDefault()
+      await router.push('/workchat')
+      const created = await convStore.createConv({ title: '新对话' })
+      dispatch('mindspace:workchat-activate-conversation', { conversationId: created?.id })
       return
     }
 
-    // app_search: Ctrl+K → command palette
-    if (comboMatches(e, bindings.value.app_search)) {
-      e.preventDefault()
+    if (shortcutEventMatches(event, shortcutBindings.value.app_search)) {
+      event.preventDefault()
       callbacks.openCommandPalette?.()
       return
     }
 
-    // app_switch: Ctrl+Tab → switch conversation (future)
-    if (comboMatches(e, bindings.value.app_switch)) {
-      e.preventDefault()
-      // TODO: cycle through recent conversations
+    const switchMatches = shortcutEventMatches(event, shortcutBindings.value.app_switch)
+      || (event.shiftKey
+        && !shortcutBindings.value.app_switch.includes('Shift')
+        && shortcutEventMatches(event, shortcutBindings.value.app_switch, { ignoreShift: true }))
+    if (switchMatches) {
+      event.preventDefault()
+      const reverse = event.shiftKey && !shortcutBindings.value.app_switch.includes('Shift')
+      await switchConversation(reverse ? -1 : 1)
       return
     }
 
-    // app_sidebar: Ctrl+Shift+L → toggle sidebar
-    if (comboMatches(e, bindings.value.app_sidebar)) {
-      e.preventDefault()
-      appStore.toggleRightPanel()
-      return
-    }
-
-    // app_sidebar2: Ctrl+B → toggle sidebar
-    if (comboMatches(e, bindings.value.app_sidebar2)) {
-      e.preventDefault()
-      appStore.toggleRightPanel()
-      return
-    }
   }
 
   onMounted(async () => {
-    await loadBindings()
+    await loadShortcutBindings()
     document.addEventListener('keydown', onKeydown)
   })
 

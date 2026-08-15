@@ -17,6 +17,7 @@ import { WikiRepository } from './db/repositories/WikiRepository.js'
 import { PdfRepository } from './db/repositories/PdfRepository.js'
 import { WebImportRepository } from './db/repositories/WebImportRepository.js'
 import { QuickInputRepository } from './db/repositories/QuickInputRepository.js'
+import { LearningRunResultRepository } from './db/repositories/LearningRunResultRepository.js'
 import { MediaRepository } from './media/persistence/MediaRepository.js'
 import { MediaLocationRepository } from './media/persistence/MediaLocationRepository.js'
 import { MediaRunRepository } from './media/persistence/MediaRunRepository.js'
@@ -69,6 +70,7 @@ export class DatabaseService {
     this._pdfRepository = new PdfRepository(this._context)
     this._webImportRepository = new WebImportRepository(this._context)
     this._quickInputRepository = new QuickInputRepository(this._context)
+    this._learningRunResultRepository = new LearningRunResultRepository(this._context)
     this._mediaRepository = new MediaRepository(this._context)
     this._mediaLocationRepository = new MediaLocationRepository(this._context)
     this._mediaRunRepository = new MediaRunRepository(this._context)
@@ -167,6 +169,8 @@ export class DatabaseService {
     }
   }
 
+  get learningRunResults() { return this._learningRunResultRepository }
+
   // ─── Spaces ───
 
   listSpaces() { return this._workspaceRepository.listSpaces() }
@@ -179,6 +183,8 @@ export class DatabaseService {
   // ─── Documents ───
 
   listDocs(spaceId) { return this._workspaceRepository.listDocs(spaceId) }
+  listLearningDocuments() { return this._workspaceRepository.listLearningDocuments() }
+  getLearningDocument(id) { return this._workspaceRepository.getLearningDocument(id) }
   createDoc(data) { return this._workspaceRepository.createDoc(data) }
   updateDoc(id, data) { return this._workspaceRepository.updateDoc(id, data) }
   deleteDoc(id) { return this._workspaceRepository.deleteDoc(id) }
@@ -313,11 +319,20 @@ export class DatabaseService {
   createWebImportJob(data = {}) { return this._webImportRepository.createWebImportJob(data) }
   getWebImportJob(id) { return this._webImportRepository.getWebImportJob(id) }
   listWebImportJobs(options = {}) { return this._webImportRepository.listWebImportJobs(options) }
+  listLearningDocsWebImportJobs() { return this._webImportRepository.listLearningDocsWebImportJobs() }
+  getLearningDocsWebImportJob(id) { return this._webImportRepository.getLearningDocsWebImportJob(id) }
   updateWebImportJob(id, patch = {}) { return this._webImportRepository.updateWebImportJob(id, patch) }
   deleteWebImportJob(id) { return this._webImportRepository.deleteWebImportJob(id) }
   clearFinishedWebImportJobs(options = {}) { return this._webImportRepository.clearFinishedWebImportJobs(options) }
   listPendingWebImportJobs() { return this._webImportRepository.listPendingWebImportJobs() }
   markRunningWebImportJobsInterrupted() { return this._webImportRepository.markRunningWebImportJobsInterrupted() }
+
+  // ─── Local Gateway learning results ───
+  createLearningRunResult(data = {}) { return this._learningRunResultRepository.createLearningRunResult(data) }
+  getLearningRunResult(runId) { return this._learningRunResultRepository.getLearningRunResult(runId) }
+  updateLearningRunResult(runId, patch = {}) { return this._learningRunResultRepository.updateLearningRunResult(runId, patch) }
+  getLatestLearningRunResultByConversation(conversationId) { return this._learningRunResultRepository.getLatestLearningRunResultByConversation(conversationId) }
+  listRunningLearningRunResults() { return this._learningRunResultRepository.listRunningLearningRunResults() }
 
   createWikiJob(data) { return this._wikiRepository.createWikiJob(data) }
   listOcrProviders() { return this._wikiRepository.listOcrProviders() }

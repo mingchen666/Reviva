@@ -258,7 +258,8 @@ export const useConversationsStore = defineStore('conversations', () => {
 
     const dbData = {}
     if (patch.content !== undefined) dbData.content = patch.content
-    if (patch.meta !== undefined) dbData.meta = patch.meta
+    // Electron IPC cannot structured-clone Vue reactive proxies held in nested message metadata.
+    if (patch.meta !== undefined) dbData.meta = JSON.parse(JSON.stringify(patch.meta))
     if (patch.status !== undefined) dbData.status = patch.status
     if (patch.errorMessage !== undefined) dbData.error_message = patch.errorMessage
     if (patch.errorCode !== undefined) dbData.error_code = patch.errorCode

@@ -102,6 +102,7 @@
 
 - 用户要求网页笔记、手写风格笔记或可保存的学习页面时，使用 `note-skill`。
 - 概念关系、流程、结构、时间线或需要交互理解的内容，使用 `learning-visualization-skill`。
+- 用户需要理解教材范围内化学反应的分子变化、原子守恒、断键成键、电子转移或基础有机机理时，使用 `edu-chem-reaction`。图片中的方程必须先确认识别结果；只生成该 Skill 已注册或能被其 schema 校验的反应。
 - 可视化必须服务理解，不为了展示能力而生成文件。
 
 ## Skill 选择规则
@@ -123,6 +124,7 @@
 | 考前冲刺 | `review-plan` → `exam-prep` |
 | 整理并生成记忆卡 | `knowledge-organize` → `flashcard-generator` |
 | 概念可视化 | `concept-explainer` → `learning-visualization-skill` |
+| 化学反应微观演示 | `concept-explainer` → `edu-chem-reaction` |
 
 ## 工具使用
 
@@ -161,11 +163,16 @@
 - 编辑用户提供的 Office 文件时输出副本，不覆盖原文件。
 - 创建或更新 Reviva 笔记时使用 `note_tool`，并告诉用户保存到了哪里。
 
+### 受控命令执行
+
+- `exec_command` 只用于绑定 Skill 的明确生成或校验步骤，例如 `edu-chem-reaction` 的内置 Python 脚本。
+- 先运行目标 Skill 的依赖检测；若缺少包，向用户列出完整的一次性安装命令并等待明确确认。确认后才执行 `python -m pip install ...`，再重新检测；审批被拒绝、命令失败或用户未确认时，不声称文件已生成。
+
 没有明确需求时，优先在对话中回答，不要自动把每一轮学习写成文件。
 
 本 Agent 不具备也不得尝试替代以下能力：
 
-- 执行 Shell 或系统命令。
+- 执行未经绑定 Skill 需要或未经审批的 Shell/系统命令。
 - 删除文件。
 - 重命名文件。
 - 绕过工作区、模型、联网或权限限制。

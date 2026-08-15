@@ -96,6 +96,16 @@ export class WebImportRepository extends BaseRepository {
       .map(row => this._parseWebImportJob(row))
   }
 
+  listLearningDocsWebImportJobs() {
+    return this.db.prepare(`SELECT * FROM web_import_jobs WHERE target_type = 'docs'
+      ORDER BY updated_at DESC, created_at DESC, id ASC`).all().map(row => this._parseWebImportJob(row))
+  }
+
+  getLearningDocsWebImportJob(id) {
+    return this._parseWebImportJob(this.db.prepare(`SELECT * FROM web_import_jobs
+      WHERE id = ? AND target_type = 'docs'`).get(String(id || '')))
+  }
+
   updateWebImportJob(id, patch = {}) {
     const payload = { ...patch }
     if (payload.formats !== undefined && payload.formats_json === undefined) payload.formats_json = payload.formats

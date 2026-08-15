@@ -68,6 +68,10 @@ The folder name **must equal** `config.id`.
 | `thinking_mode` / `thinking_intensity` | no | Thinking config |
 | `permissions` | no | Permission object (default `{}`) |
 
+Set permissions.learningProfile to false for an Agent that must not receive the
+learning-profile snapshot or its query/update tools during a normal run. This
+does not disable the existing semantic-memory context.
+
 ## PROMPT.md
 
 The full system prompt. Written in Markdown. Loaded into the `prompt` column on DB upsert.

@@ -1,0 +1,23 @@
+{
+  "skill_name": "edu-chem-reaction",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "请把甲烷在氧气中燃烧做成可交互的微观分子动画网页，强调方程式配平、断键成键和原子守恒。",
+      "expected_output": "选择 combustion_ch4，向当前 Agent 的输出目录生成 HTML，运行 check_output.py 并说明页面首次打开需要 CDN 网络。",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "根据我上传的化学方程式截图生成分子动画。",
+      "expected_output": "先用 vision_analyze 识别并回显方程、条件和反应类别；用户确认后才选择已注册反应或构建可校验 spec。",
+      "files": ["reaction-equation.png"]
+    },
+    {
+      "id": 3,
+      "prompt": "请直接生成一个未知反应的 3D 演示，但当前 Agent 没有 exec_command 或 Python/sympy 不可用。",
+      "expected_output": "明确缺少的工具或依赖；如果用户确认安装，则一次性安装检测器列出的缺失包并重新检测，否则不安装也不声称 HTML 已生成。",
+      "files": []
+    }
+  ]
+}

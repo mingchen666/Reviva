@@ -7,7 +7,7 @@ const props = defineProps({
   branching: Boolean,
 })
 
-const emit = defineEmits(['open-change', 'branch', 'export-markdown', 'save-to-note'])
+const emit = defineEmits(['open-change', 'branch', 'export-markdown', 'export-word', 'save-to-note'])
 
 const triggerRef = ref(null)
 const menuRef = ref(null)
@@ -15,7 +15,7 @@ const open = ref(false)
 const position = ref({ left: 0, top: 0, arrowLeft: 0, placement: 'above' })
 const itemRefs = []
 const menuId = `message-output-${Math.random().toString(36).slice(2)}`
-const enabledIndexes = [0, 1, 3]
+const enabledIndexes = [0, 1, 2, 3]
 const busy = computed(() => props.exporting || props.branching)
 
 function setItemRef(el, index) {
@@ -76,6 +76,7 @@ function choose(action) {
   close()
   if (action === 'branch') emit('branch')
   if (action === 'export-markdown') emit('export-markdown')
+  if (action === 'export-word') emit('export-word')
   if (action === 'save-to-note') emit('save-to-note')
 }
 
@@ -211,15 +212,12 @@ onBeforeUnmount(() => {
           :ref="el => setItemRef(el, 2)"
           type="button"
           role="menuitem"
-          disabled
-          aria-disabled="true"
-          class="w-full h-9 px-2.5 rounded-lg flex items-center gap-2.5 text-[12px] text-left cursor-not-allowed"
-          :class="isDark ? 'text-wt-dim/65' : 'text-lt-aux/70'"
+          class="w-full h-9 px-2.5 rounded-lg flex items-center gap-2.5 text-[12px] font-medium text-left transition-colors"
+          :class="isDark ? 'text-wt-sub hover:bg-white/6 hover:text-wt-main' : 'text-lt-sub hover:bg-l3 hover:text-lt-main'"
+          @click="choose('export-word')"
         >
-          <i class="ri-file-word-2-line text-[14px]" />
+          <i class="ri-file-word-2-line text-[14px] text-blue-400" />
           <span>导出 Word</span>
-          <span class="ml-auto text-[9px] px-1.5 py-0.5 rounded-full"
-            :class="isDark ? 'bg-d4 text-wt-dim' : 'bg-l3 text-lt-aux'">即将支持</span>
         </button>
 
         <div class="h-px my-1" :class="isDark ? 'bg-d4' : 'bg-bdrL'" />

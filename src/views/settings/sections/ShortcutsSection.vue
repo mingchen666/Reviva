@@ -1,9 +1,24 @@
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useAppStore } from '@/stores/app'
+import { useMessage } from '@/components/MsMessage/useMessage'
+import {
+  DEFAULT_SHORTCUT_BINDINGS,
+  EDITABLE_SHORTCUT_KEYS,
+  SHORTCUT_GROUPS,
+  SHORTCUT_MODIFIERS,
+  keyboardEventKey,
+  loadShortcutBindings,
+  normalizeShortcutCombo,
+  isValidShortcutForAction,
+  setShortcutBindings,
+  shortcutBindings,
+  shortcutComboKey,
+} from '@/config/shortcuts'
 
 const appStore = useAppStore()
 const isDark = computed(() => appStore.isDark)
+const msg = useMessage()
 
 const editingKey = ref(null)
 const recording = ref(false)
@@ -12,81 +27,70 @@ const conflictKey = ref(null)
 const conflictName = ref('')
 const failedGlobalKeys = ref([])
 const pendingCombo = ref(null)
+const validationError = ref('')
 
-const defaultBindings = {
-  global_invoke: ['Ctrl', 'Shift', 'Space'],
-  app_new: ['Ctrl', 'N'],
-  app_search: ['Ctrl', 'K'],
-  app_switch: ['Ctrl', 'Tab'],
-  app_sidebar: ['Ctrl', 'Shift', 'L'],
-  app_sidebar2: ['Ctrl', 'B'],
-  input_send: ['Ctrl', 'Enter'],
-  input_newline: ['Shift', 'Enter'],
-  input_mention: ['@'],
-  input_command: ['/'],
+const shortcutGroups = SHORTCUT_GROUPS
+const defaultBindings = DEFAULT_SHORTCUT_BINDINGS
+const bindings = shortcutBindings
+const persistedBindings = ref(Object.fromEntries(Object.entries(defaultBindings).map(([key, value]) => [key, [...value]])))
+
+function cloneBindings(value) {
+  return Object.fromEntries(Object.entries(value || {}).map(([key, combo]) => [key, [...combo]]))
 }
-
-const globalKeys = ['global_invoke']
-
-const shortcutGroups = [
-  {
-    label: '全局快捷键',
-    icon: 'ri-global-line',
-    color: 'brand',
-    items: [
-      { key: 'global_invoke', name: '唤起应用', desc: '从任意位置呼出 Reviva 主窗口' },
-    ],
-  },
-  {
-    label: '应用内',
-    icon: 'ri-apps-line',
-    color: 'agent',
-    items: [
-      { key: 'app_new', name: '新建对话', desc: '快速开启一个新的对话' },
-      { key: 'app_search', name: '命令面板', desc: '打开命令面板，搜索页面、设置和对话' },
-      { key: 'app_switch', name: '切换对话', desc: '在最近对话之间切换' },
-      { key: 'app_sidebar', name: '切换侧栏', desc: '显示或隐藏侧边栏' },
-      { key: 'app_sidebar2', name: '切换侧栏（备选）', desc: '显示或隐藏侧边栏' },
-    ],
-  },
-  {
-    label: '输入框',
-    icon: 'ri-input-method-line',
-    color: 'amber',
-    items: [
-      { key: 'input_send', name: '发送消息', desc: '发送当前输入框内容' },
-      { key: 'input_newline', name: '换行', desc: '在输入框中插入新行' },
-      { key: 'input_mention', name: '快捷输入', desc: '在对话中输入 @ 实现快捷输入' },
-      { key: 'input_command', name: '斜杠命令', desc: '在对话中输入 / 触发skill调用' },
-    ],
-  },
-]
-
-const bindings = ref({ ...defaultBindings })
 
 async function loadBindings() {
-  if (!window.electronAPI?.db?.settings) return
-  try {
-    const saved = await window.electronAPI.db.settings.get('shortcutBindings')
-    if (saved && typeof saved === 'object') {
-      bindings.value = { ...defaultBindings, ...saved }
+  const loaded = await loadShortcutBindings()
+  bindings.value = cloneBindings(loaded)
+  persistedBindings.value = cloneBindings(loaded)
+  if (window.electronAPI?.shortcuts?.register) {
+    try {
+      const result = await window.electronAPI.shortcuts.register(loaded)
+      failedGlobalKeys.value = result?.failed?.map(item => item.key) || []
+    } catch (error) {
+      console.warn('register loaded shortcuts failed:', error)
     }
-  } catch (e) { console.error('loadBindings error:', e) }
+  }
 }
 
-async function saveBindings() {
-  if (!window.electronAPI?.db?.settings) return
+async function saveBindings(nextBindings = bindings.value) {
+  const normalized = Object.fromEntries(
+    EDITABLE_SHORTCUT_KEYS.map(key => [key, [...(normalizeShortcutCombo(nextBindings[key]) || defaultBindings[key])]]),
+  )
+  const previous = cloneBindings(persistedBindings.value)
+  const globalChanged = shortcutComboKey(previous.global_invoke) !== shortcutComboKey(normalized.global_invoke)
+  let registrationResult = null
   try {
-    await window.electronAPI.db.settings.set('shortcutBindings', JSON.stringify(bindings.value))
     if (window.electronAPI?.shortcuts?.register) {
-      const result = await window.electronAPI.shortcuts.register(bindings.value)
-      if (result?.failed?.length) {
-        failedGlobalKeys.value = result.failed.map(f => f.key)
+      registrationResult = await window.electronAPI.shortcuts.register(normalized)
+      if (registrationResult?.ok === false) throw new Error(registrationResult.error || '快捷键注册失败')
+      if (registrationResult?.failed?.length) {
+        failedGlobalKeys.value = registrationResult.failed.map(f => f.key)
+        if (globalChanged) {
+          bindings.value = cloneBindings(previous)
+          setShortcutBindings(previous)
+          failedGlobalKeys.value = []
+          throw new Error('全局快捷键与其他应用冲突，已保留原快捷键')
+        }
       } else {
         failedGlobalKeys.value = []
       }
     }
-  } catch (e) { console.error('saveBindings error:', e) }
+    if (window.electronAPI?.db?.settings) {
+      await window.electronAPI.db.settings.set('shortcutBindings', JSON.stringify(normalized))
+    }
+    setShortcutBindings(normalized)
+    persistedBindings.value = cloneBindings(normalized)
+    return { success: true }
+  } catch (e) {
+    if (window.electronAPI?.shortcuts?.register && globalChanged && !registrationResult?.failed?.length) {
+      try { await window.electronAPI.shortcuts.register(previous) } catch (_) {}
+    }
+    bindings.value = cloneBindings(previous)
+    setShortcutBindings(previous)
+    console.error('saveBindings error:', e)
+    msg.error(e.message || '快捷键保存失败', { title: '保存失败', duration: 4200 })
+    return { success: false, error: e }
+  }
 }
 
 function startEdit(key) {
@@ -99,6 +103,7 @@ function startEdit(key) {
   recordedKeys.value = []
   conflictKey.value = null
   conflictName.value = ''
+  validationError.value = ''
   pendingCombo.value = null
 }
 
@@ -108,21 +113,16 @@ function cancelEdit() {
   recordedKeys.value = []
   conflictKey.value = null
   conflictName.value = ''
+  validationError.value = ''
   pendingCombo.value = null
 }
 
 function normalizeKey(e) {
-  const map = {
-    Control: 'Ctrl', Meta: 'Meta', Alt: 'Alt', Shift: 'Shift',
-    ArrowUp: 'Up', ArrowDown: 'Down', ArrowLeft: 'Left', ArrowRight: 'Right',
-    Escape: 'Esc', Delete: 'Delete', Backspace: 'Backspace',
-    Enter: 'Enter', Tab: 'Tab', Space: 'Space',
-  }
-  return map[e.key] || (e.key.length === 1 ? e.key.toUpperCase() : e.key)
+  return keyboardEventKey(e)
 }
 
 function isModifier(key) {
-  return ['Ctrl', 'Shift', 'Alt', 'Meta'].includes(key)
+  return SHORTCUT_MODIFIERS.includes(key)
 }
 
 function onKeydown(e) {
@@ -145,18 +145,28 @@ function onKeydown(e) {
   if (isModifier(key)) {
     recordedKeys.value = [...mods]
     conflictKey.value = null
+    validationError.value = ''
     return
   }
 
-  const combo = [...mods, key]
-
-  if (mods.size === 0 && key.length > 1) return
+  const combo = normalizeShortcutCombo([...mods, key])
+  if (!combo || !isValidShortcutForAction(editingKey.value, combo)) {
+    recordedKeys.value = [...mods, key].filter(Boolean)
+    conflictKey.value = editingKey.value
+    conflictName.value = ''
+    validationError.value = combo
+      ? '应用级快捷键需要包含 Ctrl、Shift 或 Alt 修饰键'
+      : '快捷键必须包含一个有效按键，不能只按修饰键'
+    pendingCombo.value = null
+    return
+  }
 
   const conflict = findConflict(editingKey.value, combo)
   if (conflict) {
     recordedKeys.value = combo
     conflictKey.value = editingKey.value
     conflictName.value = conflict
+    validationError.value = ''
     pendingCombo.value = combo
     return
   }
@@ -165,11 +175,14 @@ function onKeydown(e) {
 }
 
 function applyCombo(combo) {
-  bindings.value[editingKey.value] = combo
+  const normalized = normalizeShortcutCombo(combo)
+  if (!normalized) return
+  bindings.value[editingKey.value] = normalized
   conflictKey.value = null
   conflictName.value = ''
+  validationError.value = ''
   pendingCombo.value = null
-  saveBindings()
+  saveBindings(bindings.value)
   cancelEdit()
 }
 
@@ -180,15 +193,35 @@ function confirmConflict() {
 }
 
 function findConflict(excludeKey, combo) {
-  const str = combo.join('+')
-  for (const [key, val] of Object.entries(bindings.value)) {
+  return findConflictInBindings(excludeKey, combo, bindings.value)
+}
+
+function findConflictInBindings(excludeKey, combo, source) {
+  const str = shortcutComboKey(combo)
+  for (const [key, val] of Object.entries(source || {})) {
     if (key === excludeKey) continue
-    if (val.join('+') === str) {
+    if (shortcutComboKey(val) === str) {
       const item = shortcutGroups.flatMap(g => g.items).find(i => i.key === key)
       return item?.name || key
     }
   }
   return null
+}
+
+function findAnyConflict(source) {
+  const seen = new Map()
+  for (const key of EDITABLE_SHORTCUT_KEYS) {
+    const combo = shortcutComboKey(source?.[key])
+    if (!combo) continue
+    const previousKey = seen.get(combo)
+    if (previousKey) {
+      const item = shortcutGroups.flatMap(group => group.items).find(entry => entry.key === key)
+      const previousItem = shortcutGroups.flatMap(group => group.items).find(entry => entry.key === previousKey)
+      return `${previousItem?.name || previousKey} 与 ${item?.name || key}`
+    }
+    seen.set(combo, key)
+  }
+  return ''
 }
 
 function getCurrentKeys(key) {
@@ -209,23 +242,77 @@ async function resetDefaults() {
   recordedKeys.value = []
   conflictKey.value = null
   conflictName.value = ''
+  validationError.value = ''
   pendingCombo.value = null
-  bindings.value = { ...defaultBindings }
-  await saveBindings()
+  bindings.value = Object.fromEntries(Object.entries(defaultBindings).map(([key, value]) => [key, [...value]]))
+  await saveBindings(bindings.value)
 }
 
 function exportConfig() {
-  const config = {}
-  for (const [key, value] of Object.entries(bindings.value)) {
-    config[key] = value
+  const config = {
+    format: 'reviva-shortcuts',
+    formatVersion: 1,
+    exportedAt: new Date().toISOString(),
+    bindings: Object.fromEntries(EDITABLE_SHORTCUT_KEYS.map(key => [key, bindings.value[key]])),
   }
   const blob = new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  a.download = 'reviva_shortcuts.json'
+  a.download = 'reviva-shortcuts.json'
   a.click()
-  URL.revokeObjectURL(url)
+  window.setTimeout(() => URL.revokeObjectURL(url), 0)
+}
+
+function extractImportedBindings(payload) {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return null
+  const candidate = payload.format === 'reviva-shortcuts'
+    ? payload.bindings
+    : payload.format === 'reviva-settings'
+      ? payload.data?.settings?.shortcutBindings
+      : payload.settings && typeof payload.settings === 'object'
+        ? payload.settings.shortcutBindings
+        : payload.shortcutBindings
+  if (typeof candidate === 'string') {
+    try { return JSON.parse(candidate) } catch (_) { return null }
+  }
+  if (candidate && typeof candidate === 'object') return candidate
+  return EDITABLE_SHORTCUT_KEYS.some(key => Object.prototype.hasOwnProperty.call(payload, key)) ? payload : null
+}
+
+function importConfig() {
+  const input = document.createElement('input')
+  input.type = 'file'
+  input.accept = '.json,application/json'
+  input.onchange = async event => {
+    const file = event.target.files?.[0]
+    if (!file) return
+    try {
+      const payload = JSON.parse(await file.text())
+      const imported = extractImportedBindings(payload)
+      if (!imported) throw new Error('文件中没有找到快捷键配置')
+      const normalized = Object.fromEntries(Object.entries(normalizeShortcutComboMap(imported)))
+      const conflict = findAnyConflict(normalized)
+      if (conflict) throw new Error(`导入配置存在快捷键冲突：${conflict}`)
+      bindings.value = normalized
+      const result = await saveBindings(normalized)
+      if (!result.success) return
+      msg.success('快捷键配置已导入', { title: '导入完成', duration: 3200 })
+    } catch (error) {
+      msg.error(error.message || '导入快捷键配置失败', { title: '导入失败', duration: 4500 })
+    }
+  }
+  input.click()
+}
+
+function normalizeShortcutComboMap(value) {
+  const source = value && typeof value === 'object' && !Array.isArray(value) ? value : {}
+  return Object.fromEntries(EDITABLE_SHORTCUT_KEYS.map(key => [
+    key,
+    isValidShortcutForAction(key, source[key])
+      ? normalizeShortcutCombo(source[key])
+      : [...defaultBindings[key]],
+  ]))
 }
 
 function groupIconColor(group) {
@@ -237,8 +324,8 @@ function groupIconColor(group) {
   return m[group.color] || m.brand
 }
 
-onMounted(() => {
-  loadBindings()
+onMounted(async () => {
+  await loadBindings()
   document.addEventListener('keydown', onKeydown, true)
 })
 
@@ -253,7 +340,7 @@ onBeforeUnmount(() => {
     <div class="flex items-center gap-2.5 rounded-lg px-3 py-2.5" :class="isDark ? 'bg-blue-400/8 border border-blue-400/15' : 'bg-blue-50 border border-blue-200'">
       <i class="ri-information-line text-[13px] shrink-0" :class="isDark ? 'text-blue-400' : 'text-blue-500'" />
       <span class="text-[11.5px] leading-relaxed" :class="isDark ? 'text-blue-300/80' : 'text-blue-600/80'">
-        点击快捷键进行编辑，按下新的组合键后自动保存，按 <kbd class="kbd-inline">Esc</kbd> 取消。全局快捷键在应用外也可使用。
+        点击快捷键进行编辑，按下新的组合键后自动保存，按 <kbd class="kbd-inline">Esc</kbd> 取消。全局快捷键在应用外也可使用；输入框中的 <kbd class="kbd-inline">@</kbd> 和 <kbd class="kbd-inline">/</kbd> 是固定触发符。
       </span>
     </div>
 
@@ -313,10 +400,18 @@ onBeforeUnmount(() => {
               <span class="text-[11px] text-amber-400">与「{{ conflictName }}」冲突</span>
               <button class="text-[11px] text-brand-400 hover:text-brand-300 ml-1 font-medium" @click="confirmConflict">仍然使用</button>
             </div>
+            <div v-if="conflictKey === item.key && validationError" class="flex items-center gap-1.5 mt-1.5">
+              <i class="ri-alert-line text-[11px] text-amber-400" />
+              <span class="text-[11px] text-amber-400">{{ validationError }}</span>
+            </div>
           </div>
 
           <!-- Right: Keyboard Shortcuts (Clickable) -->
           <div
+            role="button"
+            tabindex="0"
+            :aria-label="`${item.name}：${getCurrentKeys(item.key).join(' + ')}，点击编辑`"
+            :aria-pressed="isEditing(item.key)"
             class="flex items-center gap-1 rounded-md px-2 py-1.5 cursor-pointer transition-all group/kbd"
             :class="[
               isEditing(item.key) 
@@ -325,6 +420,8 @@ onBeforeUnmount(() => {
               isGlobalFailed(item.key) && !isEditing(item.key) ? 'opacity-60' : ''
             ]"
             @click="startEdit(item.key)"
+            @keydown.enter.prevent="startEdit(item.key)"
+            @keydown.space.prevent="startEdit(item.key)"
           >
             <!-- Recording State -->
             <template v-if="isEditing(item.key) && recording">
@@ -379,6 +476,13 @@ onBeforeUnmount(() => {
         <i class="ri-download-line text-[11px] mr-1.5" />
         导出配置
       </button>
+      <button
+        class="px-3.5 py-1.5 rounded-lg text-[11.5px] font-medium transition-all"
+        :class="isDark ? 'bg-d3 text-wt-aux hover:bg-d4 hover:text-wt-sub' : 'bg-l3 text-lt-aux hover:bg-l4 hover:text-lt-sub'"
+        @click="importConfig">
+        <i class="ri-upload-line text-[11px] mr-1.5" />
+        导入配置
+      </button>
     </div>
   </div>
 </template>
@@ -387,6 +491,11 @@ onBeforeUnmount(() => {
 .kbd {
   font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
   letter-spacing: 0.02em;
+}
+
+[role="button"]:focus-visible {
+  outline: 2px solid color-mix(in srgb, #4a6cff 65%, transparent);
+  outline-offset: 2px;
 }
 
 .kbd-inline {

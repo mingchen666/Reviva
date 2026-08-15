@@ -8,6 +8,7 @@ import {
   createSkillToken,
   normalizeInputDocument,
 } from '@/utils/chatInputDocument'
+import { shortcutBindings, shortcutEventMatches } from '@/config/shortcuts'
 
 const props = defineProps({
   modelValue: { type: Array, default: () => [] },
@@ -308,6 +309,9 @@ function removeAdjacentToken(direction) {
 }
 
 function handleKeydown(event) {
+  // Let the IME consume Enter while the user is confirming a composition;
+  // otherwise the configured send shortcut can submit half-finished text.
+  if (event.isComposing || composing.value) return
   if (menuContext.value) {
     if (event.key === 'ArrowDown') { event.preventDefault(); moveActive(1); return }
     if (event.key === 'ArrowUp') { event.preventDefault(); moveActive(-1); return }
@@ -320,14 +324,14 @@ function handleKeydown(event) {
   }
   if (event.key === 'Backspace' && removeAdjacentToken('backward')) { event.preventDefault(); return }
   if (event.key === 'Delete' && removeAdjacentToken('forward')) { event.preventDefault(); return }
-  if (event.key === 'Enter') {
-    if (event.shiftKey) {
-      event.preventDefault()
-      insertTextAtCaret('\n')
-    } else {
-      event.preventDefault()
-      emit('submit')
-    }
+  if (shortcutEventMatches(event, shortcutBindings.value.input_newline)) {
+    event.preventDefault()
+    insertTextAtCaret('\n')
+    return
+  }
+  if (shortcutEventMatches(event, shortcutBindings.value.input_send)) {
+    event.preventDefault()
+    emit('submit')
   }
 }
 

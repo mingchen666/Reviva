@@ -19,7 +19,7 @@ const props = defineProps({
 })
 
 const emit = defineEmits([
-  'copy-raw', 'export-markdown', 'save-to-note',
+  'copy-raw', 'export-markdown', 'export-word', 'save-to-note',
   'retry', 'branch', 'delete', 'compress-context',
 ])
 
@@ -116,6 +116,7 @@ const costDisplay = computed(() => {
         @open-change="outputMenuOpen = $event"
         @branch="$emit('branch')"
         @export-markdown="$emit('export-markdown')"
+        @export-word="$emit('export-word')"
         @save-to-note="$emit('save-to-note')"
       />
     </div>

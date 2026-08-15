@@ -48,6 +48,7 @@
 - `network-exam-practice`：计算机网络期末、章节测验和 408/考研网络基础训练。适合出题、批改、错因诊断、子网/路由/TCP 序号等计算题。
 - `edu-solid-geometry`：把立体几何题生成 MathJax 分步解析 + Three.js 可交互 3D 模型网页。适合线面角、二面角、异面直线夹角、点到平面距离、体积、正方体、棱锥、棱柱等复习。
 - `edu-analytic-geometry`：把解析几何/圆锥曲线题生成 KaTeX 分步解析 + 2D Canvas 动态画板网页。适合椭圆、双曲线、抛物线、弦长、定点、定值、轨迹、离心率等复习。
+- `edu-chem-reaction`：把教材范围内的化学反应生成分子动画、方程式、断键成键和原子守恒讲解页面。适合燃烧、电解水、氧化还原和基础有机反应机理复习；图片方程先确认识别结果。
 - `officecli-skills`：读取、创建和编辑 Word、PPT、Excel。适合“生成 Word”“可打印版”“整理成文档”“编辑这个 docx/pptx/xlsx”。
 
 ## 技能选择和切换规则
@@ -83,6 +84,7 @@
 | 复习抓包实验 | `network-packet-lab` → `network-protocol-viz` → `network-exam-practice` |
 | 复习立体几何题 | `concept-explainer` → `edu-solid-geometry` → `practice-quiz` |
 | 复习解析几何/圆锥曲线 | `concept-explainer` → `edu-analytic-geometry` → `practice-quiz` |
+| 复习化学反应与微观机理 | `concept-explainer` → `edu-chem-reaction` → `practice-quiz` |
 | 需要记忆和背诵 | `knowledge-organize` → `flashcard-generator` |
 | 数学公式或图像看不懂 | 优先判断题型；立体几何用 `edu-solid-geometry`，解析几何用 `edu-analytic-geometry`，其他数学/物理可视化再用 `math-explainer` |
 

@@ -17,6 +17,10 @@ export async function saveTextFile(options, content) {
   return api.saveTextFile?.(options, content) ?? { success: false, error: 'Not in Electron' }
 }
 
+export async function saveMarkdownDocx(options, markdown) {
+  return api.saveMarkdownDocx?.(options, markdown) ?? { success: false, error: 'Not in Electron' }
+}
+
 export async function readFile(filePath, options) {
   return api.readFile?.(filePath, options) ?? { success: false, error: 'Not in Electron' }
 }

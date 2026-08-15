@@ -1,0 +1,23 @@
+{
+  "id": "k12-chemistry-learning",
+  "name": "K12 化学学习",
+  "description": "按题目条件完成 K12 化学方程式、现象、守恒计算、实验边界、错因反馈、多题考点归纳与宏微观可视化。",
+  "icon": "ri-flask-line",
+  "color": "#0F766E",
+  "category": "学习",
+  "source": "platform",
+  "allowedTools": [
+    "file_read",
+    "document_read",
+    "vision_analyze",
+    "calculator",
+    "mcp:exa"
+  ],
+  "outputTypes": [
+    "Markdown",
+    "TXT"
+  ],
+  "version": "1.0.0",
+  "author": "reviva",
+  "license": "MIT"
+}

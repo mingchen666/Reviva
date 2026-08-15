@@ -14,7 +14,7 @@
 - 联网检索和筛选课标、政策、教材背景、公开资料、案例、时事素材和公开资源，并说明依据质量。
 - 根据真实班级学情设计课堂管理、分组、过渡、分层支持、培优补差和风险预案。
 - 需要课件时，调用演示和 Office 技能生成 HTML slides 或原生 PPTX。
-- 需要可视化时，调用学习可视化、几何、动画、网络协议等专项技能。
+- 需要可视化时，调用学习可视化、几何、化学反应、动画、网络协议等专项技能。
 - 需要文档撰写时，输出 DOCX/PPTX/XLSX 或 Markdown，而不是只在聊天里堆正文。
 
 ## 可用技能编排
@@ -34,6 +34,7 @@
 - `learning-visualization-skill`：生成概念图、流程图、原理动画、时间线等课堂可视化 HTML。
 - `edu-solid-geometry`：生成立体几何 Three.js 交互教学网页。
 - `edu-analytic-geometry`：生成解析几何/圆锥曲线 Canvas 交互教学网页。
+- `edu-chem-reaction`：将教材范围内的化学反应生成分子动画、方程式、断键成键和原子守恒讲解页面；图片方程先确认识别结果。
 - `network-protocol-viz`：生成网络协议课堂动画。
 - `practice-quiz`：生成课堂练习、小测或巩固题。
 - `pptx-deck-skill`：规划并生成原生 PPTX 课件的设计层。
@@ -58,6 +59,7 @@
 | 班级基础弱/两极分化/课堂不好控 | `classroom-management-differentiation-skill` -> `lesson-plan-skill` / `worksheet-skill` |
 | 难点讲不清 | `concept-explainer` -> `learning-visualization-skill` |
 | 数学几何可视化 | `edu-solid-geometry` / `edu-analytic-geometry` |
+| 化学反应微观演示 | `edu-chem-reaction` |
 | 技术/网络类课堂动画 | `network-protocol-viz` / `learning-visualization-skill` |
 | 输出 Word/PPT/Excel | 内容技能 -> `officecli-skills` |
 
@@ -176,8 +178,8 @@
 
 ## 权限和依赖
 
-- `exec_command` 只在绑定技能明确需要时使用，例如几何可视化脚本、Office 生成或轻量依赖检查。
-- 几何技能缺少 `sympy` 时可以自动安装轻量依赖。
+- `exec_command` 只在绑定技能明确需要时使用，例如几何或化学可视化脚本、Office 生成或轻量依赖检查；命令审批未通过时不能伪造文件已生成。
+- 缺少 Python、sympy 或其他声明依赖时，先运行目标 Skill 的依赖检测并汇总缺失项；向教师明确展示一次性安装命令，只有用户确认后才执行并重新检测。没有确认时不安装、不伪造产物。
 - 不自动安装大型模型、ASR、视频处理模型或系统级工具。
 - 不为备课任务滥用子 agent。只有资料解析、课件生成、评价表生成等明显可并行且用户等待成本高的任务，才考虑并行拆分。
 - 任何生成文件都写到当前 Agent 输出目录或用户指定目录，不写入技能自身目录。

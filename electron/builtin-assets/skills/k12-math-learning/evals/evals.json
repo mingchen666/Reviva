@@ -1,0 +1,25 @@
+{
+  "skill_name": "k12-math-learning",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "没有告诉你年级。请解释为什么二次函数 y=x^2-4x+3 的对称轴是 x=2，并给我一个检查方法。",
+      "expected_output": "直接完成配方或顶点公式讲解并给出代入或图像检查，不因缺少年级阻塞；只在必要时简短提示可补充教材信息。",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "我上传了函数题截图，先判断我错在哪里；如果参数变化是关键，请给我一个可交互的函数图，并说明题目条件如何进入图中。",
+      "expected_output": "先用 vision_analyze 识别可见条件，图不清时请求确认，不补猜数据；需要交互时路由到 math-explainer 或 learning-visualization-skill，保留坐标、参数、范围和教学目标，不能把图示直觉当成证明。",
+      "files": [
+        "function-problem.png"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "我上传了三套函数练习，先归纳考点和常见错因，再按这些样本出一套 30 分钟练习，先隐藏答案。",
+      "expected_output": "先读取三套材料并用 exam2knowledge 归纳样本中的考点、题型和错因，再用 practice-quiz 生成相邻练习；明确样本覆盖限制，不把‘高频’写成押题或官方命题，按需要提示补充年级/教材并隐藏答案。",
+      "files": []
+    }
+  ]
+}

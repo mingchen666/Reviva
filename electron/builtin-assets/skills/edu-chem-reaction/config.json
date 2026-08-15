@@ -1,0 +1,22 @@
+{
+  "id": "edu-chem-reaction",
+  "name": "化学反应微观演示",
+  "description": "将教材范围内的化学反应生成包含 Three.js 分子动画、方程式、断键成键和原子守恒说明的单文件 HTML。适用于燃烧、电解、氧化还原和基础有机反应机理的可视化讲解。",
+  "icon": "ri-flask-line",
+  "color": "#16A34A",
+  "category": "学习",
+  "source": "platform",
+  "allowedTools": [
+    "file_read",
+    "file_write",
+    "vision_analyze",
+    "exec_command"
+  ],
+  "outputTypes": [
+    "HTML",
+    "Markdown"
+  ],
+  "version": "1.0.0",
+  "author": "reviva",
+  "license": "MIT"
+}

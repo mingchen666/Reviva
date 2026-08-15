@@ -16,7 +16,7 @@ import { normalizeFilePath } from '@/utils/fileUrl'
 import { readableGenerationContexts } from '@/utils/generationContext'
 import { parseModelRef } from '@/utils/modelRef'
 import { BASE_URL } from '@/apis/http'
-import { saveTextFile } from '@/electron'
+import { saveMarkdownDocx, saveTextFile } from '@/electron'
 import { useMessage } from '@/components/MsMessage/useMessage'
 import { useMessageBox } from '@/components/MsMessageBox/useMessageBox'
 import ResizeHandle from '@/components/layout/ResizeHandle.vue'
@@ -36,6 +36,8 @@ import {
 
 const DocumentSelector = defineAsyncComponent(() => import('./sections/sidebar/DocumentSelector.vue'))
 const KbSelector = defineAsyncComponent(() => import('./sections/sidebar/KbSelector.vue'))
+const ChatDirectoryNav = defineAsyncComponent(() => import('./sections/ChatDirectoryNav.vue'))
+const ChatMinimapNav = defineAsyncComponent(() => import('./sections/ChatMinimapNav.vue'))
 const ConversationExportModal = defineAsyncComponent(() => import('./sections/export/ConversationExportModal.vue'))
 const SaveMessageToNoteModal = defineAsyncComponent(() => import('./sections/export/SaveMessageToNoteModal.vue'))
 const MindmapModal = defineAsyncComponent(() => import('./sections/rightpanel/modals/MindmapModal.vue'))
@@ -59,6 +61,8 @@ const workchatStore = useWorkchatStore()
 const notesStore = useNotesStore()
 const { ctxItems: globalCtxItems } = storeToRefs(workchatStore)
 const isDark = computed(() => appStore.isDark)
+const chatNavigationEnabled = computed(() => settingsStore.chatNavigationEnabled !== false)
+const chatNavigationStyle = computed(() => settingsStore.chatNavigationStyle === 'minimap' ? 'minimap' : 'directory')
 const msg = useMessage()
 
 const agentRuntime = getAgentRuntime(convStore, agentsStore, settingsStore)
@@ -120,6 +124,69 @@ const MESSAGE_GAP = 20
 const VIRTUAL_OVERSCAN = 8
 const EMPTY_STREAM_OBJECT = Object.freeze({})
 const EMPTY_STREAM_ARRAY = Object.freeze([])
+const DIRECTORY_WINDOW_SIZE = 10
+const DIRECTORY_SUMMARY_LENGTH = 46
+const DIRECTORY_QUESTION_LENGTH = 44
+const DIRECTORY_SOURCE_LENGTH = 2400
+const directoryWindowStart = ref(0)
+const activeDirectoryMessageId = ref('')
+const directoryLoadingOlder = ref(false)
+const directoryWindowPinned = ref(false)
+const detachedTailMessageIds = reactive({})
+const detachedTailMinHeight = ref(0)
+
+const detachableTailCandidate = computed(() => {
+  const last = currentMessages.value.at(-1)
+  if (!currentConvId.value || !last?.id || last.role !== 'assistant') return null
+  if (last.status !== 'pending' && last.status !== 'streaming') return null
+  return { convId: currentConvId.value, msgId: last.id }
+})
+
+watch(detachableTailCandidate, (candidate) => {
+  const convId = currentConvId.value
+  if (!convId) return
+  if (candidate) detachedTailMessageIds[candidate.convId] = candidate.msgId
+  else delete detachedTailMessageIds[convId]
+}, { immediate: true, flush: 'sync' })
+
+const detachedTailMessage = computed(() => {
+  const last = currentMessages.value.at(-1)
+  if (!last?.id || detachedTailMessageIds[currentConvId.value] !== last.id) return null
+  if (last.status !== 'pending' && last.status !== 'streaming') return null
+  return last
+})
+
+const virtualizedMessages = computed(() => (
+  detachedTailMessage.value ? currentMessages.value.slice(0, -1) : currentMessages.value
+))
+
+watch(() => detachedTailMessage.value?.id || '', () => {
+  detachedTailMinHeight.value = 0
+  // Re-measure when the streamed tail returns to the virtual list. Its live
+  // DOM height may be very different after thinking content collapses.
+  nextTick(() => {
+    rowVirtualizer.value.measure()
+    if (!userScrolledUp) scheduleScrollToBottom()
+  })
+})
+
+let detachedTailResizeObserver = null
+let observedDetachedTail = null
+
+function observeDetachedTail(el) {
+  if (el === observedDetachedTail) return
+  detachedTailResizeObserver?.disconnect()
+  detachedTailResizeObserver = null
+  observedDetachedTail = el || null
+  if (!el || typeof ResizeObserver === 'undefined') return
+
+  detachedTailResizeObserver = new ResizeObserver((entries) => {
+    const height = Math.ceil(entries[0]?.contentRect?.height || 0)
+    if (height > detachedTailMinHeight.value) detachedTailMinHeight.value = height
+    if (!userScrolledUp) scheduleScrollToBottom()
+  })
+  detachedTailResizeObserver.observe(el)
+}
 
 const pendingAuthRequestsByMessageId = computed(() => {
   const map = {}
@@ -210,6 +277,28 @@ const notePreviousUserError = ref('')
 const savingMessageToNote = ref(false)
 const saveMessageToNoteError = ref('')
 let noteTargetSequence = 0
+
+function handleShortcutPanelToggle(event) {
+  const side = event?.detail?.side
+  if (side === 'left') leftOpen.value = !leftOpen.value
+  if (side === 'right') rightOpen.value = !rightOpen.value
+}
+
+function handleShortcutConversationActivate(event) {
+  const conversationId = event?.detail?.conversationId
+  if (!conversationId) return
+  const conversation = conversations.value.find(item => item.id === conversationId)
+  if (conversation) addTab(conversation)
+}
+
+function ensureConversationTab(conversationId) {
+  if (!conversationId || tabs.value.some(tab => tab.id === conversationId)) return
+  const conversation = conversations.value.find(item => item.id === conversationId)
+  if (!conversation) return
+  evictLeastRecentlyAccessedTab()
+  tabs.value.unshift({ id: conversation.id, name: conversation.title, lastAccessed: nextTabAccessAt() })
+  activeTabId.value = conversation.id
+}
 
 // Responsive: auto-collapse panels when window is narrow
 const { width: windowW } = useWindowSize()
@@ -307,21 +396,308 @@ const contextLength = computed(() => currentConv.value?.contextLength || 30)
 const currentGroupId = computed(() => currentConv.value?.group_id || 'default')
 const hasOlderMessages = computed(() => currentConvId.value && !convStore.allMsgsLoaded[currentConvId.value])
 
+// ─── Chat directory ───
+// This is intentionally independent of the Agent context window. It derives only
+// lightweight labels from messages that are already loaded for the virtual list.
+function compactDirectoryText(value, maxLength) {
+  const text = typeof value === 'string' ? value.replace(/\s+/g, ' ').trim() : ''
+  if (!text) return ''
+  return text.length > maxLength ? `${text.slice(0, Math.max(1, maxLength - 1)).trimEnd()}…` : text
+}
+
+function directoryTextValue(value) {
+  if (typeof value === 'string') return value
+  if (Array.isArray(value)) {
+    return value.map((part) => {
+      if (typeof part === 'string') return part
+      if (!part || typeof part !== 'object') return ''
+      return typeof part.text === 'string' ? part.text
+        : (typeof part.content === 'string' ? part.content : '')
+    }).filter(Boolean).join(' ')
+  }
+  if (!value || typeof value !== 'object') return ''
+  return typeof value.text === 'string' ? value.text
+    : (typeof value.content === 'string' ? value.content : '')
+}
+
+function sanitizeDirectoryText(value) {
+  const source = directoryTextValue(value).slice(0, DIRECTORY_SOURCE_LENGTH)
+  if (!source) return ''
+  return source
+    // Summaries must never carry image payloads or file/image URLs into the
+    // navigation calculation. They are labels only, not a rendering path.
+    .replace(/data:image\/[a-z0-9.+-]+;base64,[a-z0-9+/_=-]*/gi, '图片')
+    .replace(/<img\b[^>]*>/gi, '图片')
+    .replace(/!\[([^\]]*)\]\([^)]*\)/g, (_, alt) => alt || '图片')
+    .replace(/(?:https?|file):\/\/[^\s)\]]+\.(?:png|jpe?g|webp|gif|bmp|svg)(?:\?[^\s)\]]*)?/gi, '图片')
+    .replace(/```[\s\S]*?```/g, block => block.replace(/```[^\n]*\n?/g, '').replace(/```/g, ''))
+    .replace(/!\[([^\]]*)\]\([^)]*\)/g, '$1')
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
+    .replace(/^#{1,6}\s+/gm, '')
+    .replace(/[*_~`>|]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function directoryMessageText(message) {
+  try {
+    const direct = sanitizeDirectoryText(message?.content)
+    if (direct) return direct
+    const steps = Array.isArray(message?.meta?.steps) ? message.meta.steps : []
+    return sanitizeDirectoryText(steps.map(step => directoryTextValue(step?.content)).filter(Boolean).join(' '))
+  } catch (_) {
+    // A malformed legacy/multimodal message must not take down the directory.
+    return ''
+  }
+}
+
+function isDirectoryUserMessage(message) {
+  const role = typeof message?.role === 'string' ? message.role.toLowerCase() : ''
+  return role === 'user' || role === 'human'
+}
+
+function isDirectoryAssistantMessage(message) {
+  const role = typeof message?.role === 'string' ? message.role.toLowerCase() : ''
+  return role === 'assistant' || role === 'ai'
+}
+
+function directorySummaryForMessage(message) {
+  try {
+    if (!message) return { text: '', state: 'empty' }
+    if (isMessageStreaming(message.id)) {
+      const live = compactDirectoryText(sanitizeDirectoryText(currentStreamingState.value.content), DIRECTORY_SUMMARY_LENGTH)
+      return { text: live || '正在生成回复…', state: 'streaming' }
+    }
+    // A failed/cancelled assistant placeholder is still a valid turn. Keep the
+    // directory anchored to the user prompt and its AI preview blank, while
+    // retaining the status so the minimap can explain the empty preview.
+    if (message.status === 'error' || message.status === 'cancelled') return { text: '', state: message.status }
+    const preview = compactDirectoryText(directoryMessageText(message), DIRECTORY_SUMMARY_LENGTH)
+    return { text: preview || '', state: preview ? 'completed' : 'empty' }
+  } catch (_) {
+    return { text: '', state: 'empty' }
+  }
+}
+
+const directoryRounds = computed(() => {
+  const rounds = []
+  const messages = currentMessages.value
+  for (let index = 0; index < messages.length; index += 1) {
+    const userMessage = messages[index]
+    if (!isDirectoryUserMessage(userMessage)) continue
+    let assistantMessage = null
+    for (let cursor = index + 1; cursor < messages.length; cursor += 1) {
+      const candidate = messages[cursor]
+      if (isDirectoryUserMessage(candidate)) break
+      if (isDirectoryAssistantMessage(candidate)) {
+        assistantMessage = candidate
+        break
+      }
+    }
+    let questionFull = '未命名提问'
+    let summary = { text: '', state: 'empty' }
+    try {
+      questionFull = directoryMessageText(userMessage) || questionFull
+      summary = directorySummaryForMessage(assistantMessage)
+    } catch (_) {
+      // Keep a usable directory entry even if one historical message is odd.
+    }
+    rounds.push({
+      userMessageId: userMessage.id,
+      userMessageIndex: index,
+      question: compactDirectoryText(questionFull, DIRECTORY_QUESTION_LENGTH),
+      questionFull,
+      summary: summary.text,
+      summaryFull: summary.text,
+      summaryState: summary.state,
+    })
+  }
+  return rounds
+})
+
+// A directory is useful from the very first question. With only one or two
+// rounds it stays as a lightweight floating entry; the persistent sidebar is
+// reserved for longer conversations so the reading width is not needlessly
+// reduced.
+const directoryQuestionCount = computed(() => currentMessages.value.reduce(
+  (count, message) => count + (isDirectoryUserMessage(message) ? 1 : 0),
+  0,
+))
+const directoryHasRounds = computed(() => directoryQuestionCount.value > 0)
+const directoryWindowEnd = computed(() => Math.min(directoryWindowStart.value + DIRECTORY_WINDOW_SIZE, directoryRounds.value.length))
+const visibleDirectoryRounds = computed(() => {
+  const rounds = directoryRounds.value
+  if (!rounds.length) return []
+  const maxStart = Math.max(0, rounds.length - DIRECTORY_WINDOW_SIZE)
+  const start = Math.min(maxStart, Math.max(0, directoryWindowStart.value))
+  return rounds
+    .slice(start, Math.min(start + DIRECTORY_WINDOW_SIZE, rounds.length))
+    .map((round, index) => ({ ...round, directoryIndex: start + index }))
+})
+const directoryCanShowOlder = computed(() => directoryWindowStart.value > 0 || hasOlderMessages.value)
+const directoryCanShowNewer = computed(() => directoryWindowEnd.value < directoryRounds.value.length)
+const directoryOlderLabel = computed(() => directoryWindowStart.value > 0 ? '显示更早的问答' : '加载更早的对话')
+
+function directoryRoundForMessageIndex(messageIndex) {
+  for (let index = directoryRounds.value.length - 1; index >= 0; index -= 1) {
+    const round = directoryRounds.value[index]
+    if (round.userMessageIndex <= messageIndex) return { round, index }
+  }
+  return null
+}
+
+function keepDirectoryRoundVisible(roundIndex) {
+  const total = directoryRounds.value.length
+  if (!total) {
+    directoryWindowStart.value = 0
+    return
+  }
+  const maxStart = Math.max(0, total - DIRECTORY_WINDOW_SIZE)
+  const normalizedIndex = Math.max(0, Math.min(roundIndex, total - 1))
+  if (normalizedIndex < directoryWindowStart.value || normalizedIndex >= directoryWindowEnd.value) {
+    directoryWindowStart.value = Math.min(maxStart, Math.max(0, normalizedIndex - Math.floor(DIRECTORY_WINDOW_SIZE / 2)))
+  }
+}
+
+function syncActiveDirectoryRound() {
+  const el = chatScrollRef.value
+  if (!el || !directoryRounds.value.length) return
+  const virtualItems = rowVirtualizer.value.getVirtualItems()
+  const first = virtualItems.find(item => item.start + item.size > el.scrollTop + 1) || virtualItems[0]
+  if (!first) return
+  const match = directoryRoundForMessageIndex(first.index)
+  if (!match) return
+  activeDirectoryMessageId.value = match.round.userMessageId
+  keepDirectoryRoundVisible(match.index)
+}
+
+function resetDirectoryWindow({ preferLatest = true } = {}) {
+  const total = directoryRounds.value.length
+  directoryWindowStart.value = preferLatest ? Math.max(0, total - DIRECTORY_WINDOW_SIZE) : 0
+  const last = directoryRounds.value.at(-1)
+  activeDirectoryMessageId.value = last?.userMessageId || ''
+  directoryWindowPinned.value = false
+}
+
+function selectDirectoryRound(round) {
+  if (!round || !chatScrollRef.value) return
+  const currentIndex = currentMessages.value.findIndex(message => message.id === round.userMessageId)
+  if (currentIndex < 0) return
+  markProgrammaticScroll('smooth')
+  directoryWindowPinned.value = true
+  activeDirectoryMessageId.value = round.userMessageId
+  const roundIndex = directoryRounds.value.findIndex(item => item.userMessageId === round.userMessageId)
+  if (roundIndex >= 0) keepDirectoryRoundVisible(roundIndex)
+  rowVirtualizer.value.scrollToIndex(currentIndex, { align: 'start', behavior: 'smooth' })
+  userScrolledUp = true
+  showScrollBtn.value = true
+}
+
+async function showOlderDirectoryRounds() {
+  if (directoryLoadingOlder.value || loadingOlder.value) return
+  if (directoryWindowStart.value > 0) {
+    directoryWindowPinned.value = true
+    directoryWindowStart.value = Math.max(0, directoryWindowStart.value - DIRECTORY_WINDOW_SIZE)
+    return
+  }
+  if (!hasOlderMessages.value || !currentConvId.value) return
+  directoryWindowPinned.value = true
+  directoryLoadingOlder.value = true
+  const roundCountBeforeLoad = directoryRounds.value.length
+  try {
+    await loadOlderMessages()
+    await nextTick()
+    const addedRounds = Math.max(0, directoryRounds.value.length - roundCountBeforeLoad)
+    // The store prepends older messages. Show the newly fetched page closest to
+    // the previously visible history, then let the user continue paging upward.
+    directoryWindowStart.value = Math.max(0, addedRounds - DIRECTORY_WINDOW_SIZE)
+  } finally {
+    directoryLoadingOlder.value = false
+  }
+}
+
+function showNewerDirectoryRounds() {
+  directoryWindowPinned.value = true
+  directoryWindowStart.value = Math.min(
+    Math.max(0, directoryRounds.value.length - DIRECTORY_WINDOW_SIZE),
+    directoryWindowStart.value + DIRECTORY_WINDOW_SIZE,
+  )
+}
+
 // Smart scroll
+const BOTTOM_SCROLL_EPSILON = 1
 let userScrolledUp = false
+let userScrollSession = false
+let chatPointerDown = false
 let suppressScrollEventsUntil = 0
+
+function isAtChatBottom(el) {
+  return el.scrollHeight - el.scrollTop - el.clientHeight <= BOTTOM_SCROLL_EPSILON
+}
+
 function shouldIgnoreScrollEvent() {
   return Date.now() < suppressScrollEventsUntil
 }
 function markProgrammaticScroll(behavior = 'auto') {
   suppressScrollEventsUntil = Date.now() + (behavior === 'smooth' ? 700 : 160)
 }
+
+function pauseStreamingFollow() {
+  userScrolledUp = true
+  showScrollBtn.value = currentMessages.value.length > 0
+  cancelScheduledScrollToBottom()
+  cancelBottomSettle()
+}
+
+function onChatWheel(e) {
+  if (!e.deltaY) return
+  userScrollSession = true
+  if (e.deltaY < 0) pauseStreamingFollow()
+}
+
+function onChatPointerDown() {
+  chatPointerDown = true
+}
+
+function onChatPointerUp() {
+  chatPointerDown = false
+}
+
+function onChatKeydown(e) {
+  if (!['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End'].includes(e.key)) return
+  userScrollSession = true
+  if (e.key === 'ArrowUp' || e.key === 'PageUp' || e.key === 'Home') pauseStreamingFollow()
+}
+
 function onChatScroll(e) {
-  if (shouldIgnoreScrollEvent()) return
   const el = e.target
-  const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 120
-  userScrolledUp = !nearBottom
-  showScrollBtn.value = !nearBottom && currentMessages.value.length > 0
+  if (chatPointerDown) userScrollSession = true
+  if (userScrollSession) {
+    const atBottom = isAtChatBottom(el)
+    userScrolledUp = !atBottom
+    showScrollBtn.value = !atBottom && currentMessages.value.length > 0
+    if (userScrolledUp) {
+      cancelScheduledScrollToBottom()
+      cancelBottomSettle()
+    }
+    else userScrollSession = false
+  }
+
+  // Keep respecting the user's position even while a programmatic scroll is
+  // settling. The suppression window only prevents directory-nav churn.
+  if (shouldIgnoreScrollEvent()) return
+  directoryWindowPinned.value = false
+  scheduleDirectorySync()
+}
+
+let pendingDirectorySyncFrame = 0
+function scheduleDirectorySync({ force = false } = {}) {
+  if (directoryWindowPinned.value && !force) return
+  if (pendingDirectorySyncFrame) return
+  pendingDirectorySyncFrame = requestAnimationFrame(() => {
+    pendingDirectorySyncFrame = 0
+    syncActiveDirectoryRound()
+  })
 }
 
 function estimateMessageHeight(message) {
@@ -344,10 +720,10 @@ function pendingAuthRequestsForMessage(messageId) {
 }
 
 const rowVirtualizer = useVirtualizer(computed(() => ({
-  count: currentMessages.value.length,
+  count: virtualizedMessages.value.length,
   getScrollElement: () => chatScrollRef.value,
-  estimateSize: index => estimateMessageHeight(currentMessages.value[index]),
-  getItemKey: index => currentMessages.value[index]?.id || index,
+  estimateSize: index => estimateMessageHeight(virtualizedMessages.value[index]),
+  getItemKey: index => virtualizedMessages.value[index]?.id || index,
   overscan: VIRTUAL_OVERSCAN,
   gap: MESSAGE_GAP,
   scrollPaddingEnd: 160,
@@ -361,7 +737,7 @@ const totalVirtualHeight = computed(() => rowVirtualizer.value.getTotalSize())
 
 const visibleVirtualMessages = computed(() => rowVirtualizer.value.getVirtualItems().map(item => ({
   ...item,
-  message: currentMessages.value[item.index],
+  message: virtualizedMessages.value[item.index],
 })).filter(item => item.message))
 
 function measureVirtualMessageRow(el) {
@@ -373,14 +749,14 @@ function findVirtualAnchor(el = chatScrollRef.value) {
   const items = rowVirtualizer.value.getVirtualItems()
   if (!items.length) return null
   const first = items.find(item => item.start + item.size > el.scrollTop + 1) || items[0]
-  const message = currentMessages.value[first.index]
+  const message = virtualizedMessages.value[first.index]
   if (!message?.id) return null
   return { id: message.id, offset: el.scrollTop - first.start }
 }
 
 function restoreVirtualAnchor(anchor, el = chatScrollRef.value) {
   if (!el || !anchor?.id) return false
-  const index = currentMessages.value.findIndex(message => message.id === anchor.id)
+  const index = virtualizedMessages.value.findIndex(message => message.id === anchor.id)
   if (index < 0) return false
   rowVirtualizer.value.scrollToIndex(index, { align: 'start', behavior: 'auto' })
   requestAnimationFrame(() => {
@@ -603,6 +979,40 @@ async function handleExportMessageMarkdown(message) {
   } catch (error) {
     console.error('[Workchat] Failed to export AI message:', error)
     msg.error('Markdown 导出失败，请检查保存位置后重试')
+  } finally {
+    exportingMessageId.value = null
+  }
+}
+
+async function handleExportMessageWord(message) {
+  if (!message?.id || exportingMessageId.value) return
+  if (message.role !== 'assistant' || message.status !== 'completed') {
+    msg.warning('只能导出已完成的 AI 消息')
+    return
+  }
+  const conversation = conversationForMessage(message)
+  if (!conversation) {
+    msg.error('对话不存在，无法导出')
+    return
+  }
+
+  exportingMessageId.value = message.id
+  try {
+    const exportedAt = new Date()
+    const title = deriveMessageExportTitle(message, conversation)
+    const markdown = buildSingleMessageMarkdown({ message, conversation })
+    const result = await saveMarkdownDocx({
+      title: '导出 Word',
+      defaultPath: sanitizeMessageMarkdownFileName(title, exportedAt).replace(/\.md$/i, '.docx'),
+      filters: [{ name: 'Word 文档', extensions: ['docx'] }],
+      defaultExtension: 'docx',
+    }, markdown)
+    if (result?.canceled) return
+    if (!result?.success) throw new Error(result?.error || 'EXPORT_DOCX_FAILED')
+    msg.success('Word 已导出')
+  } catch (error) {
+    console.error('[Workchat] Failed to export AI message to Word:', error)
+    msg.error('Word 导出失败，请检查保存位置后重试')
   } finally {
     exportingMessageId.value = null
   }
@@ -1384,10 +1794,67 @@ async function reanalyzeWorkchatMedia(item) {
 
 // Scroll
 let pendingScrollFrame = 0
+let pendingBottomSettleFrame = 0
+
+function cancelScheduledScrollToBottom() {
+  if (!pendingScrollFrame) return
+  cancelAnimationFrame(pendingScrollFrame)
+  pendingScrollFrame = 0
+}
+
+function cancelBottomSettle() {
+  if (!pendingBottomSettleFrame) return
+  cancelAnimationFrame(pendingBottomSettleFrame)
+  pendingBottomSettleFrame = 0
+}
+
+function scrollElementToBottom(el, behavior = 'auto') {
+  const bottom = Math.max(0, el.scrollHeight - el.clientHeight)
+  if (behavior === 'smooth') el.scrollTo({ top: bottom, behavior })
+  else if (bottom > el.scrollTop + BOTTOM_SCROLL_EPSILON) el.scrollTop = bottom
+}
+
+function settleAtBottom() {
+  cancelBottomSettle()
+  let remainingFrames = 2
+  const settle = () => {
+    pendingBottomSettleFrame = 0
+    const el = chatScrollRef.value
+    if (!el || userScrolledUp) return
+    scrollElementToBottom(el)
+    remainingFrames -= 1
+    if (remainingFrames > 0) pendingBottomSettleFrame = requestAnimationFrame(settle)
+  }
+  pendingBottomSettleFrame = requestAnimationFrame(settle)
+}
+
 function scrollToBottom(behavior = 'auto') {
-  if (!chatScrollRef.value || !currentMessages.value.length) return
+  const el = chatScrollRef.value
+  if (!el || !currentMessages.value.length) return
+  cancelBottomSettle()
   markProgrammaticScroll(behavior)
-  rowVirtualizer.value.scrollToIndex(currentMessages.value.length - 1, { align: 'end', behavior })
+  userScrolledUp = false
+  userScrollSession = false
+  showScrollBtn.value = false
+  // Avoid Virtualizer's scrollToIndex reconciliation loop while a streamed
+  // message keeps changing height. The scroll container is the single owner.
+  scrollElementToBottom(el, behavior)
+  if (behavior !== 'smooth') settleAtBottom()
+  directoryWindowPinned.value = false
+  const lastRound = directoryRounds.value.at(-1)
+  if (lastRound) {
+    activeDirectoryMessageId.value = lastRound.userMessageId
+    keepDirectoryRoundVisible(directoryRounds.value.length - 1)
+  }
+  scheduleDirectorySync()
+}
+
+function followStreamingToBottom() {
+  const el = chatScrollRef.value
+  if (!el || userScrolledUp) return
+
+  // During streaming, move only forward to the newest rendered edge.
+  scrollElementToBottom(el)
   userScrolledUp = false
   showScrollBtn.value = false
 }
@@ -1397,20 +1864,34 @@ function scheduleScrollToBottom({ force = false, behavior = 'auto' } = {}) {
   if (pendingScrollFrame) return
   pendingScrollFrame = requestAnimationFrame(() => {
     pendingScrollFrame = 0
-    scrollToBottom(behavior)
+    // A user scroll may have happened after this frame was queued.
+    if (!force && userScrolledUp) return
+    if (force) scrollToBottom(behavior)
+    else followStreamingToBottom()
   })
+}
+
+function resumeStreamingFollow() {
+  userScrolledUp = false
+  userScrollSession = false
+  showScrollBtn.value = false
+  scrollToBottom('smooth')
 }
 
 // Load older messages with ScrollLoader
 async function loadOlderMessages() {
+  if (loadingOlder.value) return
   loadingOlder.value = true
   const el = chatScrollRef.value || document.getElementById('chat-scroll')
   const anchor = findVirtualAnchor(el)
-  await convStore.loadMoreMessages(currentConvId.value)
-  await nextTick()
-  rowVirtualizer.value.measure()
-  restoreVirtualAnchor(anchor, el)
-  loadingOlder.value = false
+  try {
+    await convStore.loadMoreMessages(currentConvId.value)
+    await nextTick()
+    rowVirtualizer.value.measure()
+    restoreVirtualAnchor(anchor, el)
+  } finally {
+    loadingOlder.value = false
+  }
 }
 
 // Auth handlers (updated for new AuthCard API with allowSession)
@@ -1424,6 +1905,9 @@ function handleAuthDeny(data) {
 // App-level shortcuts (Ctrl+N etc.) handled by useAppShortcuts in App.vue
 
 onMounted(() => {
+  window.addEventListener('mindspace:workchat-toggle-panel', handleShortcutPanelToggle)
+  window.addEventListener('mindspace:workchat-activate-conversation', handleShortcutConversationActivate)
+  ensureConversationTab(currentConvId.value)
   agentRuntime.registerListeners()
   wikiStore.loadWikis?.().catch(() => {})
   nextTick(() => {
@@ -1438,8 +1922,16 @@ watch(availableWikis, (items) => {
 })
 
 onBeforeUnmount(() => {
+  window.removeEventListener('mindspace:workchat-toggle-panel', handleShortcutPanelToggle)
+  window.removeEventListener('mindspace:workchat-activate-conversation', handleShortcutConversationActivate)
   if (_liveTimer) { clearInterval(_liveTimer); _liveTimer = null }
   clearConversationSwitchTimers()
+  cancelScheduledScrollToBottom()
+  cancelBottomSettle()
+  detachedTailResizeObserver?.disconnect()
+  detachedTailResizeObserver = null
+  observedDetachedTail = null
+  if (pendingDirectorySyncFrame) cancelAnimationFrame(pendingDirectorySyncFrame)
 })
 
 // Smart auto-scroll during streaming
@@ -1449,19 +1941,23 @@ watch(() => currentStreamingState.value.content, () => {
 
 watch(() => [
   currentMessages.value.length,
+  currentStreamingState.value.active,
   currentStreamingState.value.thinking,
   currentStreamingState.value.steps.length,
   Object.keys(currentStreamingState.value.toolCalls).length,
   Object.keys(currentStreamingState.value.subAgents).length,
   currentStreamingState.value.todos.length,
 ], () => {
-  nextTick(measureVisibleMessagesSoon)
   scheduleScrollToBottom()
 })
 
 watch(currentConvId, () => {
+  ensureConversationTab(currentConvId.value)
   userScrolledUp = false
   showScrollBtn.value = false
+  directoryWindowStart.value = 0
+  activeDirectoryMessageId.value = ''
+  directoryWindowPinned.value = false
   nextTick(() => {
     rowVirtualizer.value.measure()
     scrollToBottom('auto')
@@ -1481,6 +1977,19 @@ watch(() => [
 
 watch(() => currentMessages.value.map(m => m.id).join('|'), () => {
   nextTick(measureVisibleMessagesSoon)
+  nextTick(() => {
+    directoryWindowStart.value = Math.min(
+      Math.max(0, directoryRounds.value.length - DIRECTORY_WINDOW_SIZE),
+      Math.max(0, directoryWindowStart.value),
+    )
+    const hasActiveRound = directoryRounds.value.some(round => round.userMessageId === activeDirectoryMessageId.value)
+    if (!hasActiveRound) resetDirectoryWindow()
+    else if (!directoryWindowPinned.value) {
+      const activeIndex = directoryRounds.value.findIndex(round => round.userMessageId === activeDirectoryMessageId.value)
+      keepDirectoryRoundVisible(activeIndex)
+      scheduleDirectorySync()
+    }
+  })
 })
 
 // Typewriter title animation — triggered by titleAnimation signal from AgentRuntime
@@ -1640,16 +2149,18 @@ function animateTitle(convId, targetTitle, tab) {
           <PanelToggle side="right" :is-open="rightOpen" :is-dark="isDark"
             @toggle="rightOpen = !rightOpen" />
 
-          <div class="relative flex-1 min-h-0">
+          <div class="chat-workspace relative flex-1 min-h-0">
             <div id="chat-scroll" ref="chatScrollRef" class="h-full overflow-y-auto px-3 sm:px-6 py-4 sm:py-6 thin-scroll"
-              @scroll="onChatScroll">
+              @scroll="onChatScroll" @wheel.passive="onChatWheel"
+              @pointerdown="onChatPointerDown" @pointerup="onChatPointerUp" @pointercancel="onChatPointerUp"
+              @keydown.capture="onChatKeydown">
               <!-- Scroll loader for older messages -->
               <ScrollLoader v-if="currentConvId"
                 :has-more="hasOlderMessages"
                 :loading="loadingOlder"
                 :is-dark="isDark"
                 @load-more="loadOlderMessages" />
-              <div v-if="currentMessages.length"
+              <div v-if="virtualizedMessages.length"
                 class="relative w-full"
                 :style="{ height: totalVirtualHeight + 'px' }">
                 <div v-for="item in visibleVirtualMessages"
@@ -1677,6 +2188,7 @@ function animateTitle(convId, targetTitle, tab) {
                     @retry="handleRetry(item.message.id)"
                     @branch="handleCreateBranch(item.message.id)"
                     @export-markdown="handleExportMessageMarkdown(item.message)"
+                    @export-word="handleExportMessageWord(item.message)"
                     @save-to-note="openSaveMessageToNote(item.message)"
                     @copy="handleCopy"
                     @copy-error="handleCopyError"
@@ -1687,6 +2199,41 @@ function animateTitle(convId, targetTitle, tab) {
                     @auth-deny="handleAuthDeny" />
                 </div>
               </div>
+              <div v-if="detachedTailMessage"
+                :key="detachedTailMessage.id"
+                :ref="observeDetachedTail"
+                class="relative w-full"
+                :class="virtualizedMessages.length ? 'mt-5' : ''"
+                :style="{ minHeight: detachedTailMinHeight ? detachedTailMinHeight + 'px' : undefined }">
+                <ChatMessage
+                  :msg="detachedTailMessage" :is-dark="isDark"
+                  :chat-busy="isStreaming"
+                  :is-streaming="isMessageStreaming(detachedTailMessage.id)"
+                  :streaming-content="isMessageStreaming(detachedTailMessage.id) ? currentStreamingState.content : ''"
+                  :streaming-thinking="isMessageStreaming(detachedTailMessage.id) ? currentStreamingState.thinking : ''"
+                  :streaming-tool-calls="isMessageStreaming(detachedTailMessage.id) ? currentStreamingState.toolCalls : EMPTY_STREAM_OBJECT"
+                  :streaming-sub-agents="isMessageStreaming(detachedTailMessage.id) ? currentStreamingState.subAgents : EMPTY_STREAM_OBJECT"
+                  :streaming-todos="isMessageStreaming(detachedTailMessage.id) ? currentStreamingState.todos : EMPTY_STREAM_ARRAY"
+                  :streaming-steps="isMessageStreaming(detachedTailMessage.id) ? currentStreamingState.steps : EMPTY_STREAM_ARRAY"
+                  :streaming-iteration="isMessageStreaming(detachedTailMessage.id) ? currentStreamingState.iteration : 0"
+                  :pending-auth-requests="pendingAuthRequestsForMessage(detachedTailMessage.id)"
+                  :branching="branchingMessageId === detachedTailMessage.id"
+                  :exporting="exportingMessageId === detachedTailMessage.id"
+                  @preview-file="handlePreviewFile"
+                  @media-detail="openWorkchatMediaDetail"
+                  @retry="handleRetry(detachedTailMessage.id)"
+                  @branch="handleCreateBranch(detachedTailMessage.id)"
+                  @export-markdown="handleExportMessageMarkdown(detachedTailMessage)"
+                  @export-word="handleExportMessageWord(detachedTailMessage)"
+                  @save-to-note="openSaveMessageToNote(detachedTailMessage)"
+                  @copy="handleCopy"
+                  @copy-error="handleCopyError"
+                  @delete="handleDeleteMessage(detachedTailMessage.id)"
+                  @save-edit="handleSaveEdit"
+                  @compress-context="compressContext"
+                  @auth-approve="handleAuthApprove"
+                  @auth-deny="handleAuthDeny" />
+              </div>
               <!-- Empty states -->
               <EmptyStateHero v-if="!currentMessages.length"
                 :has-conversation="!!currentConvId"
@@ -1695,6 +2242,36 @@ function animateTitle(convId, targetTitle, tab) {
                 @create-conv="createChat"
                 @select-agent="selectAgent" />
             </div>
+
+            <ChatDirectoryNav
+              v-if="chatNavigationEnabled && directoryHasRounds && chatNavigationStyle === 'directory'"
+              :items="visibleDirectoryRounds"
+              :total-rounds="directoryRounds.length"
+              :active-id="activeDirectoryMessageId"
+              :is-dark="isDark"
+              :has-rounds="directoryHasRounds"
+              :can-show-older="directoryCanShowOlder"
+              :can-show-newer="directoryCanShowNewer"
+              :older-loading="directoryLoadingOlder"
+              :older-label="directoryOlderLabel"
+              @select="selectDirectoryRound"
+              @show-older="showOlderDirectoryRounds"
+              @show-newer="showNewerDirectoryRounds" />
+
+            <ChatMinimapNav
+              v-else-if="chatNavigationEnabled && directoryHasRounds"
+              :items="visibleDirectoryRounds"
+              :total-rounds="directoryRounds.length"
+              :active-id="activeDirectoryMessageId"
+              :is-dark="isDark"
+              :has-rounds="directoryHasRounds"
+              :can-show-older="directoryCanShowOlder"
+              :can-show-newer="directoryCanShowNewer"
+              :older-loading="directoryLoadingOlder"
+              :older-label="directoryOlderLabel"
+              @select="selectDirectoryRound"
+              @show-older="showOlderDirectoryRounds"
+              @show-newer="showNewerDirectoryRounds" />
 
             <Transition name="conversation-switch">
               <div v-if="isConversationSwitching"
@@ -1715,7 +2292,7 @@ function animateTitle(convId, targetTitle, tab) {
           </div>
 
           <!-- Scroll to bottom button -->
-          <button v-if="showScrollBtn" @click="userScrolledUp = false; showScrollBtn = false; scrollToBottom('smooth')"
+          <button v-if="showScrollBtn" @click="resumeStreamingFollow"
             class="absolute bottom-[180px] left-1/2 -translate-x-1/2 h-8 px-3 rounded-full flex items-center gap-1.5 text-[13px] font-medium z-10 transition-all duration-200 shadow-lg"
             :class="isDark
               ? 'bg-d2 border border-d4 text-wt-sub hover:bg-d3 hover:text-wt-main'
@@ -1878,6 +2455,11 @@ function animateTitle(convId, targetTitle, tab) {
 </template>
 
 <style scoped>
+.chat-workspace {
+  container-type: inline-size;
+  container-name: chat-area;
+}
+
 .tab-item .tab-close { opacity: 0; transition: opacity .12s }
 .tab-item:hover .tab-close { opacity: 1 }
 

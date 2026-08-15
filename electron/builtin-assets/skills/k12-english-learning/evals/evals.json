@@ -1,0 +1,27 @@
+{
+  "skill_name": "k12-english-learning",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "这句为什么不能写成 He suggested me to go？请用一个例句说明。",
+      "expected_output": "解释 suggest 的常见结构和当前句错误，给出自然改法与最小例句，不建立计划或闪卡。",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "我上传了一篇阅读理解，B 选项说作者赞成远程办公，帮我找原文证据，并把论证链整理成可复习的图。",
+      "expected_output": "先读取文章，定位支持或反驳该选项的原文证据并说明推断边界；只有在证据确认后才用 learning-visualization-skill 做简洁论证图，图中保留段落位置，不能凭选项语气猜答案或用图示替代原文。",
+      "files": [
+        "remote-work-reading.docx"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "我上传了一段已经解析并授权的英语听力，系统提供了 mediaId。请先定位每题的转录证据，再出一道 5 分钟听写/理解小测，先隐藏答案。",
+      "expected_output": "先用 media_read 读取 metadata，再按题目需要用 search 或 transcript 定位可见转录和真实时间戳；题目基于该材料并隐藏答案，不能伪造听力内容或时间线。仅能反馈转录中的理解与表达，不能给发音、语调、流利度或口语评分；媒体未授权或转录不全时请求文字材料或降级。",
+      "files": [
+        "listening-clip.mp3"
+      ]
+    }
+  ]
+}

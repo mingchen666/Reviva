@@ -1,5 +1,6 @@
 <script setup>
 import { computed } from 'vue'
+import { shortcutBindings } from '@/config/shortcuts'
 
 const props = defineProps({
   hasConversation: Boolean,
@@ -13,11 +14,11 @@ const suggestedAgents = computed(() => {
   return props.agents.filter(a => a.isDefault || a.featured).slice(0, 3)
 })
 
-const shortcuts = [
-  { keys: 'Ctrl+N', label: '新建对话' },
-  { keys: 'Enter', label: '发送消息' },
-  { keys: 'Shift+Enter', label: '换行' },
-]
+const shortcuts = computed(() => [
+  { keys: shortcutBindings.value.app_new.join('+'), label: '新建对话' },
+  { keys: shortcutBindings.value.input_send.join('+'), label: '发送消息' },
+  { keys: shortcutBindings.value.input_newline.join('+'), label: '换行' },
+])
 </script>
 
 <template>

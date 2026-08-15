@@ -2,6 +2,7 @@ import { BaseRepository } from '../repositories/BaseRepository.js'
 import { createMediaTables } from '../../media/persistence/MediaSchema.js'
 import { createModelProviderTables } from './ModelProviderSchema.js'
 import { createSpeechProviderTables } from './SpeechProviderSchema.js'
+import { createLearningRunResultTables } from './LearningRunResultSchema.js'
 
 export class SchemaManager extends BaseRepository {
   _createTables() {
@@ -407,6 +408,7 @@ export class SchemaManager extends BaseRepository {
     createMediaTables(this.db)
     createModelProviderTables(this.db)
     createSpeechProviderTables(this.db)
+    createLearningRunResultTables(this.db)
   }
 
 }

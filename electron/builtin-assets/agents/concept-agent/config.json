@@ -5,6 +5,7 @@
   "description": "一个能用类比、例子和分层讲解，把复杂概念讲清楚的 AI 学习助手。",
   "icon": "ri-chat-quote-line",
   "color": "#6C8AFF",
+  "builtin_version": "1.1.0",
 
   "architecture": "react",
   "model": "",
@@ -17,10 +18,13 @@
   "thinking_mode": "auto",
   "thinking_intensity": "medium",
 
-  "tools": ["web_search_tavily", "file_list", "file_write", "file_read", "exec_command"],
-  "skills": ["concept-explainer", "note-skill", "learning-visualization-skill", "network-protocol-viz", "edu-solid-geometry", "edu-analytic-geometry"],
+  "tools": ["web_search_tavily", "file_list", "file_write", "file_read", "vision_analyze", "exec_command"],
+  "skills": ["concept-explainer", "note-skill", "learning-visualization-skill", "network-protocol-viz", "edu-solid-geometry", "edu-analytic-geometry", "edu-chem-reaction"],
   "sub_agents": [],
   "permissions": {
+    "fileRead": true,
+    "fileWrite": true,
+    "execCommand": true,
     "noteRead": true,
     "noteWrite": true
   }

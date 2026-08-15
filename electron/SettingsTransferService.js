@@ -58,9 +58,25 @@ function validateProviders(value) {
 
 function validateShortcutBindings(value) {
   if (!isPlainObject(value)) throw new Error('配置项 shortcutBindings 必须是对象')
+  const modifiers = new Set(['Ctrl', 'Control', 'Meta', 'Shift', 'Alt'])
+  const appActions = new Set(['global_invoke', 'app_new', 'app_search', 'app_switch'])
+  const inputActions = new Set(['input_send', 'input_newline'])
+  const fixedInputActions = new Map([['input_mention', '@'], ['input_command', '/']])
+  const namedKeys = new Set(['Enter', 'Tab', 'Space', 'Esc', 'Backspace', 'Delete', 'Insert', 'Home', 'End', 'Up', 'Down', 'Left', 'Right', 'PageUp', 'PageDown', 'PrintScreen', 'Pause'])
   for (const [action, combo] of Object.entries(value)) {
-    if (!Array.isArray(combo) || combo.some(key => typeof key !== 'string' || !key.trim())) {
+    if (!Array.isArray(combo) || !combo.length || combo.some(key => typeof key !== 'string' || !key.trim())) {
       throw new Error(`快捷键 ${action} 格式无效`)
+    }
+    if (fixedInputActions.has(action)) {
+      if (combo.length !== 1 || combo[0] !== fixedInputActions.get(action)) throw new Error(`快捷键 ${action} 只能使用固定触发符`)
+      continue
+    }
+    if (combo.every(key => modifiers.has(key))) throw new Error(`快捷键 ${action} 必须包含一个实际按键`)
+    if (appActions.has(action) && !combo.some(key => modifiers.has(key))) {
+      throw new Error(`快捷键 ${action} 必须包含 Ctrl、Shift 或 Alt`)
+    }
+    if (inputActions.has(action) && combo.length === 1 && combo[0].length === 1 && !namedKeys.has(combo[0]) && !/^F(?:[1-9]|1[0-9]|2[0-4])$/i.test(combo[0])) {
+      throw new Error(`快捷键 ${action} 不能使用单个字母或符号`)
     }
   }
 }
