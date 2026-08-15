@@ -16,6 +16,7 @@ declare module 'vue' {
     ChartsPreview: typeof import('./src/components/preview/ChartsPreview.vue')['default']
     CheatsheetPreview: typeof import('./src/components/preview/CheatsheetPreview.vue')['default']
     CommandPalette: typeof import('./src/components/CommandPalette.vue')['default']
+    copy: typeof import('./src/components/SvgIcon copy.vue')['default']
     CreationConfigModal: typeof import('./src/components/CreationConfigModal.vue')['default']
     FlashcardPreview: typeof import('./src/components/preview/FlashcardPreview.vue')['default']
     GlossaryPreview: typeof import('./src/components/preview/GlossaryPreview.vue')['default']

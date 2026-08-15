@@ -57,12 +57,12 @@ It is for anyone who wants AI to become part of a real learning and knowledge wo
 <table width="100%">
   <tr>
     <td align="center">
-      <h2>🎉 Reviva 1.0.0 Official Release</h2>
+      <h2>🎉 Reviva 1.2.0 Official Release</h2>
       <p><b>The first stable release is now available.</b></p>
       <p>Use an Agent-centered workspace to connect local materials, knowledge bases, notes, and learning tools from understanding and review to creative output.</p>
       <p><b>Agent-driven · Local-first · Multi-source chat · Visual learning · Continuous knowledge capture</b></p>
       <p>
-        <a href="https://github.com/mingchen666/Reviva/releases/latest"><img src="https://img.shields.io/badge/Download-Reviva_1.0.0-4A6CFF?style=for-the-badge&logo=github&logoColor=white" alt="Download Reviva 1.0.0" /></a>
+        <a href="https://github.com/mingchen666/Reviva/releases/latest"><img src="https://img.shields.io/badge/Download-Reviva_1.2.0-4A6CFF?style=for-the-badge&logo=github&logoColor=white" alt="Download Reviva 1.2.0" /></a>
         <a href="https://github.com/mingchen666/Reviva/releases"><img src="https://img.shields.io/badge/Release-Notes-111827?style=for-the-badge" alt="Release Notes" /></a>
         <a href="#contact-and-community"><img src="https://img.shields.io/badge/Join-Community-16A34A?style=for-the-badge" alt="Join the community" /></a>
       </p>
