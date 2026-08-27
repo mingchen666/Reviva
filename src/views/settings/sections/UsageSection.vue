@@ -29,6 +29,12 @@ function onPresetClick(val) {
   customDate.value = ''
   customMonth.value = ''
 }
+function saveRangePref(val) {
+  try {
+    const p = window.electronAPI?.db?.settings?.set?.('usageRange', val)
+    if (p?.catch) p.catch(e => console.error('saveRangePref error:', e))
+  } catch (e) { console.error('saveRangePref error:', e) }
+}
 function onCustomDateChange() { if (customDate.value) customMonth.value = '' }
 function onCustomMonthChange() { if (customMonth.value) customDate.value = '' }
 
@@ -215,6 +221,12 @@ function showTrendLabel(i) {
   if (n <= 32) return i % 2 === 0
   return i % 3 === 0
 }
+function tooltipPosClass(i) {
+  const n = trendData.value.length
+  if (n > 1 && i === 0) return 'left-0'
+  if (n > 1 && i === n - 1) return 'right-0'
+  return 'left-1/2 -translate-x-1/2'
+}
 function segWidth(row, seg) {
   return ((row[seg.key] || 0) / (row.total || 1)) * 100 + '%'
 }
@@ -227,6 +239,11 @@ function fmtTokens(n) {
   if (n >= 1_000_000) return (n / 1_000_000).toFixed(2) + 'M'
   if (n >= 1_000) return (n / 1_000).toFixed(n >= 100_000 ? 0 : 1) + 'K'
   return n.toString()
+}
+function fmtCost(n) {
+  const v = n || 0
+  if (v > 0 && v < 0.01) return v.toFixed(4)
+  return v.toFixed(2)
 }
 const topDailyUsage = computed(() => [...dailyUsage.value].sort((a, b) => b.total - a.total)[0] || null)
 const hotspotItems = computed(() => {
@@ -243,7 +260,7 @@ const hotspotItems = computed(() => {
     {
       key: 'model', label: '最高模型', icon: 'ri-cpu-line', tone: 'brand',
       name: model?.name || '暂无', value: model ? fmtTokens(model.total) : '0',
-      meta: model ? `¥${model.cost.toFixed(2)}` : '无成本',
+      meta: model ? `¥${fmtCost(model.cost)}` : '无成本',
       percent: model ? Math.min(100, model.total / total * 100) : 0,
     },
     {
@@ -282,26 +299,35 @@ const heroGlowStyle = computed(() => ({
 }))
 
 /* ── 加载 ── */
+const loading = ref(false)
+let refreshSeq = 0
 async function loadPrefs() {
   if (!window.electronAPI?.db?.settings) return
   try {
     const savedRange = await window.electronAPI.db.settings.get('usageRange')
-    if (savedRange) usageRange.value = savedRange
+    if (savedRange && rangeOptions.some(o => o.value === savedRange)) usageRange.value = savedRange
   } catch (e) { console.error('loadPrefs error:', e) }
 }
 async function refreshData() {
-  await tokenUsage.fetchAll(activeRange.value)
+  const seq = ++refreshSeq
+  loading.value = true
+  try {
+    await tokenUsage.fetchAll(activeRange.value)
+  } catch (e) {
+    if (seq === refreshSeq) console.error('refreshData error:', e)
+  } finally {
+    if (seq === refreshSeq) loading.value = false
+  }
 }
-watch(activeRange, refreshData)
+watch(activeRange, refreshData, { immediate: true })
 onMounted(async () => {
   await loadPrefs()
-  await refreshData()
   requestAnimationFrame(() => { chartReady.value = true })
 })
 </script>
 
 <template>
-  <div class="max-w-6xl mx-auto px-6 lg:px-8 py-7 space-y-5">
+  <div class="max-w-6xl mx-auto px-6 lg:px-8 py-7 space-y-5 transition-opacity duration-200" :class="loading ? 'opacity-70' : ''">
 
     <!-- ═══ 时间范围 ═══ -->
     <div class="reveal flex items-center justify-between flex-wrap gap-3">
@@ -319,6 +345,7 @@ onMounted(async () => {
         </button>
       </div>
       <div class="flex items-center gap-2">
+        <i v-if="loading" class="ri-loader-4-line animate-spin text-15px shrink-0" :class="isDark ? 'text-emerald-400' : 'text-emerald-600'" />
         <div class="usage-date-field" :class="isDark ? 'dark-field' : 'light-field'">
           <i class="ri-calendar-line date-field-icon" :class="isDark ? 'text-wt-aux' : 'text-lt-aux'" />
           <input v-model="customDate" type="date" aria-label="选择日期"
@@ -337,7 +364,7 @@ onMounted(async () => {
     </div>
 
     <!-- ═══ 总览面板 ═══ -->
-    <div class="reveal reveal-1 relative overflow-hidden rounded-xl" :class="isDark ? 'bg-d2 border border-bdr' : 'bg-l2 border border-bdrF'">
+    <div v-if="summary.call_count > 0" class="reveal reveal-1 relative overflow-hidden rounded-xl" :class="isDark ? 'bg-d2 border border-bdr' : 'bg-l2 border border-bdrF'">
       <div class="pointer-events-none absolute inset-0" :style="heroGlowStyle" />
 
       <div class="relative grid grid-cols-1 lg:grid-cols-[1.5fr_1.3fr]">
@@ -374,7 +401,7 @@ onMounted(async () => {
           class="grid grid-cols-4 gap-px border-t lg:border-t-0 lg:border-l"
           :class="isDark ? 'bg-white/6 border-bdr' : 'bg-black/6 border-bdrF'"
         >
-          <div class="px-3 sm:px-3.5 py-5 flex flex-col justify-center gap-1 transition-colors" :class="isDark ? 'bg-d2 hover:bg-white/3' : 'bg-l2 hover:bg-black/3'">
+          <div class="px-3 sm:px-3.5 py-5 flex flex-col justify-center gap-1 transition-colors min-w-0" :class="isDark ? 'bg-d2 hover:bg-white/3' : 'bg-l2 hover:bg-black/3'">
             <div class="flex items-center gap-1 sm:gap-1.5">
               <i class="ri-money-cny-circle-line text-12px sm:text-13px shrink-0" :class="isDark ? 'text-amber-400' : 'text-amber-500'" />
               <span class="text-10px sm:text-11px font-500 truncate" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">总成本</span>
@@ -382,7 +409,7 @@ onMounted(async () => {
             <div class="text-17px sm:text-20px font-bold font-mono tracking-tight" :class="isDark ? 'text-wt-main' : 'text-lt-main'">&yen;{{ summary.total_cost.toFixed(2) }}</div>
             <span class="text-10.5px truncate" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">本周期花费</span>
           </div>
-          <div class="px-3 sm:px-3.5 py-5 flex flex-col justify-center gap-1 transition-colors" :class="isDark ? 'bg-d2 hover:bg-white/3' : 'bg-l2 hover:bg-black/3'">
+          <div class="px-3 sm:px-3.5 py-5 flex flex-col justify-center gap-1 transition-colors min-w-0" :class="isDark ? 'bg-d2 hover:bg-white/3' : 'bg-l2 hover:bg-black/3'">
             <div class="flex items-center gap-1 sm:gap-1.5">
               <i class="ri-pulse-line text-12px sm:text-13px shrink-0" :class="isDark ? 'text-agent-400' : 'text-agent-500'" />
               <span class="text-10px sm:text-11px font-500 truncate" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">调用次数</span>
@@ -390,7 +417,7 @@ onMounted(async () => {
             <div class="text-17px sm:text-20px font-bold font-mono tracking-tight" :class="isDark ? 'text-wt-main' : 'text-lt-main'">{{ summary.call_count }}</div>
             <span class="text-10.5px truncate" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">本周期请求</span>
           </div>
-          <div class="px-3 sm:px-3.5 py-5 flex flex-col justify-center gap-1 transition-colors" :class="isDark ? 'bg-d2 hover:bg-white/3' : 'bg-l2 hover:bg-black/3'">
+          <div class="px-3 sm:px-3.5 py-5 flex flex-col justify-center gap-1 transition-colors min-w-0" :class="isDark ? 'bg-d2 hover:bg-white/3' : 'bg-l2 hover:bg-black/3'">
             <div class="flex items-center gap-1 sm:gap-1.5">
               <i class="ri-timer-line text-12px sm:text-13px shrink-0" :class="isDark ? 'text-sky-400' : 'text-sky-500'" />
               <span class="text-10px sm:text-11px font-500 truncate" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">平均响应</span>
@@ -398,7 +425,7 @@ onMounted(async () => {
             <div class="text-17px sm:text-20px font-bold font-mono tracking-tight" :class="isDark ? 'text-wt-main' : 'text-lt-main'">{{ (summary.avg_latency / 1000).toFixed(1) }}s</div>
             <span class="text-10.5px truncate" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">平均延迟</span>
           </div>
-          <div class="px-3 sm:px-3.5 py-5 flex flex-col justify-center gap-1 transition-colors" :class="isDark ? 'bg-d2 hover:bg-white/3' : 'bg-l2 hover:bg-black/3'">
+          <div class="px-3 sm:px-3.5 py-5 flex flex-col justify-center gap-1 transition-colors min-w-0" :class="isDark ? 'bg-d2 hover:bg-white/3' : 'bg-l2 hover:bg-black/3'">
             <div class="flex items-center gap-1 sm:gap-1.5">
               <i class="ri-database-2-line text-12px sm:text-13px shrink-0" :class="isDark ? 'text-sky-400' : 'text-sky-500'" />
               <span class="text-10px sm:text-11px font-500 truncate" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">缓存命中率</span>
@@ -463,16 +490,17 @@ onMounted(async () => {
             <div
               v-for="(d, i) in trendData"
               :key="d.label + i"
-              class="group relative flex-1 min-w-0 flex flex-col cursor-default"
+              class="group flex-1 min-w-0 flex flex-col cursor-default"
             >
               <div
-                class="pointer-events-none absolute left-1/2 -translate-x-1/2 z-20 hidden group-hover:block whitespace-nowrap rounded-md px-2 py-1 text-11px font-mono shadow-lg"
-                :class="isDark ? 'bg-d0 text-wt-main border border-d4' : 'bg-white text-lt-main border border-bdrF'"
-                :style="{ bottom: `calc(${barHeight(d.total)}% + 30px)` }"
-              >
-                {{ d.label }} · {{ fmtTokens(d.total) }}
-              </div>
-              <div class="flex-1 flex items-end justify-center">
+                class="relative flex-1 flex items-end justify-center">
+                <div
+                  class="pointer-events-none absolute z-20 hidden group-hover:block whitespace-nowrap rounded-md px-2 py-1 text-11px font-mono shadow-lg"
+                  :class="[tooltipPosClass(i), isDark ? 'bg-d0 text-wt-main border border-d4' : 'bg-white text-lt-main border border-bdrF']"
+                  :style="{ bottom: `calc(${barHeight(d.total)}% + 8px)` }"
+                >
+                  {{ d.label }} · {{ fmtTokens(d.total) }}
+                </div>
                 <div
                   class="w-full max-w-9 overflow-hidden rounded-t-md transition-all duration-300 group-hover:opacity-80"
                   :style="{ height: barHeight(d.total) + '%' }"
@@ -535,10 +563,10 @@ onMounted(async () => {
                 <template v-if="modelMetric === 'tokens'">
                   <span class="shrink-0 text-12px font-mono font-600" :class="isDark ? 'text-wt-main' : 'text-lt-main'">{{ fmtTokens(m.total) }}</span>
                   <span class="shrink-0 w-11 text-right text-10.5px font-mono hidden sm:inline" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">{{ pctOf(m.total, modelGrandTotal) }}%</span>
-                  <span class="shrink-0 w-13 text-right text-11px font-mono" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">&yen;{{ m.cost.toFixed(2) }}</span>
+                  <span class="shrink-0 w-13 text-right text-11px font-mono" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">&yen;{{ fmtCost(m.cost) }}</span>
                 </template>
                 <template v-else>
-                  <span class="shrink-0 text-12px font-mono font-600" :class="isDark ? 'text-amber-400' : 'text-amber-600'">&yen;{{ m.cost.toFixed(2) }}</span>
+                  <span class="shrink-0 text-12px font-mono font-600" :class="isDark ? 'text-amber-400' : 'text-amber-600'">&yen;{{ fmtCost(m.cost) }}</span>
                   <span class="shrink-0 w-11 text-right text-10.5px font-mono hidden sm:inline" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">{{ pctOf(m.cost, modelCostTotal) }}%</span>
                   <span class="shrink-0 w-13 text-right text-11px font-mono" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">{{ fmtTokens(m.total) }}</span>
                 </template>

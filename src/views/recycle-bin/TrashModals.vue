@@ -19,7 +19,7 @@ const modalConfig = computed(() => {
     iconBg: props.isDark ? 'bg-brand-400/8' : 'bg-brand-50',
     iconColor: 'text-brand-400',
     title: '恢复文件',
-    body: '确定要将此文件恢复到原始位置吗？',
+    body: action.name ? `确定要将「${action.name}」恢复到原始位置吗？` : '确定要将此文件恢复到原始位置吗？',
     confirmLabel: '确认恢复',
     confirmClass: props.isDark ? 'bg-brand-400 text-d0 hover:bg-brand-500' : 'bg-brand-500 text-white hover:bg-brand-600',
   }
@@ -29,7 +29,7 @@ const modalConfig = computed(() => {
     iconBg: props.isDark ? 'bg-brand-400/8' : 'bg-brand-50',
     iconColor: 'text-brand-400',
     title: '批量恢复',
-    body: `确定要恢复选中的 ${action.target?.length || 0} 个文件吗？`,
+    body: `确定要恢复选中的 ${action.target?.length || 0} 个项目吗？`,
     confirmLabel: '确认恢复',
     confirmClass: props.isDark ? 'bg-brand-400 text-d0 hover:bg-brand-500' : 'bg-brand-500 text-white hover:bg-brand-600',
   }
@@ -39,7 +39,7 @@ const modalConfig = computed(() => {
     iconBg: props.isDark ? 'bg-red-400/8' : 'bg-red-50',
     iconColor: 'text-red-400',
     title: '永久删除',
-    body: '永久删除此文件？此操作不可撤销，文件将无法恢复。',
+    body: action.name ? `永久删除「${action.name}」？此操作不可撤销，文件将无法恢复。` : '永久删除此文件？此操作不可撤销，文件将无法恢复。',
     confirmLabel: '确认删除',
     confirmClass: 'bg-red-500 text-white hover:bg-red-600',
   }
@@ -49,7 +49,7 @@ const modalConfig = computed(() => {
     iconBg: props.isDark ? 'bg-red-400/8' : 'bg-red-50',
     iconColor: 'text-red-400',
     title: '批量永久删除',
-    body: `永久删除选中的 ${action.target?.length || 0} 个文件？此操作不可撤销。`,
+    body: `永久删除选中的 ${action.target?.length || 0} 个项目？此操作不可撤销。`,
     confirmLabel: '确认删除',
     confirmClass: 'bg-red-500 text-white hover:bg-red-600',
   }
@@ -59,7 +59,7 @@ const modalConfig = computed(() => {
     iconBg: props.isDark ? 'bg-red-400/8' : 'bg-red-50',
     iconColor: 'text-red-400',
     title: '清空回收站',
-    body: '清空回收站？所有文件将被永久删除，此操作不可撤销。',
+    body: '清空回收站？所有项目将被永久删除，此操作不可撤销。',
     confirmLabel: '清空回收站',
     confirmClass: 'bg-red-500 text-white hover:bg-red-600',
   }

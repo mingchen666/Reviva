@@ -21,6 +21,8 @@ const viewMode = ref('grid')      // 'grid' | 'list'
 const searchQuery = ref('')
 const selectedIds = ref([])
 const confirmAction = ref(null)   // { type, target?, count? }
+const activeCategory = ref('')
+const locateId = ref(null)
 
 // ─── Category helpers ───
 const categoryMeta = {
@@ -32,8 +34,9 @@ const categoryMeta = {
   archive:     { icon: 'ri-file-zip-line', color: '#FACC15', label: '压缩包' },
   code:        { icon: 'ri-code-line', color: '#34D399', label: '代码' },
   chat:        { icon: 'ri-message-3-line', color: '#A78BFA', label: '对话' },
-  note:        { icon: 'ri-sticky-note-line', color: '#34D399', label: '笔记' },
+  note:        { icon: 'ri-booklet-line', color: '#34D399', label: '笔记' },
   note_folder: { icon: 'ri-folder-3-line', color: '#34D399', label: '笔记文件夹' },
+  artifact: { icon: 'ri-sparkling-line', color: '#68F399', label: '创作产物' },
   other:       { icon: 'ri-file-line', color: '#78788a', label: '其他' },
 }
 
@@ -61,10 +64,16 @@ function formatItemSize(item) {
 function formatDate(isoStr) {
   if (!isoStr) return '--'
   const d = new Date(isoStr)
-  return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+  const hm = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+  if (d.getFullYear() !== new Date().getFullYear()) return `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()} ${hm}`
+  return `${d.getMonth() + 1}/${d.getDate()} ${hm}`
 }
 
 // ─── Actions ───
+function findItemName(trashId) {
+  return recycleBinStore.items.find(i => i.id === trashId)?.original_name || ''
+}
+
 async function restoreItem(trashId) {
   const result = await recycleBinStore.restoreItem(trashId)
   selectedIds.value = selectedIds.value.filter(id => id !== trashId)
@@ -132,8 +141,11 @@ watch(() => settingsStore.workDirRoot, (newVal) => {
         :total-count="recycleBinStore.totalCount"
         :date-groups="recycleBinStore.dateGroups"
         :category-groups="recycleBinStore.categoryGroups"
-        @update:groupMode="groupMode = $event"
+        :active-category="activeCategory"
+        @update:groupMode="groupMode = $event; activeCategory = ''"
         @update:searchQuery="searchQuery = $event"
+        @select-category="activeCategory = activeCategory === $event ? '' : $event"
+        @locate-item="locateId = $event"
         @empty-trash="confirmAction = { type: 'empty' }"
         :get-category-icon="getCategoryIcon"
         :get-category-color="getCategoryColor"
@@ -153,10 +165,15 @@ watch(() => settingsStore.workDirRoot, (newVal) => {
         :is-ready="isReady"
         @update:viewMode="viewMode = $event"
         @update:selectedIds="selectedIds = $event"
-        @restore="confirmAction = { type: 'restore', target: $event }"
+        @restore="confirmAction = { type: 'restore', target: $event, name: findItemName($event) }"
         @restore-batch="confirmAction = { type: 'restoreBatch', target: $event }"
-        @delete="confirmAction = { type: 'delete', target: $event }"
+        @delete="confirmAction = { type: 'delete', target: $event, name: findItemName($event) }"
         @delete-batch="confirmAction = { type: 'deleteBatch', target: $event }"
+        :active-category="activeCategory"
+        :locate-id="locateId"
+        @clear-category="activeCategory = ''"
+        @clear-locate="locateId = null"
+        @clear-search="searchQuery = ''"
         :get-category-icon="getCategoryIcon"
         :get-category-color="getCategoryColor"
         :get-category-label="getCategoryLabel"

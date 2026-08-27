@@ -1,12 +1,15 @@
 <script setup>
-import { ref, watch, onMounted, onBeforeUnmount } from 'vue'
+import { ref, watch, computed, onMounted, onBeforeUnmount, defineAsyncComponent } from 'vue'
 import { useMessage } from '@/components/MsMessage/useMessage'
 import { useMessageBox } from '@/components/MsMessageBox/useMessageBox'
 import { useRecycleBinStore } from '@/stores/recycleBin'
+import { useSettingsStore } from '@/stores/settings'
 import { GENERATION_TASK_TOOL_IDS } from '@/config/creationTools'
 import BuiltinTools from './BuiltinTools.vue'
-import AgentSkills from './AgentSkills.vue'
 import ArtifactList from './ArtifactList.vue'
+
+// Async import: the skills panel chunk is only loaded when it is visible
+const AgentSkills = defineAsyncComponent(() => import('./AgentSkills.vue'))
 
 const props = defineProps({
   isDark: Boolean,
@@ -24,6 +27,8 @@ const TASK_TOOLS = GENERATION_TASK_TOOL_IDS
 const msg = useMessage()
 const mbox = useMessageBox()
 const recycleBin = useRecycleBinStore()
+const settingsStore = useSettingsStore()
+const showAgentSkills = computed(() => settingsStore.agentSkillsPanelEnabled === true)
 
 async function refreshResults() {
   const requestId = ++refreshRequestId
@@ -232,6 +237,7 @@ async function viewArtifactDetail(payload) {
     <div class="flex-1 flex flex-col overflow-hidden min-h-0">
       <BuiltinTools :is-dark="isDark" @tool-action="(t) => emit('tool-action', t)" />
       <AgentSkills
+        v-if="showAgentSkills"
         :is-dark="isDark"
         :selected-agent="selectedAgent"
         @select-skill="(skill) => emit('select-skill', skill)" />

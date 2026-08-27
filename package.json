@@ -4,7 +4,7 @@
   "author": "Reviva",
   "license": "AGPL-3.0",
   "description": "Reviva是AI 学习工作台，围绕你的资料完成问答、笔记、复习和创作输出。是一个面向学习、研究和知识工作的本地桌面 Agent。它把对话、文档、知识库、笔记、复习工具和创作输出放在同一个工作台里。",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "type": "module",
   "scripts": {
     "dev": "vite",

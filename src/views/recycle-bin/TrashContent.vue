@@ -1,5 +1,5 @@
 <script setup>
-import { computed } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 
 const props = defineProps({
   isDark: Boolean,
@@ -9,6 +9,8 @@ const props = defineProps({
   selectedIds: Array,
   totalCount: Number,
   isReady: Boolean,
+  activeCategory: String,
+  locateId: { type: [String, Number], default: null },
   getCategoryIcon: Function,
   getCategoryColor: Function,
   getCategoryLabel: Function,
@@ -20,12 +22,17 @@ const props = defineProps({
 const emit = defineEmits([
   'update:viewMode', 'update:selectedIds',
   'restore', 'restoreBatch', 'delete', 'deleteBatch',
+  'clear-category', 'clear-locate', 'clear-search',
 ])
 
 const filteredItems = computed(() => {
-  if (!props.searchQuery) return props.items
-  const q = props.searchQuery.toLowerCase()
-  return props.items.filter(f => f.original_name.toLowerCase().includes(q))
+  let arr = props.items
+  if (props.activeCategory) arr = arr.filter(f => f.category === props.activeCategory)
+  if (props.searchQuery) {
+    const q = props.searchQuery.toLowerCase()
+    arr = arr.filter(f => f.original_name.toLowerCase().includes(q))
+  }
+  return arr
 })
 
 const isAllSelected = computed(() => {
@@ -47,6 +54,24 @@ function toggleSelect(id) {
   else current.push(id)
   emit('update:selectedIds', current)
 }
+
+// Locate an item coming from the sidebar: clear blocking filters, scroll & flash
+const locateFlashId = ref(null)
+let locateFlashTimer = null
+watch(() => props.locateId, async (id) => {
+  if (id === null || id === undefined) return
+  emit('clear-locate')
+  await nextTick()
+  const find = () => document.querySelector(`[data-trash-id="${CSS.escape(String(id))}"]`)
+  let el = find()
+  if (!el && props.searchQuery) { emit('clear-search'); await nextTick(); el = find() }
+  if (!el && props.activeCategory) { emit('clear-category'); await nextTick(); el = find() }
+  if (!el) return
+  el.scrollIntoView({ block: 'center', behavior: 'smooth' })
+  locateFlashId.value = id
+  clearTimeout(locateFlashTimer)
+  locateFlashTimer = setTimeout(() => { locateFlashId.value = null }, 1600)
+})
 
 function getOriginalPathShort(item) {
   if (!item.original_path) return ''
@@ -93,6 +118,13 @@ function getOriginalPathShort(item) {
           :class="isDark ? 'text-wt-dim bg-d3 border border-bdr' : 'text-lt-aux bg-l3 border border-bdrF'">
           {{ totalCount }} 个项目
         </span>
+        <span v-if="activeCategory" @click="emit('clear-category')" title="清除分类筛选"
+          class="ctx-pill shrink-0 cursor-pointer"
+          :class="isDark ? 'text-brand-400 bg-brand-400/8 border border-brand-400/20 hover:bg-brand-400/15' : 'text-brand-500 bg-brand-50 border border-brand-100 hover:bg-brand-100'">
+          <i :class="getCategoryIcon(activeCategory)" class="text-[12px]" :style="`color: ${getCategoryColor(activeCategory)}`" />
+          {{ getCategoryLabel(activeCategory) }}
+          <i class="ri-close-line text-[12px]" />
+        </span>
       </div>
 
       <div class="flex items-center gap-1.5 shrink-0">
@@ -127,6 +159,11 @@ function getOriginalPathShort(item) {
             :class="isDark ? 'text-red-400 bg-red-400/8 border border-red-400/20 hover:bg-red-400/15' : 'text-red-500 bg-red-50 border border-red-100 hover:bg-red-100'">
             <i class="ri-delete-bin-line text-[13px]" />永久删除 {{ selectedIds.length }}
           </button>
+          <button @click="emit('update:selectedIds', [])"
+            class="h-7 px-2 rounded-lg text-[11px] transition-colors shrink-0"
+            :class="isDark ? 'text-wt-aux hover:text-wt-sub hover:bg-white/5' : 'text-lt-aux hover:text-lt-sub hover:bg-l4'">
+            取消选择
+          </button>
         </template>
 
         <!-- Select all -->
@@ -158,9 +195,11 @@ function getOriginalPathShort(item) {
         class="grid gap-3" style="grid-template-columns: repeat(auto-fill, minmax(180px, 1fr))">
 
         <div v-for="item in filteredItems" :key="item.id"
+          :data-trash-id="item.id"
           class="doc-card rounded-xl cursor-pointer overflow-hidden flex flex-col h-[160px] transition-all duration-200 relative group"
           :class="[isDark ? 'bg-d3 border border-bdr' : 'bg-l3 border border-bdrF',
-            selectedIds.includes(item.id) ? (isDark ? 'ring-1 ring-brand-400/30' : 'ring-1 ring-brand-200') : '']"
+            selectedIds.includes(item.id) ? (isDark ? 'ring-1 ring-brand-400/30' : 'ring-1 ring-brand-200') : '',
+            locateFlashId === item.id ? 'trash-locate-flash' : '']"
           @click="toggleSelect(item.id)">
 
           <!-- Checkbox overlay -->
@@ -198,7 +237,7 @@ function getOriginalPathShort(item) {
             <button @click.stop="emit('delete', item.id)"
               class="h-6 px-2 rounded-md text-[14px] font-medium flex items-center gap-1 transition-colors"
               :class="isDark ? 'bg-red-400/8 text-red-400 hover:bg-red-400/15' : 'bg-red-50 text-red-500 hover:bg-red-100'">
-              <i class="ri-delete-bin-line text-[11px]" />删除
+              <i class="ri-delete-bin-line text-[11px]" />永久删除
             </button>
           </div>
         </div>
@@ -208,10 +247,12 @@ function getOriginalPathShort(item) {
       <div v-if="viewMode === 'list' && filteredItems.length > 0" class="space-y-1">
 
         <div v-for="item in filteredItems" :key="item.id"
+          :data-trash-id="item.id"
           class="flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-all group"
-          :class="selectedIds.includes(item.id)
+          :class="[selectedIds.includes(item.id)
             ? (isDark ? 'bg-brand-400/8' : 'bg-brand-50')
-            : (isDark ? 'hover:bg-white/4' : 'hover:bg-l4')"
+            : (isDark ? 'hover:bg-white/4' : 'hover:bg-l4'),
+            locateFlashId === item.id ? 'trash-locate-flash' : '']"
           @click="toggleSelect(item.id)">
 
           <!-- Checkbox -->
@@ -267,4 +308,9 @@ function getOriginalPathShort(item) {
 <style scoped>
 .ctx-pill { font-size: 12.5px; border-radius: 6px; padding: 3px 8px; display: inline-flex; align-items: center; gap: 4px; transition: all .15s }
 .doc-card:hover { transform: translateY(-2px) }
+@keyframes trash-locate {
+  0% { box-shadow: 0 0 0 2px rgba(108, 138, 255, 0.75); }
+  100% { box-shadow: 0 0 0 2px rgba(108, 138, 255, 0); }
+}
+.trash-locate-flash { animation: trash-locate 1.5s ease-out both; }
 </style>

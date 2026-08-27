@@ -8,13 +8,14 @@ const props = defineProps({
   totalCount: Number,
   dateGroups: Array,
   categoryGroups: Array,
+  activeCategory: String,
   getCategoryIcon: Function,
   getCategoryColor: Function,
   getCategoryLabel: Function,
 })
 
 const emit = defineEmits([
-  'update:groupMode', 'update:searchQuery', 'emptyTrash',
+  'update:groupMode', 'update:searchQuery', 'emptyTrash', 'select-category', 'locate-item',
 ])
 
 const filteredDateGroups = computed(() => {
@@ -52,7 +53,7 @@ const filteredCategoryGroups = computed(() => {
   <!-- Search -->
   <div class="px-3 py-2 shrink-0">
     <div class="relative">
-      <i class="ri-search-line absolute left-2.5 top-[8px] text-[12px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'" />
+      <i class="ri-search-line absolute left-2.5 top-1/2 -translate-y-1/2 text-[12px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'" />
       <input :value="searchQuery" @input="emit('update:searchQuery', $event.target.value)" type="text" placeholder="搜索..."
         class="w-full h-8 rounded-md py-0 pl-7 pr-2 text-[12px] outline-none transition-colors"
         :class="isDark ? 'bg-d0 border border-d4 text-wt-sub placeholder-wt-dim focus:border-brand-400/40' : 'bg-l2 border border-bdrL text-lt-sub placeholder-lt-aux focus:border-brand-400'" />
@@ -91,6 +92,7 @@ const filteredCategoryGroups = computed(() => {
           {{ group.label }} · {{ group.files.length }}
         </div>
         <button v-for="item in group.files" :key="item.id"
+          @click="emit('locate-item', item.id)" :title="item.original_name"
           class="w-full flex items-center gap-2 px-2.5 py-[6px] rounded-md transition-colors"
           :class="isDark ? 'text-wt-sub hover:bg-white/4' : 'text-lt-sub hover:bg-l4'">
           <i :class="getCategoryIcon(item.category)" class="text-[14px] shrink-0"
@@ -99,9 +101,9 @@ const filteredCategoryGroups = computed(() => {
         </button>
       </template>
 
-      <div v-if="filteredDateGroups.length === 0" class="flex flex-col items-center justify-center py-8 gap-2">
-        <i class="ri-delete-bin-line text-[20px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'" />
-        <span class="text-[12px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">回收站为空</span>
+      <div v-if="filteredDateGroups.length === 0" class="flex flex-col items-center justify-center py-8 gap-2 px-3 text-center">
+        <i :class="[searchQuery && totalCount > 0 ? 'ri-search-line' : 'ri-delete-bin-line', 'text-[20px]', isDark ? 'text-wt-dim' : 'text-lt-aux']" />
+        <span class="text-[12px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">{{ searchQuery && totalCount > 0 ? '没有匹配的项目' : '回收站为空' }}</span>
       </div>
     </template>
 
@@ -109,7 +111,11 @@ const filteredCategoryGroups = computed(() => {
     <template v-if="groupMode === 'category'">
       <template v-for="group in filteredCategoryGroups" :key="group.key">
         <button class="w-full flex items-center gap-2.5 px-2.5 py-[7px] rounded-md transition-colors"
-          :class="isDark ? 'text-wt-sub hover:bg-white/4' : 'text-lt-sub hover:bg-l4'">
+          @click="emit('select-category', group.key)"
+          :title="getCategoryLabel(group.key)"
+          :class="activeCategory === group.key
+            ? (isDark ? 'bg-brand-400/12 text-brand-400' : 'bg-brand-50 text-brand-500')
+            : (isDark ? 'text-wt-sub hover:bg-white/4' : 'text-lt-sub hover:bg-l4')">
           <div class="w-[22px] h-[22px] rounded-md flex items-center justify-center shrink-0"
             :class="isDark ? 'bg-d0' : 'bg-l2'">
             <i :class="getCategoryIcon(group.key) + ' text-[13px]'" :style="`color: ${getCategoryColor(group.key)}`" />
@@ -119,9 +125,9 @@ const filteredCategoryGroups = computed(() => {
         </button>
       </template>
 
-      <div v-if="filteredCategoryGroups.length === 0" class="flex flex-col items-center justify-center py-8 gap-2">
-        <i class="ri-delete-bin-line text-[20px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'" />
-        <span class="text-[12px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">回收站为空</span>
+      <div v-if="filteredCategoryGroups.length === 0" class="flex flex-col items-center justify-center py-8 gap-2 px-3 text-center">
+        <i :class="[searchQuery && totalCount > 0 ? 'ri-search-line' : 'ri-delete-bin-line', 'text-[20px]', isDark ? 'text-wt-dim' : 'text-lt-aux']" />
+        <span class="text-[12px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">{{ searchQuery && totalCount > 0 ? '没有匹配的项目' : '回收站为空' }}</span>
       </div>
     </template>
   </div>

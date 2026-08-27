@@ -606,6 +606,7 @@ export const useSettingsStore = defineStore('settings', () => {
   const conflictStrategy = ref('ask')
   const quickInputEnabled = ref(false)
   const creationToolPreferences = ref(normalizeCreationToolPreferences())
+  const agentSkillsPanelEnabled = ref(false)
   const chatNavigationEnabled = ref(true)
   const chatNavigationStyle = ref('directory')
 
@@ -1028,7 +1029,7 @@ export const useSettingsStore = defineStore('settings', () => {
   async function savePreference(key, value) {
     const refsMap = {
       themeId, themeMode, accentColor, customAccentHex, fontSize,
-      langPref, animations, reducedMotion, answerStyle, conflictStrategy, quickInputEnabled, creationToolPreferences, chatNavigationEnabled, chatNavigationStyle,
+      langPref, animations, reducedMotion, answerStyle, conflictStrategy, quickInputEnabled, creationToolPreferences, agentSkillsPanelEnabled, chatNavigationEnabled, chatNavigationStyle,
       proxyMode, proxyType, proxyHost, proxyPort, proxyAuth, proxyUser, proxyPass, wikiWebResearchSettings,
       maxIter, maxTaskMin, searchLimit, fileOpLimit, toolCallLimit, modelCallLimit, loopGuard, auditDays, pathRedact, allowFileDelete, deleteScope, allowExecCommand, commandWhitelist, commandBlacklist,
       notifyTaskDone, notifyTaskFailed, notifySound, notifySoundType, notifyDND,
@@ -1047,6 +1048,9 @@ export const useSettingsStore = defineStore('settings', () => {
     } else if (key === 'chatNavigationStyle') {
       value = _sanitizeChatNavigationStyle(value)
       chatNavigationStyle.value = value
+    } else if (key === 'agentSkillsPanelEnabled') {
+      value = value === true
+      agentSkillsPanelEnabled.value = value
     } else if (refsMap[key]) {
       refsMap[key].value = value
     }
@@ -1115,6 +1119,7 @@ export const useSettingsStore = defineStore('settings', () => {
       conflictStrategy.value = all.conflictStrategy ?? 'ask'
       quickInputEnabled.value = all.quickInputEnabled === true
       creationToolPreferences.value = normalizeCreationToolPreferences(all.creationToolPreferences)
+      agentSkillsPanelEnabled.value = all.agentSkillsPanelEnabled === true
       chatNavigationEnabled.value = all.chatNavigationEnabled !== false
       chatNavigationStyle.value = _sanitizeChatNavigationStyle(all.chatNavigationStyle)
 
@@ -1439,7 +1444,7 @@ export const useSettingsStore = defineStore('settings', () => {
     themeId, themeMode, accentColor, customAccentHex, fontSize, langPref,
     userThemes, themeLoadErrors, themesLoading, availableThemes,
     customCss, pendingCustomCss, customCssPreviewing, customCssBusy, customCssSecondsRemaining,
-    animations, reducedMotion, answerStyle, conflictStrategy, quickInputEnabled, creationToolPreferences, chatNavigationEnabled, chatNavigationStyle,
+    animations, reducedMotion, answerStyle, conflictStrategy, quickInputEnabled, creationToolPreferences, agentSkillsPanelEnabled, chatNavigationEnabled, chatNavigationStyle,
     ACCENT_PRESETS, BUILTIN_THEMES,
     // Network
     proxyMode, proxyType, proxyHost, proxyPort, proxyAuth, proxyUser, proxyPass, wikiWebResearchSettings,
