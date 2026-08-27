@@ -62,7 +62,7 @@ Reviva = 本地资料库 + Wiki 知识库 + AI Agent + 知识库检索 + 笔记�
       <p>以 Agent 为核心，连接本地资料、知识库、笔记与学习工具，完成从理解、复习到创作输出的完整学习工作流。</p>
       <p><b>Agent 驱动 · 本地优先 · 多资料对话 · 可视化学习 · 知识持续沉淀</b></p>
       <p>
-        <a href="https://github.com/mingchen666/Reviva/releases/latest"><img src="https://img.shields.io/badge/Download-Reviva_1.2.0-4A6CFF?style=for-the-badge&logo=github&logoColor=white" alt="下载 Reviva 1.2.0" /></a>
+        <a href="https://github.com/mingchen666/Reviva/releases/latest"><img src="https://img.shields.io/badge/Download-Reviva_1.2.1-4A6CFF?style=for-the-badge&logo=github&logoColor=white" alt="下载 Reviva 1.2.1" /></a>
         <a href="https://github.com/mingchen666/Reviva/releases"><img src="https://img.shields.io/badge/Release-更新日志-111827?style=for-the-badge" alt="查看发布说明" /></a>
         <a href="#联系与交流"><img src="https://img.shields.io/badge/Join-交流群-16A34A?style=for-the-badge" alt="加入用户交流群" /></a>
       </p>
