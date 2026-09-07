@@ -21,6 +21,7 @@ export function withPermissionAgentTools(toolIds, permissions = {}) {
 
 export function hasCloudKnowledgeScope(cloudContext) {
   return !!(
+    (cloudContext?.activeSourceId) ||
     (Array.isArray(cloudContext?.defaultKbIds) && cloudContext.defaultKbIds.length) ||
     (Array.isArray(cloudContext?.defaultDocIds) && cloudContext.defaultDocIds.length)
   )

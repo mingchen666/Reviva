@@ -29,7 +29,11 @@ function copyPath() {
   }
 }
 
+const KB_TYPES = ['cloud_kb', 'cloud_doc', 'kb', 'kb_source', 'mcp_source']
+const isKnowledgeItem = computed(() => KB_TYPES.includes(props.file?.type))
+
 const fileCategory = computed(() => {
+  if (isKnowledgeItem.value) return 'kb'
   const e = ext.value
   if (['pdf'].includes(e)) return 'pdf'
   if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg'].includes(e)) return 'image'
@@ -41,6 +45,7 @@ const fileCategory = computed(() => {
 })
 
 const fileIcon = computed(() => ({
+  kb: 'ri-database-2-line',
   pdf: 'ri-file-pdf-2-line',
   image: 'ri-image-line',
   audio: 'ri-music-line',
@@ -51,6 +56,7 @@ const fileIcon = computed(() => ({
 }[fileCategory.value]))
 
 const iconColor = computed(() => ({
+  kb: isD => isD ? 'text-brand-300' : 'text-brand-600',
   pdf: isD => isD ? 'text-red-400' : 'text-red-500',
   image: isD => isD ? 'text-emerald-400' : 'text-emerald-500',
   audio: isD => isD ? 'text-sky-400' : 'text-sky-500',
@@ -61,6 +67,7 @@ const iconColor = computed(() => ({
 }[fileCategory.value](props.isDark)))
 
 const iconBg = computed(() => ({
+  kb: isD => isD ? 'bg-brand-400/10' : 'bg-brand-50',
   pdf: isD => isD ? 'bg-red-400/10' : 'bg-red-50',
   image: isD => isD ? 'bg-emerald-400/10' : 'bg-emerald-50',
   audio: isD => isD ? 'bg-sky-400/10' : 'bg-sky-50',
@@ -71,6 +78,7 @@ const iconBg = computed(() => ({
 }[fileCategory.value](props.isDark)))
 
 const stripeColor = computed(() => ({
+  kb: isD => isD ? 'bg-brand-400' : 'bg-brand-500',
   pdf: isD => isD ? 'bg-red-400' : 'bg-red-500',
   image: isD => isD ? 'bg-emerald-400' : 'bg-emerald-500',
   audio: isD => isD ? 'bg-sky-400' : 'bg-sky-500',
@@ -81,6 +89,7 @@ const stripeColor = computed(() => ({
 }[fileCategory.value](props.isDark)))
 
 const typeLabel = computed(() => ({
+  kb: '知识源',
   pdf: 'PDF', image: '图片', audio: '音频', video: '视频',
   code: '代码', text: '文档', other: '文件',
 }[fileCategory.value]))
@@ -119,15 +128,15 @@ function formatSize(bytes) {
         :class="isDark ? 'text-violet-300 hover:bg-violet-400/10' : 'text-violet-600 hover:bg-violet-50'" title="媒体解析详情">
         <i class="ri-file-list-3-line text-[12px]" />
       </button>
-      <button @click.stop="openExternally" class="h-5 w-5 rounded flex items-center justify-center transition-colors"
+      <button v-if="file.path" @click.stop="openExternally" class="h-5 w-5 rounded flex items-center justify-center transition-colors"
         :class="isDark ? 'text-wt-aux hover:text-wt-sub hover:bg-white/5' : 'text-lt-aux hover:text-lt-sub hover:bg-l4'" title="打开">
         <i class="ri-external-link-line text-[12px]" />
       </button>
-      <button @click.stop="copyPath" class="h-5 w-5 rounded flex items-center justify-center transition-colors"
+      <button v-if="file.path" @click.stop="copyPath" class="h-5 w-5 rounded flex items-center justify-center transition-colors"
         :class="isDark ? 'text-wt-aux hover:text-wt-sub hover:bg-white/5' : 'text-lt-aux hover:text-lt-sub hover:bg-l4'" title="复制路径">
         <i class="ri-clipboard-line text-[12px]" />
       </button>
-      <button @click.stop="showInFolder" class="h-5 w-5 rounded flex items-center justify-center transition-colors"
+      <button v-if="file.path" @click.stop="showInFolder" class="h-5 w-5 rounded flex items-center justify-center transition-colors"
         :class="isDark ? 'text-wt-aux hover:text-wt-sub hover:bg-white/5' : 'text-lt-aux hover:text-lt-sub hover:bg-l4'" title="在文件夹中显示">
         <i class="ri-folder-open-line text-[12px]" />
       </button>

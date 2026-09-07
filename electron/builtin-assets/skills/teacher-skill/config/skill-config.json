@@ -1,0 +1,107 @@
+{
+  "version": "1.0.0",
+  "name": "teacher-skills",
+  "description": "AI老师Skill - 给定资料后像老师一样教会用户理解内容",
+  "author": "teacher-skills",
+  "license": "MIT",
+  "skill": {
+    "entry": "SKILL.md",
+    "type": "teaching",
+    "supported_formats": ["pdf", "txt", "md", "html", "docx", "epub"],
+    "max_context_units": 50,
+    "default_check_interval": 1
+  },
+  "learner_levels": {
+    "beginner": {
+      "label": "初学者",
+      "icon": "🔴",
+      "teaching_ratio": "70%讲解 / 30%练习",
+      "check_frequency": "每步检查",
+      "question_types": ["选择题", "判断题", "填空题"]
+    },
+    "intermediate": {
+      "label": "中等基础",
+      "icon": "🟡",
+      "teaching_ratio": "50%讲解 / 50%练习",
+      "check_frequency": "每概念检查",
+      "question_types": ["复述题", "应用题", "改错题"]
+    },
+    "advanced": {
+      "label": "强基础",
+      "icon": "🟢",
+      "teaching_ratio": "30%讲解 / 70%练习",
+      "check_frequency": "每2-3概念检查",
+      "question_types": ["分析题", "综合题", "设计题"]
+    }
+  },
+  "teaching_phases": [
+    {
+      "phase": 0,
+      "name": "接收资料",
+      "required": true
+    },
+    {
+      "phase": 1,
+      "name": "学情诊断",
+      "required": true,
+      "sub_steps": ["基本信息收集", "能力快速评估", "告知判断结果"]
+    },
+    {
+      "phase": 2,
+      "name": "制定学习路线",
+      "required": true,
+      "sub_steps": ["确定教学顺序", "拆分学习单元", "设定检查点"]
+    },
+    {
+      "phase": 3,
+      "name": "逐单元教学",
+      "required": true,
+      "sub_steps": ["单元导入", "概念讲解", "理解检查", "巩固与过渡"]
+    },
+    {
+      "phase": 4,
+      "name": "阶段性回顾",
+      "interval": "每3-5个单元"
+    },
+    {
+      "phase": 5,
+      "name": "学习完成总结",
+      "required": true
+    }
+  ],
+  "scripts": {
+    "generate_quiz": {
+      "path": "scripts/generate_quiz.py",
+      "description": "根据概念和等级生成练习题模板",
+      "usage": "python scripts/generate_quiz.py --concept <概念> --level <等级> --type <题型>"
+    },
+    "evaluate_answer": {
+      "path": "scripts/evaluate_answer.py",
+      "description": "评估用户答案并生成反馈模板",
+      "usage": "python scripts/evaluate_answer.py --answer <答案> --expected <期望> --level <等级>"
+    },
+    "track_progress": {
+      "path": "scripts/track_progress.py",
+      "description": "追踪学习进度",
+      "usage": "python scripts/track_progress.py --init --topic <主题> --total-units <数量>"
+    }
+  },
+  "references": [
+    {
+      "path": "ref/learner-diagnosis.md",
+      "description": "学情诊断指南"
+    },
+    {
+      "path": "ref/teaching-strategies.md",
+      "description": "三级教学策略详细定义"
+    },
+    {
+      "path": "ref/teaching-techniques.md",
+      "description": "通俗化讲解技巧和类比库"
+    },
+    {
+      "path": "ref/question-templates.md",
+      "description": "各类型题目出题模板"
+    }
+  ]
+}

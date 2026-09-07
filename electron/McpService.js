@@ -382,11 +382,19 @@ export class McpService {
   }
 
   // Close every client returned from getActiveTools.
-  async closeClients(clients) {
-    if (!clients?.length) return
-    for (const c of clients) {
-      try { await c.close() } catch {}
-    }
+ async closeClients(clients) {
+   if (!clients?.length) return
+   for (const c of clients) {
+     try { await c.close() } catch {}
+   }
+ }
+ 
+  // Read cached tools for a server from the DB (no network call).
+  getCachedTools(serverId) {
+    if (!serverId || !this._db) return []
+    const row = this._db.getMcpServer(serverId)
+    if (!row) return []
+    return Array.isArray(row.tools_cache) ? row.tools_cache : []
   }
 
   // Legacy alias for the single-client case (kept so existing callers don't break).

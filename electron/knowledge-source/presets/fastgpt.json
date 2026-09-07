@@ -1,0 +1,41 @@
+{
+  "preset": "fastgpt",
+  "name": "FastGPT",
+  "type": "http",
+  "base_url": "https://api.fastgpt.in/api",
+  "auth": {
+    "type": "bearer",
+    "token": "{{USER_TOKEN}}"
+  },
+  "capabilities": {
+    "interfaces": [
+      "search"
+    ],
+    "content_types": [
+      "text"
+    ]
+  },
+  "endpoints": {
+    "search": {
+      "method": "POST",
+      "path": "/core/dataset/searchTest",
+      "body": {
+        "datasetId": "{DATASET_ID}",
+        "text": "{query}",
+        "similarity": 0.4,
+        "searchMode": "embedding",
+        "usingReRank": false
+      },
+      "response": {
+        "items_path": "data",
+        "field_mapping": {
+          "content": "q",
+          "title": "sourceName",
+          "source": "id",
+          "score": "score"
+        },
+        "total_path": ""
+      }
+    }
+  }
+}

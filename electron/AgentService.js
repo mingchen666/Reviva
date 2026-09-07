@@ -101,6 +101,9 @@ import { ChatOpenAIResponsesCompat, normalizeAnthropicApiUrl } from './agents/ru
 import { MemorySaver, InMemoryStore, Command } from '@langchain/langgraph'
 import { HumanMessage } from '@langchain/core/messages'
 import { getLangchainTools, getUserDefinedLangchainTools, setToolProviderConfig, setWorkDirService, setDbService, setWikiService as setWikiServiceForTools, setMcpService as setMcpServiceForTools, setMediaQueryService as setMediaQueryServiceForTools, setNoteFileService as setNoteFileServiceForTools, setVisionAnalyzeHandler, resetTaskCounters, setExecCommandConfig, setCloudContext, setToolRunContext } from './agents/langchainTools.js'
+import { getMcpSourceAdapter } from './knowledge-source/adapters/McpSourceAdapter.js'
+import { setKnowledgeSourceRegistry } from './agents/langchainTools.js'
+import { KnowledgeSourceRegistry } from './knowledge-source/KnowledgeSourceRegistry.js'
 import { buildProjectSystemPrompt } from './agents/prompts/projectSystemPrompt.js'
 import { TokenRecorder } from './agents/TokenRecorder.js'
 import { ErrorClassifier } from './agents/ErrorClassifier.js'
@@ -154,6 +157,12 @@ export class AgentService {
     setNoteFileServiceForTools(this._noteFileService)
     setMcpServiceForTools(this._mcpService)
     setVisionAnalyzeHandler((args, context) => this._visionAnalyzeService.analyze(args, context))
+
+    // Initialize KnowledgeSourceRegistry and inject into langchainTools
+    this._kbRegistry = new KnowledgeSourceRegistry(this._db)
+    this._kbRegistry.reload()
+    getMcpSourceAdapter(this._mcpService)
+    setKnowledgeSourceRegistry(this._kbRegistry)
 
     // Load builtin agent modules (创作中心 agents)
     this._builtinModules = this._loadBuiltinAgentModules()
@@ -405,13 +414,14 @@ export class AgentService {
 
   _createModel(providerId, apiKey, baseUrl, modelName, options = {}) {
     const common = { apiKey, model: modelName, maxRetries: 1 }
+    const timeout = options.timeout || 180000
     if (options.temperature !== undefined) common.temperature = options.temperature
     if (options.maxTokens) common.maxTokens = options.maxTokens
     if (options.topP !== undefined) common.topP = options.topP
 
     if (this._isAnthropicFormat(providerId, options.apiFormat)) {
       const anthropicApiUrl = normalizeAnthropicApiUrl(baseUrl)
-      const anthropicOpts = { ...common, timeout: 180000 }
+    const anthropicOpts = { ...common, timeout }
       if (options.streaming === true) anthropicOpts.streaming = true
       if (options.disableStreaming === true) anthropicOpts.disableStreaming = true
       if (anthropicApiUrl) anthropicOpts.anthropicApiUrl = anthropicApiUrl
@@ -426,7 +436,7 @@ export class AgentService {
     }
 
     // OpenAI-compatible providers: choose the API surface explicitly from provider.apiFormat.
-    const openaiOpts = { ...common, timeout: 180000 }
+    const openaiOpts = { ...common, timeout }
     if (options.streaming === true) openaiOpts.streaming = true
     if (options.disableStreaming === true) openaiOpts.disableStreaming = true
     if (baseUrl) {

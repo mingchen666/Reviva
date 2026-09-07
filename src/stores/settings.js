@@ -608,7 +608,8 @@ export const useSettingsStore = defineStore('settings', () => {
   const creationToolPreferences = ref(normalizeCreationToolPreferences())
   const agentSkillsPanelEnabled = ref(false)
   const chatNavigationEnabled = ref(true)
-  const chatNavigationStyle = ref('directory')
+ const chatNavigationStyle = ref('directory')
+ const kbMode = ref('external') // 'external' | 'cloud' — 对话默认使用的知识库类型
 
   // ─── Network ───
   const proxyMode = ref('system')
@@ -1030,6 +1031,7 @@ export const useSettingsStore = defineStore('settings', () => {
     const refsMap = {
       themeId, themeMode, accentColor, customAccentHex, fontSize,
       langPref, animations, reducedMotion, answerStyle, conflictStrategy, quickInputEnabled, creationToolPreferences, agentSkillsPanelEnabled, chatNavigationEnabled, chatNavigationStyle,
+      kbMode,
       proxyMode, proxyType, proxyHost, proxyPort, proxyAuth, proxyUser, proxyPass, wikiWebResearchSettings,
       maxIter, maxTaskMin, searchLimit, fileOpLimit, toolCallLimit, modelCallLimit, loopGuard, auditDays, pathRedact, allowFileDelete, deleteScope, allowExecCommand, commandWhitelist, commandBlacklist,
       notifyTaskDone, notifyTaskFailed, notifySound, notifySoundType, notifyDND,
@@ -1121,7 +1123,8 @@ export const useSettingsStore = defineStore('settings', () => {
       creationToolPreferences.value = normalizeCreationToolPreferences(all.creationToolPreferences)
       agentSkillsPanelEnabled.value = all.agentSkillsPanelEnabled === true
       chatNavigationEnabled.value = all.chatNavigationEnabled !== false
-      chatNavigationStyle.value = _sanitizeChatNavigationStyle(all.chatNavigationStyle)
+     chatNavigationStyle.value = _sanitizeChatNavigationStyle(all.chatNavigationStyle)
+     kbMode.value = all.kbMode === 'cloud' ? 'cloud' : 'external'
 
       // Network
       proxyMode.value = all.proxyMode ?? 'system'
@@ -1445,6 +1448,7 @@ export const useSettingsStore = defineStore('settings', () => {
     userThemes, themeLoadErrors, themesLoading, availableThemes,
     customCss, pendingCustomCss, customCssPreviewing, customCssBusy, customCssSecondsRemaining,
     animations, reducedMotion, answerStyle, conflictStrategy, quickInputEnabled, creationToolPreferences, agentSkillsPanelEnabled, chatNavigationEnabled, chatNavigationStyle,
+    kbMode,
     ACCENT_PRESETS, BUILTIN_THEMES,
     // Network
     proxyMode, proxyType, proxyHost, proxyPort, proxyAuth, proxyUser, proxyPass, wikiWebResearchSettings,

@@ -5,7 +5,7 @@
   "description": "面向 K12 物理的概念、建模、单位检查、实验理解和按需示意学习助手。",
   "icon": "ri-atom-line",
   "color": "#D97706",
-  "builtin_version": "1.0.0",
+  "builtin_version": "1.1.0",
   "architecture": "hybrid",
   "model": "",
   "temperature": 0.4,
@@ -30,6 +30,7 @@
   "skills": [
     "k12-physics-learning",
     "concept-explainer",
+    "teacher-skill",
     "socratic-tutor",
     "feynman-learning-coach",
     "knowledge-organize",

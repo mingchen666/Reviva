@@ -404,6 +404,21 @@ export class SchemaManager extends BaseRepository {
         updated_at TEXT DEFAULT (datetime('now'))
       );
       CREATE INDEX IF NOT EXISTS idx_notes_folder ON notes(folder_id);
+      CREATE TABLE IF NOT EXISTS knowledge_sources (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        type TEXT NOT NULL,
+        preset TEXT DEFAULT '',
+        enabled INTEGER DEFAULT 1,
+        config TEXT DEFAULT '{}',
+        cached_capabilities TEXT DEFAULT '{}',
+        cached_tools TEXT DEFAULT '[]',
+        created_at TEXT DEFAULT (datetime('now')),
+        last_synced_at TEXT DEFAULT '',
+        last_status TEXT DEFAULT 'never_tested'
+      );
+      CREATE INDEX IF NOT EXISTS idx_knowledge_sources_type ON knowledge_sources(type);
+      CREATE INDEX IF NOT EXISTS idx_knowledge_sources_enabled ON knowledge_sources(enabled);
     `)
     createMediaTables(this.db)
     createModelProviderTables(this.db)

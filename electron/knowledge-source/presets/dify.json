@@ -1,0 +1,43 @@
+{
+  "preset": "dify",
+  "name": "Dify",
+  "type": "http",
+  "base_url": "https://api.dify.ai/v1",
+  "auth": {
+    "type": "bearer",
+    "token": "{{USER_TOKEN}}"
+  },
+  "capabilities": {
+    "interfaces": [
+      "search"
+    ],
+    "content_types": [
+      "text"
+    ]
+  },
+  "endpoints": {
+    "search": {
+      "method": "POST",
+      "path": "/datasets/{DATASET_ID}/retrieve",
+      "body": {
+        "query": "{query}",
+        "retrieval_model": {
+          "search_method": "semantic_search",
+          "reranking_enable": false,
+          "top_k": "{top_k}",
+          "score_threshold_enabled": false
+        }
+      },
+      "response": {
+        "items_path": "records",
+        "field_mapping": {
+          "content": "segment.content",
+          "title": "segment.document_id",
+          "source": "segment.id",
+          "score": "score"
+        },
+        "total_path": ""
+      }
+    }
+  }
+}

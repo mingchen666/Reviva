@@ -21,6 +21,7 @@ import { OutputScanService } from './OutputScanService'
 import { PptxExportService } from './PptxExportService'
 import { GenerationTaskService } from './GenerationTaskService'
 import { McpService } from './McpService'
+import { KnowledgeSourceService } from './knowledge-source/KnowledgeSourceService'
 import { WikiService } from './WikiService.js'
 import { BackupService, applyPendingBackupRestore } from './BackupService.js'
 import { ThemeService } from './ThemeService.js'
@@ -76,6 +77,7 @@ let workspaceStartupError = ''
 let noteFileService = null
 let logService = null
 let agentService = null
+let knowledgeSourceService = null
 let learningMemoryService = null
 let agentHealthService = null
 let skillService = null
@@ -3380,6 +3382,11 @@ app.whenReady().then(async () => {
   }, noteFileService)
   agentService.init()
   agentService.setMediaModule?.(mediaModule)
+
+  // Knowledge source service (KBP integration)
+  knowledgeSourceService = new KnowledgeSourceService(dbService, agentService._kbRegistry)
+  knowledgeSourceService.setCreateModel((...args) => agentService._createModel(...args))
+  knowledgeSourceService.registerIpc(ipcMain)
 
   learningMemoryService = new LearningMemoryService({
     dbService,

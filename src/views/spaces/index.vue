@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { useAppStore } from '@/stores/app'
 import { useCloudSpacesStore } from '@/stores/cloudSpaces'
 import { useUserStore } from '@/stores/user'
+import { useSettingsStore } from '@/stores/settings'
 import { useMessage } from '@/components/MsMessage/useMessage'
 import SpacesHeader from './sections/SpacesHeader.vue'
 import KbSidebar from './sections/KbSidebar.vue'
@@ -12,16 +13,21 @@ import CreateKbModal from './sections/CreateKbModal.vue'
 import EditKbModal from './sections/EditKbModal.vue'
 import ImportDocsModal from './sections/ImportDocsModal.vue'
 import ConfirmDeleteModal from './sections/ConfirmDeleteModal.vue'
+import KbSourcePanel from './sections/KbSourcePanel.vue'
 import { normalizeDocStatus, isReadonlyKb } from './sections/kbFormat'
 
 const router = useRouter()
 const appStore = useAppStore()
 const spacesStore = useCloudSpacesStore()
 const userStore = useUserStore()
+const settingsStore = useSettingsStore()
 const msg = useMessage()
 
 const isDark = computed(() => appStore.isDark)
-const knowledgeBaseEnabled = false
+// 'cloud' = built-in cloud KB (coming soon), 'external' = external knowledge sources
+
+const activeTab = ref(settingsStore.kbMode || 'external')
+const kbMode = computed(() => settingsStore.kbMode)
 
 const activeScope = ref('mine')
 const searchQuery = ref('')
@@ -50,6 +56,7 @@ const selectedReadonly = computed(() => isReadonlyKb(selectedKB.value))
 const scopeOptions = computed(() => [
   { value: 'mine', label: '我的知识库', icon: 'ri-folder-3-line', count: spacesStore.kbs.length },
   { value: 'system', label: '系统知识库', icon: 'ri-database-2-line', count: spacesStore.systemKbs.length },
+  { value: 'sources', label: '外部知识源', icon: 'ri-rocket-line', count: 0 },
 ])
 
 const filteredKbs = computed(() => {
@@ -319,14 +326,14 @@ async function leaveSystemKb(kb) {
   }
 }
 
-if (knowledgeBaseEnabled) {
-  onMounted(ensureKbs)
-}
+onMounted(() => {
+  if (activeTab.value === 'cloud') ensureKbs()
+})
 
 watch(
   () => userStore.isLoggedIn,
   (loggedIn) => {
-    if (!knowledgeBaseEnabled) return
+    if (activeTab.value !== 'cloud') return
     if (loggedIn) ensureKbs()
     else {
       spacesStore.clear()
@@ -335,130 +342,101 @@ watch(
     }
   },
 )
+
+watch(activeTab, (tab) => {
+  settingsStore.kbMode = tab
+  settingsStore.savePreference('kbMode', tab)
+  if (tab === 'cloud' && userStore.isLoggedIn) ensureKbs()
+})
+
 </script>
 
 <template>
   <div class="h-full min-h-0 flex flex-col" :class="isDark ? 'bg-d2' : 'bg-l2'">
-    <div v-if="!knowledgeBaseEnabled" class="flex-1 flex items-center justify-center px-6">
-      <div class="max-w-[420px] text-center">
-        <div
-          class="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4"
-          :class="isDark ? 'bg-d1 border border-bdr' : 'bg-l3 border border-bdrF'">
-          <i class="ri-book-shelf-line text-[30px]" :class="isDark ? 'text-wt-aux' : 'text-lt-aux'" />
-        </div>
-        <h2 class="text-[16px] font-semibold" :class="isDark ? 'text-wt-main' : 'text-lt-main'">知识库即将支持</h2>
-        <p class="mt-2 text-[12px] leading-relaxed" :class="isDark ? 'text-wt-aux' : 'text-lt-aux'">
-          知识库能力正在准备中，后续将支持创建知识库、导入文档和管理资料。
-        </p>
+   <!-- Tab bar -->
+   <div class="flex items-center gap-1 px-4 h-11 border-b shrink-0" :class="isDark ? 'border-bdr' : 'border-bdrF'">
+      <div class="flex items-center gap-0.5 p-0.5 rounded-lg" :class="isDark ? 'bg-d3' : 'bg-l3'">
+       <button class="px-3 h-7 rounded-md text-[12px] transition-all"
+         :class="[activeTab === 'cloud' ? (isDark ? 'bg-brand-400 text-d0 shadow-sm' : 'bg-brand-500 text-white shadow-sm') : (isDark ? 'text-wt-dim hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub'), activeTab === 'cloud' ? 'font-bold' : 'font-medium']"
+         @click="activeTab = 'cloud'">
+         <i class="ri-cloud-line text-[12px] mr-1" />内置云端知识库
+       </button>
+       <button class="px-3 h-7 rounded-md text-[12px] transition-all"
+         :class="[activeTab === 'external' ? (isDark ? 'bg-brand-400 text-d0 shadow-sm' : 'bg-brand-500 text-white shadow-sm') : (isDark ? 'text-wt-dim hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub'), activeTab === 'external' ? 'font-bold' : 'font-medium']"
+         @click="activeTab = 'external'">
+         <i class="ri-rocket-line text-[12px] mr-1" />外部知识源
+       </button>
       </div>
+     <div class="flex-1" />
+      <span class="text-[11px] truncate" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">当前默认：{{ kbMode === 'cloud' ? '云端知识库' : '外部知识源' }}，对话时自动检索</span>
     </div>
 
-    <div v-else-if="!userStore.isLoggedIn" class="flex-1 flex items-center justify-center px-6">
-      <div class="max-w-[340px] text-center">
-        <div
-          class="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4"
-          :class="isDark ? 'bg-d1 border border-bdr' : 'bg-l3 border border-bdrF'">
-          <i class="ri-lock-line text-[30px]" :class="isDark ? 'text-wt-aux' : 'text-lt-aux'" />
-        </div>
-        <h2 class="text-[16px] font-semibold" :class="isDark ? 'text-wt-main' : 'text-lt-main'">请先登录</h2>
-        <p class="mt-2 text-[12px] leading-relaxed" :class="isDark ? 'text-wt-aux' : 'text-lt-aux'">
-          登录后可创建知识库、加入系统知识库并上传文档资料。
-        </p>
-        <button
-          class="mt-5 h-9 px-4 rounded-lg text-[13px] font-medium inline-flex items-center gap-1.5"
-          :class="isDark ? 'bg-brand-400 text-d0 hover:bg-brand-500' : 'bg-brand-500 text-white hover:bg-brand-600'"
-          @click="router.push('/login')">
-          <i class="ri-login-box-line text-[14px]" />
-          登录
-        </button>
-      </div>
+    <!-- External knowledge sources tab -->
+    <div v-if="activeTab === 'external'" class="flex-1 min-h-0 flex flex-col">
+      <KbSourcePanel :is-dark="isDark" />
     </div>
 
-    <template v-else>
-      <SpacesHeader
-        :is-dark="isDark"
-        :active-scope="activeScope"
-        :search-query="searchQuery"
-        :scopes="scopeOptions"
-        :loading="currentKbsLoading || selectedDocsEntry.loading"
-        :can-create="activeScope === 'mine'"
-        @update:active-scope="switchScope"
-        @update:search-query="searchQuery = $event"
-        @refresh="refreshAll"
-        @create="showCreateModal = true" />
+   <!-- Cloud knowledge base tab: coming soon -->
+   <template v-else>
+      <div class="flex-1 min-h-0 overflow-y-auto custom-scrollbar px-6 py-8">
+        <div class="mx-auto w-full max-w-[800px] space-y-4">
 
-      <div class="flex-1 min-h-0 flex overflow-hidden">
-        <KbSidebar
-          :is-dark="isDark"
-          :kbs="filteredKbs"
-          :selected-id="selectedKbId"
-          :loading="currentKbsLoading"
-          :error="currentKbsError"
-          :active-scope="activeScope"
-          :search-query="searchQuery"
-          :busy-ids="busySystemIds"
-          @select="selectKb"
-          @create="showCreateModal = true"
-          @refresh="refreshCurrentList"
-          @join="joinSystemKb"
-          @leave="leaveSystemKb"
-          @rename="openRename"
-          @edit="openEdit"
-          @delete="askDeleteKb" />
+          <!-- 状态卡片 -->
+          <section
+            class="rounded-xl border px-6 py-8 text-center"
+            :class="isDark ? 'border-white/[0.08] bg-[#0C101B]' : 'border-slate-200 bg-white shadow-sm'">
+            <div
+              class="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4"
+              :class="isDark ? 'bg-d1 border border-bdr' : 'bg-l3 border border-bdrF'">
+              <i class="ri-book-shelf-line text-[30px]" :class="isDark ? 'text-wt-aux' : 'text-lt-aux'" />
+            </div>
+            <h2 class="text-[18px] font-bold" :class="isDark ? 'text-wt-main' : 'text-lt-main'">内置云端知识库即将支持</h2>
+            <p class="mt-2 text-[13px] leading-relaxed" :class="isDark ? 'text-wt-aux' : 'text-lt-aux'">
+              知识库能力正在开发中，未来将支持创建知识库、导入文档和管理资料，并逐步开放云端知识库。
+            </p>
+            <div class="mt-4 flex flex-wrap items-center justify-center gap-2">
+              <span class="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium"
+                :class="isDark ? 'border-white/[0.08] bg-white/[0.03] text-wt-aux' : 'border-slate-200 bg-slate-50 text-lt-aux'">
+                <i class="ri-rocket-line text-[12px]" />即将支持
+              </span>
+              <span class="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium"
+                :class="isDark ? 'border-white/[0.08] bg-white/[0.03] text-wt-aux' : 'border-slate-200 bg-slate-50 text-lt-aux'">
+                <i class="ri-cloud-line text-[12px]" />未来开放云端
+              </span>
+              <span class="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium"
+                :class="isDark ? 'border-white/[0.08] bg-white/[0.03] text-wt-aux' : 'border-slate-200 bg-slate-50 text-lt-aux'">
+                <i class="ri-server-line text-[12px]" />支持私有化部署
+              </span>
+            </div>
+          </section>
 
-        <KbDocumentPanel
-          :is-dark="isDark"
-          :kb="selectedKB"
-          :active-scope="activeScope"
-          :docs="filteredDocs"
-          :entry="selectedDocsEntry"
-          :loading="selectedDocsEntry.loading"
-          :error="selectedDocsEntry.error"
-          :status-filter="statusFilter"
-          :join-busy="selectedKB ? busySystemIds.includes(selectedKB.id) : false"
-          @update:status-filter="statusFilter = $event"
-          @create="showCreateModal = true"
-          @import="openImport"
-          @refresh="refreshDocs"
-          @delete-doc="askDeleteDoc"
-          @edit-kb="openEdit"
-          @delete-kb="askDeleteKb"
-          @page-change="changePage"
-          @join="joinSystemKb"
-          @leave="leaveSystemKb" />
+         <!-- 联系作者卡片 -->
+         <section
+           class="rounded-xl border px-6 py-5"
+           :class="isDark ? 'border-white/[0.08] bg-[#0C101B]' : 'border-slate-200 bg-white shadow-sm'">
+           <div class="flex items-start gap-3">
+             <div class="shrink-0 w-9 h-9 rounded-lg flex items-center justify-center"
+               :class="isDark ? 'bg-brand-400/10' : 'bg-brand-50'">
+               <i class="ri-customer-service-2-line text-[18px] text-brand-400" />
+             </div>
+             <div class="min-w-0 flex-1">
+              <h3 class="text-[14px] font-bold" :class="isDark ? 'text-wt-main' : 'text-lt-main'">您还没有知识库？</h3>
+               <p class="mt-1 text-[12px] leading-relaxed" :class="isDark ? 'text-wt-aux' : 'text-lt-aux'">
+                如果您还没有知识库，或者需要部署搭建，可以联系作者咨询。作者可协助私有化部署个人知识库，也可接入已有的外部知识源。
+               </p>
+                <button
+                  class="mt-3 h-8 px-3.5 rounded-lg text-[12px] font-semibold inline-flex items-center gap-1.5 transition-all active:scale-[0.98]"
+                  :class="isDark ? 'bg-white text-slate-950 hover:bg-slate-200' : 'bg-slate-950 text-white hover:bg-slate-800 shadow-sm'"
+                  @click="router.push({ name: 'SettingsAuthor' })">
+                  <i class="ri-user-voice-line text-[14px]" />
+                  联系作者咨询
+                </button>
+             </div>
+           </div>
+         </section>
+
+        </div>
       </div>
-
-      <CreateKbModal
-        :show="showCreateModal"
-        :is-dark="isDark"
-        :busy="creating"
-        @close="showCreateModal = false"
-        @create="createKb" />
-
-      <ImportDocsModal
-        :show="showImportModal"
-        :is-dark="isDark"
-        :busy="importing"
-        :kbs="spacesStore.kbs"
-        :target-id="importTargetId"
-        @close="showImportModal = false"
-        @submit="importDocs" />
-
-      <EditKbModal
-        :show="showEditModal"
-        :is-dark="isDark"
-        :busy="editing"
-        :kb="selectedKB"
-        :mode="editMode"
-        @close="showEditModal = false"
-        @save="saveKb" />
-
-      <ConfirmDeleteModal
-        :target="confirmDelete"
-        :is-dark="isDark"
-        :busy="deleting"
-        @close="confirmDelete = null"
-        @confirm="confirmDeleteTarget" />
-    </template>
+   </template>
   </div>
 </template>

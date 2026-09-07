@@ -543,7 +543,7 @@ function onMarkdownLinkClick({ href }) {
 
       <!-- File cards -->
       <div v-if="fileAttachments.length" class="flex flex-col gap-2 mt-2">
-        <FileCard v-for="f in fileAttachments" :key="f.path" :file="f" :is-dark="isDark"
+        <FileCard v-for="f in fileAttachments" :key="f.path || f.id || f.name" :file="f" :is-dark="isDark"
           @preview="emit('preview-file', f)"
           @media-detail="emit('media-detail', { file: f, messageId: msg?.id || '' })" />
       </div>

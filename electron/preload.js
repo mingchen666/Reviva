@@ -340,6 +340,24 @@ const api = {
     getPrompt: (serverId, name, args) => ipcRenderer.invoke('mcp:getPrompt', serverId, name, args),
   },
 
+  // Knowledge source management (KBP)
+  kb: {
+    listSources: () => ipcRenderer.invoke('kb:listSources'),
+    getSource: (id) => ipcRenderer.invoke('kb:getSource', id),
+    addSource: (data) => ipcRenderer.invoke('kb:addSource', data),
+    updateSource: (id, data) => ipcRenderer.invoke('kb:updateSource', id, data),
+    deleteSource: (id) => ipcRenderer.invoke('kb:deleteSource', id),
+    testConnection: (id) => ipcRenderer.invoke('kb:testConnection', id),
+    search: (id, params) => ipcRenderer.invoke('kb:search', id, params),
+    getPresets: () => ipcRenderer.invoke('kb:getPresets'),
+    getPresetConfig: (presetName, userValues) => ipcRenderer.invoke('kb:getPresetConfig', presetName, userValues),
+    getActiveSourceId: () => ipcRenderer.invoke('kb:getActiveSourceId'),
+    setActiveSource: (id) => ipcRenderer.invoke('kb:setActiveSource', id),
+   analyzeRequestResponse: (params) => ipcRenderer.invoke('kb:analyzeRequestResponse', params),
+   fetchKnowledgeBases: (presetName, userValues) => ipcRenderer.invoke('kb:fetchKnowledgeBases', presetName, userValues),
+    listKnowledgeBases: (sourceId) => ipcRenderer.invoke('kb:listKnowledgeBases', sourceId),
+ },
+
   // PPTX export
   pptx: {
     exportLocal: (htmlPath, outputPath) => ipcRenderer.invoke('pptx:exportLocal', htmlPath, outputPath),

@@ -14,7 +14,7 @@ const author = {
   role: 'Reviva 设计与开发',
   bio: 'AI 应该帮人学得更好，而不只是答得更快。',
   bioExtra:
-    'Reviva 是一个以 Agent 为核心的本地学习工作台——不是带一堆工具的聊天窗口，而是 Agent 理解你的资料、调用工具、遵循权限，把结果变成可复用学习产出的完整工作区。对话、文档、知识库、笔记、复习和创作输出，都在同一个本地空间里连续发生。',
+    'Reviva 是以 Agent 为核心的本地学习工作台——不是堆满工具的聊天窗口，而是 Agent 理解你的资料、调用工具、遵循权限，把结果沉淀为可复用的学习产出。资料、对话、知识库、笔记与创作输出，都在同一个本地空间里连续完成，形成学习闭环。',
   email: '1906837163@qq.com',
 };
 
@@ -22,13 +22,16 @@ const focus = [
   { text: 'Agent 驱动', tone: 'brand' },
   { text: '本地优先', tone: 'purple' },
   { text: '可视化学习', tone: 'emerald' },
-  { text: '知识持续捕获', tone: 'amber' },
+  { text: '知识持续沉淀', tone: 'amber' },
 ];
 
 const social = [
-  { name: 'Email', icon: 'ri-mail-line', value: '1906837163@qq.com', url: 'mailto:1906837163@qq.com', color: 'brand', svg: false },
+  // 问题反馈：跳转 GitHub Issues
+  { name: '问题反馈', icon: 'ri-feedback-line', value: 'GitHub Issues', url: 'https://github.com/mingchen666/Reviva/issues', color: 'brand', svg: false },
   { name: 'GitHub', icon: 'ri-github-fill', value: 'mingchen666/Reviva', url: 'https://github.com/mingchen666/Reviva', color: 'brand', svg: false },
-  { name: '抖音', icon: 'ri-tiktok-line', value: 'Reviva 抖音', url: '', color: 'tiktok', svg: false },
+  // 交流群：点击在浏览器打开群二维码图片，请替换为真实图片 URL
+  { name: '用户交流群', icon: 'ri-group-line', value: '点击查看群二维码', url: 'https://github.com/mingchen666/Reviva/raw/main/docs/images/wx-group.jpg', color: 'emerald', svg: false },
+  { name: '抖音', icon: 'ri-tiktok-line', value: 'Reviva 抖音', url: 'https://v.douyin.com/W5RneZFGXRw/', color: 'tiktok', svg: false },
   { name: '小红书', icon: 'xiaohongshu', value: 'Reviva 小红书', url: '', color: 'red', svg: true },
   { name: 'Bilibili', icon: 'ri-bilibili-line', value: 'B站账号', url: '', color: 'pink', svg: false },
 ];
@@ -52,7 +55,7 @@ const intent = [
     icon: 'ri-rocket-line',
     num: '03',
     title: '不止学过，还要产出',
-    desc: '生成 PPT、播客、深度研究报告等可交付内容，再存回笔记和 Wiki，产出继续喂给下一轮学习。',
+    desc: '生成 PPT、播客、深度研究报告等可交付内容，再存回笔记和 Wiki，持续学习。',
     color: 'emerald',
   },
 ];
@@ -97,7 +100,7 @@ const milestones = [
     icon: 'ri-road-map-line',
     phase: '进行中',
     title: '持续迭代',
-    desc: '音视频解析与转写、更多 Agent 技能、学习统计、MCP 工具扩展，逐步开放更多学习场景',
+    desc: '持续完善学习统计与画像、扩展更多 Agent 技能与 MCP 工具，逐步开放更多学习场景',
     color: 'purple',
   },
 ];
@@ -106,7 +109,7 @@ const stats = [
   { label: '发布状态', value: '正式版 · Stable', icon: 'ri-shield-check-line', iconColor: 'text-emerald-400' },
   { label: '当前版本', value: `v${appVersion}`, icon: 'ri-code-s-slash-line', iconColor: 'text-brand-400' },
   { label: '支持平台', value: 'Windows / macOS', icon: 'ri-computer-line', iconColor: 'text-purple-400' },
-  { label: '开源协议', value: 'AGPL-3.0 + 商用', icon: 'ri-open-source-line', iconColor: 'text-amber-400' },
+  { label: '开源协议', value: 'AGPL-3.0 + 多人/商用需授权', icon: 'ri-open-source-line', iconColor: 'text-amber-400' },
 ];
 
 /* ── 工具函数 ── */
@@ -144,8 +147,8 @@ function toneText(tone) {
 }
 
 function socialIconStyle(color) {
-  const dark = { brand: 'text-brand-400', tiktok: 'text-white', red: 'text-red-400', pink: 'text-pink-400' };
-  const light = { brand: 'text-brand-600', tiktok: 'text-gray-800', red: 'text-red-600', pink: 'text-pink-600' };
+  const dark = { brand: 'text-brand-400', tiktok: 'text-white', red: 'text-red-400', pink: 'text-pink-400', emerald: 'text-emerald-400' };
+  const light = { brand: 'text-brand-600', tiktok: 'text-gray-800', red: 'text-red-600', pink: 'text-pink-600', emerald: 'text-emerald-600' };
   return (isDark.value ? dark : light)[color] || dark.brand;
 }
 </script>
@@ -170,7 +173,7 @@ function socialIconStyle(color) {
             <h2 class="text-[21px] font-bold" :class="isDark ? 'text-wt-main' : 'text-lt-main'">
               {{ author.name }}
             </h2>
-            <span class="ctx-pill border" :class="toneClass('purple')">开发者</span>
+            <span class="ctx-pill border" :class="toneClass('purple')">作者</span>
           </div>
           <p class="text-[12px] mb-3 font-medium" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">
             {{ author.role }}
@@ -279,10 +282,13 @@ function socialIconStyle(color) {
         class="rounded-xl p-4"
         :class="isDark ? 'bg-d3 border border-bdr' : 'bg-l3 border border-bdrF'"
       >
-        <div class="flex items-center gap-2 mb-3">
+        <div class="flex items-center gap-2 mb-1">
           <i class="ri-links-line text-purple-400 text-[14px]" />
-          <span class="section-title" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">联系方式</span>
+          <span class="section-title" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">反馈与联系</span>
         </div>
+        <p class="text-[10px] mb-2.5" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">
+          遇到问题、建议或合作意向，欢迎通过以下方式联系
+        </p>
         <div class="space-y-0.5">
           <div
             v-for="item in social"

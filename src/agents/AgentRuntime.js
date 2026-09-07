@@ -24,11 +24,16 @@ function _buildCloudContext(ctxItems) {
     const userStore = useUserStore()
     const defaultKbIds = []
     const defaultDocIds = []
+    let activeSourceId = ''
+    let externalKbId = ''
     for (const it of (ctxItems || [])) {
       if (it.type === 'cloud_kb' && it.kbId) defaultKbIds.push(it.kbId)
       else if (it.type === 'cloud_doc') {
         if (it.kbId) defaultKbIds.push(it.kbId)
         if (it.docId) defaultDocIds.push(it.docId)
+      } else if (it.type === 'kb_source' && it.sourceId) {
+        activeSourceId = it.sourceId
+        externalKbId = it.kbId || ''
       }
     }
     return {
@@ -36,9 +41,11 @@ function _buildCloudContext(ctxItems) {
       token: userStore.token || '',
       defaultKbIds: [...new Set(defaultKbIds)],
       defaultDocIds: [...new Set(defaultDocIds)],
+      activeSourceId,
+      externalKbId,
     }
   } catch (_) {
-    return { baseUrl: _resolveCloudBaseUrl(), token: '', defaultKbIds: [], defaultDocIds: [] }
+    return { baseUrl: _resolveCloudBaseUrl(), token: '', defaultKbIds: [], defaultDocIds: [], activeSourceId: '', externalKbId: '' }
   }
 }
 
@@ -117,17 +124,23 @@ async function _prepareMediaContextItems(ctxItems, { conversationId = '', messag
   return items
 }
 
-function _hasCloudKnowledgeContext(ctxItems) {
-  return (ctxItems || []).some(i =>
+function _hasCloudKnowledgeContext(ctxItems, cloudContext) {
+  const hasCtx = (ctxItems || []).some(i =>
     (i?.type === 'cloud_kb' && i.kbId) ||
-    (i?.type === 'cloud_doc' && (i.kbId || i.docId)),
+    (i?.type === 'cloud_doc' && (i.kbId || i.docId)) ||
+    (i?.type === 'kb_source' && i.sourceId),
   )
+  return hasCtx || !!cloudContext?.activeSourceId
 }
 
-function _buildRuntimeToolIds(agent, ctxItems, wikiContext) {
+function _buildRuntimeToolIds(agent, ctxItems, wikiContext, cloudContext) {
   const ids = [...(agent?.tools || [])]
   if (wikiContext?.enabled) ids.push('wiki_tool')
-  if (_hasCloudKnowledgeContext(ctxItems)) ids.push('kb_search')
+  if (_hasCloudKnowledgeContext(ctxItems, cloudContext)) ids.push('kb_search')
+  // MCP sources go through the native mcp:{serverId} tool channel
+  for (const it of (ctxItems || [])) {
+    if (it?.type === 'mcp_source' && it.serverId) ids.push('mcp:' + it.serverId)
+  }
   return [...new Set(ids.filter(Boolean))]
 }
 
@@ -151,6 +164,10 @@ function _toCtxMeta(ctxItems) {
     size: i.size || 0,
     mime: i.mime || i.typeHint || '',
     isDirectory: !!i.isDirectory,
+    sourceId: i.sourceId || '',
+    serverId: i.serverId || '',
+    sourceName: i.sourceName || '',
+    kbName: i.kbName || '',
   }))
 }
 
@@ -418,6 +435,8 @@ function _toAgentPlainMessage(m) {
       if (i.type === 'kb') return `📚 ${i.name}`
       if (i.type === 'cloud_kb') return `📚 云端知识库检索范围:${i.name}（使用 kb_search，不是本地文件）`
       if (i.type === 'cloud_doc') return `📚 云端知识库文档检索范围:${i.name}（使用 kb_search，不是本地文件）`
+      if (i.type === 'kb_source') return `📚 知识源:${i.name}（使用 kb_search 检索）`
+      if (i.type === 'mcp_source') return `📚 MCP 知识源:${i.name}（使用 mcp:${i.serverId} 提供的工具检索）`
       return `📄 ${i.name}`
     })
     base.content = (base.content || '') + '\n\n[附件: ' + ctxRefs.join(', ') + ']'
@@ -661,7 +680,7 @@ export class AgentRuntime {
    * Renderer only sends: agent prompt + messages + ctxPaths
    * Main process handles: project system prompt injection, context staging, output dir, skills/memory
    */
-  async startChat({ convId, userText, resolvedContent, inputDocument, agentId, ctxItems, wikiContext }) {
+  async startChat({ convId, userText, resolvedContent, inputDocument, agentId, ctxItems, wikiContext, cloudContext }) {
     // 1. Add user message — ctx items stored as both meta.ctx (for message building) and meta.attachments (for UI rendering)
     let runtimeCtxItems = (ctxItems || []).map(item => ({ ...item }))
     let ctxMeta = _toCtxMeta(runtimeCtxItems)
@@ -801,12 +820,12 @@ export class AgentRuntime {
         useSameModel: agent?.useSameModel ?? true,
         toolCallLimit: _resolveNonNegativeLimit(agent?.toolCallLimit, this.settingsStore?.toolCallLimit, 0),
         modelCallLimit: _resolveNonNegativeLimit(agent?.modelCallLimit, this.settingsStore?.modelCallLimit, 0),
-        toolIds: _buildRuntimeToolIds(agent, runtimeCtxItems, wikiContext),
+        toolIds: _buildRuntimeToolIds(agent, runtimeCtxItems, wikiContext, cloudContext),
         subAgents: subAgentConfigs,
         permissions: agent?.permissions || {},
         skills: agent?.skills || [],
         toolProviderConfigs,
-        cloudContext: _buildCloudContext(runtimeCtxItems),
+        cloudContext: cloudContext || _buildCloudContext(runtimeCtxItems),
         wikiContext: wikiContext || {},
         ctxPaths: _toCtxPaths(runtimeCtxItems),
         answerStyle: this.settingsStore?.answerStyle || 'default',
@@ -844,7 +863,7 @@ export class AgentRuntime {
   /**
    * Retry a failed/cancelled message
    */
-  async retryMessage(convId, targetMsgId) {
+  async retryMessage(convId, targetMsgId, cloudContext) {
     const msgs = this.convStore.messages[convId] || []
     const targetIdx = msgs.findIndex(m => m.id === targetMsgId)
     if (targetIdx < 0) return
@@ -972,12 +991,12 @@ export class AgentRuntime {
         useSameModel: agent?.useSameModel ?? true,
         toolCallLimit: _resolveNonNegativeLimit(agent?.toolCallLimit, this.settingsStore?.toolCallLimit, 0),
         modelCallLimit: _resolveNonNegativeLimit(agent?.modelCallLimit, this.settingsStore?.modelCallLimit, 0),
-        toolIds: _buildRuntimeToolIds(agent, ctxItems, wikiContext),
+        toolIds: _buildRuntimeToolIds(agent, ctxItems, wikiContext, cloudContext),
         subAgents: subAgentConfigs,
         permissions: agent?.permissions || {},
         skills: agent?.skills || [],
         toolProviderConfigs,
-        cloudContext: _buildCloudContext(ctxItems),
+        cloudContext: cloudContext || _buildCloudContext(ctxItems),
         wikiContext,
         ctxPaths: _toCtxPaths(ctxItems),
         answerStyle: this.settingsStore?.answerStyle || 'default',

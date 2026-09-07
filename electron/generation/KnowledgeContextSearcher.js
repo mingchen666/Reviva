@@ -25,7 +25,8 @@ export class KnowledgeContextSearcher {
 
     const selectedKbIds = cloudContext?.defaultKbIds || []
     const selectedDocIds = cloudContext?.defaultDocIds || []
-    if (!cloudContext?.baseUrl || !cloudContext?.token || (!selectedKbIds.length && !selectedDocIds.length)) {
+    const hasActiveSource = !!cloudContext?.activeSourceId
+    if (!hasActiveSource && (!cloudContext?.baseUrl || !cloudContext?.token || (!selectedKbIds.length && !selectedDocIds.length))) {
       return []
     }
 

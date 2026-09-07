@@ -16,6 +16,7 @@ import { normalizeFilePath } from '@/utils/fileUrl'
 import { readableGenerationContexts } from '@/utils/generationContext'
 import { parseModelRef } from '@/utils/modelRef'
 import { BASE_URL } from '@/apis/http'
+import * as kbApi from '@/apis/kb-source'
 import { saveMarkdownDocx, saveTextFile } from '@/electron'
 import { useMessage } from '@/components/MsMessage/useMessage'
 import { useMessageBox } from '@/components/MsMessageBox/useMessageBox'
@@ -232,6 +233,27 @@ const leftOpen = ref(true)
 const leftW = ref(260)
 const leftTab = ref('conv') // 'conv' | 'docs' | 'kb'
 const renderedLeftPanels = reactive({ docs: false, kb: false })
+const activeExternalKb = ref(null) // { sourceId, kbId, sourceName, kbName, sourceType }
+const activeSourceId = ref('') // backend active source ID, loaded on mount
+
+const activeSourceInfo = ref(null) // { type, serverId, name } for the active source
+
+const kbEnabled = ref(true) // master toggle: whether kb_search tool is available at all
+
+async function onSelectExternalKb(item) {
+  activeExternalKb.value = item
+  activeSourceId.value = item.sourceId
+  activeSourceInfo.value = { type: item.sourceType || 'http', serverId: '', name: item.sourceName || '' }
+  try { await kbApi.setActiveSource(item.sourceId) } catch {}
+}
+
+function onClearExternalKb() {
+  activeExternalKb.value = null
+}
+
+function onToggleKbEnabled(val) {
+  kbEnabled.value = val
+}
 
 watch(leftTab, (tab) => {
   if (tab === 'docs' || tab === 'kb') renderedLeftPanels[tab] = true
@@ -1317,9 +1339,35 @@ async function sendMessage(payload) {
       agentId: selectedAgent.value?.id || '',
     })
     convId = conv.id
-    addTab(conv)
-  }
+   addTab(conv)
+ }
   const ctxItems = [...currentCtxItems.value]
+  // Only inject KB card into the message when the user explicitly selected a
+  // specific knowledge base. The tool itself stays available via cloudContext
+  // (activeSourceId) regardless, so the agent can search even without a card.
+  if (kbEnabled.value && activeSourceId.value) {
+    if (activeSourceInfo.value?.type === 'mcp' && activeSourceInfo.value?.serverId) {
+      // MCP: register the native mcp:{serverId} tool + show card
+      ctxItems.push({
+        type: 'mcp_source',
+        serverId: activeSourceInfo.value.serverId,
+        sourceName: activeSourceInfo.value.name,
+        name: activeSourceInfo.value.name,
+      })
+    } else if (activeExternalKb.value) {
+      // External HTTP: only show card when user picked a specific KB
+      ctxItems.push({
+        type: 'kb_source',
+        sourceId: activeSourceId.value,
+        sourceName: activeExternalKb.value?.sourceName || '',
+        kbId: activeExternalKb.value?.kbId || '',
+        kbName: activeExternalKb.value?.kbName || '',
+        name: activeExternalKb.value?.kbName
+          ? `${activeExternalKb.value?.sourceName || ''} / ${activeExternalKb.value?.kbName}`
+          : (activeExternalKb.value?.sourceName || '知识源'),
+      })
+    }
+  }
   clearCtxItems()
   const inputDocument = Array.isArray(payload?.inputDocument) ? payload.inputDocument : []
   const resolvedContent = String(payload?.resolvedContent || trimmed).trim()
@@ -1332,9 +1380,10 @@ async function sendMessage(payload) {
     userText: trimmed,
     resolvedContent,
     inputDocument,
-    agentId: selectedAgent.value?.id || '',
+  agentId: selectedAgent.value?.id || '',
     ctxItems,
     wikiContext: wikiContext.value,
+    cloudContext: buildCloudContext(ctxItems),
   })
 }
 
@@ -1456,6 +1505,7 @@ function normalizePptOutputFormat(format) {
 }
 
 function buildCloudContext(ctxItems) {
+  if (!kbEnabled.value) return {}
   const defaultKbIds = new Set()
   const defaultDocIds = new Set()
   for (const item of ctxItems || []) {
@@ -1471,6 +1521,8 @@ function buildCloudContext(ctxItems) {
     token: userStore.token || '',
     defaultKbIds: [...defaultKbIds],
     defaultDocIds: [...defaultDocIds],
+    activeSourceId: activeSourceInfo.value?.type === 'mcp' ? '' : (activeSourceId.value || activeExternalKb.value?.sourceId || ''),
+    externalKbId: activeExternalKb.value?.kbId || '',
   }
 }
 
@@ -1910,6 +1962,17 @@ onMounted(() => {
   ensureConversationTab(currentConvId.value)
   agentRuntime.registerListeners()
   wikiStore.loadWikis?.().catch(() => {})
+  // Load active source from backend so kb_search tool is available even before
+  // the user picks a specific KB in the sidebar.
+  kbApi.getActiveSourceId().then(async sid => {
+    activeSourceId.value = sid || ''
+    if (sid) {
+      try {
+        const src = await kbApi.getSource(sid)
+        activeSourceInfo.value = src ? { type: src.type, serverId: src.config?.serverId || '', name: src.name } : null
+      } catch { activeSourceInfo.value = null }
+    } else { activeSourceInfo.value = null }
+  }).catch(() => {})
   nextTick(() => {
     rowVirtualizer.value.measure()
     if (currentMessages.value.length) scrollToBottom('auto')
@@ -2088,11 +2151,16 @@ function animateTitle(convId, targetTitle, tab) {
           </template>
         </Suspense>
         <Suspense v-if="renderedLeftPanels.kb">
-          <KbSelector v-show="leftTab === 'kb'"
-            :is-dark="isDark"
-            :selected-items="currentCtxItems.filter(i => i.type === 'cloud_kb' || i.type === 'cloud_doc')"
-            @toggle-kb="addCtxItem"
-            @toggle-doc="addCtxItem" />
+        <KbSelector v-show="leftTab === 'kb'"
+          :is-dark="isDark"
+          :selected-items="currentCtxItems.filter(i => i.type === 'cloud_kb' || i.type === 'cloud_doc')"
+           :active-external-kb="activeExternalKb"
+           :kb-enabled="kbEnabled"
+           @toggle-kb="addCtxItem"
+           @toggle-doc="addCtxItem"
+           @select-external-kb="onSelectExternalKb"
+           @clear-external-kb="onClearExternalKb"
+           @toggle-kb-enabled="onToggleKbEnabled" />
           <template #fallback>
             <div v-show="leftTab === 'kb'" class="flex-1 flex items-center justify-center gap-2 text-[12px]"
               :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">

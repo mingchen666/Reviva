@@ -22,7 +22,7 @@ const navGroups = [
   { label: '工作台', keys: ['directory', 'environment', 'sandbox', 'creation-tools'] },
   { label: '记录与统计', keys: ['memory', 'learning-memory', 'usage'] },
   { label: '界面与桌面', keys: ['theme', 'preference', 'shortcuts', 'quick-inputs', 'notifications'] },
-  { label: '数据与系统', keys: ['local-gateway', 'data', 'about', 'author'] },//['network', 'data', 'about']
+  { label: '数据与系统', keys: ['guide', 'local-gateway', 'data', 'about', 'author'] },//['network', 'data', 'about']
 ]
 
 const sectionMap = {
@@ -47,6 +47,7 @@ const sectionMap = {
   data: { name: '数据与备份', icon: 'ri-database-2-line', color: 'emerald', hint: '导出导入配置、缓存清理与数据迁移' },
   about: { name: '系统版本', icon: 'ri-information-line', color: 'rose', hint: '版本、更新日志与系统信息' },
   author: { name: '关于作者', icon: 'ri-user-heart-line', color: 'brand', hint: '作者、开发意图与联系信息' },
+  guide: { name: '新手教程', icon: 'ri-compass-3-line', color: 'brand', hint: '从零配置：根目录、模型、默认模型与 Agent' },
 }
 
 const activeSection = computed(() => {

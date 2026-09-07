@@ -7,15 +7,27 @@ const props = defineProps({
 })
 
 const isDocument = computed(() => props.item?.type === 'cloud_doc')
+const isExternalSource = computed(() => props.item?.type === 'kb_source')
+const isMcpSource = computed(() => props.item?.type === 'mcp_source')
 
 const title = computed(() => {
+  if (isExternalSource.value) return props.item?.sourceName || props.item?.name || '外部知识源'
+  if (isMcpSource.value) return props.item?.sourceName || props.item?.name || 'MCP 知识源'
   if (props.item?.name) return props.item.name
   return isDocument.value ? '未命名知识库文档' : '未命名知识库'
 })
 
-const typeLabel = computed(() => (isDocument.value ? '知识库文档' : '知识库'))
+const typeLabel = computed(() => {
+  if (isExternalSource.value) return '知识源'
+  if (isMcpSource.value) return 'MCP'
+  return isDocument.value ? '知识库文档' : '知识库'
+})
 
-const icon = computed(() => (isDocument.value ? 'ri-file-text-line' : 'ri-book-open-line'))
+const icon = computed(() => {
+  if (isExternalSource.value) return 'ri-database-2-line'
+  if (isMcpSource.value) return 'ri-server-line'
+  return isDocument.value ? 'ri-file-text-line' : 'ri-book-open-line'
+})
 </script>
 
 <template>

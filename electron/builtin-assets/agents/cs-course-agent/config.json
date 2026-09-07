@@ -19,6 +19,7 @@
 
   "tools": ["file_list", "file_read", "file_write", "document_read", "office_write", "kb_search", "web_search_bing", "mcp:exa", "exec_command"],
   "skills": ["cs-course-learning", "data-structure-visualization", "computer-organization-visualization", "operating-system-visualization", "computer-network-learning", "network-protocol-viz", "network-packet-lab", "network-exam-practice", "concept-explainer", "socratic-tutor", "feynman-learning-coach", "knowledge-organize", "review-plan", "practice-quiz", "mock-exam", "exam-prep", "error-analysis", "flashcard-generator", "note-skill", "learning-visualization-skill", "technical-diagram-skill", "research-brief-skill", "web-access", "officecli-skills"],
+  "skills": ["cs-course-learning", "data-structure-visualization", "computer-organization-visualization", "operating-system-visualization", "computer-network-learning", "network-protocol-viz", "network-packet-lab", "network-exam-practice", "concept-explainer", "teacher-skill", "socratic-tutor", "feynman-learning-coach", "knowledge-organize", "review-plan", "practice-quiz", "mock-exam", "exam-prep", "error-analysis", "flashcard-generator", "note-skill", "learning-visualization-skill", "technical-diagram-skill", "research-brief-skill", "web-access", "officecli-skills"],
   "sub_agents": [],
   "permissions": {
     "fileRead": true,

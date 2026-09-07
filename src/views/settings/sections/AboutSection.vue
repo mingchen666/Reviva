@@ -22,84 +22,18 @@ const updateNotice = computed(() => {
   return '';
 });
 
-const gettingStartedItems = [
-  {
-    label: '连接模型服务',
-    desc: '配置 API Key、Base URL 和默认模型，支持云端与本地模型。',
-    route: '/settings/models',
-  },
-  {
-    label: '导入学习资料',
-    desc: '添加 PDF、DOCX、Markdown、音视频或整个文件夹，在对话中直接引用。',
-    route: '/docs-manage',
-  },
-  {
-    label: '配置你的 Agent',
-    desc: '设置模型、Skills、工具和权限，然后开始第一次对话。',
-    route: '/agents',
-  },
-  {
-    label: '沉淀生成结果',
-    desc: '将摘要、闪卡、导图、报告等输出保存到笔记、Wiki 或本地目录，持续复用。',
-    route: '/outputs',
-  },
+const versionHighlights = [
+  '多 Agent 协作：对话中切换 Agent，共享上下文与全局记忆。',
+  '围绕资料对话：本地文档、文件夹、Wiki 知识库与音视频皆可引用。',
+  '可视化学习与创作：测验、闪卡、导图、知识图谱、PPT 与研究报告。',
+  '知识持续沉淀：输出回流笔记、Wiki 与本地目录，形成学习闭环。',
+  '本地优先与可控：自有模型、权限沙箱、数据备份与迁移。',
 ];
 
-const releaseNotes = [
-  {
-    title: 'Reviva 1.0',
-    meta: '首个正式版',
-    type: 'stable',
-    items: [
-      '以 Agent 为核心连接资料、知识库、笔记、Skills 与工具。',
-      '支持在对话中切换 Agent，并共享已选择的资料上下文。',
-      '整合文档处理、音视频解析、知识检索和可视化学习工具。',
-      '完善本地优先的数据管理、权限控制与备份能力。',
-    ],
-  },
-  {
-    title: '核心能力',
-    meta: 'v1.0 已支持',
-    type: 'focus',
-    items: [
-      '围绕本地文档、文件夹、Wiki 知识库和音视频内容与 Agent 对话。',
-      '生成测验、闪卡、思维导图、知识图谱、图表、PPT 和研究报告。',
-      '接入自定义模型、OCR、语音识别、MCP 与本地网关服务。',
-    ],
-  },
-  {
-    title: '使用提示',
-    meta: '建议了解',
-    type: 'limit',
-    items: [
-      '自动更新优先使用系统更新通道；网络不可达时会提示备用发布入口。',
-      '模型价格、上下文长度和能力标签会随服务商调整，实际调用以服务商为准。',
-      '长期使用前建议定期创建完整备份、精简备份或数据库备份。',
-    ],
-  },
+const versionTips = [
+  '自动更新优先走系统通道；网络不可达时可从备用入口下载。',
+  '模型价格与能力以服务商为准，长期使用前建议定期备份。',
 ];
-
-const relatedLinks = [
-  {
-    label: '模型服务',
-    desc: '配置服务商、模型和接入方式',
-    icon: 'ri-ai-generate-3d-line',
-    route: '/settings/models',
-  },
-  {
-    label: '默认模型',
-    desc: '设置对话、标题和翻译模型',
-    icon: 'ri-robot-2-line',
-    route: '/settings/default-models',
-  },
-  {
-    label: '沙箱与权限',
-    desc: '检查文件、命令和工具限制',
-    icon: 'ri-shield-keyhole-line',
-    route: '/settings/sandbox',
-  },
-];
-
 function go(route) {
   if (!route) return;
   router.push(route);
@@ -107,6 +41,15 @@ function go(route) {
 
 function checkUpdate() {
   checkForUpdate();
+}
+
+function openExternal(url) {
+  if (!url) return;
+  if (window.electronAPI?.openExternal) {
+    window.electronAPI.openExternal(url).catch(console.error);
+  } else {
+    window.open(url, '_blank', 'noopener,noreferrer');
+  }
 }
 
 function toneClass(tone) {
@@ -126,11 +69,6 @@ function toneClass(tone) {
   return palette[tone] || palette.brand;
 }
 
-function releaseTone(type) {
-  if (type === 'stable') return toneClass('emerald');
-  if (type === 'focus') return toneClass('brand');
-  return toneClass('amber');
-}
 </script>
 
 <template>
@@ -247,13 +185,11 @@ function releaseTone(type) {
       </div>
     </div>
 
-    <!-- ═══ 版本更新 + 快速开始 / 相关入口 ═══ -->
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
-      <div
-        class="lg:col-span-2 rounded-xl p-4"
+    <!-- ═══ 版本更新 ═══ -->
+    <div class="rounded-xl p-4"
         :class="isDark ? 'bg-d3 border border-bdr' : 'bg-l3 border border-bdrF'"
-      >
-        <div class="flex items-center justify-between gap-3 mb-4">
+    >
+      <div class="flex items-center justify-between gap-3 mb-4">
           <div class="flex items-center gap-2">
             <i class="ri-history-line text-brand-400 text-[14px]" />
             <span class="section-title" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'"
@@ -265,118 +201,96 @@ function releaseTone(type) {
           >
         </div>
 
-        <div class="space-y-4">
-          <div
-            v-for="log in releaseNotes"
-            :key="log.title"
-            class="rounded-lg p-3"
-            :class="isDark ? 'bg-d0' : 'bg-l2'"
-          >
-            <div class="flex items-center gap-2 mb-2">
-              <span
-                class="text-[12px] font-bold"
-                :class="isDark ? 'text-wt-main' : 'text-lt-main'"
-                >{{ log.title }}</span
-              >
-              <span class="ctx-pill" :class="releaseTone(log.type)">{{ log.meta }}</span>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <!-- 亮点 -->
+          <div class="rounded-lg p-3" :class="isDark ? 'bg-d0' : 'bg-l2'">
+            <div class="flex items-center gap-1.5 mb-2.5">
+              <i class="ri-sparkling-2-fill text-emerald-400 text-[13px]" />
+              <span class="text-[11px] font-bold" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">版本亮点</span>
             </div>
             <ul class="space-y-1.5">
               <li
-                v-for="entry in log.items"
-                :key="entry"
+                v-for="item in versionHighlights"
+                :key="item"
                 class="flex items-start gap-2 text-[11px] leading-relaxed"
                 :class="isDark ? 'text-wt-aux' : 'text-lt-aux'"
               >
-                <span
-                  class="w-1 h-1 rounded-full mt-2 shrink-0"
-                  :class="isDark ? 'bg-wt-dim' : 'bg-lt-aux'"
-                />
-                <span>{{ entry }}</span>
+                <span class="w-1 h-1 rounded-full mt-2 shrink-0 bg-emerald-400/70" />
+                <span>{{ item }}</span>
+              </li>
+            </ul>
+          </div>
+          <!-- 使用提示 -->
+          <div class="rounded-lg p-3" :class="isDark ? 'bg-d0' : 'bg-l2'">
+            <div class="flex items-center gap-1.5 mb-2.5">
+              <i class="ri-lightbulb-line text-amber-400 text-[13px]" />
+              <span class="text-[11px] font-bold" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">使用提示</span>
+            </div>
+            <ul class="space-y-1.5">
+              <li
+                v-for="item in versionTips"
+                :key="item"
+                class="flex items-start gap-2 text-[11px] leading-relaxed"
+                :class="isDark ? 'text-wt-aux' : 'text-lt-aux'"
+              >
+                <span class="w-1 h-1 rounded-full mt-2 shrink-0" :class="isDark ? 'bg-amber-400/70' : 'bg-amber-400'" />
+                <span>{{ item }}</span>
               </li>
             </ul>
           </div>
         </div>
       </div>
 
-      <div class="space-y-4">
-        <!-- 快速开始 -->
+    <!-- ═══ 反馈与交流 ═══ -->
+    <div
+      class="rounded-xl p-4"
+      :class="isDark ? 'bg-d3 border border-bdr' : 'bg-l3 border border-bdrF'"
+    >
+      <div class="flex items-start gap-3">
         <div
-          class="rounded-xl p-4"
-          :class="isDark ? 'bg-d3 border border-bdr' : 'bg-l3 border border-bdrF'"
+          class="w-9 h-9 rounded-lg flex items-center justify-center border shrink-0"
+          :class="toneClass('emerald')"
         >
-          <div class="flex items-center gap-2 mb-3">
-            <i class="ri-checkbox-circle-line text-emerald-400 text-[14px]" />
-            <span class="section-title" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'"
-              >快速开始</span
-            >
-          </div>
-          <div class="space-y-2">
-            <button
-              v-for="(item, idx) in gettingStartedItems"
-              :key="item.label"
-              class="w-full rounded-lg px-3 py-2 text-left transition-colors"
-              :class="isDark ? 'bg-d0 hover:bg-white/4' : 'bg-l2 hover:bg-l4'"
-              @click="go(item.route)"
-            >
-              <div class="flex items-center gap-2">
-                <span
-                  class="text-[10px] font-mono font-bold shrink-0"
-                  :class="isDark ? 'text-wt-dim' : 'text-lt-aux'"
-                  >{{ idx + 1 }}</span
-                >
-                <span
-                  class="text-[11px] font-semibold"
-                  :class="isDark ? 'text-wt-sub' : 'text-lt-sub'"
-                  >{{ item.label }}</span
-                >
-              </div>
-              <span
-                class="block text-[10px] leading-snug mt-0.5 pl-5"
-                :class="isDark ? 'text-wt-dim' : 'text-lt-aux'"
-                >{{ item.desc }}</span
-              >
-            </button>
-          </div>
+          <i class="ri-feedback-line text-[16px]" />
         </div>
-
-        <!-- 相关入口 -->
-        <div
-          class="rounded-xl p-4"
-          :class="isDark ? 'bg-d3 border border-bdr' : 'bg-l3 border border-bdrF'"
-        >
-          <div class="flex items-center gap-2 mb-3">
-            <i class="ri-link text-[14px]" :class="isDark ? 'text-wt-aux' : 'text-lt-aux'" />
-            <span class="section-title" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'"
-              >相关入口</span
-            >
-          </div>
-          <div class="grid gap-1">
+        <div class="min-w-0 flex-1">
+          <h3
+            class="text-[13px] font-bold mb-1.5"
+            :class="isDark ? 'text-wt-main' : 'text-lt-main'"
+          >
+            反馈与交流
+          </h3>
+          <p
+            class="text-[12px] leading-relaxed mb-3"
+            :class="isDark ? 'text-wt-aux' : 'text-lt-aux'"
+          >
+            使用中遇到问题、有功能建议或合作意向，欢迎反馈与联系。可以提交 Issue、加入用户交流群，或直接联系作者。
+          </p>
+          <div class="flex flex-wrap gap-2">
             <button
-              v-for="item in relatedLinks"
-              :key="item.label"
-              class="w-full flex items-start gap-2.5 py-2 px-2 rounded-lg text-left transition-colors"
-              :class="isDark ? 'hover:bg-white/4' : 'hover:bg-l4'"
-              @click="go(item.route)"
+              class="h-8 px-3 rounded-lg text-[11px] font-medium flex items-center gap-1.5 border transition-colors"
+              :class="isDark ? 'bg-d0 border-bdr text-wt-sub hover:border-brand-400/30' : 'bg-l2 border-bdrF text-lt-sub hover:border-brand-200'"
+              @click="openExternal('https://github.com/mingchen666/Reviva/issues')"
             >
-              <i
-                :class="`${item.icon} text-[13px] mt-0.5 ${isDark ? 'text-wt-aux' : 'text-lt-aux'}`"
-              />
-              <span class="flex-1 min-w-0">
-                <span
-                  class="block text-[11px] font-medium"
-                  :class="isDark ? 'text-wt-sub' : 'text-lt-sub'"
-                  >{{ item.label }}</span
-                >
-                <span
-                  class="block text-[10px] mt-0.5"
-                  :class="isDark ? 'text-wt-dim' : 'text-lt-aux'"
-                  >{{ item.desc }}</span
-                >
-              </span>
-              <i
-                class="ri-arrow-right-up-line text-[14px] mt-0.5"
-                :class="isDark ? 'text-wt-dim' : 'text-lt-aux'"
-              />
+              <i class="ri-bug-line text-[12px]" />
+              提交反馈
+            </button>
+            <!-- 交流群：点击在浏览器打开群二维码图片，请替换为真实图片 URL -->
+            <button
+              class="h-8 px-3 rounded-lg text-[11px] font-medium flex items-center gap-1.5 border transition-colors"
+              :class="isDark ? 'bg-d0 border-bdr text-wt-sub hover:border-emerald-400/30' : 'bg-l2 border-bdrF text-lt-sub hover:border-emerald-200'"
+              @click="openExternal('https://github.com/mingchen666/Reviva/raw/main/docs/images/wx-group.jpg')"
+            >
+              <i class="ri-group-line text-[12px]" />
+              加入交流群
+            </button>
+            <button
+              class="h-8 px-3 rounded-lg text-[11px] font-medium flex items-center gap-1.5 border transition-colors"
+              :class="isDark ? 'bg-d0 border-bdr text-wt-sub hover:border-purple-400/30' : 'bg-l2 border-bdrF text-lt-sub hover:border-purple-200'"
+              @click="go('/settings/author')"
+            >
+              <i class="ri-user-heart-line text-[12px]" />
+              联系作者
             </button>
           </div>
         </div>

@@ -5,7 +5,7 @@
   "description": "面向任何学科和学习阶段的通用学习入口，可根据目标与资料自动选择讲解、练习、复习、规划、整理和掌握检查方式。",
   "icon": "ri-graduation-cap-line",
   "color": "#14B8A6",
-  "builtin_version": "1.1.0",
+  "builtin_version": "1.2.0",
 
   "architecture": "hybrid",
   "model": "",
@@ -35,6 +35,7 @@
   "skills": [
     "study-companion-en",
     "concept-explainer",
+    "teacher-skill",
     "socratic-tutor",
     "feynman-learning-coach",
     "knowledge-organize",

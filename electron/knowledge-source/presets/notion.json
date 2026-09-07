@@ -1,0 +1,41 @@
+{
+  "preset": "notion",
+  "name": "Notion",
+  "type": "http",
+  "base_url": "https://api.notion.com/v1",
+  "default_headers": {
+    "Notion-Version": "2022-06-28"
+  },
+  "auth": {
+    "type": "bearer",
+    "token": "{{USER_TOKEN}}"
+  },
+  "capabilities": {
+    "interfaces": [
+      "search"
+    ],
+    "content_types": [
+      "text",
+      "image"
+    ]
+  },
+  "endpoints": {
+    "search": {
+      "method": "POST",
+      "path": "/search",
+      "body": {
+        "query": "{query}",
+        "page_size": "{top_k}"
+      },
+      "response": {
+        "items_path": "results",
+        "field_mapping": {
+          "content": "url",
+          "title": "object",
+          "source": "id"
+        },
+        "total_path": ""
+      }
+    }
+  }
+}

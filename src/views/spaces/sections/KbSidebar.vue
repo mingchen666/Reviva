@@ -99,7 +99,7 @@ watch(() => props.activeScope, (scope) => {
       <template v-else-if="showMineGroups">
         <div v-if="ownKbs.length" class="mb-4">
           <h3 class="px-4 mb-1.5 text-[10px] font-semibold uppercase tracking-wider" :class="isDark ? 'text-wt-dim' : 'text-slate-400'">
-            自建库
+            自建知识库
           </h3>
           <KbListItem
             v-for="kb in ownKbs"

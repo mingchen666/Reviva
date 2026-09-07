@@ -141,14 +141,47 @@ function createRunScopedNoteTool() {
 }
 
 // Cloud API context for kb_search: { baseUrl, token, defaultKbIds, defaultDocIds }
-let _cloudCtx = { baseUrl: '', token: '', defaultKbIds: [], defaultDocIds: [] }
+let _cloudCtx = { baseUrl: '', token: '', defaultKbIds: [], defaultDocIds: [], activeSourceId: '', externalKbId: '' }
+let _externalKbBodyFields = '' // human-readable field list from the active source's search body
 export function setCloudContext(ctx) {
   _cloudCtx = {
     baseUrl: ctx?.baseUrl || '',
     token: ctx?.token || '',
     defaultKbIds: Array.isArray(ctx?.defaultKbIds) ? ctx.defaultKbIds : [],
     defaultDocIds: Array.isArray(ctx?.defaultDocIds) ? ctx.defaultDocIds : [],
+    activeSourceId: ctx?.activeSourceId || '',
+    externalKbId: ctx?.externalKbId || '',
   }
+  // When an external source is active, extract its search body field names
+  // so we can describe them to the agent in the kb_search tool schema.
+  _externalKbBodyFields = ''
+  if (_cloudCtx.activeSourceId && _kbRegistry) {
+    try {
+      const src = _kbRegistry.getSource(_cloudCtx.activeSourceId)
+      const body = src?.config?.endpoints?.search?.body
+      if (body && typeof body === 'object' && !Array.isArray(body)) {
+        const fields = Object.keys(body)
+          .filter(k => !['query', 'top_k'].includes(k)) // skip runtime placeholders
+        if (fields.length) {
+          _externalKbBodyFields = fields.map(k => {
+            const v = body[k]
+            const valStr = typeof v === 'string' ? v : JSON.stringify(v)
+            return `${k} (当前: ${valStr.length > 40 ? valStr.slice(0,40)+'…' : valStr})`
+          }).join(', ')
+        }
+      }
+    } catch {}
+  }
+}
+
+// KnowledgeSourceRegistry — set by AgentService.init() so kb_search can route
+// to non-builtin knowledge sources when activeSourceId is set.
+let _kbRegistry = null
+export function setKnowledgeSourceRegistry(registry) {
+  _kbRegistry = registry
+}
+export function getKnowledgeSourceRegistry() {
+  return _kbRegistry
 }
 
 export function resetTaskCounters() {
@@ -570,6 +603,19 @@ function _formatSearchErrorDetail(detail) {
 export const kbSearch = tool(
   async ({ query, kb_ids, doc_ids, top_k, search_mode, search_modes, rerank, save_to_history }) => {
     const ctx = _cloudCtx
+    // When a knowledge source is activated via the Registry, route through it
+   // instead of the legacy inline ApeRAG path.
+    if (ctx.activeSourceId && _kbRegistry) {
+      try {
+        const result = await _kbRegistry.search(ctx.activeSourceId, {
+          query, top_k,
+          kbId: ctx.externalKbId || '',
+        })
+       return JSON.stringify(result)
+      } catch (e) {
+        return JSON.stringify({ status: 'error', message: e?.message || 'Registry search failed' })
+      }
+    }
     if (!ctx.baseUrl || !ctx.token) {
       return JSON.stringify({
         status: 'unavailable',
@@ -632,27 +678,67 @@ export const kbSearch = tool(
     }
   },
   {
-    name: 'kb_search',
+   name: 'kb_search',
     description: '在云端知识库中检索相关内容。用户选择云端知识库或云端知识库文档后，必须用此工具获取内容；不要改用 read_file/file_read/document_read/office_read/pdf_read 读取云端知识库。通常只传 query，系统会自动使用当前选择的 kb_ids/doc_ids。默认 top_k=5；可根据任务用不同 query 多次检索，只有问题范围较宽、用户要求更全面或命中不足时才适度上调 top_k。',
-    schema: z.object({
-      query: z.string().describe('检索查询语句'),
+  schema: z.object({
+    query: z.string().describe('检索查询语句'),
       kb_ids: z.array(z.string()).optional().describe('限定知识库 ID 列表；不传则使用用户当前选择的范围'),
       doc_ids: z.array(z.string()).optional().describe('限定文档 ID 列表；不传则不限'),
-      top_k: z.number().int().min(1).max(100).optional().describe('返回条数；不传默认 5。一般保持 5；复杂或宽泛问题可用 8-10，只有用户明确要求大量结果时才更高'),
-      search_mode: z.enum(['vector', 'fulltext', 'graph', 'summary', 'vision', 'hybrid']).optional()
+     top_k: z.number().int().min(1).max(100).optional().describe('返回条数；不传默认 5。一般保持 5；复杂或宽泛问题可用 8-10，只有用户明确要求大量结果时才更高'),
+     search_mode: z.enum(['vector', 'fulltext', 'graph', 'summary', 'vision', 'hybrid']).optional()
         .describe('单选检索模式；通常不需要传，默认使用 search_modes 的四种混合检索'),
-      search_modes: z.array(z.enum(['vector', 'fulltext', 'graph', 'summary', 'vision'])).optional()
+     search_modes: z.array(z.enum(['vector', 'fulltext', 'graph', 'summary', 'vision'])).optional()
         .describe('检索模式组合；不传默认 vector/fulltext/graph/summary，不默认启用 vision'),
-      rerank: z.boolean().optional().describe('是否对结果重排，默认 false'),
-      save_to_history: z.boolean().optional().describe('是否保存检索历史，默认 false'),
-    }),
-  },
+     rerank: z.boolean().optional().describe('是否对结果重排，默认 false'),
+     save_to_history: z.boolean().optional().describe('是否保存检索历史，默认 false'),
+   }),
+},
 )
 
 // ── Calculator ──────────────────────────────────────────────────
 // Powered by mathjs: arithmetic, scientific functions, statistics, unit conversion,
 // combinatorics, constants. Single expression entry point — let the LLM compose
 // the right mathjs syntax based on the description below.
+
+// ── External KB Search (Dify / FastGPT / Custom HTTP / MCP) ────────────────
+// Minimal schema: only query, top_k, and extra_body.
+// getLangchainTools swaps this in when _cloudCtx.activeSourceId is set.
+// Factory: creates a fresh kb_search tool instance with a dynamic description
+// that includes the actual body fields of the active external knowledge source.
+export function createKbSearchExternal() {
+  const fieldHint = _externalKbBodyFields
+    ? `当前知识库支持的 extra_body 字段：${_externalKbBodyFields}。`
+    : ''
+  const noKbHint = !_cloudCtx.externalKbId
+    ? '注意：当前未选择具体知识库，检索可能无法定位到正确的数据集。如果检索失败，请提示用户在侧边栏选择一个知识库。'
+    : ''
+  return tool(
+    async ({ query, top_k, extra_body }) => {
+      const ctx = _cloudCtx
+      if (!ctx.activeSourceId || !_kbRegistry) {
+        return JSON.stringify({ status: 'error', message: 'No external knowledge source active' })
+      }
+      try {
+        const result = await _kbRegistry.search(ctx.activeSourceId, {
+          query, top_k, extra_body,
+          kbId: ctx.externalKbId || '',
+        })
+        return JSON.stringify(result)
+      } catch (e) {
+        return JSON.stringify({ status: 'error', message: e?.message || 'Registry search failed' })
+      }
+    },
+    {
+      name: 'kb_search',
+      description: '在外部知识库中检索相关内容（Dify/FastGPT/自定义 HTTP/MCP）。通常只需传 query；默认 top_k=5，命中不足或问题宽泛时可上调。如需根据用户意图调整检索范围，可通过 extra_body 传递额外请求体字段，覆盖知识源配置中的默认值。' + fieldHint + noKbHint,
+      schema: z.object({
+        query: z.string().describe('检索查询语句'),
+        top_k: z.number().int().min(1).max(100).optional().describe('返回条数；不传默认 5'),
+        extra_body: z.record(z.any()).optional().describe('额外请求体字段，键名必须与目标 API 的 body 字段名一致。传入的值会覆盖配置中的默认值'),
+      }),
+    },
+  )
+}
 
 export const calculator = tool(
   async ({ expression }) => {
@@ -1709,13 +1795,18 @@ export function getLangchainTools(toolIds) {
   const bindRunScopedTools = tools => tools.flatMap((item) => {
     if (item === mediaRead) return mediaReadAvailable ? [createRunScopedMediaRead()] : []
     if (item === noteTool) return [createRunScopedNoteTool()]
-    return [item]
-  })
-  if (!toolIds?.length) return bindRunScopedTools(CUSTOM_TOOLS)
+   return [item]
+ })
+  // Swap kb_search tool based on whether an external knowledge source is active
+  const useExternalKb = !!_cloudCtx.activeSourceId
+  const effectiveTools = useExternalKb
+    ? CUSTOM_TOOLS.map(t => t === kbSearch ? createKbSearchExternal() : t)
+    : CUSTOM_TOOLS
+  if (!toolIds?.length) return bindRunScopedTools(effectiveTools)
   const toolsetTools = _createToolsetTools(toolIds)
   const idSet = _normalizeToolIds(toolIds)
   return bindRunScopedTools([
-    ...CUSTOM_TOOLS.filter(t => idSet.has(t.name)),
+    ...effectiveTools.filter(t => idSet.has(t.name)),
     ...toolsetTools,
   ])
 }

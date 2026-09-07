@@ -1,0 +1,24 @@
+{
+  "id": "teacher-skill",
+  "name": "AI老师",
+  "description": "给定文档/书籍/课程资料后，像老师一样诊断学情、制定学习路线、逐单元教学并检查理解，支持模仿名师教学风格。当用户说\"教我\"\"帮我学\"\"帮我理解\"或上传资料要求学习时触发。",
+  "icon": "ri-graduation-cap-line",
+  "color": "#F59E0B",
+  "category": "学习",
+  "source": "platform",
+  "allowedTools": [
+    "file_read",
+    "document_read",
+    "file_write",
+    "exec_command",
+    "kb_search",
+    "web_search_bing",
+    "vision_analyze"
+  ],
+  "outputTypes": [
+    "Markdown"
+  ],
+  "version": "2.7.0",
+  "author": "teacher-skills",
+  "license": "MIT"
+}
