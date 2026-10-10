@@ -621,6 +621,7 @@ const api = {
     check: () => ipcRenderer.invoke('update:check'),
     download: () => ipcRenderer.invoke('update:download'),
     install: () => ipcRenderer.invoke('update:install'),
+    fetchJson: (url, timeoutMs) => ipcRenderer.invoke('update:fetchJson', url, timeoutMs),
     onChecking: (cb) => { const h = (_, d) => cb(d); ipcRenderer.on('update:checking', h); return h },
     onAvailable: (cb) => { const h = (_, d) => cb(d); ipcRenderer.on('update:available', h); return h },
     onNotAvailable: (cb) => { const h = (_, d) => cb(d); ipcRenderer.on('update:not-available', h); return h },

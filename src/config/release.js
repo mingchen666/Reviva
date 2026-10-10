@@ -17,6 +17,14 @@ export const RELEASE_CONFIG = {
       canAutoDownload: false,
     },
     {
+      id: 'reviva-website',
+      type: 'manifest',
+      name: 'Reviva 官网发布通道',
+      url: 'https://www.reviva.cn/latest.json',
+      downloadUrl: 'https://www.reviva.cn/download.html',
+      canAutoDownload: false,
+    },
+    {
       id: 'reviva-quark',
       type: 'manual',
       name: '夸克网盘备用发布',
@@ -25,13 +33,5 @@ export const RELEASE_CONFIG = {
       releaseNotes: '当前发布通道用于在自动更新不可达时提供备用下载。',
       canAutoDownload: false,
     },
-    // Future self-hosted source (for example, Cloudflare Pages):
-    // {
-    //   id: 'reviva-cloudflare',
-    //   type: 'manifest',
-    //   name: 'Reviva Update Service',
-    //   url: 'https://update.example.com/latest.json',
-    //   canAutoDownload: false,
-    // },
   ],
 }

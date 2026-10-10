@@ -67,6 +67,18 @@ function initAutoUpdater(mainWindow) {
     }
   })
 
+  // Fetch JSON in main process (bypasses renderer CORS restrictions)
+  ipcMain.handle('update:fetchJson', async (_, url, timeoutMs = 6500) => {
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), timeoutMs)
+    try {
+      const res = await fetch(url, { signal: controller.signal, headers: { accept: 'application/json' } })
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      return await res.json()
+    } finally {
+      clearTimeout(timer)
+    }
+  })
   ipcMain.handle('update:download', () => {
     try {
       return autoUpdater.downloadUpdate()

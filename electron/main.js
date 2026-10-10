@@ -268,8 +268,11 @@ function createWindow() {
     }
   })
 
+  // Capture webContents before the 'closed' event fires - by then the
+  // BrowserWindow is already destroyed and accessing win.webContents throws.
+  const wc = win.webContents
   win.on('closed', () => {
-    cleanupRealtimeASRForSender(win.webContents)
+    cleanupRealtimeASRForSender(wc)
     win = null
   })
 

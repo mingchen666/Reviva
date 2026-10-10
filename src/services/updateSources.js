@@ -58,6 +58,10 @@ function configuredSources() {
 }
 
 async function fetchJsonWithTimeout(url, timeoutMs = DEFAULT_TIMEOUT_MS) {
+  // Prefer main-process IPC fetch to bypass renderer CORS restrictions
+  if (window.electronAPI?.update?.fetchJson) {
+    return window.electronAPI.update.fetchJson(url, timeoutMs)
+  }
   const controller = new AbortController()
   const timer = window.setTimeout(() => controller.abort(), timeoutMs)
   try {
