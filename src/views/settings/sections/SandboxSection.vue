@@ -30,40 +30,8 @@ function saveWikiWebHardLimit() {
   updateWikiWebResearch({ hardLimit: value })
 }
 
-const wlInput = ref('')
 const blInput = ref('')
 
-const DEFAULT_COMMAND_WHITELIST = [
-  'echo',
-  'where',
-  'which',
-  'whoami',
-  'hostname',
-  'ver',
-  'uname',
-  'pwd',
-  'dir',
-  'tree',
-  'python',
-  'python3',
-  'py',
-  'node',
-  'pip',
-  'pip3',
-  'ls',
-  'type',
-  'more',
-  'cat',
-  'findstr',
-  'grep',
-  'fc',
-  'diff',
-  'ipconfig',
-  'ifconfig',
-  'ping',
-  'nslookup',
-  'dig',
-]
 const DEFAULT_COMMAND_BLACKLIST = [
   'rm -rf',
   'rm -r',
@@ -81,49 +49,6 @@ const DEFAULT_COMMAND_BLACKLIST = [
   'powershell',
   'cmd',
 ]
-const FILE_VIEW_COMMAND_WHITELIST = [
-  'attrib',
-  'certutil -hashfile',
-  'less',
-  'head',
-  'tail',
-  'wc',
-  'file',
-  'stat',
-  'shasum',
-  'md5',
-]
-const NETWORK_COMMAND_WHITELIST = [
-  'curl',
-  'tracert',
-  'traceroute',
-]
-const FILE_ACTION_COMMAND_WHITELIST = [
-  'mkdir',
-  'copy',
-  'xcopy',
-  'ren',
-  'move',
-  'cp',
-  'mv',
-]
-
-function mergeUnique(...lists) {
-  return [...new Set(lists.flat().map(v => String(v || '').trim().toLowerCase()).filter(Boolean))]
-}
-
-function addWhitelist() {
-  const v = wlInput.value.trim().toLowerCase()
-  if (v && !ss.commandWhitelist.includes(v)) {
-    ss.commandWhitelist.push(v)
-    ss.savePreference('commandWhitelist', ss.commandWhitelist)
-  }
-  wlInput.value = ''
-}
-function removeWhitelist(idx) {
-  ss.commandWhitelist.splice(idx, 1)
-  ss.savePreference('commandWhitelist', ss.commandWhitelist)
-}
 
 function addBlacklist() {
   const v = blInput.value.trim().toLowerCase()
@@ -140,19 +65,8 @@ function removeBlacklist(idx) {
 
 function applyPreset(type) {
   if (type === 'safe') {
-    ss.commandWhitelist = [...DEFAULT_COMMAND_WHITELIST]
-    ss.commandBlacklist = [...DEFAULT_COMMAND_BLACKLIST]
-  } else if (type === 'file-view') {
-    ss.commandWhitelist = mergeUnique(DEFAULT_COMMAND_WHITELIST, FILE_VIEW_COMMAND_WHITELIST)
-    ss.commandBlacklist = [...DEFAULT_COMMAND_BLACKLIST]
-  } else if (type === 'file-action') {
-    ss.commandWhitelist = mergeUnique(ss.commandWhitelist, FILE_ACTION_COMMAND_WHITELIST)
-    ss.commandBlacklist = [...DEFAULT_COMMAND_BLACKLIST]
-  } else if (type === 'network') {
-    ss.commandWhitelist = mergeUnique(ss.commandWhitelist, NETWORK_COMMAND_WHITELIST)
     ss.commandBlacklist = [...DEFAULT_COMMAND_BLACKLIST]
   }
-  ss.savePreference('commandWhitelist', ss.commandWhitelist)
   ss.savePreference('commandBlacklist', ss.commandBlacklist)
 }
 
@@ -366,7 +280,7 @@ function applyPreset(type) {
               以下路径始终禁止删除操作：<span class="font-mono">/memories/</span>、<span class="font-mono">/skills/</span>、<span class="font-mono">/.reviva/</span>、<span class="font-mono">/agents/*/memory/</span>
             </div>
           </div>
-        </div>
+       </div>
       </div>
     </div>
 
@@ -385,45 +299,17 @@ function applyPreset(type) {
               <span class="text-[13px] font-medium" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">允许执行命令</span>
               <span class="ctx-pill text-[10px]" :class="isDark ? 'bg-emerald-400/10 text-emerald-400 border border-emerald-400/20' : 'bg-emerald-50 text-emerald-600 border border-emerald-100'">已生效</span>
             </div>
-            <div class="text-[11px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">全局开关：关闭后 Agent 不能使用 exec_command；开启后仍禁止管道、重定向和多命令串联</div>
-          </div>
-          <div class="toggle shrink-0 cursor-pointer" :class="ss.allowExecCommand ? 'on' : (isDark ? 'off' : 'light-off')" @click="toggleAllowExecCommand" />
+          <div class="text-[11px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">全局开关：关闭后 Agent 不能使用 exec_command；开启后仍禁止管道、重定向和多命令串联</div>
         </div>
-
-        <!-- Whitelist -->
-        <div class="py-2 px-2 rounded-lg" :class="isDark ? 'bg-d0/60' : 'bg-l2/60'">
-          <div class="flex items-center gap-1.5 mb-2">
-            <i class="ri-check-double-line text-[13px] text-emerald-400" />
-            <span class="text-[12px] font-medium" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">白名单</span>
-            <span class="text-[11px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">命令名或命令前缀；建议优先放开只读或范围明确的命令</span>
-          </div>
-          <div class="flex flex-wrap gap-1.5 mb-2">
-            <span v-for="(cmd, idx) in ss.commandWhitelist" :key="idx"
-              class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[12px] font-mono cursor-pointer transition-colors"
-              :class="isDark ? 'bg-emerald-400/10 text-emerald-400 border border-emerald-400/20 hover:bg-red-400/15 hover:text-red-400 hover:border-red-400/20' : 'bg-emerald-50 text-emerald-600 border border-emerald-100 hover:bg-red-50 hover:text-red-500 hover:border-red-200'"
-              @click="removeWhitelist(idx)">
-              {{ cmd }} <i class="ri-close-line text-[11px]" />
-            </span>
-            <span v-if="ss.commandWhitelist.length === 0" class="text-[11px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">无白名单限制（仍受黑名单和控制符限制）</span>
-          </div>
-          <div class="flex items-center gap-1.5">
-            <input v-model="wlInput" type="text" placeholder="输入命令名或前缀，如 dir / type / copy"
-              class="flex-1 h-7 px-2 rounded-md text-[12px] outline-none"
-              :class="isDark ? 'bg-d0 border border-d4 text-wt-sub placeholder:text-wt-dim' : 'bg-l2 border border-bdrF text-lt-sub placeholder:text-lt-aux'"
-              @keydown.enter="addWhitelist">
-            <button @click="addWhitelist" class="h-7 px-2.5 rounded-md text-[11px] font-medium transition-colors"
-              :class="isDark ? 'bg-emerald-400/10 text-emerald-400 hover:bg-emerald-400/20 border border-emerald-400/20' : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border border-emerald-100'">
-              <i class="ri-add-line text-[12px]" />
-            </button>
-          </div>
-        </div>
+         <div class="toggle shrink-0 cursor-pointer" :class="ss.allowExecCommand ? 'on' : (isDark ? 'off' : 'light-off')" @click="toggleAllowExecCommand" />
+       </div>
 
         <!-- Blacklist -->
         <div class="py-2 px-2 rounded-lg" :class="isDark ? 'bg-d0/60' : 'bg-l2/60'">
           <div class="flex items-center gap-1.5 mb-2">
             <i class="ri-forbid-line text-[13px] text-red-400" />
             <span class="text-[12px] font-medium" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">黑名单</span>
-            <span class="text-[11px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">始终禁止的命令前缀（优先级高于白名单）</span>
+            <span class="text-[11px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">始终禁止的命令前缀</span>
           </div>
           <div class="flex flex-wrap gap-1.5 mb-2">
             <span v-for="(cmd, idx) in ss.commandBlacklist" :key="idx"
@@ -446,30 +332,11 @@ function applyPreset(type) {
           </div>
         </div>
 
-        <!-- Presets -->
-        <div class="flex items-center gap-2 pt-1">
-          <span class="text-[11px] shrink-0" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">快速预设：</span>
-          <button @click="applyPreset('safe')" class="px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors"
-            :class="isDark ? 'bg-emerald-400/10 text-emerald-400 hover:bg-emerald-400/20 border border-emerald-400/20' : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border border-emerald-100'">
-            <i class="ri-shield-line text-[11px] mr-0.5" /> 安全默认
-          </button>
-          <button @click="applyPreset('file-view')" class="px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors"
-            :class="isDark ? 'bg-violet-400/10 text-violet-400 hover:bg-violet-400/20 border border-violet-400/20' : 'bg-violet-50 text-violet-600 hover:bg-violet-100 border border-violet-100'">
-            <i class="ri-folder-search-line text-[11px] mr-0.5" /> 文件查看
-          </button>
-          <button @click="applyPreset('file-action')" class="px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors"
-            :class="isDark ? 'bg-sky-400/10 text-sky-400 hover:bg-sky-400/20 border border-sky-400/20' : 'bg-sky-50 text-sky-600 hover:bg-sky-100 border border-sky-100'">
-            <i class="ri-file-copy-line text-[11px] mr-0.5" /> 文件操作
-          </button>
-          <button @click="applyPreset('network')" class="px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors"
-            :class="isDark ? 'bg-amber-400/10 text-amber-400 hover:bg-amber-400/20 border border-amber-400/20' : 'bg-amber-50 text-amber-600 hover:bg-amber-100 border border-amber-100'">
-            <i class="ri-wifi-line text-[11px] mr-0.5" /> 网络/下载
-          </button>
-        </div>
-      </div>
+
     </div>
 
   </div>
+   </div>
 </template>
 
 <style scoped>

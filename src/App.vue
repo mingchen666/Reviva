@@ -140,6 +140,9 @@ onMounted(async () => {
   const customCssResult = await settingsStore.loadCustomCss()
   if (!customCssResult?.success) msg.warning(customCssResult?.error || '自定义 CSS 未能加载')
 
+  // Listen for settings changes from reviva_manage tool
+  settingsStore.setupRevivaSettingsListener()
+
   // Listen for play-sound events from main process
   window.electronAPI?.onPlaySound?.(onPlaySound)
   trayNavigateHandler = window.electronAPI?.onTrayNavigate?.((path) => {

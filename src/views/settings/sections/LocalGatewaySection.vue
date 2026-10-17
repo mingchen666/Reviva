@@ -25,9 +25,7 @@ const serviceAddress = computed(() => status.value?.address || `http://127.0.0.1
 const maskedKey = computed(() => keyConfigured.value ? `msk_••••••••••••••••••••••••••••${status.value?.apiKey?.hint || ''}` : '尚未创建')
 const displayedKey = computed(() => showKey.value && visibleKey.value ? visibleKey.value : maskedKey.value)
 
-/* ── 接口速查 ── */
-// TODO: 替换为 Reviva 官方文档「网关接口」页面真实地址
-const DOCS_URL = 'https://docs.reviva.app/zh/gateway'
+const DOCS_URL = 'https://www.reviva.cn'
 
 const endpointGroups = [
   {

@@ -33,9 +33,9 @@ function reasoningEffort(value, fallback = 'medium') {
   const normalized = String(value || '').toLowerCase()
   if (!normalized) return fallback || 'medium'
   if (normalized === 'minimal') return 'low'
-  if (normalized === 'xhigh') return 'high'
+  if (normalized === 'xhigh' || normalized === 'max') return 'high'
   if (['low', 'medium', 'high'].includes(normalized)) return normalized
-  throw new GatewayError(GATEWAY_ERROR_CODES.INVALID_REQUEST, 'reasoning_effort must be minimal, low, medium, high or xhigh', { status: 400 })
+  throw new GatewayError(GATEWAY_ERROR_CODES.INVALID_REQUEST, 'reasoning_effort must be minimal, low, medium, high, xhigh or max', { status: 400 })
 }
 
 function openAiChunk(id, model, delta, finishReason = null) {

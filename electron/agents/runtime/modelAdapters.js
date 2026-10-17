@@ -1,4 +1,4 @@
-import { ChatOpenAIResponses } from '@langchain/openai'
+import { ChatOpenAIResponses, ChatOpenAICompletions } from '@langchain/openai'
 
 export function normalizeAnthropicApiUrl(baseUrl = '') {
   const clean = String(baseUrl || '').trim().replace(/\/+$/, '')
@@ -98,5 +98,18 @@ export class ChatOpenAIResponsesCompat extends ChatOpenAIResponses {
     const result = await super.completionWithRetry(request, requestOptions)
     if (request?.stream) return normalizeResponsesStream(result)
     return normalizeResponsesPayload(result)
+  }
+}
+
+export class ChatOpenAICompletionsCompat extends ChatOpenAICompletions {
+  // Some OpenAI-compatible providers omit role:assistant from streaming
+  // delta chunks. Without a role the converter falls to the default case
+  // and produces ChatMessageChunk instead of AIMessageChunk. The merged
+  // result is then NOT an AIMessage, causing LangGraph middleware to throw
+  // "expected AIMessage or Command, got object". Default to assistant.
+  _convertCompletionsDeltaToBaseMessageChunk(delta, rawResponse, defaultRole) {
+    return super._convertCompletionsDeltaToBaseMessageChunk(
+      delta, rawResponse, defaultRole ?? 'assistant',
+    )
   }
 }

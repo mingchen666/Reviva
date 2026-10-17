@@ -28,7 +28,7 @@ function clickCompressContext() {
         :class="
           isDark ? 'text-wt-dim hover:text-wt-sub hover:bg-white/5' : 'text-lt-aux hover:text-lt-sub hover:bg-l4'
         ">
-        <i class="ri-close-line text-[12px]" />
+        <i class="ri-close-line text-[16px]" />
       </button>
     </div>
 

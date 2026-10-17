@@ -130,6 +130,15 @@ const api = {
     ipcRenderer.on('play-sound', (event, ...args) => callback(...args))
   },
 
+  onRevivaSettingsChanged: (callback) => {
+    const handler = (_event, data) => callback(data)
+    ipcRenderer.on('reviva:settingsChanged', handler)
+    return handler
+  },
+  removeRevivaSettingsChangedListener: (handler) => {
+    if (handler) ipcRenderer.removeListener('reviva:settingsChanged', handler)
+  },
+
   // WorkDir
   workdir: {
     init: (rootPath) => ipcRenderer.invoke('workdir:init', rootPath),

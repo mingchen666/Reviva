@@ -25,7 +25,7 @@ const STRING_SETTING_KEYS = new Set([
   'answerStyle', 'conflictStrategy', 'proxyMode', 'proxyType', 'proxyHost',
   'proxyPort', 'proxyUser', 'proxyPass', 'notifySoundType', 'deleteScope',
 ])
-const STRING_ARRAY_SETTING_KEYS = new Set(['commandWhitelist', 'commandBlacklist'])
+const STRING_ARRAY_SETTING_KEYS = new Set(['commandBlacklist'])
 
 function isPlainObject(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false

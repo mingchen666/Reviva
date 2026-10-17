@@ -642,7 +642,7 @@ onMounted(async () => {
     <!-- ═══ 空状态 ═══ -->
     <div
       v-if="summary.call_count === 0"
-      class="reveal reveal-2 rounded-xl py-14 flex flex-col items-center justify-center gap-2 border border-dashed"
+      class="reveal reveal-2 rounded-xl py-14 flex flex-col items-center justify-center gap-2"
       :class="isDark ? 'bg-d2/50 border-d4' : 'bg-l2 border-bdrF'"
     >
       <span class="w-12 h-12 rounded-full flex items-center justify-center mb-1" :class="isDark ? 'bg-emerald-400/10' : 'bg-emerald-50'">

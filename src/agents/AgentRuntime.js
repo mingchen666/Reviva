@@ -207,6 +207,17 @@ function _resolveNonNegativeLimit(...values) {
   return 0
 }
 
+function _resolveThinkingOverride(override, agent) {
+  const v = String(override || 'auto').toLowerCase()
+  if (v === 'auto' || !v) {
+    return { thinkingMode: agent?.thinkingMode || 'auto', thinkingIntensity: agent?.thinkingIntensity || 'medium' }
+  }
+  if (v === 'off' || v === 'disabled') {
+    return { thinkingMode: 'disabled', thinkingIntensity: agent?.thinkingIntensity || 'medium' }
+  }
+  return { thinkingMode: 'enabled', thinkingIntensity: v }
+}
+
 function _todoStatusLabel(status) {
   const value = String(status || '').toLowerCase().replace('-', '_')
   if (value === 'completed' || value === 'done') return '已完成'
@@ -680,7 +691,7 @@ export class AgentRuntime {
    * Renderer only sends: agent prompt + messages + ctxPaths
    * Main process handles: project system prompt injection, context staging, output dir, skills/memory
    */
-  async startChat({ convId, userText, resolvedContent, inputDocument, agentId, ctxItems, wikiContext, cloudContext }) {
+  async startChat({ convId, userText, resolvedContent, inputDocument, agentId, ctxItems, wikiContext, cloudContext, thinkingIntensity }) {
     // 1. Add user message — ctx items stored as both meta.ctx (for message building) and meta.attachments (for UI rendering)
     let runtimeCtxItems = (ctxItems || []).map(item => ({ ...item }))
     let ctxMeta = _toCtxMeta(runtimeCtxItems)
@@ -791,36 +802,37 @@ export class AgentRuntime {
       }
     }
 
-    // 9. Send request via IPC — main process handles all system prompt injection & context staging
-    this.registerListeners()
-    try {
-      await window.electronAPI.agent.startRun(toPlain({
-        runId,
-        conversationId: convId,
-        userMessageId: userMessage.id,
-        agentId: agentId || '',
-        agentEnglishName: _resolveAgentEnglishName(agent),
-        msgId: placeholder.id,
-        providerId,
-        apiFormat: this._providerApiFormat(provider),
-        apiKey: provider.apiKey,
-        baseUrl: provider.baseUrl,
-        model,
-        modelHasVision: !!modelObj?.capabilities?.vision,
-        visionModel,
-        systemPrompt,
-        messages: plainMessages,
-        maxIterations: _resolveNonNegativeLimit(agent?.maxIter, agent?.max_iterations, this.settingsStore?.maxIter, 10),
-        temperature: agent?.temperature,
-        maxTokens: agent?.maxTokens || 4096,
-        topP: agent?.topP,
-        thinkingMode: agent?.thinkingMode || 'auto',
-        thinkingIntensity: agent?.thinkingIntensity || 'medium',
-        reviewerModel: parseModelRef(agent?.reviewerModel || '').modelId || '',
-        useSameModel: agent?.useSameModel ?? true,
-        toolCallLimit: _resolveNonNegativeLimit(agent?.toolCallLimit, this.settingsStore?.toolCallLimit, 0),
-        modelCallLimit: _resolveNonNegativeLimit(agent?.modelCallLimit, this.settingsStore?.modelCallLimit, 0),
-        toolIds: _buildRuntimeToolIds(agent, runtimeCtxItems, wikiContext, cloudContext),
+   // 9. Send request via IPC — main process handles all system prompt injection & context staging
+   this.registerListeners()
+   try {
+     const _thinking = _resolveThinkingOverride(thinkingIntensity, agent)
+     await window.electronAPI.agent.startRun(toPlain({
+       runId,
+       conversationId: convId,
+       userMessageId: userMessage.id,
+       agentId: agentId || '',
+       agentEnglishName: _resolveAgentEnglishName(agent),
+       msgId: placeholder.id,
+       providerId,
+       apiFormat: this._providerApiFormat(provider),
+       apiKey: provider.apiKey,
+       baseUrl: provider.baseUrl,
+       model,
+       modelHasVision: !!modelObj?.capabilities?.vision,
+       visionModel,
+       systemPrompt,
+       messages: plainMessages,
+       maxIterations: _resolveNonNegativeLimit(agent?.maxIter, agent?.max_iterations, this.settingsStore?.maxIter, 10),
+       temperature: agent?.temperature,
+       maxTokens: agent?.maxTokens || 4096,
+       topP: agent?.topP,
+       thinkingMode: _thinking.thinkingMode,
+       thinkingIntensity: _thinking.thinkingIntensity,
+       reviewerModel: parseModelRef(agent?.reviewerModel || '').modelId || '',
+       useSameModel: agent?.useSameModel ?? true,
+       toolCallLimit: _resolveNonNegativeLimit(agent?.toolCallLimit, this.settingsStore?.toolCallLimit, 0),
+       modelCallLimit: _resolveNonNegativeLimit(agent?.modelCallLimit, this.settingsStore?.modelCallLimit, 0),
+       toolIds: _buildRuntimeToolIds(agent, runtimeCtxItems, wikiContext, cloudContext),
         subAgents: subAgentConfigs,
         permissions: agent?.permissions || {},
         skills: agent?.skills || [],
@@ -863,7 +875,7 @@ export class AgentRuntime {
   /**
    * Retry a failed/cancelled message
    */
-  async retryMessage(convId, targetMsgId, cloudContext) {
+  async retryMessage(convId, targetMsgId, cloudContext, thinkingIntensity) {
     const msgs = this.convStore.messages[convId] || []
     const targetIdx = msgs.findIndex(m => m.id === targetMsgId)
     if (targetIdx < 0) return
@@ -963,9 +975,10 @@ export class AgentRuntime {
     this.convStore.startStreaming(convId, placeholder, runId)
     this._trackRun(runId, convId, placeholder.id)
 
-    this.registerListeners()
-    try {
-      await window.electronAPI.agent.startRun(toPlain({
+   this.registerListeners()
+   try {
+     const _thinking = _resolveThinkingOverride(thinkingIntensity, agent)
+     await window.electronAPI.agent.startRun(toPlain({
         runId,
         conversationId: convId,
         userMessageId: userMsg.id,
@@ -985,8 +998,8 @@ export class AgentRuntime {
         temperature: agent?.temperature,
         maxTokens: agent?.maxTokens || 4096,
         topP: agent?.topP,
-        thinkingMode: agent?.thinkingMode || 'auto',
-        thinkingIntensity: agent?.thinkingIntensity || 'medium',
+        thinkingMode: _thinking.thinkingMode,
+        thinkingIntensity: _thinking.thinkingIntensity,
         reviewerModel: parseModelRef(agent?.reviewerModel || '').modelId || '',
         useSameModel: agent?.useSameModel ?? true,
         toolCallLimit: _resolveNonNegativeLimit(agent?.toolCallLimit, this.settingsStore?.toolCallLimit, 0),

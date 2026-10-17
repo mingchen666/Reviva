@@ -72,6 +72,19 @@ const voiceBtnRef = ref(null)
 const showVoiceModelDropdown = ref(false)
 const voiceModelPos = ref({ left: 0, bottom: 0, arrowLeft: 18 })
 const voiceStreamRef = ref(null)
+const thinkingBtnRef = ref(null)
+const showThinkingDropdown = ref(false)
+const thinkingDropdownPos = ref({ left: 0, bottom: 0, arrowLeft: 18 })
+const thinkingIntensity = computed(() => settingsStore.chatThinkingIntensity || 'auto')
+const thinkingIntensityOptions = [
+  { key: 'auto', label: '自动', icon: 'ri-magic-line', desc: '跟随默认配置', level: 0, group: 'mode' },
+  { key: 'off', label: '关闭', icon: 'ri-shut-down-line', desc: '不使用思考', level: -1, group: 'mode' },
+  { key: 'low', label: 'Low', icon: 'ri-flashlight-line', desc: '快速推理，适合简单任务', level: 1, group: 'intensity' },
+  { key: 'medium', label: 'Medium', icon: 'ri-brain-line', desc: '平衡速度与深度', level: 2, group: 'intensity' },
+  { key: 'high', label: 'High', icon: 'ri-mind-map', desc: '深入推理，适合复杂任务', level: 3, group: 'intensity' },
+  { key: 'xhigh', label: 'XHigh', icon: 'ri-rocket-2-line', desc: '超深度推理，消耗较多 Token', level: 4, group: 'intensity' },
+  { key: 'max', label: 'Max', icon: 'ri-fire-line', desc: '最大思考预算，最慢但最深', level: 5, group: 'intensity' },
+]
 const {
   status: voiceStatus,
   errorMsg: voiceErrorMsg,
@@ -107,6 +120,10 @@ const wikiButtonLabel = computed(() => {
   if (!selectedWikiCount.value) return 'Wiki'
   if (selectedWikiCount.value === 1) return selectedWikiNames.value[0] || 'Wiki'
   return `Wiki ${selectedWikiCount.value}`
+})
+const thinkingLabel = computed(() => {
+  const opt = thinkingIntensityOptions.find(o => o.key === thinkingIntensity.value)
+  return opt ? opt.label : '自动'
 })
 
 const canSend = computed(() => inputText.value.trim() && !props.isStreaming && charCount.value <= MAX_INPUT_LENGTH)
@@ -257,8 +274,25 @@ function toggleVoiceModelDropdown() {
     return
   }
   activePopover.value = null
+  showThinkingDropdown.value = false
   showVoiceModelDropdown.value = true
   voiceModelPos.value = calcPopoverPos(voiceBtnRef.value)
+}
+
+function toggleThinkingDropdown() {
+  if (showThinkingDropdown.value) {
+    showThinkingDropdown.value = false
+    return
+  }
+  activePopover.value = null
+  showVoiceModelDropdown.value = false
+  showThinkingDropdown.value = true
+  thinkingDropdownPos.value = calcPopoverPos(thinkingBtnRef.value)
+}
+
+function selectThinkingIntensity(key) {
+ settingsStore.savePreference('chatThinkingIntensity', key)
+ showThinkingDropdown.value = false
 }
 
 function selectVoiceModel(ref) {
@@ -288,6 +322,8 @@ function togglePopover(name) {
     return
   }
   activePopover.value = name
+  showVoiceModelDropdown.value = false
+  showThinkingDropdown.value = false
   const btnRef = name === 'attach'
     ? attachBtnRef.value
     : name === 'agent'
@@ -325,8 +361,8 @@ function handleSend() {
   }
   const documentSnapshot = normalizeInputDocument(inputDocument.value)
   const hasTokens = isStructuredInputDocument(documentSnapshot)
-  inputDocument.value = []
-  emit('send', { content, inputDocument: hasTokens ? documentSnapshot : [], resolvedContent: hasTokens ? resolvedContent : content })
+ inputDocument.value = []
+ emit('send', { content, inputDocument: hasTokens ? documentSnapshot : [], resolvedContent: hasTokens ? resolvedContent : content, thinkingIntensity: thinkingIntensity.value })
 }
 
 watch(() => props.selectedAgent?.id, () => tokenEditorRef.value?.closeMenu?.())
@@ -357,23 +393,28 @@ async function handlePaste(e) {
 
 // Click outside to close popover
 function onDocClick(e) {
-  if (!activePopover.value && !showVoiceModelDropdown.value) return
+  if (!activePopover.value && !showVoiceModelDropdown.value && !showThinkingDropdown.value) return
   const popoverEl = document.getElementById('chat-popover-content')
   const voiceModelEl = document.getElementById('voice-model-dropdown')
+  const thinkingEl = document.getElementById('thinking-dropdown')
   const attachBtn = attachBtnRef.value
   const agentBtn = agentBtnRef.value
   const wikiBtn = wikiBtnRef.value
   const ctxBtn = ctxBtnRef.value
   if (popoverEl && popoverEl.contains(e.target)) return
   if (voiceModelEl && voiceModelEl.contains(e.target)) return
+  if (thinkingEl && thinkingEl.contains(e.target)) return
   if (attachBtn && attachBtn.contains(e.target)) return
   if (agentBtn && agentBtn.contains(e.target)) return
   if (wikiBtn && wikiBtn.contains(e.target)) return
   if (ctxBtn && ctxBtn.contains(e.target)) return
   const voiceBtn = voiceBtnRef.value
   if (voiceBtn && voiceBtn.contains(e.target)) return
+  const thinkingBtn = thinkingBtnRef.value
+  if (thinkingBtn && thinkingBtn.contains(e.target)) return
   activePopover.value = null
   showVoiceModelDropdown.value = false
+  showThinkingDropdown.value = false
 }
 document.addEventListener('click', onDocClick, true)
 onBeforeUnmount(() => document.removeEventListener('click', onDocClick, true))
@@ -454,7 +495,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick, true))
             ref="voiceStreamRef"
             class="voice-stream-card max-h-[120px] overflow-y-auto py-2 px-1"
             :class="voiceIsRealtime ? (isDark ? 'voice-card-realtime-dark' : 'voice-card-realtime-light') : (isDark ? 'voice-card-dark' : 'voice-card-light')">
-            <div v-if="voiceStatus === 'recording'" class="flex items-center gap-1.5 mb-1.5">
+            <div v-if="voiceStatus === 'recording'" class="flex items-center gap-1 mb-1.5">
               <span class="voice-rec-dot shrink-0" style="width:6px;height:6px" />
               <span class="text-[11px] font-medium" :class="isDark ? 'text-amber-400' : 'text-amber-600'">实时识别</span>
               <div class="voice-waveform voice-waveform-sm flex items-center gap-[1.5px] h-[12px]">
@@ -485,7 +526,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick, true))
               重试
             </button>
             <button @click.stop="voiceResetError"
-                    class="shrink-0 text-[14px] px-1 leading-none opacity-50 hover:opacity-100 transition-opacity"
+                    class="shrink-0 text-[16px] px-1 leading-none opacity-50 hover:opacity-100 transition-opacity"
                     :class="isDark ? 'text-wt-aux hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub'"
                     title="关闭">
               <i class="ri-close-line" />
@@ -495,8 +536,8 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick, true))
       </div>
 
       <!-- Toolbar 工具按钮栏-->
-      <div class="chat-toolbar flex items-center gap-1.5 sm:gap-1 px-2 sm:px-3 pb-2 min-w-0">
-        <div class="chat-toolbar-left flex items-center gap-1.5 sm:gap-1 min-w-0 flex-1 overflow-hidden">
+      <div class="chat-toolbar flex items-center gap-1 sm:gap-1 px-2 sm:px-3 pb-2 min-w-0">
+        <div class="chat-toolbar-left flex items-center gap-1 sm:gap-1 min-w-0 flex-1 overflow-hidden">
           <!-- Attach button -->
           <button
             ref="attachBtnRef"
@@ -535,7 +576,25 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick, true))
             <i :class="selectedAgent ? 'ri-sparkling-2-line' : 'ri-at-line'" class="text-[12px]" />
             <span class="toolbar-label toolbar-label-primary toolbar-label-agent truncate">{{ selectedAgent ? selectedAgent.name : 'Agent' }}</span>
           </button>
-
+          <!-- Thinking 强度 -->
+          <div ref="thinkingBtnRef" class="flex items-center gap-0.5 shrink-0">
+            <button
+              @click="toggleThinkingDropdown"
+              :title="'思考强度：' + thinkingLabel"
+              class="toolbar-btn toolbar-btn-secondary h-8 px-2 sm:px-2.5 rounded-lg flex items-center gap-1 text-[0.8125rem] transition-colors"
+              :class="
+                showThinkingDropdown || thinkingIntensity !== 'auto'
+                  ? isDark
+                    ? 'text-brand-400 bg-brand-400/10'
+                    : 'text-brand-500 bg-brand-50'
+                  : isDark
+                    ? 'text-wt-aux hover:text-wt-sub hover:bg-white/5'
+                    : 'text-lt-aux hover:text-lt-sub hover:bg-l4'
+              ">
+              <i class="ri-brain-line text-[12px]" />
+              <span class="toolbar-label toolbar-label-optional">{{ thinkingLabel }}</span>
+            </button>
+          </div>
           <!-- Wiki context button -->
           <button
             ref="wikiBtnRef"
@@ -574,10 +633,12 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick, true))
             ">
             <i v-if="isCompressing" class="ri-loader-4-line text-[12px]" style="animation: spin 1s linear infinite" />
             <i v-else class="ri-text-wrap text-[12px]" />
-            <span class="toolbar-label toolbar-label-optional">{{ isCompressing ? '压缩中' : '上下文' }}</span>
-          </button>
+           <span class="toolbar-label toolbar-label-optional">{{ isCompressing ? '压缩中' : '上下文' }}</span>
+         </button>
 
-          <!-- Voice input -->
+
+
+         <!-- Voice input -->
           <div v-if="showVoice" ref="voiceBtnRef" class="flex items-center gap-0.5 shrink-0">
             <button
               @click="handleVoiceClick"
@@ -659,7 +720,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick, true))
         <button
           v-if="isStreaming"
           @click="emit('cancel')"
-          class="chat-send-btn h-9 px-3.5 rounded-md flex items-center gap-1.5 text-sm font-medium transition-colors shrink-0"
+          class="chat-send-btn h-9 px-3.5 rounded-md flex items-center gap-1 text-sm font-medium transition-colors shrink-0"
           :class="stopButtonClass">
           <i class="ri-stop-circle-line text-[14px]" />
           <span class="send-label">停止</span>
@@ -667,7 +728,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick, true))
         <button
           v-else
           @click="handleSend"
-          class="chat-send-btn h-9 px-3.5 rounded-md flex items-center gap-1.5 text-sm font-500 transition-colors shrink-0"
+          class="chat-send-btn h-9 px-3.5 rounded-md flex items-center gap-1 text-sm font-500 transition-colors shrink-0"
           :class="sendButtonClass">
           <i class="ri-send-plane-line text-[14px]" />
           <span class="send-label">发送</span>
@@ -715,7 +776,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick, true))
         <div
           class="px-3 py-2.5 flex items-center justify-between"
           :class="isDark ? 'border-b border-d4' : 'border-b border-bdrL'">
-          <div class="flex items-center gap-1.5">
+          <div class="flex items-center gap-1">
             <i class="ri-mic-line text-[14px]" :class="isDark ? 'text-brand-400' : 'text-brand-500'" />
             <span class="text-[12px] font-semibold" :class="isDark ? 'text-wt-main' : 'text-lt-main'">语音模型</span>
           </div>
@@ -723,7 +784,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick, true))
             @click="showVoiceModelDropdown = false"
             class="h-5 w-5 rounded flex items-center justify-center transition-colors"
             :class="isDark ? 'text-wt-dim hover:text-wt-sub hover:bg-white/5' : 'text-lt-aux hover:text-lt-sub hover:bg-l4'">
-            <i class="ri-close-line text-[14px]" />
+            <i class="ri-close-line text-[16px]" />
           </button>
         </div>
         <div class="p-2 max-h-[240px] overflow-y-auto">
@@ -760,15 +821,73 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick, true))
           :class="isDark ? 'border-t border-d4' : 'border-t border-bdrL'">
           <button
             @click="goToSpeechSettings"
-            class="w-full h-7 rounded-lg flex items-center justify-center gap-1.5 text-[11px] font-medium transition-colors"
+            class="w-full h-7 rounded-lg flex items-center justify-center gap-1 text-[11px] font-medium transition-colors"
             :class="isDark ? 'text-brand-400 hover:bg-brand-400/10' : 'text-brand-500 hover:bg-brand-50'">
             <i class="ri-settings-3-line text-[12px]" />
             语音模型设置
           </button>
         </div>
       </div>
-    </div>
-  </Teleport>
+   </div>
+ </Teleport>
+  <!-- Thinking intensity dropdown -->
+  <Teleport to="body">
+    <div
+      v-if="showThinkingDropdown"
+      id="thinking-dropdown"
+      class="fixed z-[9999] rounded-xl shadow-2xl"
+      :class="isDark ? 'shadow-black/50' : 'shadow-black/20'"
+      :style="{ left: thinkingDropdownPos.left + 'px', bottom: thinkingDropdownPos.bottom + 'px', width: '240px' }">
+      <span
+        class="pointer-events-none absolute -bottom-[5px] h-2.5 w-2.5 rotate-45"
+        :class="isDark ? 'bg-d2 border-r border-b border-d4' : 'bg-l2 border-r border-b border-bdrF'"
+        :style="{ left: thinkingDropdownPos.arrowLeft + 'px' }" />
+      <div
+        class="rounded-lg overflow-hidden"
+        :class="isDark ? 'bg-d2 border border-d4' : 'bg-l2 border border-bdrF'">
+        <div
+          class="px-3 py-2.5 flex items-center justify-between"
+          :class="isDark ? 'border-b border-d4' : 'border-b border-bdrL'">
+          <div class="flex items-center gap-1">
+            <i class="ri-brain-line text-[14px]" :class="isDark ? 'text-brand-400' : 'text-brand-500'" />
+            <span class="text-[12px] font-semibold" :class="isDark ? 'text-wt-main' : 'text-lt-main'">思考强度</span>
+          </div>
+          <button
+            @click="showThinkingDropdown = false"
+            class="h-5 w-5 rounded flex items-center justify-center transition-colors"
+            :class="isDark ? 'text-wt-dim hover:text-wt-sub hover:bg-white/5' : 'text-lt-aux hover:text-lt-sub hover:bg-l4'">
+            <i class="ri-close-line text-[16px]" />
+          </button>
+       </div>
+       <div class="p-1.5 max-h-[340px] overflow-y-auto">
+         <button
+           v-for="opt in thinkingIntensityOptions"
+           :key="opt.key"
+           @click="selectThinkingIntensity(opt.key)"
+           class="w-full px-2.5 py-2 rounded-lg flex items-center gap-2.5 transition-all text-left"
+           :class="
+             thinkingIntensity === opt.key
+               ? isDark ? 'bg-brand-400/10' : 'bg-brand-50'
+               : isDark ? 'hover:bg-white/5' : 'hover:bg-l4'
+           ">
+           <i
+             :class="[opt.icon, 'text-[15px] shrink-0',
+               thinkingIntensity === opt.key
+                 ? isDark ? 'text-brand-400' : 'text-brand-500'
+                 : isDark ? 'text-wt-dim' : 'text-lt-aux'
+             ]" />
+           <div class="flex-1 min-w-0">
+             <span class="text-[12px] font-medium"
+               :class="thinkingIntensity === opt.key ? (isDark ? 'text-brand-400' : 'text-brand-500') : (isDark ? 'text-wt-sub' : 'text-lt-sub')">{{ opt.label }}</span>
+             <span class="text-[10px] block mt-0.5" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">{{ opt.desc }}</span>
+           </div>
+           <i v-if="thinkingIntensity === opt.key" class="ri-check-line text-[14px] shrink-0" :class="isDark ? 'text-brand-400' : 'text-brand-500'" />
+           <i v-else-if="opt.group === 'intensity'" class="ri-arrow-right-s-line text-[12px] shrink-0 opacity-30" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'" />
+         </button>
+       </div>
+     </div>
+   </div>
+ </Teleport>
 </template>
 
 <style scoped>

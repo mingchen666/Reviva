@@ -2,9 +2,8 @@
 // Called from AgentService via IPC so model requests stay in the main process.
 
 import { ChatAnthropic } from '@langchain/anthropic'
-import { ChatOpenAICompletions } from '@langchain/openai'
 import { HumanMessage } from '@langchain/core/messages'
-import { ChatOpenAIResponsesCompat, normalizeAnthropicApiUrl } from './runtime/modelAdapters.js'
+import { ChatOpenAIResponsesCompat, ChatOpenAICompletionsCompat, normalizeAnthropicApiUrl } from './runtime/modelAdapters.js'
 
 const TITLE_MAX_TOKENS = 256
 const TITLE_RETRY_MAX_TOKENS = 1024
@@ -48,7 +47,7 @@ function createChatModel({ providerId, apiFormat, apiKey, baseUrl, model, maxTok
 
   const openaiOpts = { apiKey, model, temperature: 0.3, maxTokens }
   if (baseUrl) openaiOpts.configuration = { baseURL: baseUrl }
-  const ChatModel = normalizedApiFormat === 'openai_responses' ? ChatOpenAIResponsesCompat : ChatOpenAICompletions
+  const ChatModel = normalizedApiFormat === 'openai_responses' ? ChatOpenAIResponsesCompat : ChatOpenAICompletionsCompat
   return new ChatModel(openaiOpts)
 }
 

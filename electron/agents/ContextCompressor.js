@@ -3,9 +3,8 @@
 // provides manual compression for the renderer's compress-context request
 
 import { ChatAnthropic } from '@langchain/anthropic'
-import { ChatOpenAICompletions } from '@langchain/openai'
 import { HumanMessage, SystemMessage } from '@langchain/core/messages'
-import { ChatOpenAIResponsesCompat, normalizeAnthropicApiUrl } from './runtime/modelAdapters.js'
+import { ChatOpenAIResponsesCompat, ChatOpenAICompletionsCompat, normalizeAnthropicApiUrl } from './runtime/modelAdapters.js'
 
 function normalizeApiFormat(providerId, apiFormat = '') {
   const value = String(apiFormat || '').trim().toLowerCase()
@@ -48,7 +47,7 @@ export class ContextCompressor {
     } else {
       const openaiOpts = { apiKey, model, temperature: 0.3, maxTokens: 1024 }
       if (baseUrl) openaiOpts.configuration = { baseURL: baseUrl }
-      const ChatModel = normalizedApiFormat === 'openai_responses' ? ChatOpenAIResponsesCompat : ChatOpenAICompletions
+ const ChatModel = normalizedApiFormat === 'openai_responses' ? ChatOpenAIResponsesCompat : ChatOpenAICompletionsCompat
       chatModel = new ChatModel(openaiOpts)
     }
 

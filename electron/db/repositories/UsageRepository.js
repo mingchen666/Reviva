@@ -149,6 +149,13 @@ export class UsageRepository extends BaseRepository {
   }
 
   _getDateRangeFilter(range) {
+    // Support custom date range objects: { start, end }
+    if (range && typeof range === 'object' && range.start) {
+      const endExclusive = range.end
+        ? new Date(new Date(range.end + 'T00:00:00').getTime() + 86400000).toISOString().slice(0, 10)
+        : undefined
+      return { start: range.start, end: endExclusive }
+    }
     const now = new Date()
     const today = now.toISOString().slice(0, 10)
     if (/^\d{4}-\d{2}-\d{2}$/.test(range)) {

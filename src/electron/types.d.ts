@@ -151,6 +151,8 @@ declare global {
         }) => Promise<{ success: boolean; text?: string; error?: string }>
       }
       onMainProcessMessage: (callback: (...args: any[]) => void) => void
+      onRevivaSettingsChanged?: (callback: (data: { keys: string[] }) => void) => any
+      removeRevivaSettingsChangedListener?: (handler: any) => void
     }
   }
 }

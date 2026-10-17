@@ -1,8 +1,7 @@
 // electron/main.js
 process.env['ELECTRON_DISABLE_SECURITY_WARNINGS'] = 'true'
-import { app, BrowserWindow, ipcMain, dialog, shell, globalShortcut, Tray, Menu, nativeImage, protocol, net, safeStorage } from 'electron'
+import { app, BrowserWindow, ipcMain, dialog, shell, globalShortcut, Menu, protocol, net, safeStorage } from 'electron'
 import { pathToFileURL } from 'node:url'
-import crypto from 'node:crypto'
 import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
 import { createMenu } from './menu'
@@ -25,41 +24,49 @@ import { KnowledgeSourceService } from './knowledge-source/KnowledgeSourceServic
 import { WikiService } from './WikiService.js'
 import { BackupService, applyPendingBackupRestore } from './BackupService.js'
 import { ThemeService } from './ThemeService.js'
-import { StorageCleanupService, formatStorageSize } from './StorageCleanupService.js'
-import { createSettingsTransfer, parseSettingsTransfer } from './SettingsTransferService.js'
+import { setThemeService as setThemeServiceForTools, setMainWindowRef as setMainWindowRefForTools } from './agents/langchainTools.js'
+import { StorageCleanupService } from './StorageCleanupService.js'
 import { WebImportService } from './web-import/WebImportService.js'
 import { WebImportJobService } from './web-import/WebImportJobService.js'
 import { DocsWebImportWriter } from './web-import/DocsWebImportWriter.js'
 import { createMediaModule } from './media/index.js'
 import { registerMediaIpcHandlers } from './media/ipc/mediaIpcHandlers.js'
-import { PdfReadService } from './tools/pdf/PdfReadService.js'
 import { PdfLifecycleService } from './tools/pdf/PdfLifecycleService.js'
-import { PDF_READ_SETTINGS_KEY, normalizePdfReadSettings } from './tools/pdf/PdfReadSettings.js'
-import { PdfTextExtractor } from './tools/pdf/PdfTextExtractor.js'
-import { getOfficeCliCommandCandidates, getOfficeCliSpawnEnv } from './officeCliResolver.js'
-import { getSystemEnv } from './systemEnv.js'
 import { createLocalGateway } from './local-gateway/index.js'
 import { registerGatewayIpcHandlers } from './local-gateway/ipc/gatewayIpcHandlers.js'
 import path from 'node:path'
 import fs from 'node:fs'
 import { initAutoUpdater } from './AutoUpdater'
 import { registerRealtimeASRHandlers, cleanupRealtimeASRForSender } from './RealtimeASRService.js'
-// Register reviva-file:// as a privileged scheme BEFORE app is ready so <img>/<audio>/<video> can load
-// local files (range-request capable, CORS-enabled). Renderer uses helper toFileUrl(absPath) to build URLs.
+
+// IPC handler modules
+import { createPathHelpers, ensureWorkspaceDirs } from './ipc/shared.js'
+import { registerThemeIpc } from './ipc/themeIpc.js'
+import { registerDialogIpc } from './ipc/dialogIpc.js'
+import { registerFsIpc } from './ipc/fsIpc.js'
+import { registerRecycleBinIpc } from './ipc/recycleBinIpc.js'
+import { registerWindowIpc } from './ipc/windowIpc.js'
+import { registerSkillIpc } from './ipc/skillIpc.js'
+import { registerMcpPdfIpc } from './ipc/mcpPdfIpc.js'
+import { registerAppSystemIpc } from './ipc/appSystemIpc.js'
+import { registerEnvIpc } from './ipc/envIpc.js'
+import { registerWorkspaceIpc } from './ipc/workspaceIpc.js'
+import { registerTrayIpc } from './ipc/trayIpc.js'
+import { registerModelsIpc } from './ipc/modelsIpc.js'
+import { registerDataIpc } from './ipc/dataIpc.js'
+
+// Register reviva-file:// as a privileged scheme BEFORE app is ready
 protocol.registerSchemesAsPrivileged([
   { scheme: 'reviva-file', privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true, stream: true } },
 ])
 
 const require = createRequire(import.meta.url)
-
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-
 process.env.APP_ROOT = path.join(__dirname, '..')
 
 export const VITE_DEV_SERVER_URL = process.env['VITE_DEV_SERVER_URL']
 export const MAIN_DIST = path.join(process.env.APP_ROOT, 'dist-electron')
 export const RENDERER_DIST = path.join(process.env.APP_ROOT, 'dist')
-
 process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL ? path.join(process.env.APP_ROOT, 'public') : RENDERER_DIST
 
 const APP_NAME = 'Reviva'
@@ -69,7 +76,15 @@ const WORKSPACE_POINTER_FILE = 'workspace-root.json'
 app.setName(APP_NAME)
 if (process.platform === 'win32') app.setAppUserModelId(APP_ID)
 
-let win
+// --- Shared mutable state (accessed by IPC modules via deps) ---
+const sharedState = {
+  forceQuit: false,
+  minimizeToTray: false,
+  singleInstanceLocked: false,
+}
+
+// --- Service variables (initialized in whenReady) ---
+let win = null
 let dbService = null
 let workDirService = null
 let workspaceRegistryService = null
@@ -96,17 +111,15 @@ let pdfLifecycleService = null
 let localGateway = null
 const storageCleanupService = new StorageCleanupService()
 const skillImportSessions = new Map()
-let tray = null
-let minimizeToTray = false
-const DEFAULT_TRAY_MENU = [
-  { id: 'show-window', type: 'builtin', action: 'showWindow', label: '显示主窗口', enabled: true },
-  { id: 'separator-default', type: 'separator', enabled: true },
-  { id: 'settings', type: 'route', path: '/settings/notifications', label: '设置', enabled: true },
-  { id: 'quit', type: 'builtin', action: 'quit', label: '退出', enabled: true },
-]
-let trayMenuConfig = DEFAULT_TRAY_MENU
-let forceQuit = false
-let singleInstanceLocked = false
+
+// IPC module return values (populated in whenReady)
+let trayMgr = null
+let workspaceIpcApi = null
+let skillIpcApi = null
+
+// --- Helper functions ---
+
+function getWin() { return win }
 
 function getWorkspacePointerPath() {
   return path.join(app.getPath('userData'), WORKSPACE_POINTER_FILE)
@@ -135,10 +148,7 @@ async function writeWorkspaceRootPointer(rootPath) {
 }
 
 function applyStartupSetting(enabled) {
-  app.setLoginItemSettings({
-    openAtLogin: !!enabled,
-    path: process.execPath,
-  })
+  app.setLoginItemSettings({ openAtLogin: !!enabled, path: process.execPath })
 }
 
 function focusMainWindow() {
@@ -151,9 +161,7 @@ function focusMainWindow() {
 function isMainWindowActivelyVisible() {
   try {
     return !!(win && !win.isDestroyed() && win.isFocused() && win.isVisible() && !win.isMinimized())
-  } catch {
-    return false
-  }
+  } catch { return false }
 }
 
 function playNotificationSoundFromMain(soundName, { fallbackBeep = false } = {}) {
@@ -166,11 +174,9 @@ function playNotificationSoundFromMain(soundName, { fallbackBeep = false } = {})
   } catch (e) {
     console.warn('[Notification] Failed to send play-sound:', e.message)
   }
-
   if (fallbackBeep && !isMainWindowActivelyVisible()) {
-    try { shell.beep() } catch { /* shell beep is best-effort */ }
+    try { shell.beep() } catch { /* best-effort */ }
   }
-
   return { ok: sentToRenderer || fallbackBeep, sentToRenderer }
 }
 
@@ -182,7 +188,6 @@ function notifyAgentTaskSoundFromMain({ kind } = {}) {
     if (kind === 'failed' && dbService.getSetting('notifyTaskFailed') !== true) return { ok: true, skipped: 'failed-disabled' }
     if (isMainWindowActivelyVisible()) return { ok: true, skipped: 'active-window' }
     if (dbService.getSetting('notifySound') !== true) return { ok: true, skipped: 'sound-disabled' }
-
     const soundName = kind === 'failed' ? 'error' : (dbService.getSetting('notifySoundType') || 'complete')
     return playNotificationSoundFromMain(soundName, { fallbackBeep: true })
   } catch (e) {
@@ -193,18 +198,17 @@ function notifyAgentTaskSoundFromMain({ kind } = {}) {
 
 function applySingleInstance(enabled, { quitOnFail = false } = {}) {
   if (!enabled) {
-    if (singleInstanceLocked) app.releaseSingleInstanceLock()
-    singleInstanceLocked = false
+    if (sharedState.singleInstanceLocked) app.releaseSingleInstanceLock()
+    sharedState.singleInstanceLocked = false
     return { ok: true }
   }
-  if (singleInstanceLocked) return { ok: true }
-
+  if (sharedState.singleInstanceLocked) return { ok: true }
   const gotTheLock = app.requestSingleInstanceLock()
   if (!gotTheLock) {
     if (quitOnFail) app.quit()
-    return { ok: false, error: `${APP_NAME} is already running` }
+    return { ok: false, error: APP_NAME + ' is already running' }
   }
-  singleInstanceLocked = true
+  sharedState.singleInstanceLocked = true
   return { ok: true }
 }
 
@@ -213,10 +217,8 @@ app.on('second-instance', focusMainWindow)
 function createWindow() {
   const isMac = process.platform === 'darwin'
   win = new BrowserWindow({
-    width: 1280,
-    height: 800,
-    minWidth: 960,
-    minHeight: 600,
+    width: 1280, height: 800,
+    minWidth: 960, minHeight: 600,
     icon: path.join(__dirname, '..', 'build', 'icon.png'),
     frame: isMac,
     titleBarStyle: isMac ? 'default' : 'hidden',
@@ -233,43 +235,34 @@ function createWindow() {
 
   win.webContents.on('did-finish-load', async () => {
     win?.webContents.send('main-process-message', new Date().toLocaleString())
-    // Register global shortcuts from saved config
     try {
       if (dbService) {
         const saved = dbService.getSetting('shortcutBindings')
         const legacyDefault = 'CmdOrCtrl+Shift+Space'
         const defaultGlobalInvoke = ['Ctrl', 'Alt', 'Space']
         const bindings = saved && typeof saved === 'object' ? { ...saved } : {}
-        // The former default collides with several Chinese input methods. Migrate
-        // it before registering so a fresh update does not keep failing at boot.
         if (!Array.isArray(bindings.global_invoke)
-          || acceleratorFromCombo(bindings.global_invoke) === legacyDefault) {
+          || workspaceIpcApi?.acceleratorFromCombo(bindings.global_invoke) === legacyDefault) {
           bindings.global_invoke = defaultGlobalInvoke
           if (saved && typeof saved === 'object') dbService.setSetting('shortcutBindings', bindings)
         }
-        await registerGlobalShortcuts(bindings)
-        // Apply saved notification/startup settings
-        const mt = dbService.getSetting('minimizeToTray')
-        minimizeToTray = mt === true
-        const autoStart = dbService.getSetting('autoStart')
-        applyStartupSetting(autoStart === true)
-        trayMenuConfig = normalizeTrayMenuConfig(dbService.getSetting('trayMenuItems'))
+        await workspaceIpcApi?.registerGlobalShortcuts(bindings)
+        sharedState.minimizeToTray = dbService.getSetting('minimizeToTray') === true
+        applyStartupSetting(dbService.getSetting('autoStart') === true)
+        trayMgr?.loadTrayConfig(dbService)
         const showTray = dbService.getSetting('trayIcon') !== false
-        if (showTray) createTray()
+        if (showTray) trayMgr?.createTray()
       }
-    } catch (e) { console.warn('[Shortcut] Failed to register on load:', e.message) }
+    } catch (e) { console.warn('[Startup] did-finish-load settings:', e.message) }
   })
 
-  // Intercept window close: minimize to tray or quit
   win.on('close', (e) => {
-    if (!forceQuit && minimizeToTray) {
+    if (!sharedState.forceQuit && sharedState.minimizeToTray) {
       e.preventDefault()
       win.hide()
     }
   })
 
-  // Capture webContents before the 'closed' event fires - by then the
-  // BrowserWindow is already destroyed and accessing win.webContents throws.
   const wc = win.webContents
   win.on('closed', () => {
     cleanupRealtimeASRForSender(wc)
@@ -279,9 +272,7 @@ function createWindow() {
   if (VITE_DEV_SERVER_URL) {
     const loadDevServer = (retries = 10) => {
       win.loadURL(VITE_DEV_SERVER_URL).catch(() => {
-        if (retries > 0) {
-          setTimeout(() => loadDevServer(retries - 1), 1000)
-        }
+        if (retries > 0) setTimeout(() => loadDevServer(retries - 1), 1000)
       })
     }
     loadDevServer()
@@ -291,2968 +282,7 @@ function createWindow() {
   }
 }
 
-// ========== Helper: Validate path against workspace ==========
-
-const PERCENT_BYTES_RE = /(?:%[0-9A-Fa-f]{2})+/g
-const QUOTE_BOUNDARY_RE = /^[`'"\u201c\u201d\u2018\u2019<]+|[`'"\u201c\u201d\u2018\u2019>]+$/g
-
-function decodePercentRuns(value) {
-  if (!/%[0-9A-Fa-f]{2}/.test(value)) return value
-  try {
-    return decodeURIComponent(value)
-  } catch {
-    return value.replace(PERCENT_BYTES_RE, seq => {
-      try { return decodeURIComponent(seq) } catch { return seq }
-    })
-  }
-}
-
-function normalizeIncomingPath(inputPath) {
-  if (typeof inputPath !== 'string') return inputPath
-  let p = inputPath.trim().replace(QUOTE_BOUNDARY_RE, '')
-  if (/^(file|reviva-file):\/\//i.test(p)) {
-    try {
-      const url = new URL(p)
-      p = decodePercentRuns(url.pathname || '')
-      if (/^\/[a-zA-Z]:/.test(p)) p = p.slice(1)
-    } catch {
-      // Keep the original value and still try percent-decoding below.
-    }
-  }
-  return decodePercentRuns(p)
-}
-
-function validateFsPath(inputPath) {
-  const normalizedPath = normalizeIncomingPath(inputPath)
-  // No sandbox when workspace not configured — sandbox only activates after setup
-  if (!workDirService || !workDirService.getRootPath()) return normalizedPath
-  return workDirService.resolveAndValidate(normalizedPath, 'any')
-}
-
-function toWorkspaceVirtualPath(absPath) {
-  const rootPath = workDirService?.getRootPath?.()
-  if (!rootPath) return String(absPath || '').replace(/\\/g, '/')
-  const rel = path.relative(rootPath, absPath).replace(/\\/g, '/')
-  return rel && !rel.startsWith('..') ? '/' + rel : String(absPath || '').replace(/\\/g, '/')
-}
-
-function pdfService() {
-  return new PdfReadService({ workDirService, dbService })
-}
-
-function validateShellPath(inputPath) {
-  const normalizedPath = normalizeIncomingPath(inputPath)
-  // Shell actions may open the workspace root itself; file I/O remains limited to scoped subdirs.
-  if (!workDirService || !workDirService.getRootPath()) return normalizedPath
-  const resolved = path.resolve(normalizedPath)
-  const root = path.resolve(workDirService.getRootPath())
-  if (resolved.toLowerCase() === root.toLowerCase()) return resolved
-  return workDirService.resolveAndValidate(normalizedPath, 'any')
-}
-
-async function ensureWorkspaceDirs() {
-  const rootPath = workDirService?.getRootPath?.()
-  if (!rootPath) return
-  const dirs = [
-    path.join(rootPath, 'docs'),
-    path.join(rootPath, 'notes'),
-    path.join(rootPath, 'wikis'),
-    path.join(rootPath, 'context'),
-    path.join(rootPath, 'agents'),
-    path.join(rootPath, 'skills'),
-    path.join(rootPath, '.reviva'),
-    path.join(rootPath, '.reviva', 'trash'),
-    path.join(rootPath, '.reviva', 'logs'),
-  ]
-  for (const dir of dirs) {
-    if (!fs.existsSync(dir)) await fs.promises.mkdir(dir, { recursive: true })
-  }
-}
-
-// ========== IPC Handlers ==========
-
-ipcMain.handle('theme:list', async () => {
-  try {
-    if (!themeService) return { success: false, error: '主题服务尚未就绪' }
-    return await themeService.listThemes()
-  } catch (error) {
-    return { success: false, error: error.message }
-  }
-})
-
-ipcMain.handle('theme:readCss', async (_event, id) => {
-  try {
-    if (!themeService) return { success: false, error: '主题服务尚未就绪' }
-    return await themeService.readCss(id)
-  } catch (error) {
-    return { success: false, error: error.message }
-  }
-})
-
-ipcMain.handle('theme:import', async () => {
-  try {
-    if (!themeService) return { success: false, error: '主题服务尚未就绪' }
-    const result = await dialog.showOpenDialog(win, {
-      title: '选择主题文件夹',
-      properties: ['openDirectory'],
-    })
-    if (result.canceled || !result.filePaths[0]) return { success: false, canceled: true }
-    return await themeService.importFromDirectory(result.filePaths[0])
-  } catch (error) {
-    return { success: false, error: error.message }
-  }
-})
-
-ipcMain.handle('theme:remove', async (_event, id) => {
-  try {
-    if (!themeService) return { success: false, error: '主题服务尚未就绪' }
-    return await themeService.removeTheme(id)
-  } catch (error) {
-    return { success: false, error: error.message }
-  }
-})
-
-ipcMain.handle('theme:openDirectory', async () => {
-  try {
-    if (!themeService) return { success: false, error: '主题服务尚未就绪' }
-    await themeService.init()
-    const error = await shell.openPath(themeService.getRootPath())
-    return error ? { success: false, error } : { success: true }
-  } catch (error) {
-    return { success: false, error: error.message }
-  }
-})
-
-ipcMain.handle('theme:readCustomCss', async () => {
-  try {
-    if (!themeService) return { success: false, error: '主题服务尚未就绪' }
-    return await themeService.readCustomCss()
-  } catch (error) {
-    return { success: false, error: error.message }
-  }
-})
-
-ipcMain.handle('theme:stageCustomCss', async (_event, css) => {
-  try {
-    if (!themeService) return { success: false, error: '主题服务尚未就绪' }
-    return await themeService.stageCustomCss(css)
-  } catch (error) {
-    return { success: false, error: error.message }
-  }
-})
-
-ipcMain.handle('theme:commitCustomCss', async () => {
-  try {
-    if (!themeService) return { success: false, error: '主题服务尚未就绪' }
-    return await themeService.commitCustomCss()
-  } catch (error) {
-    return { success: false, error: error.message }
-  }
-})
-
-ipcMain.handle('theme:discardPendingCustomCss', async () => {
-  try {
-    if (!themeService) return { success: false, error: '主题服务尚未就绪' }
-    return await themeService.discardPendingCustomCss()
-  } catch (error) {
-    return { success: false, error: error.message }
-  }
-})
-
-ipcMain.handle('theme:resetCustomCss', async () => {
-  try {
-    if (!themeService) return { success: false, error: '主题服务尚未就绪' }
-    return await themeService.resetCustomCss()
-  } catch (error) {
-    return { success: false, error: error.message }
-  }
-})
-
-// Open directory dialog
-ipcMain.handle('dialog:openDirectory', async () => {
-  const result = await dialog.showOpenDialog(win, {
-    properties: ['openDirectory'],
-  })
-  if (result.canceled) return null
-  return result.filePaths[0]
-})
-
-// Open file dialog
-ipcMain.handle('dialog:openFile', async (event, options = {}) => {
-  const result = await dialog.showOpenDialog(win, {
-    properties: ['openFile', 'multiSelections'],
-    filters: options.filters || [
-      { name: 'Documents', extensions: ['pdf', 'docx', 'txt', 'md', 'markdown'] },
-      { name: 'All Files', extensions: ['*'] },
-    ],
-  })
-  if (result.canceled) return []
-  return result.filePaths
-})
-
-// Save a text file selected by the user. The main process owns both path selection
-// and writing so the renderer never receives unrestricted filesystem write access.
-ipcMain.handle('dialog:saveTextFile', async (event, options = {}, content = '') => {
-  try {
-    if (typeof content !== 'string') return { success: false, error: 'INVALID_FILE_CONTENT' }
-    const result = await dialog.showSaveDialog(win, {
-      title: options.title || '保存文件',
-      defaultPath: options.defaultPath || '',
-      filters: Array.isArray(options.filters) && options.filters.length
-        ? options.filters
-        : [{ name: 'Text', extensions: ['txt'] }],
-    })
-    if (result.canceled || !result.filePath) return { success: false, canceled: true }
-    const extension = String(options.defaultExtension || '').replace(/[^a-zA-Z0-9]/g, '').trim()
-    const existingExtension = path.extname(result.filePath)
-    const basePath = existingExtension === '.' ? result.filePath.slice(0, -1) : result.filePath
-    const filePath = extension && (!existingExtension || existingExtension === '.')
-      ? `${basePath}.${extension}`
-      : result.filePath
-    await fs.promises.writeFile(filePath, content, options.encoding || 'utf-8')
-    return { success: true, path: filePath }
-  } catch (error) {
-    return { success: false, error: error.message }
-  }
-})
-
-// Convert Markdown to DOCX in the main process, then save the binary file via
-// the native save dialog. Keeping conversion here avoids sending a DOCX buffer
-// through the renderer/contextBridge and keeps markdown-docx out of the UI bundle.
-ipcMain.handle('dialog:saveMarkdownDocx', async (event, options = {}, markdown = '') => {
-  try {
-    if (typeof markdown !== 'string' || !markdown.trim()) {
-      return { success: false, error: 'INVALID_MARKDOWN_CONTENT' }
-    }
-
-    const result = await dialog.showSaveDialog(win, {
-      title: options.title || '导出 Word',
-      defaultPath: options.defaultPath || '',
-      filters: Array.isArray(options.filters) && options.filters.length
-        ? options.filters
-        : [{ name: 'Word 文档', extensions: ['docx'] }],
-    })
-    if (result.canceled || !result.filePath) return { success: false, canceled: true }
-
-    const existingExtension = path.extname(result.filePath)
-    const filePath = existingExtension
-      ? result.filePath
-      : `${result.filePath}.docx`
-
-    const { default: markdownDocx, Packer } = require('markdown-docx')
-    const doc = await markdownDocx(markdown, {
-      gfm: true,
-      theme: {
-        bodySize: 11,
-        lineSpacing: 1.35,
-        margin: '2cm 2.2cm',
-        heading1: '2F5597',
-        heading2: '5B9BD5',
-        codeBackground: 'F3F4F6',
-      },
-    })
-    const buffer = await Packer.toBuffer(doc)
-    await fs.promises.writeFile(filePath, buffer)
-    return { success: true, path: filePath }
-  } catch (error) {
-    console.error('[Export] Failed to convert Markdown to DOCX:', error)
-    return { success: false, error: error?.message || 'DOCX_EXPORT_FAILED' }
-  }
-})
-
-// Read file
-ipcMain.handle('fs:readFile', async (event, filePath, options = {}) => {
-  try {
-    const validatedPath = validateFsPath(filePath)
-    const content = await fs.promises.readFile(validatedPath, options.encoding || 'utf-8')
-    return { success: true, data: content }
-  } catch (err) {
-    return { success: false, error: err.message }
-  }
-})
-
-// Write file
-ipcMain.handle('fs:writeFile', async (event, filePath, content, options = {}) => {
-  try {
-    const validatedPath = validateFsPath(filePath)
-    const dir = path.dirname(validatedPath)
-    if (!fs.existsSync(dir)) {
-      await fs.promises.mkdir(dir, { recursive: true })
-    }
-    await fs.promises.writeFile(validatedPath, content, options.encoding || 'utf-8')
-    return { success: true }
-  } catch (err) {
-    return { success: false, error: err.message }
-  }
-})
-
-// List directory
-ipcMain.handle('fs:listDir', async (event, dirPath, options = {}) => {
-  try {
-    const validatedPath = validateFsPath(dirPath)
-    const entries = await fs.promises.readdir(validatedPath, { withFileTypes: true })
-    let results = await Promise.all(entries.map(async (entry) => {
-      const entryPath = path.join(validatedPath, entry.name)
-      let size = 0
-      try {
-        const stat = await fs.promises.stat(entryPath)
-        size = stat.size
-      } catch {
-        // The entry may disappear between readdir and stat; keep it listable.
-      }
-      return {
-        name: entry.name,
-        path: entryPath,
-        isDirectory: entry.isDirectory(),
-        isFile: entry.isFile(),
-        size,
-      }
-    }))
-    if (options.pattern) {
-      const regex = new RegExp(options.pattern.replace('*', '.*'))
-      results = results.filter(f => regex.test(f.name))
-    }
-    return { success: true, data: results }
-  } catch (err) {
-    return { success: false, error: err.message }
-  }
-})
-
-// Rename file
-ipcMain.handle('fs:rename', async (event, oldPath, newPath) => {
-  try {
-    const vOld = validateFsPath(oldPath)
-    const vNew = validateFsPath(newPath)
-    const oldStat = await fs.promises.stat(vOld)
-    if (oldStat.isFile()) {
-      const oldExt = path.extname(vOld).toLowerCase()
-      const newExt = path.extname(vNew).toLowerCase()
-      if (oldExt !== newExt) {
-        return { success: false, error: '不能修改文件扩展名，仅支持修改文件名。' }
-      }
-    }
-    if (fs.existsSync(vNew) && path.resolve(vOld).toLowerCase() !== path.resolve(vNew).toLowerCase()) {
-      return { success: false, error: '目标名称已存在。' }
-    }
-    await fs.promises.rename(vOld, vNew)
-    if (pdfLifecycleService) {
-      try {
-        await pdfLifecycleService.onRenamed(vOld, vNew, { isDirectory: oldStat.isDirectory() })
-      } catch (error) {
-        console.error('[PdfLifecycle] Failed to update renamed PDF references:', error)
-      }
-    }
-    if (mediaModule?.lifecycle) {
-      try {
-        mediaModule.lifecycle.onRenamed(vOld, vNew, { isDirectory: oldStat.isDirectory() })
-      } catch (error) {
-        console.error('[MediaLifecycle] Failed to update renamed media references:', error)
-      }
-    }
-    return { success: true }
-  } catch (err) {
-    return { success: false, error: err.message }
-  }
-})
-
-// Delete file
-ipcMain.handle('fs:deleteFile', async (event, filePath) => {
-  try {
-    const validatedPath = validateFsPath(filePath)
-    let mediaSnapshot = null
-    try { mediaSnapshot = mediaModule?.lifecycle?.prepareMoveToTrash?.(validatedPath, { isDirectory: false }) || null }
-    catch (error) { console.error('[MediaLifecycle] Failed to snapshot deleted file:', error) }
-    await fs.promises.unlink(validatedPath)
-    if (mediaSnapshot) {
-      await mediaModule.lifecycle.onPermanentlyDeleted({ payload_json: JSON.stringify({ mediaLifecycle: mediaSnapshot }) })
-    }
-    return { success: true }
-  } catch (err) {
-    return { success: false, error: err.message }
-  }
-})
-
-// Create directory
-ipcMain.handle('fs:mkdir', async (event, dirPath, options = {}) => {
-  try {
-    const validatedPath = validateFsPath(dirPath)
-    await fs.promises.mkdir(validatedPath, { recursive: true })
-    return { success: true }
-  } catch (err) {
-    return { success: false, error: err.message }
-  }
-})
-
-// Remove directory recursively
-ipcMain.handle('fs:removeDir', async (event, dirPath) => {
-  try {
-    const validatedPath = validateFsPath(dirPath)
-    let mediaSnapshot = null
-    try { mediaSnapshot = mediaModule?.lifecycle?.prepareMoveToTrash?.(validatedPath, { isDirectory: true }) || null }
-    catch (error) { console.error('[MediaLifecycle] Failed to snapshot deleted directory:', error) }
-    await fs.promises.rm(validatedPath, { recursive: true, force: true })
-    if (mediaSnapshot) {
-      await mediaModule.lifecycle.onPermanentlyDeleted({ payload_json: JSON.stringify({ mediaLifecycle: mediaSnapshot }) })
-    }
-    return { success: true }
-  } catch (err) {
-    return { success: false, error: err.message }
-  }
-})
-
-// Copy file
-ipcMain.handle('fs:copyFile', async (event, src, dest) => {
-  try {
-    const vDest = validateFsPath(dest)
-    const dir = path.dirname(vDest)
-    if (!fs.existsSync(dir)) {
-      await fs.promises.mkdir(dir, { recursive: true })
-    }
-    await fs.promises.copyFile(src, vDest)
-    return { success: true }
-  } catch (err) {
-    return { success: false, error: err.message }
-  }
-})
-
-// Check if path exists
-ipcMain.handle('fs:exists', async (event, filePath) => {
-  try {
-    const validatedPath = validateFsPath(filePath)
-    return fs.existsSync(validatedPath)
-  } catch {
-    // If sandbox rejects, path is outside workspace
-    return false
-  }
-})
-
-// Get file stats
-ipcMain.handle('fs:stat', async (event, filePath) => {
-  try {
-    const validatedPath = validateFsPath(filePath)
-    const stat = await fs.promises.stat(validatedPath)
-    return {
-      success: true,
-      data: {
-        size: stat.size,
-        isFile: stat.isFile(),
-        isDirectory: stat.isDirectory(),
-        mtime: stat.mtime.toISOString(),
-        birthtime: stat.birthtime.toISOString(),
-      },
-    }
-  } catch (err) {
-    return { success: false, error: err.message }
-  }
-})
-
-// Open file in default application
-ipcMain.handle('shell:openPath', async (event, filePath) => {
-  try {
-    const validatedPath = validateShellPath(filePath)
-    const error = await shell.openPath(validatedPath)
-    if (error) return { success: false, error }
-    return { success: true }
-  } catch (err) {
-    console.error('shell:openPath rejected:', err.message)
-    return { success: false, error: err.message }
-  }
-})
-
-// Show file in folder
-ipcMain.handle('shell:showItemInFolder', async (event, filePath) => {
-  try {
-    const validatedPath = validateShellPath(filePath)
-    shell.showItemInFolder(validatedPath)
-    return { success: true }
-  } catch (err) {
-    console.error('shell:showItemInFolder rejected:', err.message)
-    return { success: false, error: err.message }
-  }
-})
-
-// Open external URL in system browser
-ipcMain.handle('shell:openExternal', async (_, url) => {
-  if (!url || typeof url !== 'string') return { success: false, error: 'Invalid URL' }
-  let parsed
-  try {
-    parsed = new URL(url)
-  } catch {
-    return { success: false, error: 'Invalid URL' }
-  }
-  if (!['http:', 'https:', 'mailto:'].includes(parsed.protocol)) {
-    return { success: false, error: 'Only http(s) and mailto URLs allowed' }
-  }
-  try {
-    await shell.openExternal(url)
-    return { success: true }
-  } catch (err) {
-    return { success: false, error: err.message }
-  }
-})
-
-// ========== Recycle Bin IPC Handlers ==========
-
-// Helper: restore a file-type item (FS rename trash_path → original_path)
-async function _restoreFileItem(record) {
-  const originalDir = path.dirname(record.original_path)
-  if (!fs.existsSync(originalDir)) await fs.promises.mkdir(originalDir, { recursive: true })
-  let restorePath = record.original_path
-  if (fs.existsSync(restorePath)) {
-    const ext = path.extname(restorePath)
-    const base = path.basename(restorePath, ext)
-    restorePath = path.join(originalDir, base + '_restored' + ext)
-  }
-  if (fs.existsSync(record.trash_path)) {
-    await fs.promises.rename(record.trash_path, restorePath)
-  }
-  return restorePath
-}
-
-// Helper: restore a DB-type item (re-INSERT into original table)
-async function _restoreDbItem(record) {
-  const payload = record.payload_json ? JSON.parse(record.payload_json) : {}
-  if (record.item_type === 'conversation') {
-    const conv = payload.conv
-    const messages = payload.messages || []
-    if (!conv) throw new Error('Conversation payload missing')
-    const restoreConversation = dbService.db.transaction(() => {
-      // Group fallback: if original group was deleted, fall back to 'default'
-      const originalGroupId = conv.group_id || conv.groupId || 'default'
-      const groupExists = originalGroupId === 'default' || dbService.listConvGroups().some(g => g.id === originalGroupId)
-      conv.group_id = groupExists ? originalGroupId : 'default'
-      // ID conflict: re-generate
-      if (dbService.getConv(conv.id)) conv.id = 'conv_' + Date.now()
-      dbService.createConv(conv)
-      const messageIdMap = new Map(messages.map((message, index) => {
-        const oldId = message.id || `missing_${index}`
-        const nextId = message.id && !dbService.getMsg(message.id)
-          ? message.id
-          : 'msg_' + Date.now() + '_' + index + '_' + Math.random().toString(36).slice(2, 8)
-        return [oldId, nextId]
-      }))
-      for (const message of messages) {
-        const oldId = message.id
-        dbService.createMsg({
-          ...message,
-          id: messageIdMap.get(oldId) || 'msg_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8),
-          conversation_id: conv.id,
-          parent_msg_id: messageIdMap.get(message.parentMsgId || message.parent_msg_id) || '',
-        })
-      }
-      return { restoredId: conv.id, messageIdMap: Object.fromEntries(messageIdMap) }
-    })
-    const restored = restoreConversation()
-    mediaModule?.lifecycle?.onConversationRestored?.(payload.mediaLifecycle, restored.messageIdMap)
-    return { restoredId: restored.restoredId }
-  }
-  if (record.item_type === 'note') {
-    if (noteFileService) return await noteFileService.restoreNote(record)
-    const note = payload.note
-    if (!note) throw new Error('Note payload missing')
-    if (note.folder_id && !dbService.getNoteFolder(note.folder_id)) note.folder_id = ''
-    if (dbService.getNote(note.id)) note.id = 'nt_' + Date.now()
-    dbService.createNote(note)
-    return { restoredId: note.id }
-  }
-  if (record.item_type === 'note_folder') {
-    const folder = payload.folder
-    if (!folder) throw new Error('Folder payload missing')
-    if (folder.parent_id && !dbService.getNoteFolder(folder.parent_id)) folder.parent_id = ''
-    if (dbService.getNoteFolder(folder.id)) folder.id = 'nf_' + Date.now()
-    dbService.createNoteFolder(folder)
-    return { restoredId: folder.id }
-  }
-  if (record.item_type === 'artifact') {
-    const artifact = payload.artifact
-    const taskSnapshot = payload.task
-    if (!artifact) throw new Error('Artifact payload missing')
-    const originalArtifactId = artifact.id
-    if (artifact.group_id && artifact.group_id !== 'default') {
-      const groupExists = dbService.listConvGroups().some(g => g.id === artifact.group_id)
-      if (!groupExists) artifact.group_id = 'default'
-    }
-    if (artifact.storage_type === 'file' && record.trash_path && record.original_path) {
-      artifact.file_path = await _restoreFileItem(record)
-    }
-    if (dbService.getArtifact(artifact.id)) artifact.id = 'art_' + Date.now()
-    const restored = dbService.createArtifact(artifact)
-    let restoredTaskId = ''
-    if (taskSnapshot && typeof taskSnapshot === 'object') {
-      const baseParams = taskSnapshot.params && typeof taskSnapshot.params === 'object' ? taskSnapshot.params : {}
-      const originalIds = Array.isArray(baseParams.artifactIds) ? baseParams.artifactIds : []
-      const artifactIds = originalIds
-        .map(id => id === originalArtifactId ? restored.id : id)
-        .filter(Boolean)
-      if (!artifactIds.includes(restored.id)) artifactIds.push(restored.id)
-
-      const taskId = taskSnapshot.id || 'task_' + Date.now()
-      const existingTask = dbService.getTask(taskId)
-      if (existingTask) {
-        const params = existingTask.params && typeof existingTask.params === 'object' ? existingTask.params : {}
-        const mergedIds = new Set(Array.isArray(params.artifactIds) ? params.artifactIds : [])
-        if (existingTask.artifact_id) mergedIds.add(existingTask.artifact_id)
-        mergedIds.add(restored.id)
-        dbService.updateTask(taskId, {
-          status: 'completed',
-          progress: 100,
-          artifact_id: existingTask.artifact_id || restored.id,
-          params: { ...params, artifactIds: [...mergedIds].filter(Boolean) },
-        })
-      } else {
-        dbService.createTask({
-          ...taskSnapshot,
-          id: taskId,
-          name: taskSnapshot.name || artifact.title || '生成结果',
-          status: 'completed',
-          progress: 100,
-          error: '',
-          group_id: artifact.group_id || taskSnapshot.group_id || 'default',
-          conversation_id: artifact.conversation_id || taskSnapshot.conversation_id || '',
-          artifact_id: taskSnapshot.artifact_id && taskSnapshot.artifact_id !== originalArtifactId ? taskSnapshot.artifact_id : restored.id,
-          params: { ...baseParams, artifactIds },
-          steps: Array.isArray(taskSnapshot.steps) ? taskSnapshot.steps : [],
-        })
-      }
-      restoredTaskId = taskId
-    }
-    return { restoredId: restored.id, restoredTaskId }
-  }
-  throw new Error('Unknown item_type: ' + record.item_type)
-}
-
-// Helper: permanently delete (FS for files, no-op for DB items — data already gone)
-async function _permanentlyDeleteItem(record) {
-  if (record.item_type === 'file' || record.item_type === 'note' || record.item_type === 'artifact' || !record.item_type) {
-    if (record.trash_path && fs.existsSync(record.trash_path)) {
-      if (record.is_directory) {
-        await fs.promises.rm(record.trash_path, { recursive: true, force: true })
-      } else {
-        await fs.promises.unlink(record.trash_path)
-      }
-    }
-  }
-  // DB items: nothing to delete on disk; data was already removed from origin table at trash time
-}
-
-async function _finalizePermanentlyDeletedItem(record) {
-  if (pdfLifecycleService && (record.item_type === 'file' || !record.item_type)) {
-    await pdfLifecycleService.onPermanentlyDeleted(record)
-  }
-  if (mediaModule?.lifecycle && (record.item_type === 'file' || !record.item_type)) {
-    await mediaModule.lifecycle.onPermanentlyDeleted(record)
-  }
-  if (record.item_type === 'conversation') {
-    const payload = record.payload_json ? JSON.parse(record.payload_json) : {}
-    await mediaModule?.lifecycle?.onConversationPermanentlyDeleted?.(payload.mediaLifecycle)
-    const conversationId = record.item_id || payload.conv?.id || ''
-    if (conversationId) learningMemoryService?.deleteByConversation?.(conversationId)
-  }
-}
-
-ipcMain.handle('recycleBin:moveToTrash', async (event, itemPath, itemMeta) => {
-  try {
-    const validatedPath = validateFsPath(itemPath)
-    const rootPath = workDirService?.getRootPath()
-    if (!rootPath) return { success: false, error: 'No workspace initialized' }
-
-    const trashDir = path.join(rootPath, '.reviva', 'trash')
-    if (!fs.existsSync(trashDir)) {
-      await fs.promises.mkdir(trashDir, { recursive: true })
-    }
-
-    const timestamp = Date.now()
-    const originalName = path.basename(validatedPath)
-    const trashName = timestamp + '_' + originalName
-    const trashPath = path.join(trashDir, trashName)
-
-    let stat = null
-    try { stat = await fs.promises.stat(validatedPath) } catch { /* ignore */ }
-    const isDir = stat ? stat.isDirectory() : (itemMeta?.isDirectory || false)
-    const pdfSnapshot = pdfLifecycleService
-      ? await pdfLifecycleService.prepareMoveToTrash(validatedPath, { isDirectory: isDir })
-      : null
-    let mediaSnapshot = null
-    try { mediaSnapshot = mediaModule?.lifecycle?.prepareMoveToTrash?.(validatedPath, { isDirectory: isDir }) || null }
-    catch (error) { console.error('[MediaLifecycle] Failed to snapshot trashed path:', error) }
-
-    await fs.promises.rename(validatedPath, trashPath)
-
-    const ext = originalName.includes('.') ? originalName.split('.').pop().toLowerCase() : ''
-    let category = 'other'
-    if (isDir) category = 'folder'
-    else if (['pdf', 'docx', 'doc', 'md', 'markdown', 'txt', 'xlsx', 'xls', 'pptx', 'ppt', 'csv'].includes(ext)) category = 'document'
-    else if (['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp'].includes(ext)) category = 'image'
-    else if (['mp4', 'avi', 'mov', 'mkv'].includes(ext)) category = 'video'
-    else if (['mp3', 'wav', 'flac', 'aac'].includes(ext)) category = 'audio'
-    else if (['zip', 'rar', '7z', 'tar', 'gz'].includes(ext)) category = 'archive'
-    else if (['js', 'py', 'json', 'java', 'cpp', 'ts', 'html', 'css'].includes(ext)) category = 'code'
-
-    const trashId = 'trash_' + timestamp + '_' + Math.random().toString(36).slice(2, 7)
-    const record = dbService.createTrashItem({
-      id: trashId,
-      original_path: validatedPath,
-      original_name: originalName,
-      trash_path: trashPath,
-      is_directory: isDir,
-      size: stat ? (isDir ? 0 : stat.size) : 0,
-      file_type: ext,
-      category,
-      item_type: 'file',
-      payload_json: pdfSnapshot || mediaSnapshot ? JSON.stringify({
-        ...(pdfSnapshot ? { pdfLifecycle: pdfSnapshot } : {}),
-        ...(mediaSnapshot ? { mediaLifecycle: mediaSnapshot } : {}),
-      }) : '',
-    })
-
-    if (pdfLifecycleService && pdfSnapshot) {
-      try {
-        pdfLifecycleService.onMovedToTrash(record.id, pdfSnapshot)
-      } catch (error) {
-        console.error('[PdfLifecycle] Failed to mark PDF references as trashed:', error)
-      }
-    }
-    if (mediaModule?.lifecycle && mediaSnapshot) {
-      try {
-        mediaModule.lifecycle.onMovedToTrash(record.id, mediaSnapshot)
-      } catch (error) {
-        console.error('[MediaLifecycle] Failed to mark media references as trashed:', error)
-      }
-    }
-
-    return { success: true, data: record }
-  } catch (err) {
-    return { success: false, error: err.message }
-  }
-})
-
-// Soft-delete a generated artifact: file artifacts move their file to trash; data artifacts keep a DB snapshot.
-ipcMain.handle('recycleBin:trashArtifact', async (event, artifactId, options = {}) => {
-  try {
-    const artifact = dbService.getArtifact(artifactId)
-    if (!artifact) return { success: false, error: 'Artifact not found' }
-    const titleOverride = typeof options?.title === 'string' ? options.title.trim() : ''
-    const artifactSnapshot = { ...artifact, title: titleOverride || artifact.title }
-    const taskSnapshot = options?.task && typeof options.task === 'object'
-      ? {
-        id: options.task.id || '',
-        name: options.task.name || titleOverride || artifact.title || '',
-        type: options.task.type || 'agent',
-        status: options.task.status || 'completed',
-        architecture: options.task.architecture || '',
-        space_id: options.task.space_id || '',
-        agent_id: options.task.agent_id || '',
-        skill_type: options.task.skill_type || '',
-        progress: options.task.progress || 100,
-        steps: Array.isArray(options.task.steps) ? options.task.steps : [],
-        result: options.task.result || '',
-        error: options.task.error || '',
-        tool_id: options.task.tool_id || artifact.type || '',
-        mode: options.task.mode || 'local',
-        conversation_id: options.task.conversation_id || artifact.conversation_id || '',
-        group_id: options.task.group_id || artifact.group_id || 'default',
-        params: options.task.params && typeof options.task.params === 'object' ? options.task.params : {},
-        artifact_id: options.task.artifact_id || artifact.id,
-        cloud_task_id: options.task.cloud_task_id || '',
-      }
-      : null
-
-    let originalPath = artifact.file_path || ''
-    let trashPath = ''
-    let size = (artifactSnapshot.content || '').length
-    let fileType = artifact.type || 'artifact'
-
-    if (artifact.storage_type === 'file' && artifact.file_path) {
-      const validatedPath = validateFsPath(artifact.file_path)
-      originalPath = validatedPath
-      const originalName = path.basename(validatedPath)
-      const ext = originalName.includes('.') ? originalName.split('.').pop().toLowerCase() : ''
-      fileType = ext || artifact.type || 'artifact'
-
-      if (fs.existsSync(validatedPath)) {
-        const rootPath = workDirService?.getRootPath()
-        if (!rootPath) return { success: false, error: 'No workspace initialized' }
-        const trashDir = path.join(rootPath, '.reviva', 'trash')
-        if (!fs.existsSync(trashDir)) {
-          await fs.promises.mkdir(trashDir, { recursive: true })
-        }
-
-        const stat = await fs.promises.stat(validatedPath)
-        size = stat.isDirectory() ? 0 : stat.size
-        const trashName = `${Date.now()}_${artifact.id}_${originalName}`
-        trashPath = path.join(trashDir, trashName)
-        await fs.promises.rename(validatedPath, trashPath)
-      }
-    }
-
-    const record = dbService.createTrashItem({
-      original_path: originalPath,
-      original_name: artifactSnapshot.title || (originalPath ? path.basename(originalPath) : 'Untitled artifact'),
-      trash_path: trashPath,
-      is_directory: 0,
-      size,
-      file_type: fileType,
-      category: 'artifact',
-      item_type: 'artifact',
-      item_id: artifactId,
-      payload_json: JSON.stringify({ artifact: artifactSnapshot, task: taskSnapshot, fileMoved: !!trashPath }),
-    })
-    dbService.deleteArtifact(artifactId)
-    return { success: true, data: record }
-  } catch (err) {
-    console.error('[RecycleBin] trashArtifact failed:', err)
-    return { success: false, error: err.message }
-  }
-})
-
-// Soft-delete a conversation: snapshot conv + messages → recycle_bin → hard delete from origin
-ipcMain.handle('recycleBin:trashConversation', async (event, convId) => {
-  try {
-    const conv = dbService.getConv(convId)
-    if (!conv) return { success: false, error: 'Conversation not found' }
-    const messages = dbService.listMsgs(convId)
-    const mediaLifecycle = mediaModule?.lifecycle?.prepareConversationTrash?.(messages.map(message => message.id)) || null
-    const record = dbService.createTrashItem({
-      original_path: '', trash_path: '',
-      original_name: conv.title || '未命名对话',
-      is_directory: 0, size: messages.length, file_type: 'chat',
-      category: 'chat',
-      item_type: 'conversation', item_id: convId,
-      payload_json: JSON.stringify({ conv, messages, mediaLifecycle }),
-    })
-    mediaModule?.lifecycle?.onConversationTrashed?.(record.id, mediaLifecycle)
-    dbService.deleteConv(convId) // ON DELETE CASCADE clears messages
-    console.log(`[RecycleBin] Trashed conversation ${convId} → ${record.id} (${messages.length} msgs)`)
-    return { success: true, data: record }
-  } catch (err) {
-    console.error('[RecycleBin] trashConversation failed:', err)
-    return { success: false, error: err.message }
-  }
-})
-
-// Soft-delete a single note
-ipcMain.handle('recycleBin:trashNote', async (event, noteId) => {
-  try {
-    if (noteFileService) return await noteFileService.trashNote(noteId)
-    const note = dbService.getNote(noteId)
-    if (!note) return { success: false, error: 'Note not found' }
-    const record = dbService.createTrashItem({
-      original_path: '', trash_path: '',
-      original_name: note.title || '未命名笔记',
-      is_directory: 0, size: (note.content || '').length, file_type: 'note',
-      category: 'note',
-      item_type: 'note', item_id: noteId,
-      payload_json: JSON.stringify({ note }),
-    })
-    dbService.deleteNote(noteId)
-    return { success: true, data: record }
-  } catch (err) {
-    return { success: false, error: err.message }
-  }
-})
-
-// Soft-delete a note folder (recursive: each note and sub-folder becomes its own trash entry)
-ipcMain.handle('recycleBin:trashNoteFolder', async (event, folderId) => {
-  try {
-    if (noteFileService?.trashNoteFolder) return await noteFileService.trashNoteFolder(folderId)
-    const records = []
-    async function trashRecursive(fid) {
-      const folder = dbService.getNoteFolder(fid)
-      if (!folder) return
-      const childNotes = dbService.listNotes(fid)
-      const childFolders = dbService.listNoteFolders(fid)
-      // Depth-first: recurse into subfolders before trashing self
-      for (const sub of childFolders) await trashRecursive(sub.id)
-      // Each child note becomes its own trash entry
-      for (const n of childNotes) {
-        if (noteFileService) {
-          const result = await noteFileService.trashNote(n.id)
-          if (result?.data) records.push(result.data)
-        } else {
-          records.push(dbService.createTrashItem({
-            original_path: '', trash_path: '',
-            original_name: n.title || '未命名笔记',
-            is_directory: 0, size: (n.content || '').length, file_type: 'note',
-            category: 'note',
-            item_type: 'note', item_id: n.id,
-            payload_json: JSON.stringify({ note: n }),
-          }))
-          dbService.deleteNote(n.id)
-        }
-      }
-      // The folder itself
-      records.push(dbService.createTrashItem({
-        original_path: '', trash_path: '',
-        original_name: folder.name,
-        is_directory: 1, size: 0, file_type: 'folder',
-        category: 'note',
-        item_type: 'note_folder', item_id: fid,
-        payload_json: JSON.stringify({ folder }),
-      }))
-      dbService.deleteNoteFolder(fid)
-    }
-    await trashRecursive(folderId)
-    return { success: true, data: records, count: records.length }
-  } catch (err) {
-    return { success: false, error: err.message }
-  }
-})
-
-ipcMain.handle('recycleBin:restore', async (event, trashId) => {
-  try {
-    const record = dbService.getTrashItem(trashId)
-    if (!record) return { success: false, error: 'Item not found in recycle bin' }
-
-    if (record.item_type === 'file' || !record.item_type) {
-      const restoredPath = await _restoreFileItem(record)
-      if (pdfLifecycleService) await pdfLifecycleService.onRestored(record, restoredPath)
-      if (mediaModule?.lifecycle) {
-        try { mediaModule.lifecycle.onRestored(record, restoredPath) }
-        catch (error) { console.error('[MediaLifecycle] Failed after restoring file:', error) }
-      }
-      dbService.deleteTrashItem(trashId)
-      return { success: true, data: { restoredPath } }
-    } else {
-      const result = await _restoreDbItem(record)
-      dbService.deleteTrashItem(trashId)
-      return { success: true, data: result }
-    }
-  } catch (err) {
-    return { success: false, error: err.message }
-  }
-})
-
-ipcMain.handle('recycleBin:restoreBatch', async (event, trashIds) => {
-  const results = []
-  for (const id of trashIds) {
-    const record = dbService.getTrashItem(id)
-    if (!record) { results.push({ id, success: false, error: 'Not found' }); continue }
-    try {
-      if (record.item_type === 'file' || !record.item_type) {
-        const restoredPath = await _restoreFileItem(record)
-        if (pdfLifecycleService) await pdfLifecycleService.onRestored(record, restoredPath)
-        if (mediaModule?.lifecycle) {
-          try { mediaModule.lifecycle.onRestored(record, restoredPath) }
-          catch (error) { console.error('[MediaLifecycle] Failed after restoring file:', error) }
-        }
-        dbService.deleteTrashItem(id)
-        results.push({ id, success: true, restoredPath })
-      } else {
-        const res = await _restoreDbItem(record)
-        dbService.deleteTrashItem(id)
-        results.push({ id, success: true, ...res })
-      }
-    } catch (err) {
-      results.push({ id, success: false, error: err.message })
-    }
-  }
-  return { success: true, results }
-})
-
-ipcMain.handle('recycleBin:deletePermanently', async (event, trashId) => {
-  try {
-    const record = dbService.getTrashItem(trashId)
-    if (!record) return { success: false, error: 'Item not found' }
-    await _permanentlyDeleteItem(record)
-    await _finalizePermanentlyDeletedItem(record)
-    dbService.deleteTrashItem(trashId)
-    return { success: true }
-  } catch (err) {
-    return { success: false, error: err.message }
-  }
-})
-
-ipcMain.handle('recycleBin:deleteBatchPermanently', async (event, trashIds) => {
-  const results = []
-  for (const id of trashIds) {
-    const record = dbService.getTrashItem(id)
-    if (!record) { results.push({ id, success: false, error: 'Not found' }); continue }
-    try {
-      await _permanentlyDeleteItem(record)
-      await _finalizePermanentlyDeletedItem(record)
-      dbService.deleteTrashItem(id)
-      results.push({ id, success: true })
-    } catch (err) {
-      console.error('Failed to permanently delete trash item:', id, err)
-      results.push({ id, success: false, error: err.message })
-    }
-  }
-  const failed = results.filter(item => !item.success)
-  return {
-    success: failed.length === 0,
-    results,
-    deletedIds: results.filter(item => item.success).map(item => item.id),
-    failedIds: failed.map(item => item.id),
-    error: failed.length ? `${failed.length} 个回收站项目未能永久删除。` : '',
-  }
-})
-
-ipcMain.handle('recycleBin:emptyTrash', async () => {
-  try {
-    const items = dbService.listTrash()
-    const results = []
-    for (const item of items) {
-      try {
-        await _permanentlyDeleteItem(item)
-        await _finalizePermanentlyDeletedItem(item)
-        dbService.deleteTrashItem(item.id)
-        results.push({ id: item.id, success: true })
-      } catch (e) {
-        console.error('emptyTrash item failed:', item.id, e.message)
-        results.push({ id: item.id, success: false, error: e.message })
-      }
-    }
-    const failed = results.filter(item => !item.success)
-    return {
-      success: failed.length === 0,
-      results,
-      deletedIds: results.filter(item => item.success).map(item => item.id),
-      failedIds: failed.map(item => item.id),
-      error: failed.length ? `${failed.length} 个回收站项目未能永久删除。` : '',
-    }
-  } catch (err) {
-    return { success: false, error: err.message }
-  }
-})
-
-// App info
-ipcMain.handle('app:getVersion', () => {
-  return app.getVersion()
-})
-
-ipcMain.handle('app:getPath', (event, name) => {
-  return app.getPath(name)
-})
-
-// Window controls (frameless title bar on Win/Linux)
-ipcMain.handle('window:minimize', () => { win?.minimize() })
-ipcMain.handle('window:maximize', () => {
-  if (!win) return
-  if (win.isMaximized()) win.unmaximize()
-  else win.maximize()
-})
-ipcMain.handle('window:close', () => { win?.close() })
-ipcMain.handle('window:isMaximized', () => !!win?.isMaximized())
-ipcMain.handle('app:getWindowPresence', () => ({
-  ok: true,
-  isFocused: !!win?.isFocused(),
-  isVisible: !!win?.isVisible(),
-  isMinimized: !!win?.isMinimized(),
-}))
-
-// ── Skill directory IPC ──
-function isPlatformSkillRecord(skillId) {
-  const record = dbService?.listSkills?.().find(skill => skill.id === skillId)
-  return record?.source === 'platform' || record?.builtin === true
-}
-
-function skillDbPayload(skillId, config, promptContent) {
-  return {
-    id: skillId,
-    name: config.name || skillId,
-    icon: config.icon,
-    color: config.color,
-    description: config.description,
-    prompt_template: promptContent || '',
-    prompt_content: promptContent || '',
-    output_types: config.outputTypes || [],
-    allowed_tools: config.allowedTools || [],
-    source: 'custom',
-    category: config.category || '',
-    version: config.version || '',
-    author: config.author || '',
-    license: config.license || '',
-    builtin: 0,
-    enabled: 1,
-  }
-}
-
-function skillReferences(skillId) {
-  const agents = dbService.listAgents().filter(agent => Array.isArray(agent.skills) && agent.skills.includes(skillId))
-  const subAgents = dbService.listSubAgents().filter(agent => Array.isArray(agent.skills) && agent.skills.includes(skillId))
-  return { agents, subAgents, usedBy: [
-    ...agents.map(agent => ({ id: agent.id, name: agent.name, type: 'agent' })),
-    ...subAgents.map(agent => ({ id: agent.id, name: agent.name, type: 'subagent' })),
-  ] }
-}
-
-async function withSkillSnapshot(skillId, operation) {
-  const snapshot = await skillService.createSkillSnapshot(skillId)
-  try {
-    return await operation()
-  } catch (error) {
-    try {
-      await skillService.restoreSkillSnapshot(skillId, snapshot)
-    } catch (restoreError) {
-      console.error(`[SkillService] Failed to restore ${skillId}:`, restoreError.message)
-      throw new Error(`${error.message}；Skill 文件回滚失败：${restoreError.message}`)
-    }
-    throw error
-  } finally {
-    await skillService.discardSkillSnapshot(snapshot)
-  }
-}
-
-async function migrateCustomSkillBuiltinCollisions() {
-  const builtinIds = new Set((await skillService.listBuiltinSkills()).map(skill => skill.id))
-  const customSkills = dbService.listSkills().filter(skill => skill.source !== 'platform' && builtinIds.has(skill.id))
-  if (!customSkills.length) return []
-
-  const reservedIds = new Set([
-    ...builtinIds,
-    ...dbService.listSkills().map(skill => skill.id),
-  ])
-  const migrations = []
-
-  for (const skill of customSkills) {
-    const oldId = skill.id
-    const baseId = `${oldId}-custom`
-    let newId = baseId
-    let suffix = 2
-    while (reservedIds.has(newId) || skillService.isInstalled(newId)) {
-      newId = `${baseId}-${suffix}`
-      suffix += 1
-    }
-
-    let hasCustomDirectory = skillService.isInstalled(oldId)
-    if (hasCustomDirectory) {
-      const configResult = await skillService.readSkillFile(oldId, 'config.json')
-      if (configResult.success) {
-        try {
-          const config = JSON.parse(configResult.data)
-          hasCustomDirectory = config.source !== 'platform' && config.builtin !== true
-        } catch { /* Invalid or missing config is normalized during rename. */ }
-      }
-    }
-    if (hasCustomDirectory) await skillService.renameCustomSkill(oldId, newId)
-    try {
-      const migrateDb = dbService.db.transaction(() => {
-        const agents = dbService.listAgents().filter(agent => Array.isArray(agent.skills) && agent.skills.includes(oldId))
-        const subAgents = dbService.listSubAgents().filter(agent => Array.isArray(agent.skills) && agent.skills.includes(oldId))
-        dbService.db.prepare('UPDATE custom_skills SET id = ? WHERE id = ?').run(newId, oldId)
-        for (const agent of agents) dbService.updateAgent(agent.id, { skills: agent.skills.map(id => id === oldId ? newId : id) })
-        for (const agent of subAgents) dbService.updateSubAgent(agent.id, { skills: agent.skills.map(id => id === oldId ? newId : id) })
-      })
-      migrateDb()
-    } catch (error) {
-      if (hasCustomDirectory) {
-        try {
-          await skillService.renameCustomSkill(newId, oldId)
-        } catch (restoreError) {
-          console.error(`[SkillService] Failed to restore custom Skill directory ${oldId}:`, restoreError.message)
-          throw new Error(`${error.message}；Skill 目录回滚失败：${restoreError.message}`)
-        }
-      }
-      throw error
-    }
-
-    reservedIds.add(newId)
-    migrations.push({ oldId, newId })
-    console.log(`[SkillService] Renamed custom Skill ${oldId} to ${newId} before builtin installation`)
-  }
-
-  return migrations
-}
-
-ipcMain.handle('skill:install', async (event, skillId, skillData) => {
-  try {
-    if (isPlatformSkillRecord(skillId)) throw new Error(`不能覆盖内置 Skill：${skillId}`)
-    return await skillService.installSkill(skillId, { ...skillData, source: 'custom' })
-  } catch (err) {
-    return { success: false, error: err.message }
-  }
-})
-
-ipcMain.handle('skill:update', async (event, skillId, skillData) => {
-  try {
-    if (isPlatformSkillRecord(skillId)) throw new Error(`不能编辑内置 Skill：${skillId}`)
-    return await skillService.updateSkill(skillId, { ...skillData, source: 'custom' })
-  } catch (err) {
-    return { success: false, error: err.message }
-  }
-})
-
-ipcMain.handle('skill:create', async (event, skillId, skillData = {}) => {
-  try {
-    if (dbService.listSkills().some(skill => skill.id === skillId) || skillService.isBuiltinSkillId(skillId)) throw new Error(`Skill ID "${skillId}" 已存在`)
-    return await withSkillSnapshot(skillId, async () => {
-      const installed = await skillService.installSkill(skillId, { ...skillData, source: 'custom' })
-      if (!installed.spec?.valid) throw new Error(installed.spec?.issues?.join('；') || 'Skill 校验失败')
-      const promptResult = await skillService.readSkillFile(skillId, 'SKILL.md')
-      if (!promptResult.success) throw new Error(promptResult.error || '无法读取已安装的 SKILL.md')
-      const row = dbService.createSkill(skillDbPayload(skillId, installed.config, promptResult.data))
-      return { success: true, data: row, config: installed.config, spec: installed.spec }
-    })
-  } catch (err) {
-    return { success: false, error: err.message }
-  }
-})
-
-ipcMain.handle('skill:save', async (event, skillId, skillData = {}) => {
-  try {
-    const existing = dbService.listSkills().find(skill => skill.id === skillId)
-    if (!existing || existing.source === 'platform' || existing.builtin) throw new Error('内置 Skill 不能编辑')
-    return await withSkillSnapshot(skillId, async () => {
-      const updated = await skillService.updateSkill(skillId, { ...skillData, source: 'custom' })
-      if (!updated.spec?.valid) throw new Error(updated.spec?.issues?.join('；') || 'Skill 校验失败')
-      const promptResult = await skillService.readSkillFile(skillId, 'SKILL.md')
-      if (!promptResult.success) throw new Error(promptResult.error || '无法读取已保存的 SKILL.md')
-      dbService.updateSkill(skillId, skillDbPayload(skillId, updated.config, promptResult.data))
-      const row = dbService.listSkills().find(skill => skill.id === skillId)
-      return { success: true, data: row, config: updated.config, spec: updated.spec }
-    })
-  } catch (err) {
-    return { success: false, error: err.message }
-  }
-})
-
-ipcMain.handle('skill:delete', async (event, skillId, options = {}) => {
-  try {
-    const existing = dbService.listSkills().find(skill => skill.id === skillId)
-    if (!existing) return { success: true, usedBy: [] }
-    if (existing.source === 'platform' || existing.builtin || skillService.isBuiltinSkillId(skillId)) throw new Error('内置 Skill 不能删除')
-    const refs = skillReferences(skillId)
-    if (refs.usedBy.length && !options.force) return { success: false, code: 'SKILL_IN_USE', usedBy: refs.usedBy }
-    return await withSkillSnapshot(skillId, async () => {
-      await skillService.uninstallSkill(skillId)
-      const removeFromDb = dbService.db.transaction(() => {
-        if (options.force) {
-          for (const agent of refs.agents) dbService.updateAgent(agent.id, { skills: agent.skills.filter(id => id !== skillId) })
-          for (const agent of refs.subAgents) dbService.updateSubAgent(agent.id, { skills: agent.skills.filter(id => id !== skillId) })
-        }
-        dbService.deleteSkill(skillId)
-      })
-      removeFromDb()
-      return { success: true, usedBy: refs.usedBy }
-    })
-  } catch (err) {
-    return { success: false, error: err.message }
-  }
-})
-
-ipcMain.handle('skill:uninstall', async (event, skillId) => {
-  try {
-    if (isPlatformSkillRecord(skillId)) throw new Error(`不能删除内置 Skill：${skillId}`)
-    return await skillService.uninstallSkill(skillId)
-  } catch (err) {
-    return { success: false, error: err.message }
-  }
-})
-
-ipcMain.handle('skill:listFiles', async (event, skillId) => {
-  try {
-    const files = await skillService.listSkillFiles(skillId)
-    return { success: true, data: files }
-  } catch (err) {
-    return { success: false, error: err.message }
-  }
-})
-
-ipcMain.handle('skill:readFile', async (event, skillId, relativePath) => {
-  try {
-    return await skillService.readSkillFile(skillId, relativePath)
-  } catch (err) {
-    return { success: false, error: err.message }
-  }
-})
-
-ipcMain.handle('skill:writeFile', async (event, skillId, relativePath, content) => {
-  try {
-    const existing = dbService.listSkills().find(skill => skill.id === skillId)
-    if (!existing || existing.source === 'platform' || existing.builtin) throw new Error('内置 Skill 不能编辑')
-    return await withSkillSnapshot(skillId, async () => {
-      const result = await skillService.writeSkillFile(skillId, relativePath, content)
-      if (!result.success) throw new Error(result.error || '文件保存失败')
-
-      const normalizedPath = String(relativePath || '').replace(/\\/g, '/').toLowerCase()
-      if (normalizedPath === 'skill.md') {
-        const updated = await skillService.updateSkill(skillId, {
-          ...existing,
-          description: result.spec?.description || existing.description || '',
-          promptContent: content,
-          source: 'custom',
-        })
-        if (!updated.spec?.valid) throw new Error(updated.spec?.issues?.join('；') || 'Skill 校验失败')
-        const promptResult = await skillService.readSkillFile(skillId, 'SKILL.md')
-        if (!promptResult.success) throw new Error(promptResult.error || '无法读取已保存的 SKILL.md')
-        dbService.updateSkill(skillId, skillDbPayload(skillId, updated.config, promptResult.data))
-        return { ...result, config: updated.config, spec: updated.spec }
-      }
-
-      return result
-    })
-  } catch (err) {
-    return { success: false, error: err.message }
-  }
-})
-
-ipcMain.handle('skill:pickImportSource', async (event, type = 'zip') => {
-  try {
-    const folder = type === 'folder'
-    const result = await dialog.showOpenDialog(win, {
-      title: folder ? '选择 Skill 文件夹' : type === 'skill' ? '选择 SKILL.md' : '选择 Skill ZIP',
-      properties: [folder ? 'openDirectory' : 'openFile'],
-      filters: folder ? undefined : type === 'skill'
-        ? [{ name: 'Skill Markdown', extensions: ['md', 'markdown'] }]
-        : [{ name: 'Skill ZIP', extensions: ['zip'] }],
-    })
-    if (result.canceled || !result.filePaths?.[0]) return { success: false, canceled: true }
-    const sourcePath = result.filePaths[0]
-    const customSkills = dbService.listSkills().filter(skill => skill.source !== 'platform')
-    const preview = await skillService.inspectSkillSource(sourcePath, { customSkills })
-    const sessionId = crypto.randomUUID()
-    const now = Date.now()
-    for (const [id, session] of skillImportSessions) {
-      if (now - session.createdAt > 10 * 60 * 1000) skillImportSessions.delete(id)
-    }
-    skillImportSessions.set(sessionId, {
-      sourcePath,
-      createdAt: now,
-      previewId: preview.id,
-      allowUpdate: preview.conflict === 'custom',
-    })
-    return { success: true, sessionId, sourceName: path.basename(sourcePath), data: preview }
-  } catch (err) {
-    return { success: false, error: err.message }
-  }
-})
-
-ipcMain.handle('skill:importSource', async (event, sessionId, options = {}) => {
-  try {
-    const sessionKey = String(sessionId || '')
-    const session = skillImportSessions.get(sessionKey)
-    if (!session || Date.now() - session.createdAt > 10 * 60 * 1000) {
-      skillImportSessions.delete(sessionKey)
-      throw new Error('导入会话已失效，请重新选择 Skill')
-    }
-    const allSkills = dbService.listSkills()
-    const requestedId = skillService.normalizeSkillId(options.id)
-    if (!skillService.isValidSkillId(requestedId)) throw new Error('请输入合法的英文 Skill ID')
-    if (skillService.isBuiltinSkillId(requestedId) || allSkills.some(skill => skill.id === requestedId && skill.source === 'platform')) {
-      throw new Error(`不能覆盖内置 Skill：${requestedId}`)
-    }
-
-    const existing = allSkills.find(skill => skill.id === requestedId && skill.source !== 'platform')
-    const diskConflict = skillService.isInstalled(requestedId)
-    let finalId = requestedId
-    if ((existing || diskConflict) && options.strategy === 'copy') {
-      let suffix = 2
-      while (allSkills.some(skill => skill.id === `${requestedId}-${suffix}`) || skillService.isInstalled(`${requestedId}-${suffix}`) || skillService.isBuiltinSkillId(`${requestedId}-${suffix}`)) suffix += 1
-      finalId = `${requestedId}-${suffix}`
-    } else if ((existing || diskConflict) && (
-      options.strategy !== 'update' ||
-      !session.allowUpdate ||
-      requestedId !== session.previewId
-    )) {
-      return { success: false, conflict: 'custom', existing }
-    }
-
-    skillImportSessions.delete(sessionKey)
-    return await withSkillSnapshot(finalId, async () => {
-      const installed = await skillService.importSkillSource(session.sourcePath, { ...options, id: finalId, source: 'custom' })
-      if (!installed.spec?.valid) throw new Error(installed.spec?.issues?.join('；') || 'Skill 校验失败')
-      const promptResult = await skillService.readSkillFile(finalId, 'SKILL.md')
-      if (!promptResult.success) throw new Error(promptResult.error || '无法读取导入的 SKILL.md')
-      const dbPayload = skillDbPayload(finalId, installed.config, promptResult.data)
-      let row
-      if (existing && finalId === requestedId) {
-        dbService.updateSkill(finalId, dbPayload)
-        row = dbService.listSkills().find(skill => skill.id === finalId)
-      } else row = dbService.createSkill(dbPayload)
-      return { success: true, data: { ...row, id: finalId, config: installed.config, spec: installed.spec } }
-    })
-  } catch (err) {
-    return { success: false, error: err.message }
-  }
-})
-
-ipcMain.handle('skill:isInstalled', async (event, skillId) => {
-  try {
-    return { success: true, data: skillService.isInstalled(skillId) }
-  } catch (err) {
-    return { success: false, error: err.message }
-  }
-})
-
-ipcMain.handle('skill:listBuiltin', async () => {
-  try {
-    const data = await skillService.listBuiltinSkills()
-    return { success: true, data }
-  } catch (err) {
-    return { success: false, error: err.message }
-  }
-})
-
-// ─── MCP Server runtime IPC ───
-ipcMain.handle('mcp:testServer', async (_, config) => {
-  try {
-    return await mcpService.testServer(config)
-  } catch (err) {
-    return { success: false, error: err.message }
-  }
-})
-
-ipcMain.handle('mcp:syncServerTools', async (_, serverId) => {
-  try {
-    return await mcpService.syncServerTools(serverId)
-  } catch (err) {
-    return { success: false, error: err.message }
-  }
-})
-
-ipcMain.handle('pdf:preflight', async (event, filePath, options = {}) => {
-  try {
-    const inputPath = validateFsPath(filePath)
-    if (path.extname(inputPath).toLowerCase() !== '.pdf') return { success: false, error: 'Only PDF files can be preflighted' }
-    const result = await pdfService().read({
-      inputPath,
-      virtualPath: toWorkspaceVirtualPath(inputPath),
-      mode: 'overview',
-      maxPages: options.maxPages || 5,
-      maxChars: options.maxChars || 40000,
-      sourceInfo: options.sourceInfo || { origin: 'docs' },
-    })
-    return result
-  } catch (err) {
-    return { success: false, error: err.message, code: 'PDF_PREFLIGHT_FAILED' }
-  }
-})
-
-ipcMain.handle('pdf:getSettings', async () => {
-  try {
-    return { success: true, data: normalizePdfReadSettings(dbService?.getSetting?.(PDF_READ_SETTINGS_KEY) || {}) }
-  } catch (err) {
-    return { success: false, error: err.message, code: 'PDF_SETTINGS_GET_FAILED' }
-  }
-})
-
-ipcMain.handle('pdf:setSettings', async (event, settings = {}) => {
-  try {
-    const normalized = normalizePdfReadSettings(settings)
-    dbService?.setSetting?.(PDF_READ_SETTINGS_KEY, normalized)
-    return { success: true, data: normalized }
-  } catch (err) {
-    return { success: false, error: err.message, code: 'PDF_SETTINGS_SET_FAILED' }
-  }
-})
-
-ipcMain.handle('pdf:checkEnvironment', async () => {
-  try {
-    const textExtractor = new PdfTextExtractor()
-    return await textExtractor.checkEnvironment()
-  } catch (err) {
-    return { success: false, error: err.message, code: 'PDF_ENV_CHECK_FAILED' }
-  }
-})
-
-ipcMain.handle('pdf:getStatus', async (event, filePath, options = {}) => {
-  try {
-    const inputPath = validateFsPath(filePath)
-    const result = await pdfService().read({
-      inputPath,
-      virtualPath: toWorkspaceVirtualPath(inputPath),
-      mode: 'metadata',
-      probe: options?.probe !== false,
-    })
-    return result
-  } catch (err) {
-    return { success: false, error: err.message, code: 'PDF_STATUS_FAILED' }
-  }
-})
-
-ipcMain.handle('pdf:startOcr', async (event, filePath, options = {}) => {
-  try {
-    const inputPath = validateFsPath(filePath)
-    const explicitPageSelection = Array.isArray(options.pages) && options.pages.length > 0
-      || options.startPage !== undefined
-      || options.maxPages !== undefined
-    const result = await pdfService().read({
-      inputPath,
-      virtualPath: toWorkspaceVirtualPath(inputPath),
-      mode: 'ocr',
-      pages: Array.isArray(options.pages) ? options.pages : [],
-      startPage: options.startPage || 1,
-      maxPages: options.maxPages || 5,
-      explicitPageSelection,
-      provider: options.provider || 'auto',
-      confirmFull: !!options.confirmFull,
-      fullDocument: !!options.fullDocument,
-      sourceInfo: options.sourceInfo || { origin: 'docs' },
-    })
-    return result
-  } catch (err) {
-    return { success: false, error: err.message, code: 'PDF_OCR_START_FAILED' }
-  }
-})
-
-ipcMain.handle('pdf:listImages', async (event, filePath, options = {}) => {
-  try {
-    const inputPath = validateFsPath(filePath)
-    const result = await pdfService().read({
-      inputPath,
-      virtualPath: toWorkspaceVirtualPath(inputPath),
-      mode: 'images',
-      startPage: options.startPage || 1,
-      maxPages: options.maxPages || 5,
-      maxImages: options.maxImages || 50,
-    })
-    return result
-  } catch (err) {
-    return { success: false, error: err.message, code: 'PDF_IMAGES_FAILED' }
-  }
-})
-
-ipcMain.handle('mcp:syncServerCapabilities', async (_, serverId) => {
-  try {
-    return await mcpService.syncServerTools(serverId)
-  } catch (err) {
-    return { success: false, error: err.message }
-  }
-})
-
-ipcMain.handle('mcp:readResource', async (_, serverId, uri) => {
-  try {
-    return await mcpService.readResource(serverId, uri)
-  } catch (err) {
-    return { success: false, error: err.message }
-  }
-})
-
-ipcMain.handle('mcp:getPrompt', async (_, serverId, name, args) => {
-  try {
-    return await mcpService.getPrompt(serverId, name, args)
-  } catch (err) {
-    return { success: false, error: err.message }
-  }
-})
-
-// ─── Outputs Scan ───
-ipcMain.handle('outputs:scanAll', async () => {
-  try {
-    return await outputScanService.scanAll()
-  } catch (err) {
-    console.error('[OutputScan] scanAll error:', err.message)
-    return []
-  }
-})
-
-ipcMain.handle('outputs:scanDateFiles', async (_, agentDirName, date) => {
-  try {
-    return await outputScanService.scanDateFiles(agentDirName, date)
-  } catch (err) {
-    console.error('[OutputScan] scanDateFiles error:', err.message)
-    return []
-  }
-})
-
-ipcMain.handle('outputs:readFile', async (_, virtualPath) => {
-  try {
-    return await outputScanService.readOutputFile(virtualPath)
-  } catch (err) {
-    return { success: false, error: err.message }
-  }
-})
-
-// ─── PPTX Export ───
-ipcMain.handle('pptx:exportLocal', async (_, htmlPath, outputPath) => {
-  try {
-    return await pptxExportService.exportLocal(htmlPath, outputPath)
-  } catch (err) {
-    console.error('[PptxExport] exportLocal error:', err.message)
-    return { success: false, error: err.message }
-  }
-})
-
-ipcMain.handle('pptx:exportCloud', async (_, htmlPath, outputPath) => {
-  try {
-    return await pptxExportService.exportCloud(htmlPath, outputPath)
-  } catch (err) {
-    console.error('[PptxExport] exportCloud error:', err.message)
-    return { success: false, error: err.message }
-  }
-})
-
-function getRendererSession(event) {
-  const rendererSession = event?.sender?.session || win?.webContents?.session
-  if (!rendererSession) throw new Error('当前窗口会话不可用')
-  return rendererSession
-}
-
-// Chromium HTTP cache
-ipcMain.handle('app:getCacheSize', async (event) => {
-  try {
-    const bytes = await getRendererSession(event).getCacheSize()
-    return { success: true, data: { bytes, formatted: formatStorageSize(bytes) } }
-  } catch (err) {
-    return { success: false, error: err.message }
-  }
-})
-
-ipcMain.handle('app:clearCache', async (event) => {
-  try {
-    const rendererSession = getRendererSession(event)
-    const beforeBytes = await rendererSession.getCacheSize()
-    await rendererSession.clearCache()
-    const bytes = await rendererSession.getCacheSize()
-    return {
-      success: true,
-      data: {
-        bytes,
-        formatted: formatStorageSize(bytes),
-        clearedBytes: Math.max(0, beforeBytes - bytes),
-      },
-    }
-  } catch (err) {
-    return { success: false, error: err.message }
-  }
-})
-
-// Workspace temporary files (/tmp)
-ipcMain.handle('app:getTempSize', async () => {
-  try {
-    const data = await storageCleanupService.getTempSize(workDirService?.getRootPath?.() || '')
-    return { success: true, data }
-  } catch (err) {
-    return { success: false, error: err.message }
-  }
-})
-
-ipcMain.handle('app:clearTempFiles', async () => {
-  try {
-    const data = await storageCleanupService.clearTempFiles(workDirService?.getRootPath?.() || '')
-    return { success: true, data }
-  } catch (err) {
-    return { success: false, error: err.message }
-  }
-})
-
-// Relaunch app (used after workspace root change)
-ipcMain.handle('app:relaunch', async () => {
-  try {
-    app.relaunch()
-    app.exit(0)
-    return { success: true }
-  } catch (err) {
-    return { success: false, error: err.message }
-  }
-})
-
-ipcMain.handle('app:quit', () => {
-  forceQuit = true
-  app.quit()
-  return { success: true }
-})
-
-// Get data directory size
-ipcMain.handle('app:getDataSize', async () => {
-  try {
-    const dataRoot = workDirService?.getRootPath?.() || app.getPath('userData')
-    function calcDirSize(dirPath) {
-      let total = 0
-      try {
-        const entries = fs.readdirSync(dirPath, { withFileTypes: true })
-        for (const entry of entries) {
-          const fullPath = path.join(dirPath, entry.name)
-          if (entry.isDirectory()) {
-            total += calcDirSize(fullPath)
-          } else {
-            try { total += fs.statSync(fullPath).size } catch { /* skip */ }
-          }
-        }
-      } catch { /* skip */ }
-      return total
-    }
-    const totalBytes = calcDirSize(dataRoot)
-    function fmtSize(bytes) {
-      if (bytes < 1024) return bytes + ' B'
-      if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB'
-      if (bytes < 1024 * 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(1) + ' MB'
-      return (bytes / (1024 * 1024 * 1024)).toFixed(2) + ' GB'
-    }
-    return { success: true, data: { total: fmtSize(totalBytes), raw: totalBytes } }
-  } catch (err) {
-    return { success: false, error: err.message }
-  }
-})
-
-// Get system info
-ipcMain.handle('app:getSysInfo', () => {
-  return {
-    version: app.getVersion(),
-    electron: process.versions.electron,
-    chrome: process.versions.chrome,
-    node: process.versions.node,
-    os: process.platform === 'win32' ? 'Windows' : process.platform === 'darwin' ? 'macOS' : 'Linux',
-    arch: process.arch,
-  }
-})
-
-// ========== Environment Detection IPC ==========
-
-// Run a command and capture version output
-function execVersion(cmd, args, parser, timeoutMs = 8000, options = {}) {
-  return new Promise((resolve) => {
-    try {
-      const { spawn } = require('node:child_process')
-      const child = spawn(cmd, args, {
-        shell: options.shell !== false,
-        windowsHide: true,
-        env: options.env || process.env,
-      })
-      const stdoutChunks = []
-      const stderrChunks = []
-      let done = false
-      const finish = (result) => { if (!done) { done = true; resolve(result) } }
-      const timer = setTimeout(() => { try { child.kill() } catch { }; finish({ installed: false, error: 'timeout', raw: '' }) }, timeoutMs)
-      child.stdout.on('data', (d) => { stdoutChunks.push(d) })
-      child.stderr.on('data', (d) => { stderrChunks.push(d) })
-      child.on('error', (err) => { clearTimeout(timer); finish({ installed: false, error: err.message, raw: '' }) })
-      child.on('close', (code) => {
-        clearTimeout(timer)
-        const decode = (chunks) => {
-          const buf = Buffer.concat(chunks)
-          if (!buf.length) return ''
-          if (process.platform === 'win32') {
-            try {
-              const gbk = new TextDecoder('gbk', { fatal: false }).decode(buf)
-              const utf8 = buf.toString('utf8')
-              const gbkBad = (gbk.match(/\uFFFD/g) || []).length
-              const utf8Bad = (utf8.match(/\uFFFD/g) || []).length
-              return gbkBad <= utf8Bad ? gbk : utf8
-            } catch {
-              return buf.toString('utf8')
-            }
-          }
-          return buf.toString('utf8')
-        }
-        const stdout = decode(stdoutChunks)
-        const stderr = decode(stderrChunks)
-        const out = (stdout || stderr || '').trim()
-        const rawPreview = out.split('\n').slice(0, 4).join('\n')
-
-        // Only flag as "not found" when exit code != 0 AND output matches not-found patterns.
-        // (Some tools print warnings matching these patterns on stderr but still succeed.)
-        const notFoundPatterns = [
-          /is not recognized as an internal or external command/i,
-          /command not found/i,
-          /不是内部或外部命令/,
-          /系统找不到/,
-          /no such file or directory/i,
-        ]
-        if (code !== 0) {
-          if (notFoundPatterns.some(re => re.test(out)) || !out) {
-            return finish({ installed: false, error: out ? 'not found' : `exit ${code}`, raw: rawPreview })
-          }
-        }
-
-        const version = parser ? parser(out) : out.split('\n')[0].trim()
-        // Sanity: parser should return a version string; otherwise treat as failure
-        if (!version || /^\s*$/.test(version)) {
-          return finish({ installed: false, error: 'no version', raw: rawPreview })
-        }
-        finish({ installed: true, version, raw: rawPreview })
-      })
-    } catch (err) {
-      resolve({ installed: false, error: err.message, raw: '' })
-    }
-  })
-}
-
-const ALIYUN_PYPI_SIMPLE_URL = 'https://mirrors.aliyun.com/pypi/simple/'
-const PYTHON_PDF_PACKAGES = ['pymupdf']
-const PYTHON_PDF_IMPORT_MODULES = ['fitz']
-const PYTHON_OFFICE_PACKAGES = ['python-docx', 'openpyxl', 'python-pptx', 'pandas', 'xlrd', 'pymupdf']
-const PYTHON_OFFICE_IMPORT_MODULES = ['docx', 'openpyxl', 'pptx', 'pandas', 'xlrd', 'fitz']
-const PYTHON_MATH_VIZ_PACKAGES = ['matplotlib', 'numpy', 'scipy', 'sympy']
-const PYTHON_MATH_VIZ_IMPORT_MODULES = ['matplotlib', 'numpy', 'scipy', 'sympy']
-const PYTHON_PDF_IMPORT_SCRIPT = [
-  'import importlib.util',
-  `modules=${JSON.stringify(PYTHON_PDF_IMPORT_MODULES)}`,
-  'missing=[m for m in modules if importlib.util.find_spec(m) is None]',
-  "print('missing:' + ','.join(missing) if missing else 'pdf-libs-ok')",
-  'raise SystemExit(1 if missing else 0)',
-].join('; ')
-const PYTHON_OFFICE_IMPORT_SCRIPT = [
-  'import importlib.util',
-  `modules=${JSON.stringify(PYTHON_OFFICE_IMPORT_MODULES)}`,
-  'missing=[m for m in modules if importlib.util.find_spec(m) is None]',
-  "print('missing:' + ','.join(missing) if missing else 'office-libs-ok')",
-  'raise SystemExit(1 if missing else 0)',
-].join('; ')
-const PYTHON_MATH_VIZ_IMPORT_SCRIPT = [
-  'import importlib',
-  `modules=${JSON.stringify(PYTHON_MATH_VIZ_IMPORT_MODULES)}`,
-  'missing=[]',
-  'for m in modules:',
-  '    try:',
-  '        importlib.import_module(m)',
-  '    except Exception as e:',
-  '        missing.append(f"{m}:{type(e).__name__}")',
-  "print('missing:' + ','.join(missing) if missing else 'math-viz-libs-ok')",
-  'raise SystemExit(1 if missing else 0)',
-].join('\n')
-const PYTHON_CANDIDATES = [
-  { cmd: 'python', args: [], label: 'python' },
-  { cmd: 'py', args: ['-3'], label: 'py -3' },
-  { cmd: 'py', args: [], label: 'py' },
-  { cmd: 'python3', args: [], label: 'python3' },
-]
-
-function pythonCandidateArgs(candidate, args) {
-  return [...(candidate.args || []), ...args]
-}
-
-function pythonOfficeImportAttempts() {
-  return PYTHON_CANDIDATES.map(candidate => ({
-    cmd: candidate.cmd,
-    args: pythonCandidateArgs(candidate, ['-c', PYTHON_OFFICE_IMPORT_SCRIPT]),
-    shell: false,
-    timeoutMs: 12000,
-    label: `${candidate.label} -c office-libs-check`,
-  }))
-}
-
-function pythonPdfImportAttempts() {
-  return PYTHON_CANDIDATES.map(candidate => ({
-    cmd: candidate.cmd,
-    args: pythonCandidateArgs(candidate, ['-c', PYTHON_PDF_IMPORT_SCRIPT]),
-    shell: false,
-    timeoutMs: 12000,
-    label: `${candidate.label} -c pdf-libs-check`,
-  }))
-}
-
-function pythonMathVizImportAttempts() {
-  return PYTHON_CANDIDATES.map(candidate => ({
-    cmd: candidate.cmd,
-    args: pythonCandidateArgs(candidate, ['-c', PYTHON_MATH_VIZ_IMPORT_SCRIPT]),
-    shell: false,
-    timeoutMs: 20000,
-    label: `${candidate.label} -c math-viz-libs-check`,
-  }))
-}
-
-const ENV_CHECKS = {
-  python: { attempts: [{ cmd: 'python', args: ['--version'] }, { cmd: 'python3', args: ['--version'] }, { cmd: 'py', args: ['--version'] }], parse: (s) => (s.match(/Python\s+([\d.]+)/i)?.[1] || '') },
-  node: { attempts: [{ cmd: 'node', args: ['--version'] }], parse: (s) => (s.match(/v?([\d.]+)/)?.[1] || '') },
-  npm: { attempts: [{ cmd: 'npm', args: ['--version'] }], parse: (s) => (s.match(/([\d.]+)/)?.[1] || '') },
-  pnpm: { attempts: [{ cmd: 'pnpm', args: ['--version'] }], parse: (s) => (s.match(/([\d.]+)/)?.[1] || '') },
-  pip: { attempts: [{ cmd: 'pip', args: ['--version'] }, { cmd: 'pip3', args: ['--version'] }, { cmd: 'python', args: ['-m', 'pip', '--version'] }], parse: (s) => (s.match(/pip\s+([\d.]+)/i)?.[1] || '') },
-  pandoc: { attempts: [{ cmd: 'pandoc', args: ['--version'] }], parse: (s) => (s.match(/pandoc(?:\.exe)?\s+([\d.]+)/i)?.[1] || '') },
-  manim: { attempts: [{ cmd: 'python', args: ['-m', 'manim', '--version'] }, { cmd: 'py', args: ['-3', '-m', 'manim', '--version'] }, { cmd: 'py', args: ['-m', 'manim', '--version'] }, { cmd: 'python3', args: ['-m', 'manim', '--version'] }, { cmd: 'manim', args: ['--version'] }, { cmd: 'manimce', args: ['--version'] }], parse: (s) => (s.match(/Manim\s+Community\s+v?([\d.\w-]+)/i)?.[1] || s.match(/v?([\d]+\.[\d.]+)/)?.[1] || '') },
-  ffmpeg: { attempts: [{ cmd: 'ffmpeg', args: ['-version'] }], parse: (s) => (s.match(/ffmpeg version\s+([^\s]+)/i)?.[1] || '') },
-  latex: { attempts: [{ cmd: 'latex', args: ['--version'] }, { cmd: 'pdflatex', args: ['--version'] }, { cmd: 'xelatex', args: ['--version'] }], parse: (s) => (s.match(/(?:pdfTeX|XeTeX)\s+([\d.]+)/i)?.[1] || s.match(/Version\s+([\d.]+)/i)?.[1] || '') },
-  dvisvgm: { attempts: [{ cmd: 'dvisvgm', args: ['--version'] }], parse: (s) => (s.match(/dvisvgm\s+([\d.]+)/i)?.[1] || s.match(/([\d]+\.[\d.]+)/)?.[1] || '') },
-  miktex: { attempts: [{ cmd: 'mpm', args: ['--version'] }], parse: (s) => (s.match(/MiKTeX\s+Package\s+Manager\s+([\d.]+)/i)?.[1] || s.match(/mpm\s+([\d.]+)/i)?.[1] || s.match(/([\d]+\.[\d.]+)/)?.[1] || '') },
-  git: { attempts: [{ cmd: 'git', args: ['--version'] }], parse: (s) => (s.match(/git version\s+([\d.]+)/i)?.[1] || '') },
-  officecli: { attempts: getOfficeCliCommandCandidates(['--version']), parse: (s) => (s.match(/([\d]+\.[\d.]+)/)?.[1] || s.split('\n')[0].trim()) },
-  pythonPdfLibs: { attempts: pythonPdfImportAttempts(), parse: (s) => (/pdf-libs-ok/i.test(s) ? '可用' : '') },
-  pythonOfficeLibs: { attempts: pythonOfficeImportAttempts(), parse: (s) => (/office-libs-ok/i.test(s) ? '可用' : '') },
-  pythonMathVizLibs: { attempts: pythonMathVizImportAttempts(), parse: (s) => (/math-viz-libs-ok/i.test(s) ? '可用' : '') },
-}
-
-async function checkOneEnv(key) {
-  const def = ENV_CHECKS[key]
-  if (!def) return { installed: false, error: 'unknown', raw: '' }
-  let lastResult = { installed: false, error: 'not found', raw: '' }
-  const baseEnv = await getSystemEnv()
-  for (const attempt of def.attempts) {
-    const env = attempt.source ? getOfficeCliSpawnEnv(baseEnv) : baseEnv
-    const r = await execVersion(attempt.cmd, attempt.args, def.parse, attempt.timeoutMs || def.timeoutMs || 8000, { ...attempt, env })
-    if (r.installed) {
-      return { ...r, via: attempt.label || `${attempt.cmd} ${attempt.args.join(' ')}` }
-    }
-    lastResult = r
-  }
-  return lastResult
-}
-
-ipcMain.handle('env:check', async (_e, keys) => {
-  const targets = (Array.isArray(keys) && keys.length) ? keys : Object.keys(ENV_CHECKS)
-  const results = {}
-  await Promise.all(targets.map(async (key) => {
-    results[key] = await checkOneEnv(key)
-  }))
-  return { success: true, data: results }
-})
-
-function runBufferedCommand(cmd, args, { timeoutMs = 600000, maxBuffer = 4 * 1024 * 1024, shell = false, env = process.env } = {}) {
-  return new Promise((resolve) => {
-    try {
-      const { spawn } = require('node:child_process')
-      const child = spawn(cmd, args, {
-        shell,
-        windowsHide: true,
-        env: { ...env },
-      })
-      const stdoutChunks = []
-      const stderrChunks = []
-      let stdoutSize = 0
-      let stderrSize = 0
-      let done = false
-
-      const finish = (result) => {
-        if (done) return
-        done = true
-        clearTimeout(timer)
-        resolve(result)
-      }
-      const append = (chunks, data, kind) => {
-        if (kind === 'stdout') {
-          stdoutSize += data.length
-          if (stdoutSize <= maxBuffer) chunks.push(data)
-        } else {
-          stderrSize += data.length
-          if (stderrSize <= maxBuffer) chunks.push(data)
-        }
-      }
-
-      const timer = setTimeout(() => {
-        try { child.kill() } catch {}
-        finish({ code: 124, stdout: '', stderr: 'command timeout', stdoutTruncated: false, stderrTruncated: false })
-      }, timeoutMs)
-
-      child.stdout.on('data', d => append(stdoutChunks, d, 'stdout'))
-      child.stderr.on('data', d => append(stderrChunks, d, 'stderr'))
-      child.on('error', err => finish({
-        code: err.code === 'ENOENT' ? 127 : 1,
-        stdout: '',
-        stderr: err.message,
-        stdoutTruncated: false,
-        stderrTruncated: false,
-      }))
-      child.on('close', code => finish({
-        code: code ?? 0,
-        stdout: Buffer.concat(stdoutChunks).toString('utf8'),
-        stderr: Buffer.concat(stderrChunks).toString('utf8'),
-        stdoutTruncated: stdoutSize > maxBuffer,
-        stderrTruncated: stderrSize > maxBuffer,
-      }))
-    } catch (err) {
-      resolve({ code: 1, stdout: '', stderr: err.message, stdoutTruncated: false, stderrTruncated: false })
-    }
-  })
-}
-
-async function findPythonPipCandidate() {
-  let lastResult = null
-  const baseEnv = await getSystemEnv()
-  for (const candidate of PYTHON_CANDIDATES) {
-    const args = pythonCandidateArgs(candidate, ['-m', 'pip', '--version'])
-    const result = await runBufferedCommand(candidate.cmd, args, { timeoutMs: 12000, env: baseEnv })
-    if (result.code === 0) {
-      return {
-        candidate,
-        pipVersion: (result.stdout || result.stderr || '').trim().split('\n')[0] || 'pip',
-        env: baseEnv,
-      }
-    }
-    lastResult = { candidate, result }
-  }
-  return { candidate: null, lastResult }
-}
-
-function formatCommandForDisplay(cmd, args) {
-  return [cmd, ...args.map(arg => /\s/.test(arg) ? `"${arg.replace(/"/g, '\\"')}"` : arg)].join(' ')
-}
-
-async function installPythonPackages({ packages, checkKey, label }) {
-  const found = await findPythonPipCandidate()
-  if (!found.candidate) {
-    const detail = found.lastResult?.result
-    return {
-      success: false,
-      error: '未找到可用的 Python/pip。请先安装 Python，并确保 python -m pip 可用。',
-      detail: detail ? (detail.stderr || detail.stdout || '').slice(0, 4000) : '',
-    }
-  }
-
-  const installCoreArgs = [
-    '-m', 'pip',
-    'install',
-    '--user',
-    '--upgrade',
-    ...packages,
-    '-i', ALIYUN_PYPI_SIMPLE_URL,
-    '--trusted-host', 'mirrors.aliyun.com',
-  ]
-  const installArgs = pythonCandidateArgs(found.candidate, installCoreArgs)
-  let result = await runBufferedCommand(found.candidate.cmd, installArgs, { timeoutMs: 10 * 60 * 1000, env: found.env })
-  let command = formatCommandForDisplay(found.candidate.cmd, installArgs)
-
-  const combined = `${result.stdout || ''}\n${result.stderr || ''}`
-  if (result.code !== 0 && /Can not perform a ['"]?--user['"]? install|--user install/i.test(combined)) {
-    const noUserCoreArgs = installCoreArgs.filter(arg => arg !== '--user')
-    const noUserArgs = pythonCandidateArgs(found.candidate, noUserCoreArgs)
-    result = await runBufferedCommand(found.candidate.cmd, noUserArgs, { timeoutMs: 10 * 60 * 1000, env: found.env })
-    command = formatCommandForDisplay(found.candidate.cmd, noUserArgs)
-  }
-
-  const check = await checkOneEnv(checkKey)
-  const success = result.code === 0 && check.installed
-  return {
-    success,
-    error: success ? '' : (result.code === 0 ? `安装命令已完成，但 ${label} 导入检测仍未通过。` : `pip 安装 ${label} 失败。`),
-    command,
-    packages,
-    pip: found.pipVersion,
-    stdout: (result.stdout || '').slice(-12000),
-    stderr: (result.stderr || '').slice(-12000),
-    stdoutTruncated: result.stdoutTruncated,
-    stderrTruncated: result.stderrTruncated,
-    check,
-  }
-}
-
-async function installPythonPdfLibs() {
-  return installPythonPackages({
-    packages: PYTHON_PDF_PACKAGES,
-    checkKey: 'pythonPdfLibs',
-    label: 'PDF 本地解析库',
-  })
-}
-
-async function installPythonOfficeLibs() {
-  return installPythonPackages({
-    packages: PYTHON_OFFICE_PACKAGES,
-    checkKey: 'pythonOfficeLibs',
-    label: 'Office Python 库',
-  })
-}
-
-async function installPythonMathVizLibs() {
-  return installPythonPackages({
-    packages: PYTHON_MATH_VIZ_PACKAGES,
-    checkKey: 'pythonMathVizLibs',
-    label: '数学可视化 Python 库',
-  })
-}
-
-ipcMain.handle('env:installPythonPdfLibs', async () => {
-  try {
-    return await installPythonPdfLibs()
-  } catch (err) {
-    return { success: false, error: err.message }
-  }
-})
-
-ipcMain.handle('env:installPythonOfficeLibs', async () => {
-  try {
-    return await installPythonOfficeLibs()
-  } catch (err) {
-    return { success: false, error: err.message }
-  }
-})
-
-ipcMain.handle('env:installPythonMathVizLibs', async () => {
-  try {
-    return await installPythonMathVizLibs()
-  } catch (err) {
-    return { success: false, error: err.message }
-  }
-})
-
-// Export all settings as JSON
-ipcMain.handle('app:exportSettings', async () => {
-  try {
-    const allSettings = dbService.getAllSettings()
-    return {
-      success: true,
-      data: createSettingsTransfer(allSettings, { appVersion: app.getVersion() }),
-    }
-  } catch (err) {
-    return { success: false, error: err.message }
-  }
-})
-
-// Import settings from JSON
-ipcMain.handle('app:importSettings', async (event, data) => {
-  try {
-    const parsed = parseSettingsTransfer(data)
-    const imported = dbService.importSettings(parsed.settings)
-    return {
-      success: true,
-      data: {
-        importedCount: imported.count,
-        importedKeys: Object.keys(parsed.settings),
-        legacy: parsed.legacy,
-      },
-    }
-  } catch (err) {
-    return { success: false, error: err.message }
-  }
-})
-
-ipcMain.handle('backup:getModes', async () => {
-  try {
-    if (!backupService) throw new Error('备份服务未就绪')
-    return { success: true, data: backupService.getModes() }
-  } catch (err) {
-    return { success: false, error: err.message }
-  }
-})
-
-ipcMain.handle('backup:create', async (event, options = {}) => {
-  try {
-    if (!backupService) throw new Error('备份服务未就绪')
-    const mode = options?.mode || 'full'
-    const result = await dialog.showOpenDialog(win, {
-      title: '选择备份保存目录',
-      defaultPath: app.getPath('documents'),
-      properties: ['openDirectory', 'createDirectory'],
-    })
-    if (result.canceled || !result.filePaths?.[0]) return { success: false, canceled: true }
-    const outputPath = backupService.getOutputPath(result.filePaths[0], mode)
-    return await backupService.createBackup({ mode, outputPath })
-  } catch (err) {
-    console.error('[BackupService] create failed:', err)
-    return { success: false, error: err.message }
-  }
-})
-
-ipcMain.handle('backup:prepareRestore', async () => {
-  try {
-    if (!backupService) throw new Error('备份服务未就绪')
-    const result = await dialog.showOpenDialog(win, {
-      title: '选择 Reviva 备份包',
-      defaultPath: app.getPath('documents'),
-      properties: ['openFile'],
-      filters: [{ name: 'Reviva Backup', extensions: ['zip'] }],
-    })
-    if (result.canceled || !result.filePaths?.[0]) return { success: false, canceled: true }
-    return await backupService.prepareRestore({ packagePath: result.filePaths[0] })
-  } catch (err) {
-    console.error('[BackupService] prepare restore failed:', err)
-    return { success: false, error: err.message }
-  }
-})
-
-ipcMain.handle('backup:getRestoreResult', async () => {
-  try {
-    return { success: true, data: await backupService?.consumeRestoreResult?.() || null }
-  } catch (err) {
-    return { success: false, error: err.message }
-  }
-})
-
-// ========== WorkDir IPC Handlers (module-scope) ==========
-
-async function createWorkspaceAt(rootPath, name) {
-  if (!workspaceRegistryService) throw new Error('工作空间服务未就绪')
-  const normalizedRoot = workspaceRegistryService.normalizeRoot(rootPath)
-  if (!normalizedRoot) throw new Error('工作空间路径无效')
-  workspaceRegistryService.assertNoWorkspaceNesting(normalizedRoot)
-  if (fs.existsSync(path.join(normalizedRoot, '.reviva'))) throw new Error('目标目录已包含 .reviva，请使用“打开已有工作空间”')
-  if (fs.existsSync(normalizedRoot)) {
-    const entries = await fs.promises.readdir(normalizedRoot)
-    if (entries.length) throw new Error('新建独立授权根目录需要选择空目录')
-  }
-  let config = null
-  const tempDb = new DatabaseService()
-  try {
-    config = await workspaceRegistryService.prepareWorkspace(normalizedRoot, { name })
-    tempDb.init(DatabaseService.workspaceDbPath(normalizedRoot))
-  } catch (error) {
-    await fs.promises.rm(path.join(normalizedRoot, '.reviva'), { recursive: true, force: true }).catch(() => {})
-    for (const dirName of ['docs', 'notes', 'wikis', 'context', 'agents', 'skills']) {
-      await fs.promises.rm(path.join(normalizedRoot, dirName), { recursive: true, force: true }).catch(() => {})
-    }
-    throw error
-  } finally {
-    tempDb.close()
-  }
-  return workspaceRegistryService.registerWorkspace({
-    id: config.workspaceId,
-    name: config.name,
-    rootPath: normalizedRoot,
-    createdAt: config.createdAt,
-  }, { setPending: true })
-}
-
-async function openWorkspaceAt(rootPath) {
-  if (!workspaceRegistryService) throw new Error('工作空间服务未就绪')
-  workspaceRegistryService.assertNoWorkspaceNesting(rootPath, { allowSamePath: true })
-  const validation = await workspaceRegistryService.validateWorkspace(rootPath, { allowLegacyConfig: true })
-  if (!validation.valid) throw new Error(validation.error)
-  const registeredAtPath = workspaceRegistryService.findByPath(validation.rootPath)
-  if (registeredAtPath && validation.config?.workspaceId && registeredAtPath.id !== validation.config.workspaceId) {
-    throw new Error('该路径的工作空间 ID 与已注册记录不一致，请先从列表移除旧记录')
-  }
-  const integrity = DatabaseService.checkDatabaseIntegrity(validation.dbPath)
-  if (!integrity.ok) throw new Error(`数据库验证失败: ${integrity.error}`)
-  const config = await workspaceRegistryService.ensureWorkspaceConfig(validation.rootPath, {
-    workspaceId: registeredAtPath?.id || validation.config?.workspaceId,
-    name: validation.config?.name || registeredAtPath?.name,
-    createdAt: validation.config?.createdAt || registeredAtPath?.createdAt,
-  })
-  return workspaceRegistryService.registerWorkspace({
-    id: config.workspaceId,
-    name: config.name,
-    rootPath: validation.rootPath,
-    createdAt: config.createdAt,
-  }, { setPending: true })
-}
-
-async function getWorkspaceStateWithAvailability() {
-  if (!workspaceRegistryService) return { error: '工作空间服务未就绪', workspaces: [] }
-  const state = workspaceRegistryService.getState()
-  const workspaces = await Promise.all(state.workspaces.map(async workspace => {
-    const validation = await workspaceRegistryService.validateRegisteredWorkspace(workspace)
-    if (!validation.valid) return { ...workspace, available: false, error: validation.error }
-    const integrity = DatabaseService.checkDatabaseIntegrity(validation.dbPath)
-    return { ...workspace, available: integrity.ok, error: integrity.ok ? '' : integrity.error }
-  }))
-  return {
-    ...state,
-    startupError: workspaceStartupError,
-    workspaces,
-    activeWorkspace: workspaces.find(item => item.id === state.activeWorkspaceId) || null,
-    pendingWorkspace: workspaces.find(item => item.id === state.pendingWorkspaceId) || null,
-  }
-}
-
-ipcMain.handle('workdir:init', async (event, rootPath) => {
-  try {
-    const workspace = await createWorkspaceAt(rootPath)
-    return { rootPath: workspace.rootPath, workspace, pendingRestart: true }
-  } catch (err) {
-    return { error: err.message }
-  }
-})
-
-ipcMain.handle('workdir:getStatus', () => {
-  if (!workDirService) return { initialized: false, rootPath: null, docsPath: null }
-  return workDirService.getStatus()
-})
-
-ipcMain.handle('workdir:selectRoot', async () => {
-  if (!win) return { error: '应用未就绪' }
-  const result = await dialog.showOpenDialog(win, {
-    properties: ['openDirectory'],
-    title: '选择工作目录',
-  })
-  if (result.canceled) return null
-  try {
-    const workspace = await createWorkspaceAt(result.filePaths[0])
-    return { rootPath: workspace.rootPath, workspace, pendingRestart: true }
-  } catch (err) {
-    return { error: err.message }
-  }
-})
-
-// Select directory only — returns path without initializing
-ipcMain.handle('workdir:selectDir', async () => {
-  if (!win) return { error: '应用未就绪' }
-  const result = await dialog.showOpenDialog(win, {
-    properties: ['openDirectory'],
-    title: '选择工作目录',
-  })
-  if (result.canceled) return null
-  return { path: result.filePaths[0] }
-})
-
-ipcMain.handle('workspace:list', () => getWorkspaceStateWithAvailability())
-ipcMain.handle('workspace:getBootstrapState', () => workspaceRegistryService?.getState() || { activeWorkspaceId: null, workspaces: [] })
-
-ipcMain.handle('workspace:selectDirectory', async (event, options = {}) => {
-  if (!win) return { error: '应用未就绪' }
-  const result = await dialog.showOpenDialog(win, {
-    properties: ['openDirectory', 'createDirectory'],
-    title: options?.title || '选择工作空间目录',
-    defaultPath: options?.defaultPath || undefined,
-  })
-  if (result.canceled || !result.filePaths?.[0]) return { canceled: true }
-  return { path: result.filePaths[0] }
-})
-
-ipcMain.handle('workspace:create', async (event, data = {}) => {
-  try {
-    const workspace = await createWorkspaceAt(data.rootPath, data.name)
-    const state = await getWorkspaceStateWithAvailability()
-    return { success: true, workspace, state, pendingRestart: !!state.pendingWorkspaceId }
-  } catch (error) {
-    return { success: false, error: error.message }
-  }
-})
-
-ipcMain.handle('workspace:open', async (event, data = {}) => {
-  try {
-    const workspace = await openWorkspaceAt(data.rootPath)
-    const state = await getWorkspaceStateWithAvailability()
-    return { success: true, workspace, state, pendingRestart: !!state.pendingWorkspaceId }
-  } catch (error) {
-    return { success: false, error: error.message }
-  }
-})
-
-ipcMain.handle('workspace:setPending', async (event, id) => {
-  try {
-    const workspace = workspaceRegistryService?.findById(id)
-    if (!workspace) throw new Error('工作空间不存在')
-    const validation = await workspaceRegistryService.validateRegisteredWorkspace(workspace)
-    if (!validation.valid) throw new Error(validation.error)
-    const integrity = DatabaseService.checkDatabaseIntegrity(validation.dbPath)
-    if (!integrity.ok) throw new Error(`数据库验证失败: ${integrity.error}`)
-    await workspaceRegistryService.setPending(id)
-    return { success: true, state: await getWorkspaceStateWithAvailability(), pendingRestart: true }
-  } catch (error) {
-    return { success: false, error: error.message }
-  }
-})
-
-ipcMain.handle('workspace:cancelPending', async () => {
-  try {
-    await workspaceRegistryService?.cancelPending()
-    return { success: true, state: await getWorkspaceStateWithAvailability() }
-  } catch (error) {
-    return { success: false, error: error.message }
-  }
-})
-
-ipcMain.handle('workspace:rename', async (event, data = {}) => {
-  try {
-    const workspace = await workspaceRegistryService?.renameWorkspace(data.id, data.name)
-    return { success: true, workspace, state: await getWorkspaceStateWithAvailability() }
-  } catch (error) {
-    return { success: false, error: error.message }
-  }
-})
-
-ipcMain.handle('workspace:remove', async (event, id) => {
-  try {
-    await workspaceRegistryService?.removeWorkspace(id)
-    return { success: true, state: await getWorkspaceStateWithAvailability() }
-  } catch (error) {
-    return { success: false, error: error.message }
-  }
-})
-
-ipcMain.handle('workspace:migrate', async (event, data = {}) => {
-  if (!workspaceMigrationService || !workDirService?.getRootPath()) return { success: false, error: '当前工作空间未就绪' }
-  return workspaceMigrationService.migrate({
-    sourceRoot: workDirService.getRootPath(),
-    targetRoot: data.targetRoot,
-    name: data.name,
-  })
-})
-
-ipcMain.handle('workspace:cleanupFailedMigration', async (event, targetRoot) => {
-  try {
-    if (!workspaceMigrationService) throw new Error('迁移服务未就绪')
-    return await workspaceMigrationService.cleanupFailed(targetRoot)
-  } catch (error) {
-    return { success: false, error: error.message }
-  }
-})
-
-// Shortcut registration
-const activeGlobalAccelerators = new Map()
-
-function acceleratorFromCombo(combo) {
-  if (!Array.isArray(combo)) return ''
-  return combo.map(k => {
-    const map = {
-      Ctrl: 'CmdOrCtrl', Control: 'CmdOrCtrl', Meta: 'CmdOrCtrl',
-      Spacebar: 'Space', ' ': 'Space',
-      ArrowUp: 'Up', ArrowDown: 'Down', ArrowLeft: 'Left', ArrowRight: 'Right',
-      Escape: 'Esc',
-    }
-    return map[k] || k
-  }).join('+')
-}
-
-async function registerGlobalShortcuts(bindings) {
-  const globalKeys = ['global_invoke']
-  const previous = new Map(activeGlobalAccelerators)
-  for (const accelerator of previous.values()) {
-    try { globalShortcut.unregister(accelerator) } catch (_) {}
-  }
-  activeGlobalAccelerators.clear()
-
-  const failed = []
-  const registeredAccelerators = []
-  for (const key of globalKeys) {
-    const candidate = bindings?.[key]
-    const combo = Array.isArray(candidate) && acceleratorFromCombo(candidate)
-      ? candidate
-      : ['Ctrl', 'Alt', 'Space']
-    if (!combo) continue
-    const accel = acceleratorFromCombo(combo)
-    if (!accel) continue
-    try {
-      const didRegister = globalShortcut.register(accel, () => {
-        if (!win) return
-        if (win.isVisible()) win.hide()
-        else { win.show(); win.focus() }
-      })
-      if (!didRegister) {
-        console.warn(`[Shortcut] Failed to register: ${accel} (${key})`)
-        failed.push({ key, accel, reason: 'conflict' })
-      } else {
-        activeGlobalAccelerators.set(key, accel)
-        registeredAccelerators.push(accel)
-      }
-    } catch (e) {
-      console.warn(`[Shortcut] Error registering ${key}:`, e.message)
-      failed.push({ key, accel, reason: e.message })
-    }
-  }
-
-  // Do not leave the app without a working global shortcut when the new
-  // accelerator is occupied by another application. Restore the last known
-  // working registration and let the settings UI show the conflict warning.
-  if (failed.length) {
-    for (const accelerator of registeredAccelerators) {
-      try { globalShortcut.unregister(accelerator) } catch (_) {}
-    }
-    activeGlobalAccelerators.clear()
-    for (const [key, accelerator] of previous.entries()) {
-      try {
-        const restored = globalShortcut.register(accelerator, () => {
-          if (!win) return
-          if (win.isVisible()) win.hide()
-          else { win.show(); win.focus() }
-        })
-        if (restored) activeGlobalAccelerators.set(key, accelerator)
-      } catch (_) {}
-    }
-  }
-  return failed
-}
-
-ipcMain.handle('shortcuts:register', async (_e, bindings) => {
-  try {
-    const failed = await registerGlobalShortcuts(bindings)
-    return { ok: true, failed }
-  } catch (e) {
-    return { ok: false, error: e.message }
-  }
-})
-
-// ========== Tray ==========
-
-function normalizeTrayMenuConfig(items) {
-  if (!Array.isArray(items)) return DEFAULT_TRAY_MENU.map(item => ({ ...item }))
-  const normalized = []
-  for (const raw of items.slice(0, 30)) {
-    if (!raw) continue
-    const id = String(raw.id || `tray-${normalized.length}`)
-    const enabled = raw.enabled !== false
-    if (raw.type === 'separator') normalized.push({ id, type: 'separator', enabled })
-    else if (raw.type === 'builtin' && ['showWindow', 'quit'].includes(raw.action)) normalized.push({ id, type: 'builtin', action: raw.action, label: String(raw.label || (raw.action === 'quit' ? '退出' : '显示主窗口')).slice(0, 40), enabled: raw.action === 'quit' ? true : enabled })
-    else if (raw.type === 'route' && typeof raw.path === 'string' && raw.path.startsWith('/')) normalized.push({ id, type: 'route', path: raw.path.slice(0, 200), label: String(raw.label || '打开页面').slice(0, 40), enabled })
-    else if (raw.type === 'url' && typeof raw.url === 'string') {
-      try {
-        const url = new URL(raw.url)
-        if (['http:', 'https:'].includes(url.protocol)) normalized.push({ id, type: 'url', url: url.toString(), label: String(raw.label || url.hostname).slice(0, 40), enabled })
-      } catch {}
-    }
-  }
-  if (!normalized.some(item => item.type === 'builtin' && item.action === 'quit')) normalized.push({ ...DEFAULT_TRAY_MENU.at(-1) })
-  return normalized.length ? normalized : DEFAULT_TRAY_MENU.map(item => ({ ...item }))
-}
-
-function showMainWindow() {
-  if (!win) return
-  win.show()
-  win.focus()
-}
-
-function buildTrayContextMenu() {
-  return Menu.buildFromTemplate(trayMenuConfig.filter(item => item.enabled !== false).map(item => {
-    if (item.type === 'separator') return { type: 'separator' }
-    if (item.type === 'builtin' && item.action === 'quit') return { label: item.label, click: () => { forceQuit = true; app.quit() } }
-    if (item.type === 'builtin') return { label: item.label, click: showMainWindow }
-    if (item.type === 'route') return { label: item.label, click: () => { showMainWindow(); win?.webContents.send('tray:navigate', item.path) } }
-    return { label: item.label, click: () => shell.openExternal(item.url) }
-  }))
-}
-
-function rebuildTrayMenu() {
-  if (tray) tray.setContextMenu(buildTrayContextMenu())
-}
-
-function createTray() {
-  if (tray) return true
-  // VITE_PUBLIC points to public/ in development and dist/ after packaging.
-  // Keep build/ as a development fallback, but never create a transparent tray.
-  let trayIcon = null
-  const candidates = [
-    path.join(process.env.VITE_PUBLIC, 'logo.png'),
-    path.join(process.env.VITE_PUBLIC, 'logo.ico'),
-    path.join(process.env.APP_ROOT, 'build', 'icon.png'),
-    path.join(process.env.APP_ROOT, 'build', 'icon.ico'),
-  ]
-  for (const p of candidates) {
-    if (!fs.existsSync(p)) continue
-    const source = nativeImage.createFromPath(p)
-    const image = path.extname(p).toLowerCase() === '.png'
-      ? source.resize({ width: 32, height: 32, quality: 'best' })
-      : source
-    if (!image.isEmpty()) {
-      trayIcon = image
-      break
-    }
-  }
-  if (!trayIcon) {
-    console.error('[Tray] Failed to load a non-empty icon. Tried:', candidates)
-    return false
-  }
-  tray = new Tray(trayIcon)
-  tray.setToolTip(APP_NAME)
-  tray.setContextMenu(buildTrayContextMenu())
-  tray.on('click', () => { if (win) { win.isVisible() ? win.focus() : win.show() } })
-  return true
-}
-
-function destroyTray() {
-  if (tray) { tray.destroy(); tray = null }
-}
-
-// ========== Notification & Startup IPC ==========
-
-ipcMain.handle('app:setStartup', (_e, enabled) => {
-  try {
-    applyStartupSetting(enabled)
-    return { ok: true }
-  } catch (e) {
-    return { ok: false, error: e.message }
-  }
-})
-
-ipcMain.handle('app:setMinimizeToTray', (_e, enabled) => {
-  minimizeToTray = !!enabled
-  return { ok: true }
-})
-
-ipcMain.handle('app:setTrayIcon', (_e, enabled) => {
-  if (enabled) {
-    if (!createTray()) return { ok: false, error: '托盘图标资源加载失败' }
-  } else {
-    destroyTray()
-  }
-  return { ok: true }
-})
-
-ipcMain.handle('app:setTrayMenu', (_e, items) => {
-  trayMenuConfig = normalizeTrayMenuConfig(items)
-  rebuildTrayMenu()
-  return { ok: true, items: trayMenuConfig }
-})
-
-ipcMain.handle('app:setSingleInstance', (_e, enabled) => {
-  return applySingleInstance(enabled)
-})
-
-ipcMain.handle('app:playSound', (_e, soundName) => {
-  try {
-    return playNotificationSoundFromMain(soundName || 'complete', { fallbackBeep: true })
-  } catch (e) {
-    return { ok: false, error: e.message }
-  }
-})
-
-// ========== Model Info Map ==========
-
-const MODEL_INFO = {
-  'claude-opus-4': { capabilities: { tool_calling: true, vision: true, search: false, vector: false, reranking: false }, maxOutput: '32k', costInput: 108, costOutput: 540, costCacheRead: 10.8, costCacheWrite: 135 },
-  'claude-4-7-opus': { capabilities: { tool_calling: true, vision: true, search: false, vector: false, reranking: false }, maxOutput: '32k', costInput: 108, costOutput: 540, costCacheRead: 10.8, costCacheWrite: 135 },
-  'claude-sonnet-4': { capabilities: { tool_calling: true, vision: true, search: false, vector: false, reranking: false }, maxOutput: '16k', costInput: 21.6, costOutput: 108, costCacheRead: 2.16, costCacheWrite: 27 },
-  'claude-4-6-sonnet': { capabilities: { tool_calling: true, vision: true, search: false, vector: false, reranking: false }, maxOutput: '16k', costInput: 21.6, costOutput: 108, costCacheRead: 2.16, costCacheWrite: 27 },
-  'claude-haiku-4': { capabilities: { tool_calling: true, vision: true, search: false, vector: false, reranking: false }, maxOutput: '8k', costInput: 5.76, costOutput: 28.8, costCacheRead: 0.576, costCacheWrite: 7.2 },
-  'claude-4-5-haiku': { capabilities: { tool_calling: true, vision: true, search: false, vector: false, reranking: false }, maxOutput: '8k', costInput: 5.76, costOutput: 28.8, costCacheRead: 0.576, costCacheWrite: 7.2 },
-  'gpt-4o': { capabilities: { tool_calling: true, vision: true, search: false, vector: false, reranking: false }, maxOutput: '16k', costInput: 18, costOutput: 72, costCacheRead: 1.8, costCacheWrite: 9 },
-  'gpt-4o-mini': { capabilities: { tool_calling: true, vision: true, search: false, vector: false, reranking: false }, maxOutput: '16k', costInput: 1.08, costOutput: 4.32, costCacheRead: 0.108, costCacheWrite: 0.54 },
-  'o1': { capabilities: { tool_calling: true, vision: true, search: false, vector: false, reranking: false }, maxOutput: '32k', costInput: 108, costOutput: 432, costCacheRead: 0, costCacheWrite: 0 },
-  'o3-mini': { capabilities: { tool_calling: true, vision: true, search: false, vector: false, reranking: false }, maxOutput: '100k', costInput: 10.8, costOutput: 43.2, costCacheRead: 1.08, costCacheWrite: 5.4 },
-  'text-embedding-3-large': { capabilities: { tool_calling: false, vision: false, search: false, vector: true, reranking: false }, maxOutput: '8k', costInput: 0.94, costOutput: 0.94, costCacheRead: 0, costCacheWrite: 0 },
-  'text-embedding-3-small': { capabilities: { tool_calling: false, vision: false, search: false, vector: true, reranking: false }, maxOutput: '8k', costInput: 0.14, costOutput: 0.14, costCacheRead: 0, costCacheWrite: 0 },
-  'deepseek-chat': { capabilities: { tool_calling: true, vision: false, search: false, vector: false, reranking: false }, maxOutput: '8k', costInput: 1, costOutput: 2, costCacheRead: 0.1, costCacheWrite: 0.5 },
-  'deepseek-reasoner': { capabilities: { tool_calling: true, vision: false, search: false, vector: false, reranking: false }, maxOutput: '8k', costInput: 4, costOutput: 16, costCacheRead: 0.4, costCacheWrite: 2 },
-  'gemini-2.0-flash': { capabilities: { tool_calling: true, vision: true, search: true, vector: false, reranking: false }, maxOutput: '8k', costInput: 0, costOutput: 0, costCacheRead: 0, costCacheWrite: 0 },
-  'gemini-2.0-pro': { capabilities: { tool_calling: true, vision: true, search: true, vector: false, reranking: false }, maxOutput: '8k', costInput: 0, costOutput: 0, costCacheRead: 0, costCacheWrite: 0 },
-  'qwen-max': { capabilities: { tool_calling: true, vision: false, search: true, vector: false, reranking: false }, maxOutput: '8k', costInput: 20, costOutput: 60, costCacheRead: 2, costCacheWrite: 10 },
-  'qwen-plus': { capabilities: { tool_calling: true, vision: false, search: true, vector: false, reranking: false }, maxOutput: '8k', costInput: 4, costOutput: 12, costCacheRead: 0.4, costCacheWrite: 2 },
-  'text-embedding-v3': { capabilities: { tool_calling: false, vision: false, search: false, vector: true, reranking: false }, maxOutput: '?', costInput: 0.7, costOutput: 0.7, costCacheRead: 0, costCacheWrite: 0 },
-  'command-r-plus': { capabilities: { tool_calling: true, vision: false, search: true, vector: false, reranking: true }, maxOutput: '4k', costInput: 0, costOutput: 0, costCacheRead: 0, costCacheWrite: 0 },
-  'rerank-v3': { capabilities: { tool_calling: false, vision: false, search: false, vector: false, reranking: true }, maxOutput: '?', costInput: 0, costOutput: 0, costCacheRead: 0, costCacheWrite: 0 },
-}
-
-const DEFAULT_MODEL_INFO = { capabilities: { tool_calling: false, vision: false, search: false, vector: false, reranking: false }, maxOutput: '?', costInput: 0, costOutput: 0, costCacheRead: 0, costCacheWrite: 0 }
-
-// ========== Models Fetch IPC Handler ==========
-
-function normalizeApiFormat(providerId, apiFormat = '') {
-  const value = String(apiFormat || '').trim().toLowerCase()
-  if (['openai_responses', 'openai-responses', 'openai_response', 'openai-response', 'responses', 'response'].includes(value)) return 'openai_responses'
-  if (value === 'anthropic') return 'anthropic'
-  if (['openai', 'openai_chat', 'openai-chat', 'chat', 'chat_completions', 'chat-completions'].includes(value)) return 'openai'
-  return String(providerId || '').toLowerCase() === 'anthropic' ? 'anthropic' : 'openai'
-}
-
-function isAnthropicFormat(providerId, apiFormat) {
-  return normalizeApiFormat(providerId, apiFormat) === 'anthropic'
-}
-
-function readOpenAITranslationText(data) {
-  return data?.choices?.[0]?.message?.content || data?.choices?.[0]?.text || ''
-}
-
-function readOpenAIResponsesText(data) {
-  if (typeof data?.output_text === 'string') return data.output_text
-  if (!Array.isArray(data?.output)) return ''
-  return data.output
-    .flatMap(item => Array.isArray(item?.content) ? item.content : [])
-    .map(part => {
-      if (typeof part === 'string') return part
-      if (part?.type === 'output_text' || part?.type === 'text') return part.text || ''
-      return part?.text || ''
-    })
-    .join('')
-}
-
-function readAnthropicTranslationText(data) {
-  const content = data?.content
-  if (typeof content === 'string') return content
-  if (!Array.isArray(content)) return ''
-  return content
-    .map((part) => {
-      if (typeof part === 'string') return part
-      if (part?.type === 'text') return part.text || ''
-      return part?.text || ''
-    })
-    .join('')
-}
-
-function stringifyTranslationContent(content) {
-  if (typeof content === 'string') return content
-  if (!Array.isArray(content)) return ''
-  return content
-    .map((part) => {
-      if (typeof part === 'string') return part
-      if (part?.type === 'text' || part?.type === 'output_text') return part.text || ''
-      return part?.text || ''
-    })
-    .join('')
-}
-
-function readOpenAITranslationDelta(data) {
-  if (!Array.isArray(data?.choices)) return ''
-  return data.choices
-    .map((choice) => stringifyTranslationContent(choice?.delta?.content) || choice?.text || '')
-    .join('')
-}
-
-function readOpenAIResponsesTranslationDelta(eventName, data) {
-  if (typeof data?.delta === 'string' && (eventName === 'response.output_text.delta' || data?.type === 'response.output_text.delta')) {
-    return data.delta
-  }
-  if (typeof data?.delta?.text === 'string') return data.delta.text
-  return readOpenAITranslationDelta(data)
-}
-
-function readAnthropicTranslationDelta(data) {
-  if (typeof data?.delta?.text === 'string') return data.delta.text
-  if (typeof data?.completion === 'string') return data.completion
-  return ''
-}
-
-function parseSSEFrame(frame) {
-  let eventName = 'message'
-  const dataLines = []
-  for (const line of String(frame || '').split('\n')) {
-    if (!line || line.startsWith(':')) continue
-    if (line.startsWith('event:')) {
-      eventName = line.slice(6).trim() || eventName
-    } else if (line.startsWith('data:')) {
-      dataLines.push(line.slice(5).trimStart())
-    }
-  }
-  if (dataLines.length === 0) return null
-  return { eventName, dataText: dataLines.join('\n') }
-}
-
-function readTranslationStreamDelta(normalizedFormat, eventName, data) {
-  if (normalizedFormat === 'anthropic') return readAnthropicTranslationDelta(data)
-  if (normalizedFormat === 'openai_responses') return readOpenAIResponsesTranslationDelta(eventName, data)
-  return readOpenAITranslationDelta(data)
-}
-
-function readTranslationCompletedText(normalizedFormat, data) {
-  if (normalizedFormat === 'anthropic') return readAnthropicTranslationText(data?.message || data)
-  if (normalizedFormat === 'openai_responses') return readOpenAIResponsesText(data?.response || data)
-  return readOpenAITranslationText(data)
-}
-
-async function readTranslationSSE(response, normalizedFormat, sender, requestId) {
-  const reader = response.body?.getReader?.()
-  if (!reader) return ''
-
-  const decoder = new TextDecoder()
-  let buffer = ''
-  let fullText = ''
-  let completedText = ''
-
-  const processFrame = (frame) => {
-    const parsedFrame = parseSSEFrame(frame)
-    if (!parsedFrame) return
-    const { eventName, dataText } = parsedFrame
-    if (!dataText || dataText === '[DONE]') return
-
-    let data
-    try {
-      data = JSON.parse(dataText)
-    } catch (_) {
-      return
-    }
-
-    const delta = readTranslationStreamDelta(normalizedFormat, eventName, data)
-    if (delta) {
-      fullText += delta
-      if (requestId) sender?.send('translate:chunk', { requestId, text: delta })
-    }
-
-    if (
-      eventName === 'response.completed' ||
-      data?.type === 'response.completed' ||
-      eventName === 'message_stop' ||
-      data?.type === 'message_stop'
-    ) {
-      const finalText = readTranslationCompletedText(normalizedFormat, data)
-      if (finalText) completedText = finalText
-    }
-  }
-
-  while (true) {
-    const { done, value } = await reader.read()
-    buffer += decoder.decode(value || new Uint8Array(), { stream: !done })
-    buffer = buffer.replace(/\r\n/g, '\n').replace(/\r/g, '\n')
-
-    let boundary = buffer.indexOf('\n\n')
-    while (boundary !== -1) {
-      processFrame(buffer.slice(0, boundary))
-      buffer = buffer.slice(boundary + 2)
-      boundary = buffer.indexOf('\n\n')
-    }
-
-    if (done) break
-  }
-
-  if (buffer.trim()) processFrame(buffer)
-  return completedText || fullText
-}
-
-ipcMain.handle('models:fetchList', async (event, providerId, apiKey, baseUrl, apiFormat = '') => {
-  if (!apiKey) return { success: false, error: '缺少 API Key' }
-  if (!baseUrl) return { success: false, error: '缺少 Base URL' }
-  try {
-    const base = baseUrl.replace(/\/$/, '')
-    let url = base + '/models'
-    const headers = { 'Content-Type': 'application/json' }
-    if (isAnthropicFormat(providerId, apiFormat)) {
-      headers['x-api-key'] = apiKey
-      headers['anthropic-version'] = '2023-06-01'
-    } else {
-      headers['Authorization'] = `Bearer ${apiKey}`
-    }
-    const response = await fetch(url, { headers })
-    if (!response.ok) {
-      const text = await response.text()
-      return { success: false, error: `HTTP ${response.status}: ${text.slice(0, 200)}` }
-    }
-    const data = await response.json()
-    const models = (data.data || data.models || data).map(m => {
-      const id = m.id || m.name || m
-      const info = MODEL_INFO[id] || DEFAULT_MODEL_INFO
-      return { id, name: m.id || m.name || m, capabilities: info.capabilities, maxOutput: info.maxOutput, costInput: info.costInput, costOutput: info.costOutput, costCacheRead: info.costCacheRead, costCacheWrite: info.costCacheWrite }
-    })
-    return { success: true, models }
-  } catch (err) {
-    return { success: false, error: err.message }
-  }
-})
-
-ipcMain.handle('translate:run', async (event, req = {}) => {
-  const {
-    requestId = '',
-    providerId = '',
-    apiFormat = '',
-    apiKey = '',
-    baseUrl = '',
-    modelId = '',
-    temperature = 0.1,
-    system = '',
-    userMessage = '',
-  } = req || {}
-
-  if (!baseUrl) return { success: false, error: '缺少 Base URL' }
-  if (!modelId) return { success: false, error: '缺少模型 ID' }
-  if (!apiKey) return { success: false, error: '缺少 API Key' }
-  if (!userMessage) return { success: false, error: '缺少待翻译内容' }
-
-  const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), 120000)
-
-  try {
-    const base = String(baseUrl).replace(/\/$/, '')
-    const temp = Number.isFinite(Number(temperature)) ? Math.min(1, Math.max(0, Number(temperature))) : 0.1
-    const normalizedFormat = normalizeApiFormat(providerId, apiFormat)
-    const headers = { 'Content-Type': 'application/json' }
-    let url
-    let body
-
-    if (normalizedFormat === 'anthropic') {
-      headers['x-api-key'] = apiKey
-      headers['anthropic-version'] = '2023-06-01'
-      url = base + '/messages'
-      body = JSON.stringify({
-        model: modelId,
-        max_tokens: 4096,
-        temperature: temp,
-        system,
-        stream: true,
-        messages: [{ role: 'user', content: userMessage }],
-      })
-    } else if (normalizedFormat === 'openai_responses') {
-      headers['Authorization'] = `Bearer ${apiKey}`
-      url = base + '/responses'
-      body = JSON.stringify({
-        model: modelId,
-        input: userMessage,
-        ...(system ? { instructions: system } : {}),
-        max_output_tokens: 4096,
-        temperature: temp,
-        stream: true,
-      })
-    } else {
-      headers['Authorization'] = `Bearer ${apiKey}`
-      url = base + '/chat/completions'
-      body = JSON.stringify({
-        model: modelId,
-        max_tokens: 4096,
-        temperature: temp,
-        messages: [
-          { role: 'system', content: system },
-          { role: 'user', content: userMessage },
-        ],
-        stream: true,
-      })
-    }
-
-    const response = await fetch(url, { method: 'POST', headers, body, signal: controller.signal })
-    if (!response.ok) {
-      const text = await response.text()
-      return { success: false, error: `HTTP ${response.status}: ${text.slice(0, 500)}` }
-    }
-
-    const contentType = response.headers.get('content-type') || ''
-    if (contentType.includes('text/event-stream')) {
-      const text = await readTranslationSSE(response, normalizedFormat, event?.sender, requestId)
-      return { success: true, text }
-    }
-
-    const data = await response.json()
-    const text = normalizedFormat === 'anthropic'
-      ? readAnthropicTranslationText(data)
-      : normalizedFormat === 'openai_responses'
-        ? readOpenAIResponsesText(data)
-        : readOpenAITranslationText(data)
-    return { success: true, text }
-  } catch (err) {
-    const message = err?.name === 'AbortError' ? '请求超时，请检查网络或模型服务' : err.message
-    return { success: false, error: message }
-  } finally {
-    clearTimeout(timeout)
-  }
-})
-
-// ========== Model Test Connection IPC Handler ==========
-
-ipcMain.handle('models:testConnection', async (_, providerId, apiKey, baseUrl, modelId, apiFormat = '') => {
-  if (!modelId) return { success: false, error: '缺少模型 ID' }
-  if (!baseUrl) return { success: false, error: '缺少 Base URL' }
-  if (!apiKey) return { success: false, error: '缺少 API Key' }
-  const startTime = Date.now()
-  try {
-    const base = baseUrl.replace(/\/$/, '')
-    const normalizedFormat = normalizeApiFormat(providerId, apiFormat)
-    const headers = { 'Content-Type': 'application/json' }
-    let body, url
-
-    if (normalizedFormat === 'anthropic') {
-      headers['x-api-key'] = apiKey
-      headers['anthropic-version'] = '2023-06-01'
-      url = base + '/messages'
-      body = JSON.stringify({ model: modelId, max_tokens: 5, messages: [{ role: 'user', content: 'hi' }] })
-    } else if (normalizedFormat === 'openai_responses') {
-      headers['Authorization'] = `Bearer ${apiKey}`
-      url = base + '/responses'
-      body = JSON.stringify({ model: modelId, max_output_tokens: 5, input: 'hi' })
-    } else {
-      headers['Authorization'] = `Bearer ${apiKey}`
-      url = base + '/chat/completions'
-      body = JSON.stringify({ model: modelId, max_tokens: 5, messages: [{ role: 'user', content: 'hi' }] })
-    }
-
-    const response = await fetch(url, { method: 'POST', headers, body })
-    const latencyMs = Date.now() - startTime
-    if (!response.ok) {
-      const text = await response.text()
-      return { success: false, latencyMs, error: `HTTP ${response.status}: ${text.slice(0, 200)}` }
-    }
-    return { success: true, latencyMs }
-  } catch (err) {
-    const latencyMs = Date.now() - startTime
-    return { success: false, latencyMs, error: err.message }
-  }
-})
-
-// ========== Token Usage IPC Handlers ==========
-
-ipcMain.handle('tokenUsage:create', async (_, data) => {
-  return dbService.createTokenUsage(data)
-})
-
-ipcMain.handle('tokenUsage:summary', async (_, range) => {
-  return dbService.getTokenUsageSummary(range)
-})
-
-ipcMain.handle('tokenUsage:byModel', async (_, range) => {
-  return dbService.getTokenUsageByModel(range)
-})
-
-ipcMain.handle('tokenUsage:byAgent', async (_, range) => {
-  return dbService.getTokenUsageByAgent(range)
-})
-
-ipcMain.handle('tokenUsage:daily', async (_, range) => {
-  return dbService.getTokenUsageDaily(range)
-})
-
-ipcMain.handle('tokenUsage:cleanup', async (_, beforeDate) => {
-  return dbService.deleteOldTokenUsage(beforeDate)
-})
-
-// ========== Logs IPC Handlers ==========
-
-ipcMain.handle('logs:read', async (_, date, filters) => {
-  return logService ? logService.readLogs(date, filters) : []
-})
-
-ipcMain.handle('logs:listDates', async () => {
-  return logService ? logService.listLogDates() : []
-})
-
-ipcMain.handle('logs:cleanup', async (_, beforeDate) => {
-  return logService ? { deleted: logService.deleteOldLogs(beforeDate) } : { deleted: 0 }
-})
-
-ipcMain.handle('agent:healthCheck', async (_, agentIds, options = {}) => {
-  if (!agentHealthService) return []
-  return agentHealthService.checkAgents(agentIds, options)
-})
-
-// ========== App Lifecycle ==========
+// --- App Lifecycle ---
 
 app.on('will-quit', () => {
   void localGateway?.stop?.()
@@ -3260,7 +290,7 @@ app.on('will-quit', () => {
   mediaModule?.runner?.stop?.()
   mediaModule?.maintenance?.stop?.()
   globalShortcut.unregisterAll()
-  destroyTray()
+  trayMgr?.destroyTray?.()
 })
 
 app.on('window-all-closed', () => {
@@ -3275,9 +305,7 @@ app.on('window-all-closed', () => {
 })
 
 app.on('activate', () => {
-  if (BrowserWindow.getAllWindows().length === 0) {
-    createWindow()
-  }
+  if (BrowserWindow.getAllWindows().length === 0) createWindow()
 })
 
 app.whenReady().then(async () => {
@@ -3289,24 +317,7 @@ app.whenReady().then(async () => {
       : path.join(process.env.APP_ROOT, 'electron', 'builtin-assets', 'themes', 'THEMING.md'),
   })
   await themeService.init()
-  // Handle reviva-file:// → stream local files to <img>/<audio>/<video> bypassing webSecurity
-  protocol.handle('reviva-file', (request) => {
-    try {
-      const url = new URL(request.url)
-      let filePath = ''
-      if (url.hostname === 'local') {
-        filePath = decodeURIComponent(String(url.pathname || '').replace(/^\/+/, ''))
-      } else {
-        filePath = decodeURIComponent(url.pathname || '')
-        if (/^\/[a-zA-Z]:/.test(filePath)) filePath = filePath.slice(1)
-      }
-      if (filePath.startsWith('//') && !/^\/\/[a-zA-Z]:/i.test(filePath)) filePath = filePath.slice(1)
-      const validatedPath = validateFsPath(filePath)
-      return net.fetch(pathToFileURL(validatedPath).toString())
-    } catch (e) {
-      return new Response('bad reviva-file URL: ' + e.message, { status: 400 })
-    }
-  })
+  setThemeServiceForTools(themeService)
 
   workspaceRegistryService = new WorkspaceRegistryService(app.getPath('userData'))
   await workspaceRegistryService.init()
@@ -3315,12 +326,12 @@ app.whenReady().then(async () => {
   for (const candidate of startupCandidates) {
     const validation = await workspaceRegistryService.validateRegisteredWorkspace(candidate)
     if (!validation.valid) {
-      workspaceStartupError = `无法打开“${candidate.name}”: ${validation.error}`
+      workspaceStartupError = '\u65e0\u6cd5\u6253\u5f00"' + candidate.name + '": ' + validation.error
       continue
     }
     const integrity = DatabaseService.checkDatabaseIntegrity(validation.dbPath)
     if (!integrity.ok) {
-      workspaceStartupError = `无法打开“${candidate.name}”: ${integrity.error}`
+      workspaceStartupError = '\u65e0\u6cd5\u6253\u5f00"' + candidate.name + '": ' + integrity.error
       continue
     }
     startupWorkspace = candidate
@@ -3350,24 +361,41 @@ app.whenReady().then(async () => {
   } else {
     workDirService.loadFromDb()
   }
+
+  // Path helpers (need workDirService ready)
+  const { validateFsPath, validateShellPath, toWorkspaceVirtualPath } = createPathHelpers(workDirService)
+
+  // Handle reviva-file:// protocol
+  protocol.handle('reviva-file', (request) => {
+    try {
+      const url = new URL(request.url)
+      let filePath = ''
+      if (url.hostname === 'local') {
+        filePath = decodeURIComponent(String(url.pathname || '').replace(/^\/+/, ''))
+      } else {
+        filePath = decodeURIComponent(url.pathname || '')
+        if (/^\/[a-zA-Z]:/.test(filePath)) filePath = filePath.slice(1)
+      }
+      if (filePath.startsWith('//') && !/^\/\/[a-zA-Z]:/i.test(filePath)) filePath = filePath.slice(1)
+      const validatedPath = validateFsPath(filePath)
+      return net.fetch(pathToFileURL(validatedPath).toString())
+    } catch (e) {
+      return new Response('bad reviva-file URL: ' + e.message, { status: 400 })
+    }
+  })
+
   mediaModule = createMediaModule({ database: dbService, workDirService, secretStore: safeStorage })
   registerMediaIpcHandlers(ipcMain, mediaModule)
-  mediaModule.runner?.start?.().catch(err => {
-    console.error('[MediaJobRunner] Failed to start:', err.message)
-  })
-  mediaModule.maintenance?.start?.().catch(err => {
-    console.error('[MediaMaintenance] Failed to start:', err.message)
-  })
+  mediaModule.runner?.start?.().catch(err => console.error('[MediaJobRunner] Failed to start:', err.message))
+  mediaModule.maintenance?.start?.().catch(err => console.error('[MediaMaintenance] Failed to start:', err.message))
   workspaceMigrationService = new WorkspaceMigrationService({
-    dbService,
-    registryService: workspaceRegistryService,
-    getWin: () => win,
+    dbService, registryService: workspaceRegistryService, getWin: () => win,
   })
   noteFileService = new NoteFileService(dbService, workDirService)
   pdfLifecycleService = new PdfLifecycleService({ dbService, workDirService })
   const interruptedPdfRuns = dbService.cancelInterruptedPdfParseRuns?.()
-  if (interruptedPdfRuns?.changes) console.warn(`[PdfLifecycle] Cancelled ${interruptedPdfRuns.changes} interrupted PDF parse run(s).`)
-  ensureWorkspaceDirs().catch(err => console.error('[Workspace] Failed to ensure workspace dirs:', err.message))
+  if (interruptedPdfRuns?.changes) console.warn('[PdfLifecycle] Cancelled ' + interruptedPdfRuns.changes + ' interrupted PDF parse run(s).')
+  ensureWorkspaceDirs(workDirService).catch(err => console.error('[Workspace] Failed to ensure workspace dirs:', err.message))
 
   logService = new LogService(workDirService)
 
@@ -3388,49 +416,35 @@ app.whenReady().then(async () => {
   agentService.init()
   agentService.setMediaModule?.(mediaModule)
 
-  // Knowledge source service (KBP integration)
   knowledgeSourceService = new KnowledgeSourceService(dbService, agentService._kbRegistry)
   knowledgeSourceService.setCreateModel((...args) => agentService._createModel(...args))
   knowledgeSourceService.registerIpc(ipcMain)
 
-  learningMemoryService = new LearningMemoryService({
-    dbService,
-    workDirService,
-    getWin: () => win,
-  })
+  learningMemoryService = new LearningMemoryService({ dbService, workDirService, getWin: () => win })
   learningMemoryService.init()
   agentService.setLearningMemoryService(learningMemoryService)
   registerLearningMemoryIpcHandlers(learningMemoryService)
 
- skillService = new SkillService(workDirService, {
-   builtinSkillsDir: app.isPackaged
-     ? path.join(process.resourcesPath, 'builtin-assets', 'skills')
-     : path.join(process.env.APP_ROOT, 'electron', 'builtin-assets', 'skills'),
- })
-
+  skillService = new SkillService(workDirService, {
+    builtinSkillsDir: app.isPackaged
+      ? path.join(process.resourcesPath, 'builtin-assets', 'skills')
+      : path.join(process.env.APP_ROOT, 'electron', 'builtin-assets', 'skills'),
+  })
   agentService.setSkillService(skillService)
-
   agentHealthService = new AgentHealthService(dbService, skillService)
-
   pptxExportService = new PptxExportService()
-
   outputScanService = new OutputScanService(workDirService, dbService)
-
   generationTaskService = new GenerationTaskService(dbService, () => win, workDirService, agentService)
   generationTaskService.init()
-
   wikiService = new WikiService(workDirService, dbService, agentService, mediaModule)
   wikiService.init()
   agentService.setWikiService?.(wikiService)
 
   webImportService = new WebImportService({ dbService })
   webImportJobService = new WebImportJobService({
-    dbService,
-    webImportService,
+    dbService, webImportService,
     docsWriter: new DocsWebImportWriter({ workDirService }),
-    wikiService,
-    getWin: () => win,
-    ipcMain,
+    wikiService, getWin: () => win, ipcMain,
   })
   webImportJobService.init()
   setTimeout(() => webImportJobService.restorePendingJobs().catch(err => {
@@ -3438,40 +452,43 @@ app.whenReady().then(async () => {
   }), 0)
 
   localGateway = createLocalGateway({
-    dbService,
-    agentService,
-    wikiService,
-    workDirService,
-    webImportJobService,
-    mediaModule,
-    noteFileService,
-    secretStore: safeStorage,
-    appVersion: app.getVersion(),
-    logger: console,
+    dbService, agentService, wikiService, workDirService,
+    webImportJobService, mediaModule, noteFileService,
+    secretStore: safeStorage, appVersion: app.getVersion(), logger: console,
   })
   registerGatewayIpcHandlers(ipcMain, localGateway)
 
   backupService = new BackupService(dbService, workDirService, {
-    appVersion: app.getVersion(),
-    restoreStateRoot: app.getPath('userData'),
+    appVersion: app.getVersion(), restoreStateRoot: app.getPath('userData'),
   })
 
   // Ensure agents directory exists in workspace
   const workspaceRoot = workDirService.getRootPath()
   if (workspaceRoot) {
     const agentsDir = path.join(workspaceRoot, 'agents')
-    if (!fs.existsSync(agentsDir)) {
-      fs.mkdirSync(agentsDir, { recursive: true })
-    }
+    if (!fs.existsSync(agentsDir)) fs.mkdirSync(agentsDir, { recursive: true })
     const sharedAgentDir = path.join(agentsDir, '_shared')
-    if (!fs.existsSync(sharedAgentDir)) {
-      fs.mkdirSync(sharedAgentDir, { recursive: true })
-    }
+    if (!fs.existsSync(sharedAgentDir)) fs.mkdirSync(sharedAgentDir, { recursive: true })
   }
 
-  // Preserve custom Skills when an update introduces a builtin with the same ID.
+  // ── Register IPC handlers ──
+  registerThemeIpc(ipcMain, { themeService, getWin })
+  registerDialogIpc(ipcMain, { getWin })
+  registerFsIpc(ipcMain, { validateFsPath, validateShellPath, pdfLifecycleService, mediaModule })
+  registerRecycleBinIpc(ipcMain, { dbService, workDirService, noteFileService, pdfLifecycleService, mediaModule, learningMemoryService, validateFsPath })
+  registerWindowIpc(ipcMain, { getWin })
+  skillIpcApi = registerSkillIpc(ipcMain, { dbService, skillService, getWin, skillImportSessions })
+  registerMcpPdfIpc(ipcMain, { mcpService, dbService, workDirService, validateFsPath, toWorkspaceVirtualPath, outputScanService, pptxExportService })
+  registerAppSystemIpc(ipcMain, { getWin, workDirService, storageCleanupService, sharedState })
+  registerEnvIpc(ipcMain, { getWin, dbService, backupService })
+  workspaceIpcApi = registerWorkspaceIpc(ipcMain, { getWin, workspaceRegistryService, workspaceMigrationService, workDirService, DatabaseService, dbService, sharedState, initialStartupError: workspaceStartupError })
+  trayMgr = registerTrayIpc(ipcMain, { getWin, sharedState, playNotificationSound: playNotificationSoundFromMain, applySingleInstance })
+  registerModelsIpc(ipcMain)
+  registerDataIpc(ipcMain, { dbService, logService, agentHealthService })
+
+  // Preserve custom Skills when an update introduces a builtin with the same ID
   try {
-    await migrateCustomSkillBuiltinCollisions()
+    await skillIpcApi.migrateCustomSkillBuiltinCollisions()
     await skillService.installAllBuiltinSkills()
   } catch (err) {
     console.error('[SkillService] Failed to install builtin skills:', err.message)
@@ -3488,13 +505,12 @@ app.whenReady().then(async () => {
   }
 
   registerDbHandlers(dbService, {
-    notes: noteFileService,
-    noteFolders: noteFileService,
-    mediaLifecycle: mediaModule?.lifecycle,
-    learningMemory: learningMemoryService,
+    notes: noteFileService, noteFolders: noteFileService,
+    mediaLifecycle: mediaModule?.lifecycle, learningMemory: learningMemoryService,
   })
   registerRealtimeASRHandlers(ipcMain)
   createWindow()
+  setMainWindowRefForTools(win)
   initAutoUpdater(win)
   if (VITE_DEV_SERVER_URL) {
     createMenu(win)
@@ -3504,7 +520,7 @@ app.whenReady().then(async () => {
 }).catch((error) => {
   console.error('[Startup] Application initialization failed:', error)
   try {
-    dialog.showErrorBox('Reviva 启动失败', error?.message || String(error))
+    dialog.showErrorBox('Reviva \u542f\u52a8\u5931\u8d25', error?.message || String(error))
   } catch { /* the app may already be shutting down */ }
   app.quit()
 })

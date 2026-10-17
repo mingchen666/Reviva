@@ -1,7 +1,6 @@
 import { ChatAnthropic } from '@langchain/anthropic'
-import { ChatOpenAICompletions } from '@langchain/openai'
 import { AIMessage, HumanMessage } from '@langchain/core/messages'
-import { ChatOpenAIResponsesCompat, normalizeAnthropicApiUrl } from '../agents/runtime/modelAdapters.js'
+import { ChatOpenAIResponsesCompat, ChatOpenAICompletionsCompat, normalizeAnthropicApiUrl } from '../agents/runtime/modelAdapters.js'
 import { buildContextPack, estimateTokens } from './ContextPackBuilder.js'
 import { EvidenceCollector } from './EvidenceCollector.js'
 import { parseStructuredJson, schemaErrorMessage } from './StructuredJsonParser.js'
@@ -263,7 +262,7 @@ export class JsonArtifactRunner {
     if (baseUrl) {
       opts.configuration = { baseURL: baseUrl }
     }
-    const ChatModel = apiFormat === 'openai_responses' ? ChatOpenAIResponsesCompat : ChatOpenAICompletions
+    const ChatModel = apiFormat === 'openai_responses' ? ChatOpenAIResponsesCompat : ChatOpenAICompletionsCompat
     return new ChatModel(opts)
   }
 }

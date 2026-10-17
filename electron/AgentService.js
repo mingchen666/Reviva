@@ -29,6 +29,7 @@ import {
   withContextualAgentTools,
   withDefaultAgentTools,
   withPermissionAgentTools,
+  filterSubAgentTools,
 } from './agents/runtime/toolSelection.js'
 import {
   MAX_VISION_IMAGE_BYTES,
@@ -49,59 +50,15 @@ import {
   toPlainMessages,
 } from './agents/messages/messageAdapters.js'
 
-function stripYamlQuotes(value) {
-  const str = String(value || '').trim()
-  if (!str) return ''
-  if (str.startsWith('"') && str.endsWith('"')) {
-    try {
-      return JSON.parse(str)
-    } catch {
-      return str.slice(1, -1)
-    }
-  }
-  if (str.startsWith("'") && str.endsWith("'")) {
-    return str.slice(1, -1).replace(/''/g, "'")
-  }
-  return str
-}
 
-function isTopLevelYamlKey(line) {
-  return /^[A-Za-z0-9_-]+:\s*/.test(line)
-}
 
-function parseSkillFrontmatterSummary(content) {
-  const match = String(content || '').replace(/^\uFEFF/, '').match(/^---[ \t]*\r?\n([\s\S]*?)\r?\n---[ \t]*(?:\r?\n|$)/)
-  if (!match) return {}
 
-  const meta = {}
-  const lines = match[1].split(/\r?\n/)
-  for (let i = 0; i < lines.length; i++) {
-    const lineMatch = lines[i].match(/^([A-Za-z0-9_-]+):\s*(.*)$/)
-    if (!lineMatch) continue
-
-    const key = lineMatch[1]
-    const value = lineMatch[2].trim()
-    if (/^[>|][+-]?$/.test(value)) {
-      const block = []
-      while (i + 1 < lines.length && !isTopLevelYamlKey(lines[i + 1])) {
-        block.push(lines[++i].replace(/^\s{1,4}/, ''))
-      }
-      meta[key] = value.startsWith('>') ? block.join(' ').replace(/\s+/g, ' ').trim() : block.join('\n').trim()
-      continue
-    }
-
-    meta[key] = stripYamlQuotes(value)
-  }
-  return meta
-}
-
-import { ChatAnthropic } from '@langchain/anthropic'
-import { ChatOpenAICompletions } from '@langchain/openai'
-import { ChatOpenAIResponsesCompat, normalizeAnthropicApiUrl } from './agents/runtime/modelAdapters.js'
 import { MemorySaver, InMemoryStore, Command } from '@langchain/langgraph'
 import { HumanMessage } from '@langchain/core/messages'
 import { getLangchainTools, getUserDefinedLangchainTools, setToolProviderConfig, setWorkDirService, setDbService, setWikiService as setWikiServiceForTools, setMcpService as setMcpServiceForTools, setMediaQueryService as setMediaQueryServiceForTools, setNoteFileService as setNoteFileServiceForTools, setVisionAnalyzeHandler, resetTaskCounters, setExecCommandConfig, setCloudContext, setToolRunContext } from './agents/langchainTools.js'
 import { setSkillService as setSkillServiceForTools } from './agents/langchainTools.js'
+import { setLearningMemoryService as setLearningMemoryServiceForTools } from './agents/langchainTools.js'
+import { setMainWindowRef as setMainWindowRefForTools } from './agents/langchainTools.js'
 import { getMcpSourceAdapter } from './knowledge-source/adapters/McpSourceAdapter.js'
 import { isDestructiveCommand } from './security/SafeCommandRunner.js'
 import { setKnowledgeSourceRegistry } from './agents/langchainTools.js'
@@ -115,6 +72,14 @@ import { VisionAnalyzeService } from './tools/VisionAnalyzeService.js'
 import { resolveEffectiveBuiltinAgentConfig } from './agents/builtin/EffectiveBuiltinAgentConfig.js'
 import { buildLearningProfileRequestContext, createLearningProfileToolset } from './learning-memory/learning-profile-tools.js'
 import { buildLearningProfileSystemPrompt } from './learning-memory/learning-profile-prompts.js'
+
+// Extracted module imports (refactored from AgentService for maintainability)
+import { createModel } from './agents/runtime/modelFactory.js'
+import { prepareContextItems, prepareMessageAttachments } from './agents/messages/contextPrep.js'
+import { ToolResolver } from './agents/runtime/toolResolver.js'
+import { AgentMemoryManager } from './agents/memory/AgentMemoryManager.js'
+import { BuiltinModuleLoader } from './agents/builtin/BuiltinModuleLoader.js'
+import { ArtifactRegistrar } from './agents/ArtifactRegistrar.js'
 
 
 
@@ -164,6 +129,14 @@ export class AgentService {
     this._activeStreams = new Map()
     this._activeNoteAiRuns = new Map()
     this._interruptedRuns = new Map() // threadId → { runId, request, agentConfig }
+    this._toolResolver = new ToolResolver({ db: dbService, workDirService })
+    this._memoryManager = new AgentMemoryManager({ db: dbService, workDirService })
+    this._builtinModuleLoader = new BuiltinModuleLoader({ db: dbService })
+    this._artifactRegistrar = new ArtifactRegistrar({
+      db: dbService,
+      send: (channel, data) => this._send(channel, data),
+      resolveAgentDirName: (id, name) => this._memoryManager.agentRuntimeDirName(id, name),
+    })
     this._gatewayEventListeners = new Set()
   }
 
@@ -177,6 +150,7 @@ export class AgentService {
     setVisionAnalyzeHandler((args, context) => this._visionAnalyzeService.analyze(args, context))
 
     setSkillServiceForTools(this._skillService)
+    setMainWindowRefForTools(this._getWin?.())
 
     // Initialize KnowledgeSourceRegistry and inject into langchainTools
     this._kbRegistry = new KnowledgeSourceRegistry(this._db)
@@ -247,6 +221,7 @@ export class AgentService {
 
   setLearningMemoryService(service) {
     this._learningMemoryService = service || null
+    setLearningMemoryServiceForTools(this._learningMemoryService)
   }
 
   _learningProfileAllowed(request = {}) {
@@ -354,6 +329,10 @@ export class AgentService {
     return items
   }
 
+  _globalToolSettings() {
+    return { allowRevivaManage: this._db?.getSetting?.('allowRevivaManage') === true }
+  }
+
   _allowedMediaIdsFromRequest(request = {}, fallbackContext = {}) {
     const candidates = new Set()
     const add = (value) => {
@@ -387,95 +366,14 @@ export class AgentService {
 
   // ── Model Factory ────────────────────────────────────────────
 
-  _isAnthropicFormat(providerId, apiFormat = '') {
-    return this._normalizeApiFormat(providerId, apiFormat) === 'anthropic'
-  }
 
-  _normalizeApiFormat(providerId, apiFormat = '') {
-    const value = String(apiFormat || '').trim().toLowerCase()
-    if (['openai_responses', 'openai-responses', 'openai_response', 'openai-response', 'responses', 'response'].includes(value)) return 'openai_responses'
-    if (value === 'anthropic') return 'anthropic'
-    if (['openai', 'openai_chat', 'openai-chat', 'chat', 'chat_completions', 'chat-completions'].includes(value)) return 'openai'
-    return String(providerId || '').toLowerCase() === 'anthropic' ? 'anthropic' : 'openai'
-  }
 
-  _normalizeThinkingMode(mode) {
-    const value = String(mode || 'auto').toLowerCase()
-    if (value === 'off') return 'disabled'
-    if (value === 'on') return 'enabled'
-    return ['auto', 'enabled', 'disabled'].includes(value) ? value : 'auto'
-  }
 
-  _resolveThinkingIntensity(intensity, fallback = 'medium') {
-    const value = String(intensity || fallback).toLowerCase()
-    return ['low', 'medium', 'high'].includes(value) ? value : fallback
-  }
 
-  _openAIReasoningEffort(providerId, modelName, options = {}) {
-    const mode = this._normalizeThinkingMode(options.thinkingMode)
-    if (mode === 'disabled') return ''
-    const model = String(modelName || '').toLowerCase()
-    const isOpenAI = String(providerId || '').toLowerCase() === 'openai'
-    const isReasoningModel = /^(o\d|gpt-5)/.test(model)
-    if (!isOpenAI || (mode === 'auto' && !isReasoningModel)) return ''
-    return this._resolveThinkingIntensity(options.thinkingIntensity)
-  }
 
-  _deepSeekThinkingParams(providerId, modelName, options = {}) {
-    const id = String(providerId || '').toLowerCase()
-    const model = String(modelName || '').toLowerCase()
-    if (id !== 'deepseek' && !(id === 'official' && model.startsWith('deepseek-'))) return null
 
-    const mode = this._normalizeThinkingMode(options.thinkingMode)
-    const params = {}
-    if (mode === 'enabled' || mode === 'disabled') {
-      params.thinking = { type: mode }
-    }
-    if (mode === 'enabled') {
-      const intensity = this._resolveThinkingIntensity(options.thinkingIntensity)
-      params.reasoning_effort = intensity
-    }
-    return Object.keys(params).length ? params : null
-  }
-
-  _createModel(providerId, apiKey, baseUrl, modelName, options = {}) {
-    const common = { apiKey, model: modelName, maxRetries: 1 }
-    const timeout = options.timeout || 300000
-    if (options.temperature !== undefined) common.temperature = options.temperature
-    if (options.maxTokens) common.maxTokens = options.maxTokens
-    if (options.topP !== undefined) common.topP = options.topP
-
-    if (this._isAnthropicFormat(providerId, options.apiFormat)) {
-      const anthropicApiUrl = normalizeAnthropicApiUrl(baseUrl)
-    const anthropicOpts = { ...common, timeout }
-      if (options.streaming === true) anthropicOpts.streaming = true
-      if (options.disableStreaming === true) anthropicOpts.disableStreaming = true
-      if (anthropicApiUrl) anthropicOpts.anthropicApiUrl = anthropicApiUrl
-      if (this._normalizeThinkingMode(options.thinkingMode) === 'enabled') {
-        const budgetMap = { low: 2000, medium: 10000, high: 32000 }
-        anthropicOpts.thinking = {
-          type: 'enabled',
-          budget_tokens: budgetMap[this._resolveThinkingIntensity(options.thinkingIntensity)] || 10000,
-        }
-      }
-      return new ChatAnthropic(anthropicOpts)
-    }
-
-    // OpenAI-compatible providers: choose the API surface explicitly from provider.apiFormat.
-    const openaiOpts = { ...common, timeout }
-    if (options.streaming === true) openaiOpts.streaming = true
-    if (options.disableStreaming === true) openaiOpts.disableStreaming = true
-    if (baseUrl) {
-      openaiOpts.configuration = { baseURL: baseUrl }
-    }
-    const deepSeekThinkingParams = this._deepSeekThinkingParams(providerId, modelName, options)
-    if (deepSeekThinkingParams) openaiOpts.modelKwargs = { ...(openaiOpts.modelKwargs || {}), ...deepSeekThinkingParams }
-    const reasoningEffort = options.reasoningEffort || this._openAIReasoningEffort(providerId, modelName, options)
-    if (reasoningEffort) openaiOpts.reasoningEffort = reasoningEffort
-    const ChatModel = this._normalizeApiFormat(providerId, options.apiFormat) === 'openai_responses'
-      ? ChatOpenAIResponsesCompat
-      : ChatOpenAICompletions
-    return new ChatModel(openaiOpts)
+  _createModel(...args) {
+    return createModel(...args)
   }
 
   _visionContextFromRequest(request = {}) {
@@ -555,79 +453,31 @@ export class AgentService {
   }
 
   _listEnabledCustomToolRows() {
-    try {
-      return (this._db?.listTools?.() || []).filter(t => t?.enabled !== false && t?.enabled !== 0)
-    } catch {
-      return []
-    }
+    return this._toolResolver.listEnabledCustomToolRows()
   }
 
   _normalizeSkillId(skillId) {
-    return String(skillId || '')
-      .replace(/\\/g, '/')
-      .replace(/^\/?skills\//i, '')
-      .replace(/\/+$/, '')
-      .trim()
+    return this._toolResolver.normalizeSkillId(skillId)
   }
 
   _readJsonIfExists(filePath) {
-    try {
-      if (!filePath || !fs.existsSync(filePath)) return null
-      return JSON.parse(fs.readFileSync(filePath, 'utf-8'))
-    } catch {
-      return null
-    }
+    return this._toolResolver.readJsonIfExists(filePath)
   }
 
   _builtinSkillConfigPath(skillId) {
-    const electronDir = path.dirname(fileURLToPath(import.meta.url))
-    const candidates = [
-      process.env.APP_ROOT ? path.join(process.env.APP_ROOT, 'electron', 'builtin-assets', 'skills', skillId, 'config.json') : '',
-      process.resourcesPath ? path.join(process.resourcesPath, 'builtin-assets', 'skills', skillId, 'config.json') : '',
-      path.join(electronDir, 'builtin-assets', 'skills', skillId, 'config.json'),
-    ].filter(Boolean)
-    return candidates.find(p => fs.existsSync(p)) || ''
+    return this._toolResolver.builtinSkillConfigPath(skillId)
   }
 
   _skillAllowedTools(skillIds) {
-    const ids = [...new Set((skillIds || []).map(id => this._normalizeSkillId(id)).filter(Boolean))]
-    if (!ids.length) return []
-
-    let dbSkills = []
-    try {
-      dbSkills = this._db?.listSkills?.() || []
-    } catch {
-      dbSkills = []
-    }
-
-    const workRoot = this._workDirService?.getRootPath?.() || ''
-    const allowed = []
-    for (const skillId of ids) {
-      const workspaceConfig = workRoot
-        ? this._readJsonIfExists(path.join(workRoot, 'skills', skillId, 'config.json'))
-        : null
-      const dbSkill = dbSkills.find(s => this._normalizeSkillId(s?.id) === skillId)
-      const builtinConfig = this._readJsonIfExists(this._builtinSkillConfigPath(skillId))
-      const sources = [workspaceConfig, dbSkill, builtinConfig]
-
-      for (const source of sources) {
-        const tools = source?.allowedTools || source?.allowed_tools
-        if (Array.isArray(tools)) allowed.push(...tools.filter(Boolean))
-      }
-    }
-    return [...new Set(allowed.map(String))]
+    return this._toolResolver.skillAllowedTools(skillIds)
   }
 
   _withSkillTools(toolIds, skillIds) {
-    const allSkillIds = [...this._defaultSkillIds(), ...(skillIds || [])]
-    return [...new Set([...(toolIds || []), ...this._skillAllowedTools(allSkillIds)].filter(Boolean))]
+    return this._toolResolver.withSkillTools(toolIds, skillIds)
   }
 
-  _buildLocalRuntimeTools(toolIds, { includeDefaults = true, modelHasVision = false, visionAvailable = modelHasVision } = {}) {
-    const effectiveIds = includeDefaults ? withDefaultAgentTools(toolIds, { modelHasVision, visionAvailable }) : (toolIds || [])
-    const builtinTools = effectiveIds.length ? getLangchainTools(effectiveIds) : []
-    const userTools = getUserDefinedLangchainTools(effectiveIds, this._listEnabledCustomToolRows())
-    return [...builtinTools, ...userTools]
+  _buildLocalRuntimeTools(toolIds, options = {}) {
+    return this._toolResolver.buildLocalRuntimeTools(toolIds, options)
   }
 
   _buildSubagents(subAgentConfigs, allTools, request) {
@@ -843,7 +693,6 @@ export class AgentService {
       const allowedMediaIds = this._allowedMediaIdsFromRequest(request)
       setToolRunContext({ agentEnglishName: agentDirName, permissions: moduleConfig.permissions || {}, wikiContext: request.wikiContext || {}, boundSkillIds: moduleConfig.skills || [], allowedMediaIds, vision: this._visionContextFromRequest(request) })
       setExecCommandConfig({
-        whitelist: moduleConfig.permissions?.execCommandWhitelist || null,
         blacklist: moduleConfig.permissions?.execCommandBlacklist || null,
       })
       setCloudContext(request.cloudContext || {})
@@ -897,7 +746,8 @@ export class AgentService {
       const effectiveToolIds = filterWebSearchTools(withContextualAgentTools(withPermissionAgentTools(
         restrictWebSearchToolsToBindings(skillAugmentedToolIds, moduleConfig.tools || []),
         moduleConfig.permissions,
-      ), request.cloudContext, visionOptions), webSearchEnabled)
+        this._globalToolSettings(),
+), request.cloudContext, visionOptions), webSearchEnabled)
       const preparedAllowedMediaIds = this._allowedMediaIdsFromRequest({ ...request, ctxPaths: preparedCtxPaths })
       setToolRunContext({ agentEnglishName: agentDirName, permissions: moduleConfig.permissions || {}, wikiContext: request.wikiContext || {}, boundSkillIds: skillData.boundSkillIds, toolIds: effectiveToolIds, allowedMediaIds: preparedAllowedMediaIds, vision: this._visionContextFromRequest(request) })
       const customTools = this._buildLocalRuntimeTools(effectiveToolIds, { includeDefaults: false })
@@ -1106,7 +956,7 @@ export class AgentService {
    * These skills are installed as builtins and provide foundational capabilities.
    */
   _defaultSkillIds() {
-    return ['skill-installer']
+    return this._toolResolver.defaultSkillIds()
   }
 
   /**
@@ -1116,47 +966,7 @@ export class AgentService {
    * Returns { paths: string[], info: { id, name, desc }[], boundSkillIds: string[] }
    */
   _buildSkillsPaths(skillIds) {
-    const defaultIds = this._defaultSkillIds()
-    const normalizedSkillIds = [...new Set([
-      ...defaultIds,
-      ...(skillIds || []).map(id => this._normalizeSkillId(id)),
-    ].filter(Boolean))]
-    if (!normalizedSkillIds.length) return { paths: undefined, info: [], boundSkillIds: [] }
-    const workRoot = this._workDirService?.getRootPath?.() || ''
-    if (!workRoot) return { paths: undefined, info: [], boundSkillIds: [] }
-
-    const globalSkillsDir = path.join(workRoot, 'skills')
-    if (!fs.existsSync(globalSkillsDir)) {
-      fs.mkdirSync(globalSkillsDir, { recursive: true })
-    }
-
-    const skillInfo = []
-    const boundSkillIds = []
-    for (const skillId of normalizedSkillIds) {
-      const skillDir = path.join(globalSkillsDir, skillId)
-      const skillFile = path.join(skillDir, 'SKILL.md')
-      if (fs.existsSync(skillFile)) {
-        boundSkillIds.push(skillId)
-        let skillName = skillId
-        let skillDesc = ''
-        try {
-          const skillContent = fs.readFileSync(skillFile, 'utf-8')
-          const meta = parseSkillFrontmatterSummary(skillContent)
-          skillName = String(meta.name || skillId).trim()
-          skillDesc = String(meta.description || '').trim()
-          if (!skillDesc) {
-            const titleMatch = skillContent.split(/\r?\n/).find(line => /^#\s+/.test(line))?.match(/^#\s+(.+)/)
-            if (titleMatch) skillName = titleMatch[1].trim()
-          }
-        } catch { /* fallback to skillId */ }
-        skillInfo.push({ id: skillId, name: skillName, desc: skillDesc || `路径: /skills/${skillId}/`, path: `/skills/${skillId}/` })
-        console.log('[AgentService] Skill found:', skillId, '→', skillName)
-      } else {
-        console.warn('[AgentService] Skill not found:', skillId)
-      }
-    }
-
-    return { paths: boundSkillIds.length ? ['/skills/'] : undefined, info: skillInfo, boundSkillIds }
+    return this._toolResolver.buildSkillsPaths(skillIds)
   }
 
   /**
@@ -1165,133 +975,45 @@ export class AgentService {
    * Falls back to agentId/_shared when englishName is unavailable
    */
   _safeAgentDirName(value) {
-    const safe = String(value || '').trim().replace(/[^a-zA-Z0-9._-]+/g, '-').replace(/^-+|-+$/g, '')
-    return safe || '_shared'
+    return this._memoryManager.safeAgentDirName(value)
   }
 
   _agentRuntimeDirName(agentId, agentEnglishName) {
-    const id = String(agentId || '').trim()
-    const englishName = String(agentEnglishName || '').trim()
-    // Built-in asset ids such as computer-network-agent are the stable routing key.
-    // Legacy built-ins use ids like agent_researcher, so keep their english_name directories.
-    if (id && !/^agent_/i.test(id)) return this._safeAgentDirName(id)
-    if (englishName) return this._safeAgentDirName(englishName)
-    return this._safeAgentDirName(id || '_shared')
+    return this._memoryManager.agentRuntimeDirName(agentId, agentEnglishName)
   }
 
   _agentMemoryDirName(agentId, agentEnglishName) {
-    return this._agentRuntimeDirName(agentId, agentEnglishName)
+    return this._memoryManager.agentMemoryDirName(agentId, agentEnglishName)
   }
 
   _buildMemoryPaths(agentRef = {}) {
-    const workRoot = this._workDirService?.getRootPath?.() || ''
-    if (!workRoot) return undefined
-    const agentId = typeof agentRef === 'object' ? agentRef.agentId : ''
-    const agentEnglishName = typeof agentRef === 'object' ? agentRef.agentEnglishName : agentRef
-
-    // 1. Global shared memory — all agents can read/write
-    const globalMemDir = path.join(workRoot, 'memories')
-    if (!fs.existsSync(globalMemDir)) fs.mkdirSync(globalMemDir, { recursive: true })
-    const globalMd = path.join(globalMemDir, 'AGENTS.md')
-    if (!fs.existsSync(globalMd)) {
-      fs.writeFileSync(globalMd, '# Global Memory\n\n## 全局规则\n\n## 全局偏好\n\n', 'utf-8')
-    }
-
-    // 2. Per-agent private memory — only this agent can access
-    const agentDirName = this._agentMemoryDirName(agentId, agentEnglishName)
-    const agentMemDir = path.join(workRoot, 'agents', agentDirName, 'memory')
-    if (!fs.existsSync(agentMemDir)) fs.mkdirSync(agentMemDir, { recursive: true })
-    const agentMd = path.join(agentMemDir, 'AGENTS.md')
-    if (!fs.existsSync(agentMd)) {
-      fs.writeFileSync(agentMd, '# Agent Context\n\n## Preferences\n\n## Facts\n\n', 'utf-8')
-    }
-
-    const paths = [
-      '/memories/AGENTS.md',                        // Global shared (all agents)
-      `/agents/${agentDirName}/memory/AGENTS.md`,   // Per-agent private
-    ]
-
-    return paths
+    return this._memoryManager.buildMemoryPaths(agentRef)
   }
 
   // Read AGENTS.md memory files and return as a string for system prompt injection.
   // Replaces deepagents MemoryMiddleware which creates array-content SystemMessage
   // that some model bindings fail to convert to AIMessage.
   _readMemoryContents(workRoot, agentDirName) {
-    if (!workRoot || !agentDirName) return ''
-    const files = [
-      path.join(workRoot, 'memories', 'AGENTS.md'),
-      path.join(workRoot, 'agents', agentDirName, 'memory', 'AGENTS.md'),
-    ]
-    const sections = []
-    for (const p of files) {
-      try {
-        if (fs.existsSync(p)) {
-          const content = fs.readFileSync(p, 'utf-8').trim()
-          if (content) sections.push(content)
-        }
-      } catch { /* ignore read errors */ }
-    }
-    return sections.length ? `## Agent Memory\n\n${sections.join('\n\n---\n\n')}` : ''
+    return this._memoryManager.readMemoryContents(workRoot, agentDirName)
   }
 
   // ── Memory Injection: DB semantic memories → AGENTS.md ──────────
 
   _injectSemanticMemories(workRoot) {
-    if (!workRoot) return
-    const globalMd = path.join(workRoot, 'memories', 'AGENTS.md')
-    if (!fs.existsSync(globalMd)) return
-
-    // Read semantic memories from DB
-    const rows = this._db.listMemories?.() || []
-    const semanticRows = rows.filter(r => r.type === 'semantic')
-    if (!semanticRows.length) return
-
-    let content = fs.readFileSync(globalMd, 'utf-8')
-
-    // Remove any existing injected block
-    const startTag = '<!-- REVIVA_DB_MEMORIES -->'
-    const endTag = '<!-- /REVIVA_DB_MEMORIES -->'
-    const startIdx = content.indexOf(startTag)
-    if (startIdx !== -1) {
-      const endIdx = content.indexOf(endTag, startIdx)
-      if (endIdx !== -1) {
-        content = content.slice(0, startIdx) + content.slice(endIdx + endTag.length)
-      }
-    }
-
-    // Build injection block
-    const items = semanticRows.map(r => `- ${r.content}`).join('\n')
-    const block = `\n\n${startTag}\n## 用户语义记忆\n\n${items}\n${endTag}\n`
-
-    fs.writeFileSync(globalMd, content.trimEnd() + block, 'utf-8')
+    return this._memoryManager.injectSemanticMemories(workRoot)
   }
 
   _removeInjectedMemories(workRoot) {
-    if (!workRoot) return
-    const globalMd = path.join(workRoot, 'memories', 'AGENTS.md')
-    if (!fs.existsSync(globalMd)) return
-
-    let content = fs.readFileSync(globalMd, 'utf-8')
-    const startTag = '<!-- REVIVA_DB_MEMORIES -->'
-    const endTag = '<!-- /REVIVA_DB_MEMORIES -->'
-    const startIdx = content.indexOf(startTag)
-    if (startIdx === -1) return
-
-    const endIdx = content.indexOf(endTag, startIdx)
-    if (endIdx !== -1) {
-      content = content.slice(0, startIdx) + content.slice(endIdx + endTag.length)
-      fs.writeFileSync(globalMd, content.trimEnd() + '\n', 'utf-8')
-    }
+    return this._memoryManager.removeInjectedMemories(workRoot)
   }
 
   // ── Agent Run Handler ────────────────────────────────────────
 
-  async handleStartRun(request) {
-    const startTime = Date.now()
-    const runId = request.runId || crypto.randomUUID()
-    const abortController = new AbortController()
-    const msgId = request.msgId
+async handleStartRun(request) {
+  const startTime = Date.now()
+  const runId = request.runId || crypto.randomUUID()
+   const abortController = new AbortController()
+   const msgId = request.msgId
 
     if (!msgId) {
       this._send('agent:runError', { runId, error: { message: 'Missing message ID', code: 'INVALID_REQUEST' } })
@@ -1327,7 +1049,6 @@ export class AgentService {
       const allowedMediaIds = this._allowedMediaIdsFromRequest(request)
       setToolRunContext({ agentEnglishName: agentDirName, permissions: request.permissions || {}, wikiContext: request.wikiContext || {}, boundSkillIds: request.skills || [], allowedMediaIds, vision: this._visionContextFromRequest(request) })
       setExecCommandConfig({
-        whitelist: request.permissions?.execCommandWhitelist || null,
         blacklist: request.permissions?.execCommandBlacklist || null,
       })
       setCloudContext(request.cloudContext || {})
@@ -1381,16 +1102,17 @@ export class AgentService {
       const subAgentToolIds = (request.subAgents || [])
         .filter(sa => sa && typeof sa === 'object')
         .flatMap(sa => Array.isArray(sa.tools) ? sa.tools : [])
+      const subAgentToolsFiltered = filterSubAgentTools(subAgentToolIds)
       const subAgentSkillIds = (request.subAgents || [])
         .filter(sa => sa && typeof sa === 'object')
         .flatMap(sa => Array.isArray(sa.skills) ? sa.skills : [])
       const effectiveToolIds = withContextualAgentTools(withPermissionAgentTools(this._withSkillTools([
         ...(request.toolIds || []),
-        ...subAgentToolIds,
+        ...subAgentToolsFiltered,
       ], [
         ...(request.skills || []),
         ...subAgentSkillIds,
-      ]), request.permissions), request.cloudContext, visionOptions)
+      ]), request.permissions, this._globalToolSettings()), request.cloudContext, visionOptions)
       const preparedAllowedMediaIds = this._allowedMediaIdsFromRequest({ ...request, ctxPaths: preparedCtxPaths })
       setToolRunContext({ agentEnglishName: agentDirName, permissions: request.permissions || {}, wikiContext: request.wikiContext || {}, boundSkillIds: skillData.boundSkillIds, toolIds: effectiveToolIds, allowedMediaIds: preparedAllowedMediaIds, vision: this._visionContextFromRequest(request) })
       const customTools = this._buildLocalRuntimeTools(effectiveToolIds, { includeDefaults: false })
@@ -1741,12 +1463,11 @@ export class AgentService {
       // Restore tool provider config for resumed run
       setToolProviderConfig(request.toolProviderConfigs || {})
       const agentDirName = agentConfig.agentDirName || this._agentRuntimeDirName(request.agentId, request.agentEnglishName)
-      const resumeToolIds = withPermissionAgentTools(agentConfig.toolIds || request.toolIds || [], request.permissions)
+      const resumeToolIds = withPermissionAgentTools(agentConfig.toolIds || request.toolIds || [], request.permissions, this._globalToolSettings())
       const resumeSkillIds = agentConfig.boundSkillIds || request.skills || []
       const allowedMediaIds = this._allowedMediaIdsFromRequest(request)
       setToolRunContext({ agentEnglishName: agentDirName, permissions: request.permissions || {}, wikiContext: request.wikiContext || {}, boundSkillIds: resumeSkillIds, toolIds: resumeToolIds, allowedMediaIds, vision: this._visionContextFromRequest(request) })
       setExecCommandConfig({
-        whitelist: request.permissions?.execCommandWhitelist || null,
         blacklist: request.permissions?.execCommandBlacklist || null,
       })
       setCloudContext(request.cloudContext || {})
@@ -1971,7 +1692,7 @@ export class AgentService {
     setCloudContext(request.cloudContext || {})
     const agentDirName = this._agentRuntimeDirName(request.agentId, request.agentEnglishName)
     const visionOptions = this._visionToolOptionsFromRequest(request)
-    const effectiveToolIds = withContextualAgentTools(withPermissionAgentTools(this._withSkillTools(request.toolIds, request.skills), request.permissions), request.cloudContext, visionOptions)
+    const effectiveToolIds = withContextualAgentTools(withPermissionAgentTools(this._withSkillTools(request.toolIds, request.skills), request.permissions, this._globalToolSettings()), request.cloudContext, visionOptions)
     const allowedMediaIds = this._allowedMediaIdsFromRequest(request)
     setToolRunContext({ agentEnglishName: agentDirName, permissions: request.permissions || {}, wikiContext: request.wikiContext || {}, boundSkillIds: request.skills || [], toolIds: effectiveToolIds, allowedMediaIds, vision: this._visionContextFromRequest(request) })
     const tools = this._buildLocalRuntimeTools(effectiveToolIds, visionOptions)
@@ -1997,6 +1718,7 @@ export class AgentService {
       const effectiveToolIds = withContextualAgentTools(withPermissionAgentTools(
         this._withSkillTools(toolIds, request.skills || context?.skills),
         request.permissions || context?.permissions,
+        this._globalToolSettings(),
       ),
         request.cloudContext || context?.cloudContext,
         visionOptions,
@@ -2285,196 +2007,33 @@ export class AgentService {
   // ── Builtin Agent Modules ────────────────────────────────────
 
   _resolveBuiltinModulesDir() {
-    const __filename = fileURLToPath(import.meta.url)
-    const __dirname = path.dirname(__filename)
-    const candidates = [
-      path.join(__dirname, 'agents', 'builtin'),
-      process.env.APP_ROOT ? path.join(process.env.APP_ROOT, 'electron', 'agents', 'builtin') : '',
-      process.resourcesPath ? path.join(process.resourcesPath, 'electron', 'agents', 'builtin') : '',
-      process.resourcesPath ? path.join(process.resourcesPath, 'agents', 'builtin') : '',
-    ].filter(Boolean)
-
-    const dir = candidates.find(p => fs.existsSync(path.join(p, 'ppt-generator', 'config.json')))
-    if (dir) return dir
-    console.warn('[AgentService] builtin modules dir not found, tried:', candidates)
-    return candidates[0]
+    return this._builtinModuleLoader.resolveModulesDir()
   }
 
   _loadBuiltinAgentModules() {
-    const modulesDir = this._resolveBuiltinModulesDir()
-    if (!fs.existsSync(modulesDir)) return []
-
-    const modules = []
-    for (const entry of fs.readdirSync(modulesDir)) {
-      const configPath = path.join(modulesDir, entry, 'config.json')
-      if (!fs.existsSync(configPath)) continue
-
-      const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'))
-
-      // Load orchestrator prompt
-      const promptFile = path.join(modulesDir, entry, config.prompt_file || 'orchestrator.md')
-      if (fs.existsSync(promptFile)) {
-        config.prompt = fs.readFileSync(promptFile, 'utf-8')
-      }
-
-      // Load sub-agent prompts
-      const subagentDir = path.join(modulesDir, entry, config.subagent_dir || 'subagents')
-      config.subagent_prompts = {}
-      if (fs.existsSync(subagentDir)) {
-        for (const saFile of fs.readdirSync(subagentDir)) {
-          if (!saFile.endsWith('.md')) continue
-          const saName = saFile.replace('.md', '')
-          config.subagent_prompts[saName] = fs.readFileSync(path.join(subagentDir, saFile), 'utf-8')
-        }
-      }
-
-      // Load artifact rules
-      const rulesFile = path.join(modulesDir, entry, config.artifact_rules_file || 'artifact-rules.json')
-      if (fs.existsSync(rulesFile)) {
-        config.artifact_rules = JSON.parse(fs.readFileSync(rulesFile, 'utf-8'))
-      }
-
-      modules.push(config)
-    }
-    return modules
+    return this._builtinModuleLoader.loadModules()
   }
 
-  _builtinAgentTemplateFromConfig(config, prompt = config.prompt || '') {
-    return {
-      id: config.id,
-      builtin_key: config.id,
-      builtin_version: config.builtin_version || config.version || '1.0.0',
-      name: config.name || '',
-      english_name: config.english_name || '',
-      description: config.description || '',
-      icon: config.icon || 'ri-sparkling-2-line',
-      color: config.color || '#A78BFA',
-      architecture: config.architecture || 'react',
-      permissions: config.permissions || {},
-      tools: config.tools || [],
-      skills: config.skills || [],
-      sub_agents: config.sub_agents || [],
-      prompt,
-      max_iterations: normalizeNonNegativeLimit(config.max_iterations, 10),
-      model: config.model || '',
-      temperature: config.temperature ?? 0.7,
-      top_p: config.top_p ?? 1.0,
-      max_tokens: config.max_tokens || 4096,
-      thinking_mode: config.thinking_mode || 'auto',
-      thinking_intensity: config.thinking_intensity || 'medium',
-      tool_call_limit: config.tool_call_limit || 0,
-      model_call_limit: config.model_call_limit || 0,
-      plan_steps: config.plan_steps ?? 5,
-      reviewer_model: config.reviewer_model || '',
-      use_same_model: config.use_same_model === undefined ? 1 : (config.use_same_model ? 1 : 0),
-    }
+  _builtinAgentTemplateFromConfig(config, prompt) {
+    return this._builtinModuleLoader.builtinAgentTemplateFromConfig(config, prompt)
   }
 
   _syncBuiltinAgentModules() {
-    if (!this._db?.syncBuiltinAgentTemplate || !Array.isArray(this._builtinModules)) return
-    for (const config of this._builtinModules) {
-      try {
-        this._db.syncBuiltinAgentTemplate(this._builtinAgentTemplateFromConfig(config))
-      } catch (err) {
-        console.error(`[AgentService] Failed to sync builtin module ${config.id || config.english_name}:`, err.message)
-      }
-    }
+    return this._builtinModuleLoader.syncModules(this._builtinModules)
   }
 
   // Install all built-in conversational agents from electron/builtin-assets/agents/.
   // Each subfolder must contain config.json (+ optional PROMPT.md). Existing rows are
   // synced through DatabaseService so official template updates can merge with user overrides.
   async installAllBuiltinAgents(dir) {
-    if (!dir || !fs.existsSync(dir)) {
-      console.log('[AgentService] No builtin-assets/agents directory found, skipping')
-      return
-    }
-
-    const entries = await fs.promises.readdir(dir, { withFileTypes: true })
-    for (const entry of entries) {
-      if (!entry.isDirectory()) continue
-      const agentDir = path.join(dir, entry.name)
-      const configPath = path.join(agentDir, 'config.json')
-      const promptPath = path.join(agentDir, 'PROMPT.md')
-
-      if (!fs.existsSync(configPath)) continue
-
-      try {
-        const config = JSON.parse(await fs.promises.readFile(configPath, 'utf-8'))
-        config.id = entry.name
-
-        let prompt = config.prompt || ''
-        if (fs.existsSync(promptPath)) {
-          prompt = await fs.promises.readFile(promptPath, 'utf-8')
-        }
-
-        const synced = this._db.syncBuiltinAgentTemplate(this._builtinAgentTemplateFromConfig(config, prompt))
-        console.log(`[AgentService] Synced builtin agent: ${synced?.id || config.id}`)
-      } catch (err) {
-        console.error(`[AgentService] Failed to install ${entry.name}:`, err.message)
-      }
-    }
+    return this._builtinModuleLoader.installAllBuiltinAgents(dir)
   }
 
   async _registerArtifacts({ conversationId, groupId, agentEnglishName, agentDirName = '', workRoot, runStartTime }) {
-    const date = new Date(runStartTime).toISOString().slice(0, 10)
-    const runtimeDirName = agentDirName || this._agentRuntimeDirName('', agentEnglishName)
-    const outputDir = path.join(workRoot, 'agents', runtimeDirName, 'outputs', date)
-
-    if (!fs.existsSync(outputDir)) return []
-
-    // Background generation tasks may not have a conversation yet.
-    const conv = conversationId ? this._db.getConv(conversationId) : null
-    const resolvedGroupId = groupId || conv?.group_id || 'default'
-
-    // Find module config for artifact rules
-    const moduleConfig = this._builtinModules?.find(m => m.english_name === agentEnglishName)
-    const rules = moduleConfig?.artifact_rules
-    const created = []
-
-    // Scan for new files (mtime > runStartTime)
-    for (const file of fs.readdirSync(outputDir)) {
-      const filePath = path.join(outputDir, file)
-      let stat
-      try { stat = fs.statSync(filePath) } catch { continue }
-      if (!stat.isFile()) continue
-      if (stat.mtimeMs < runStartTime) continue
-
-      const ext = file.split('.').pop().toLowerCase()
-      const title = file.replace(/\.[^.]+$/, '')
-
-      // Match file pattern from rules
-      const pattern = rules?.file_patterns?.find(p => p.ext === ext)
-      // 只注册 artifact-rules.json 中声明过的扩展名，未声明的（如 .txt 探针文件）直接跳过
-      // 仅在已声明 file_patterns 时严格过滤，无规则时保留旧行为
-      if (rules?.file_patterns?.length && !pattern) continue
-      // 跳过模型自写的探针文件（test.txt / test.html 等）
-      if (title.toLowerCase() === 'test') continue
-      const icon = pattern?.icon || (ext === 'html' ? 'ri-bar-chart-box-line' : 'ri-file-text-line')
-      const type = pattern?.type || 'research'
-
-      const artifact = this._db.createArtifact({
-        id: `art_${Date.now()}_${crypto.randomUUID().slice(0, 8)}`,
-        group_id: resolvedGroupId,
-        conversation_id: conversationId || '',
-        title,
-        type,
-        icon,
-        color: moduleConfig?.color || '#38BDF8',
-        storage_type: 'file',
-        file_path: filePath,
-        content: null,
-        agent_name: moduleConfig?.name || agentEnglishName,
-        skill_name: moduleConfig?.skills?.[0] || '',
-      })
-      created.push(artifact)
-    }
-
-    // Notify renderer
-    if (created.length) {
-      this._send('agent:artifactsCreated', { groupId: resolvedGroupId, agentEnglishName, artifacts: created })
-    }
-    return created
+    return this._artifactRegistrar.registerArtifacts({
+      conversationId, groupId, agentEnglishName, agentDirName, workRoot, runStartTime,
+      builtinModules: this._builtinModules,
+    })
   }
 
   // ── Helpers ──────────────────────────────────────────────
@@ -2504,116 +2063,11 @@ export class AgentService {
    * - External attachments are copied into {workRoot}/context/YYYY-MM-DD/ and referenced by virtual path.
    */
   _prepareMessageAttachments(messages, workRoot, preparedCurrentCtxPaths = []) {
-    const source = messages || []
-    const lastUserIndex = (() => {
-      for (let i = source.length - 1; i >= 0; i--) {
-        if (_isUserMessage(source[i])) return i
-      }
-      return -1
-    })()
-
-    return source.map((message, index) => {
-      if (!_isUserMessage(message)) return message
-      const rawAttachments = index === lastUserIndex && preparedCurrentCtxPaths?.length
-        ? preparedCurrentCtxPaths
-        : _messageAttachments(message)
-      if (!rawAttachments?.length) return message
-      const attachments = index === lastUserIndex && rawAttachments === preparedCurrentCtxPaths
-        ? preparedCurrentCtxPaths
-        : this._prepareContextItems(rawAttachments, workRoot)
-      return { ...message, attachments }
-    })
+    return prepareMessageAttachments(messages, workRoot, preparedCurrentCtxPaths, this._workDirService)
   }
 
   _prepareContextItems(ctxPaths, workRoot) {
-    if (!ctxPaths?.length || !workRoot) return ctxPaths || []
-
-    const contextDir = path.join(workRoot, 'context', _dateStamp())
-    const prepared = []
-
-    for (const item of ctxPaths) {
-      if (!item?.path && item?.dataUrl && _isImageContextItem(item)) {
-        try {
-          const decoded = _decodeImageDataUrl(item.dataUrl)
-          if (!decoded) {
-            prepared.push(item)
-            continue
-          }
-          if (decoded.buffer.length > MAX_VISION_IMAGE_BYTES) {
-            const err = new Error(`图片 ${item.name || '粘贴图片'} 过大，单张图片不能超过 10MB。请压缩后重试。`)
-            err.code = 'VISION_IMAGE_TOO_LARGE'
-            throw err
-          }
-          fs.mkdirSync(contextDir, { recursive: true })
-          const imageName = _ensureImageFilename(item, decoded.ext)
-          const dest = _uniqueDestPath(contextDir, imageName)
-          fs.writeFileSync(dest, decoded.buffer)
-          prepared.push({
-            ...item,
-            name: path.basename(dest),
-            originalName: item.name || '',
-            path: dest,
-            isDirectory: false,
-            source: item.source || 'attachment',
-            accessPath: _toWorkspaceVirtualPath(dest, workRoot),
-          })
-          console.log('[AgentService] Staged pasted image context item:', item.name || imageName, '→', dest)
-        } catch (e) {
-          if (e.code === 'VISION_IMAGE_TOO_LARGE') throw e
-          console.warn('[AgentService] Could not stage pasted image context item:', item.name || '(pasted image)', e.message)
-          prepared.push(item)
-        }
-        continue
-      }
-
-      if (!item?.path) {
-        prepared.push(item)
-        continue
-      }
-
-      const name = item.name || path.basename(item.path)
-      const isDirectory = !!(item.isDirectory || item.type === 'folder' || item.type === 'local_folder')
-
-      try {
-        const resolved = this._workDirService.resolveAndValidate(item.path, 'any')
-        prepared.push({
-          ...item,
-          name,
-          path: resolved,
-          isDirectory,
-          source: item.source || 'workspace',
-          accessPath: _toWorkspaceVirtualPath(resolved, workRoot),
-        })
-        continue
-      } catch {
-        // Outside the authorized workspace: stage it as a temporary context attachment.
-      }
-
-      try {
-        fs.mkdirSync(contextDir, { recursive: true })
-        const dest = _uniqueDestPath(contextDir, name)
-        if (isDirectory) {
-          fs.cpSync(item.path, dest, { recursive: true })
-        } else {
-          fs.copyFileSync(item.path, dest)
-        }
-        prepared.push({
-          ...item,
-          name: path.basename(dest),
-          originalPath: item.path,
-          path: dest,
-          isDirectory,
-          source: item.source || 'attachment',
-          accessPath: _toWorkspaceVirtualPath(dest, workRoot),
-        })
-        console.log('[AgentService] Staged external context item:', name, '→', dest)
-      } catch (e) {
-        console.warn('[AgentService] Could not stage context item:', name, e.message)
-        prepared.push(item)
-      }
-    }
-
-    return prepared
+    return prepareContextItems(ctxPaths, workRoot, this._workDirService)
   }
 
   _send(channel, data) {

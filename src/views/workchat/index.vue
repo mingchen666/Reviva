@@ -29,6 +29,12 @@ import PanelToggle from './sections/PanelToggle.vue'
 import AuthCard from './sections/AuthCard.vue'
 import EmptyStateHero from './sections/EmptyStateHero.vue'
 import ScrollLoader from './sections/ScrollLoader.vue'
+import { useMessageExport } from './hooks/useMessageExport'
+import { useWorkchatMedia } from './hooks/useWorkchatMedia'
+import { useGenTask } from './hooks/useGenTask'
+import { useChatDirectory } from './hooks/useChatDirectory'
+import { useChatTabs } from './hooks/useChatTabs'
+import { useChatScroll } from './hooks/useChatScroll'
 import {
   buildSingleMessageMarkdown,
   deriveMessageExportTitle,
@@ -75,6 +81,16 @@ const allAgents = computed(() => agentsStore.agents)
 const conversations = computed(() => convStore.conversations)
 const groups = computed(() => convStore.groups)
 const currentConvId = computed(() => convStore.currentConvId)
+
+// Tabs & conversation switching
+const {
+  tabs, activeTabId, tabScroller,
+  isConversationSwitching, switchingConvId,
+  addTab, activateTab, closeTab,
+  createChat, selectConv, deleteConv, onConvRename,
+  ensureConversationTab, isTabConversationSwitching, switchToConversation,
+  handleShortcutConversationActivate,
+} = useChatTabs(convStore, currentConvId)
 const currentMessages = computed(() => convStore.currentMessages)
 const currentConv = computed(() => convStore.currentConv)
 const currentStreamingState = computed(() => {
@@ -110,31 +126,12 @@ watch(isStreaming, (streaming) => {
     liveElapsedMs.value = 0
   }
 })
-const loadingOlder = ref(false)
-const showScrollBtn = ref(false)
-const isConversationSwitching = ref(false)
-const switchingConvId = ref(null)
-const CONVERSATION_SWITCH_MIN_MS = 140
-const CONVERSATION_SWITCH_MAX_MS = 900
-let conversationSwitchToken = 0
-let conversationSwitchStartedAt = 0
-let conversationSwitchFinishTimer = null
-let conversationSwitchMaxTimer = null
-
 // Virtualized message list. Store still paginates messages; TanStack keeps mounted DOM bounded.
 const chatScrollRef = ref(null)
 const MESSAGE_GAP = 20
 const VIRTUAL_OVERSCAN = 8
 const EMPTY_STREAM_OBJECT = Object.freeze({})
 const EMPTY_STREAM_ARRAY = Object.freeze([])
-const DIRECTORY_WINDOW_SIZE = 10
-const DIRECTORY_SUMMARY_LENGTH = 46
-const DIRECTORY_QUESTION_LENGTH = 44
-const DIRECTORY_SOURCE_LENGTH = 2400
-const directoryWindowStart = ref(0)
-const activeDirectoryMessageId = ref('')
-const directoryLoadingOlder = ref(false)
-const directoryWindowPinned = ref(false)
 const detachedTailMessageIds = reactive({})
 const detachedTailMinHeight = ref(0)
 
@@ -169,7 +166,7 @@ watch(() => detachedTailMessage.value?.id || '', () => {
   // DOM height may be very different after thinking content collapses.
   nextTick(() => {
     rowVirtualizer.value.measure()
-    if (!userScrolledUp) scheduleScrollToBottom()
+    if (!userScrolledUp.value) scheduleScrollToBottom()
   })
 })
 
@@ -186,7 +183,7 @@ function observeDetachedTail(el) {
   detachedTailResizeObserver = new ResizeObserver((entries) => {
     const height = Math.ceil(entries[0]?.contentRect?.height || 0)
     if (height > detachedTailMinHeight.value) detachedTailMinHeight.value = height
-    if (!userScrolledUp) scheduleScrollToBottom()
+    if (!userScrolledUp.value) scheduleScrollToBottom()
   })
   detachedTailResizeObserver.observe(el)
 }
@@ -238,6 +235,11 @@ const renderedModals = reactive({
 const leftOpen = ref(true)
 const leftW = ref(260)
 const leftTab = ref('conv') // 'conv' | 'docs' | 'kb'
+function tabClass(tabId) {
+  const active = leftTab.value === tabId
+  if (active) return isDark.value ? 'text-wt-main font-bold' : 'text-lt-main font-bold'
+  return isDark.value ? 'text-wt-aux hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub'
+}
 const renderedLeftPanels = reactive({ docs: false, kb: false })
 const activeExternalKb = ref(null) // { sourceId, kbId, sourceName, kbName, sourceType }
 const activeSourceId = ref('') // backend active source ID, loaded on mount
@@ -267,14 +269,38 @@ watch(leftTab, (tab) => {
 const rightOpen = ref(true)
 const rightW = ref(320)
 const previewFile = ref(null)
-const showMediaDetail = ref(false)
-const mediaDetailItem = ref(null)
+// Media handling
+const {
+  showMediaDetail,
+  mediaDetailItem,
+  handlePreviewFile,
+  persistMessageMedia,
+  resolveWorkchatMedia,
+  openWorkchatMediaDetail,
+  reanalyzeWorkchatMedia,
+} = useWorkchatMedia(convStore, previewFile, rightOpen)
 const branchingMessageId = ref(null)
 const branchConfirmationPending = ref(false)
-const showConversationExport = ref(false)
-const exportTargetConversation = ref(null)
-const exportingMessageId = ref(null)
-const showSaveMessageToNote = ref(false)
+// Message export / save-to-note
+const {
+  exportingMessageId,
+  showConversationExport,
+  exportTargetConversation,
+  showSaveMessageToNote,
+  noteTargetMessage,
+  noteTargetConversation,
+  notePreviousUserMessage,
+  notePreviousUserLoading,
+  notePreviousUserError,
+  savingMessageToNote,
+  saveMessageToNoteError,
+  openConversationExport,
+  conversationForMessage,
+  handleExportMessageMarkdown,
+  handleExportMessageWord,
+  openSaveMessageToNote,
+  handleSaveMessageToNote,
+} = useMessageExport(convStore, settingsStore, notesStore)
 
 const lazyModalVisibility = {
   research: showResearchModal,
@@ -299,35 +325,10 @@ Object.entries(lazyModalVisibility).forEach(([name, visible]) => {
     if (show) renderedModals[name] = true
   }, { flush: 'sync' })
 })
-const noteTargetMessage = ref(null)
-const noteTargetConversation = ref(null)
-const notePreviousUserMessage = ref(null)
-const notePreviousUserLoading = ref(false)
-const notePreviousUserError = ref('')
-const savingMessageToNote = ref(false)
-const saveMessageToNoteError = ref('')
-let noteTargetSequence = 0
-
 function handleShortcutPanelToggle(event) {
   const side = event?.detail?.side
   if (side === 'left') leftOpen.value = !leftOpen.value
   if (side === 'right') rightOpen.value = !rightOpen.value
-}
-
-function handleShortcutConversationActivate(event) {
-  const conversationId = event?.detail?.conversationId
-  if (!conversationId) return
-  const conversation = conversations.value.find(item => item.id === conversationId)
-  if (conversation) addTab(conversation)
-}
-
-function ensureConversationTab(conversationId) {
-  if (!conversationId || tabs.value.some(tab => tab.id === conversationId)) return
-  const conversation = conversations.value.find(item => item.id === conversationId)
-  if (!conversation) return
-  evictLeastRecentlyAccessedTab()
-  tabs.value.unshift({ id: conversation.id, name: conversation.title, lastAccessed: nextTabAccessAt() })
-  activeTabId.value = conversation.id
 }
 
 // Responsive: auto-collapse panels when window is narrow
@@ -338,11 +339,6 @@ watch(windowW, (w) => {
 })
 
 // Tabs
-const tabs = ref([])
-const activeTabId = ref(null)
-const tabAccessSeq = ref(0)
-const tabScroller = ref(null)
-
 // ─── Global context state (shared across all conversations) ───
 const selectedAgent = computed(() => {
   const agentId = currentConv.value?.agentId
@@ -426,309 +422,40 @@ const contextLength = computed(() => currentConv.value?.contextLength || 30)
 const currentGroupId = computed(() => currentConv.value?.group_id || 'default')
 const hasOlderMessages = computed(() => currentConvId.value && !convStore.allMsgsLoaded[currentConvId.value])
 
-// ─── Chat directory ───
-// This is intentionally independent of the Agent context window. It derives only
-// lightweight labels from messages that are already loaded for the virtual list.
-function compactDirectoryText(value, maxLength) {
-  const text = typeof value === 'string' ? value.replace(/\s+/g, ' ').trim() : ''
-  if (!text) return ''
-  return text.length > maxLength ? `${text.slice(0, Math.max(1, maxLength - 1)).trimEnd()}…` : text
-}
-
-function directoryTextValue(value) {
-  if (typeof value === 'string') return value
-  if (Array.isArray(value)) {
-    return value.map((part) => {
-      if (typeof part === 'string') return part
-      if (!part || typeof part !== 'object') return ''
-      return typeof part.text === 'string' ? part.text
-        : (typeof part.content === 'string' ? part.content : '')
-    }).filter(Boolean).join(' ')
+// Generation tasks (mindmap/graph/flashcard/quiz/etc.)
+function closeModalForTool(toolId) {
+  const map = {
+    mindmap: showMindmapModal,
+    graph: showGraphModal,
+    flashcard: showFlashcardModal,
+    studycard: showStudyCardModal,
+    qa: showQaModal,
+    glossary: showGlossaryModal,
+    cheatsheet: showCheatsheetModal,
+    quiz: showQuizModal,
+    chart: showChartModal,
+    podcast: showPodcastModal,
+    studyguide: showStudyguideModal,
+    research: showResearchModal,
+    ppt: showPptModal,
   }
-  if (!value || typeof value !== 'object') return ''
-  return typeof value.text === 'string' ? value.text
-    : (typeof value.content === 'string' ? value.content : '')
+  const ref = map[toolId]
+  if (ref) ref.value = false
 }
 
-function sanitizeDirectoryText(value) {
-  const source = directoryTextValue(value).slice(0, DIRECTORY_SOURCE_LENGTH)
-  if (!source) return ''
-  return source
-    // Summaries must never carry image payloads or file/image URLs into the
-    // navigation calculation. They are labels only, not a rendering path.
-    .replace(/data:image\/[a-z0-9.+-]+;base64,[a-z0-9+/_=-]*/gi, '图片')
-    .replace(/<img\b[^>]*>/gi, '图片')
-    .replace(/!\[([^\]]*)\]\([^)]*\)/g, (_, alt) => alt || '图片')
-    .replace(/(?:https?|file):\/\/[^\s)\]]+\.(?:png|jpe?g|webp|gif|bmp|svg)(?:\?[^\s)\]]*)?/gi, '图片')
-    .replace(/```[\s\S]*?```/g, block => block.replace(/```[^\n]*\n?/g, '').replace(/```/g, ''))
-    .replace(/!\[([^\]]*)\]\([^)]*\)/g, '$1')
-    .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
-    .replace(/^#{1,6}\s+/gm, '')
-    .replace(/[*_~`>|]/g, '')
-    .replace(/\s+/g, ' ')
-    .trim()
-}
-
-function directoryMessageText(message) {
-  try {
-    const direct = sanitizeDirectoryText(message?.content)
-    if (direct) return direct
-    const steps = Array.isArray(message?.meta?.steps) ? message.meta.steps : []
-    return sanitizeDirectoryText(steps.map(step => directoryTextValue(step?.content)).filter(Boolean).join(' '))
-  } catch (_) {
-    // A malformed legacy/multimodal message must not take down the directory.
-    return ''
-  }
-}
-
-function isDirectoryUserMessage(message) {
-  const role = typeof message?.role === 'string' ? message.role.toLowerCase() : ''
-  return role === 'user' || role === 'human'
-}
-
-function isDirectoryAssistantMessage(message) {
-  const role = typeof message?.role === 'string' ? message.role.toLowerCase() : ''
-  return role === 'assistant' || role === 'ai'
-}
-
-function directorySummaryForMessage(message) {
-  try {
-    if (!message) return { text: '', state: 'empty' }
-    if (isMessageStreaming(message.id)) {
-      const live = compactDirectoryText(sanitizeDirectoryText(currentStreamingState.value.content), DIRECTORY_SUMMARY_LENGTH)
-      return { text: live || '正在生成回复…', state: 'streaming' }
-    }
-    // A failed/cancelled assistant placeholder is still a valid turn. Keep the
-    // directory anchored to the user prompt and its AI preview blank, while
-    // retaining the status so the minimap can explain the empty preview.
-    if (message.status === 'error' || message.status === 'cancelled') return { text: '', state: message.status }
-    const preview = compactDirectoryText(directoryMessageText(message), DIRECTORY_SUMMARY_LENGTH)
-    return { text: preview || '', state: preview ? 'completed' : 'empty' }
-  } catch (_) {
-    return { text: '', state: 'empty' }
-  }
-}
-
-const directoryRounds = computed(() => {
-  const rounds = []
-  const messages = currentMessages.value
-  for (let index = 0; index < messages.length; index += 1) {
-    const userMessage = messages[index]
-    if (!isDirectoryUserMessage(userMessage)) continue
-    let assistantMessage = null
-    for (let cursor = index + 1; cursor < messages.length; cursor += 1) {
-      const candidate = messages[cursor]
-      if (isDirectoryUserMessage(candidate)) break
-      if (isDirectoryAssistantMessage(candidate)) {
-        assistantMessage = candidate
-        break
-      }
-    }
-    let questionFull = '未命名提问'
-    let summary = { text: '', state: 'empty' }
-    try {
-      questionFull = directoryMessageText(userMessage) || questionFull
-      summary = directorySummaryForMessage(assistantMessage)
-    } catch (_) {
-      // Keep a usable directory entry even if one historical message is odd.
-    }
-    rounds.push({
-      userMessageId: userMessage.id,
-      userMessageIndex: index,
-      question: compactDirectoryText(questionFull, DIRECTORY_QUESTION_LENGTH),
-      questionFull,
-      summary: summary.text,
-      summaryFull: summary.text,
-      summaryState: summary.state,
-    })
-  }
-  return rounds
+const {
+  buildCloudContext,
+  handleGenTaskSubmit,
+  handleResearchStart,
+  handleStudyguideStart,
+  handlePptStart,
+} = useGenTask({
+  settingsStore, agentsStore, userStore, convStore,
+  currentCtxItems, selectedWikiIds, selectedWikiRefs,
+  currentGroupId, currentConvId,
+  kbEnabled, activeSourceId, activeExternalKb, activeSourceInfo,
+  closeModalForTool,
 })
-
-// A directory is useful from the very first question. With only one or two
-// rounds it stays as a lightweight floating entry; the persistent sidebar is
-// reserved for longer conversations so the reading width is not needlessly
-// reduced.
-const directoryQuestionCount = computed(() => currentMessages.value.reduce(
-  (count, message) => count + (isDirectoryUserMessage(message) ? 1 : 0),
-  0,
-))
-const directoryHasRounds = computed(() => directoryQuestionCount.value > 0)
-const directoryWindowEnd = computed(() => Math.min(directoryWindowStart.value + DIRECTORY_WINDOW_SIZE, directoryRounds.value.length))
-const visibleDirectoryRounds = computed(() => {
-  const rounds = directoryRounds.value
-  if (!rounds.length) return []
-  const maxStart = Math.max(0, rounds.length - DIRECTORY_WINDOW_SIZE)
-  const start = Math.min(maxStart, Math.max(0, directoryWindowStart.value))
-  return rounds
-    .slice(start, Math.min(start + DIRECTORY_WINDOW_SIZE, rounds.length))
-    .map((round, index) => ({ ...round, directoryIndex: start + index }))
-})
-const directoryCanShowOlder = computed(() => directoryWindowStart.value > 0 || hasOlderMessages.value)
-const directoryCanShowNewer = computed(() => directoryWindowEnd.value < directoryRounds.value.length)
-const directoryOlderLabel = computed(() => directoryWindowStart.value > 0 ? '显示更早的问答' : '加载更早的对话')
-
-function directoryRoundForMessageIndex(messageIndex) {
-  for (let index = directoryRounds.value.length - 1; index >= 0; index -= 1) {
-    const round = directoryRounds.value[index]
-    if (round.userMessageIndex <= messageIndex) return { round, index }
-  }
-  return null
-}
-
-function keepDirectoryRoundVisible(roundIndex) {
-  const total = directoryRounds.value.length
-  if (!total) {
-    directoryWindowStart.value = 0
-    return
-  }
-  const maxStart = Math.max(0, total - DIRECTORY_WINDOW_SIZE)
-  const normalizedIndex = Math.max(0, Math.min(roundIndex, total - 1))
-  if (normalizedIndex < directoryWindowStart.value || normalizedIndex >= directoryWindowEnd.value) {
-    directoryWindowStart.value = Math.min(maxStart, Math.max(0, normalizedIndex - Math.floor(DIRECTORY_WINDOW_SIZE / 2)))
-  }
-}
-
-function syncActiveDirectoryRound() {
-  const el = chatScrollRef.value
-  if (!el || !directoryRounds.value.length) return
-  const virtualItems = rowVirtualizer.value.getVirtualItems()
-  const first = virtualItems.find(item => item.start + item.size > el.scrollTop + 1) || virtualItems[0]
-  if (!first) return
-  const match = directoryRoundForMessageIndex(first.index)
-  if (!match) return
-  activeDirectoryMessageId.value = match.round.userMessageId
-  keepDirectoryRoundVisible(match.index)
-}
-
-function resetDirectoryWindow({ preferLatest = true } = {}) {
-  const total = directoryRounds.value.length
-  directoryWindowStart.value = preferLatest ? Math.max(0, total - DIRECTORY_WINDOW_SIZE) : 0
-  const last = directoryRounds.value.at(-1)
-  activeDirectoryMessageId.value = last?.userMessageId || ''
-  directoryWindowPinned.value = false
-}
-
-function selectDirectoryRound(round) {
-  if (!round || !chatScrollRef.value) return
-  const currentIndex = currentMessages.value.findIndex(message => message.id === round.userMessageId)
-  if (currentIndex < 0) return
-  markProgrammaticScroll('smooth')
-  directoryWindowPinned.value = true
-  activeDirectoryMessageId.value = round.userMessageId
-  const roundIndex = directoryRounds.value.findIndex(item => item.userMessageId === round.userMessageId)
-  if (roundIndex >= 0) keepDirectoryRoundVisible(roundIndex)
-  rowVirtualizer.value.scrollToIndex(currentIndex, { align: 'start', behavior: 'smooth' })
-  userScrolledUp = true
-  showScrollBtn.value = true
-}
-
-async function showOlderDirectoryRounds() {
-  if (directoryLoadingOlder.value || loadingOlder.value) return
-  if (directoryWindowStart.value > 0) {
-    directoryWindowPinned.value = true
-    directoryWindowStart.value = Math.max(0, directoryWindowStart.value - DIRECTORY_WINDOW_SIZE)
-    return
-  }
-  if (!hasOlderMessages.value || !currentConvId.value) return
-  directoryWindowPinned.value = true
-  directoryLoadingOlder.value = true
-  const roundCountBeforeLoad = directoryRounds.value.length
-  try {
-    await loadOlderMessages()
-    await nextTick()
-    const addedRounds = Math.max(0, directoryRounds.value.length - roundCountBeforeLoad)
-    // The store prepends older messages. Show the newly fetched page closest to
-    // the previously visible history, then let the user continue paging upward.
-    directoryWindowStart.value = Math.max(0, addedRounds - DIRECTORY_WINDOW_SIZE)
-  } finally {
-    directoryLoadingOlder.value = false
-  }
-}
-
-function showNewerDirectoryRounds() {
-  directoryWindowPinned.value = true
-  directoryWindowStart.value = Math.min(
-    Math.max(0, directoryRounds.value.length - DIRECTORY_WINDOW_SIZE),
-    directoryWindowStart.value + DIRECTORY_WINDOW_SIZE,
-  )
-}
-
-// Smart scroll
-const BOTTOM_SCROLL_EPSILON = 1
-let userScrolledUp = false
-let userScrollSession = false
-let chatPointerDown = false
-let suppressScrollEventsUntil = 0
-
-function isAtChatBottom(el) {
-  return el.scrollHeight - el.scrollTop - el.clientHeight <= BOTTOM_SCROLL_EPSILON
-}
-
-function shouldIgnoreScrollEvent() {
-  return Date.now() < suppressScrollEventsUntil
-}
-function markProgrammaticScroll(behavior = 'auto') {
-  suppressScrollEventsUntil = Date.now() + (behavior === 'smooth' ? 700 : 160)
-}
-
-function pauseStreamingFollow() {
-  userScrolledUp = true
-  showScrollBtn.value = currentMessages.value.length > 0
-  cancelScheduledScrollToBottom()
-  cancelBottomSettle()
-}
-
-function onChatWheel(e) {
-  if (!e.deltaY) return
-  userScrollSession = true
-  if (e.deltaY < 0) pauseStreamingFollow()
-}
-
-function onChatPointerDown() {
-  chatPointerDown = true
-}
-
-function onChatPointerUp() {
-  chatPointerDown = false
-}
-
-function onChatKeydown(e) {
-  if (!['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End'].includes(e.key)) return
-  userScrollSession = true
-  if (e.key === 'ArrowUp' || e.key === 'PageUp' || e.key === 'Home') pauseStreamingFollow()
-}
-
-function onChatScroll(e) {
-  const el = e.target
-  if (chatPointerDown) userScrollSession = true
-  if (userScrollSession) {
-    const atBottom = isAtChatBottom(el)
-    userScrolledUp = !atBottom
-    showScrollBtn.value = !atBottom && currentMessages.value.length > 0
-    if (userScrolledUp) {
-      cancelScheduledScrollToBottom()
-      cancelBottomSettle()
-    }
-    else userScrollSession = false
-  }
-
-  // Keep respecting the user's position even while a programmatic scroll is
-  // settling. The suppression window only prevents directory-nav churn.
-  if (shouldIgnoreScrollEvent()) return
-  directoryWindowPinned.value = false
-  scheduleDirectorySync()
-}
-
-let pendingDirectorySyncFrame = 0
-function scheduleDirectorySync({ force = false } = {}) {
-  if (directoryWindowPinned.value && !force) return
-  if (pendingDirectorySyncFrame) return
-  pendingDirectorySyncFrame = requestAnimationFrame(() => {
-    pendingDirectorySyncFrame = 0
-    syncActiveDirectoryRound()
-  })
-}
 
 function estimateMessageHeight(message) {
   const contentLength = String(message?.content || '').length
@@ -763,6 +490,68 @@ const rowVirtualizer = useVirtualizer(computed(() => ({
   },
 })))
 
+// Scroll management
+function onScrollDirectorySync() {
+  directoryWindowPinned.value = false
+  scheduleDirectorySync()
+}
+function onScrollToBottomDirectory() {
+  directoryWindowPinned.value = false
+  const lastRound = directoryRounds.value.at(-1)
+  if (lastRound) {
+    activeDirectoryMessageId.value = lastRound.userMessageId
+    keepDirectoryRoundVisible(directoryRounds.value.length - 1)
+  }
+  scheduleDirectorySync()
+}
+
+const {
+  userScrolledUp, loadingOlder, showScrollBtn,
+  markProgrammaticScroll, pauseStreamingFollow,
+  onChatWheel, onChatPointerDown, onChatPointerUp, onChatKeydown, onChatScroll,
+  cancelScheduledScrollToBottom, cancelBottomSettle,
+  scrollToBottom, scheduleScrollToBottom, resumeStreamingFollow,
+  loadOlderMessages,
+} = useChatScroll({
+  chatScrollRef, rowVirtualizer,
+  currentMessages, currentConvId, convStore,
+  findVirtualAnchor, restoreVirtualAnchor,
+  onScrollDirectorySync, onScrollToBottomDirectory,
+})
+
+// Chat directory navigation
+function setUserScrolledUp(val) { userScrolledUp.value = val }
+
+const {
+  DIRECTORY_WINDOW_SIZE,
+  directoryWindowStart,
+  activeDirectoryMessageId,
+  directoryLoadingOlder,
+  directoryWindowPinned,
+  directoryRounds,
+  directoryQuestionCount,
+  directoryHasRounds,
+  directoryWindowEnd,
+  visibleDirectoryRounds,
+  directoryCanShowOlder,
+  directoryCanShowNewer,
+  directoryOlderLabel,
+  scheduleDirectorySync,
+  syncActiveDirectoryRound,
+  resetDirectoryWindow,
+  selectDirectoryRound,
+  showOlderDirectoryRounds,
+  showNewerDirectoryRounds,
+  keepDirectoryRoundVisible,
+} = useChatDirectory({
+  currentMessages, hasOlderMessages, currentConvId,
+  chatScrollRef, rowVirtualizer,
+  isMessageStreaming, currentStreamingState,
+  loadingOlder, loadOlderMessages,
+  markProgrammaticScroll, showScrollBtn,
+  setUserScrolledUp,
+})
+
 const totalVirtualHeight = computed(() => rowVirtualizer.value.getTotalSize())
 
 const visibleVirtualMessages = computed(() => rowVirtualizer.value.getVirtualItems().map(item => ({
@@ -796,57 +585,6 @@ function restoreVirtualAnchor(anchor, el = chatScrollRef.value) {
   return true
 }
 
-function clearConversationSwitchTimers() {
-  if (conversationSwitchFinishTimer) {
-    clearTimeout(conversationSwitchFinishTimer)
-    conversationSwitchFinishTimer = null
-  }
-  if (conversationSwitchMaxTimer) {
-    clearTimeout(conversationSwitchMaxTimer)
-    conversationSwitchMaxTimer = null
-  }
-}
-
-function hasConversationMessagesLoaded(convId) {
-  if (!convId) return true
-  return Object.prototype.hasOwnProperty.call(convStore.messages || {}, convId)
-}
-
-function finishConversationSwitch(token = conversationSwitchToken) {
-  if (token !== conversationSwitchToken) return
-  clearConversationSwitchTimers()
-  isConversationSwitching.value = false
-  switchingConvId.value = null
-}
-
-function finishConversationSwitchAfterMinimum(token = conversationSwitchToken) {
-  if (token !== conversationSwitchToken) return
-  const elapsed = Date.now() - conversationSwitchStartedAt
-  const wait = Math.max(0, CONVERSATION_SWITCH_MIN_MS - elapsed)
-  if (conversationSwitchFinishTimer) clearTimeout(conversationSwitchFinishTimer)
-  conversationSwitchFinishTimer = setTimeout(() => finishConversationSwitch(token), wait)
-}
-
-function startConversationSwitch(convId) {
-  if (!convId || currentConvId.value === convId) return
-  clearConversationSwitchTimers()
-  conversationSwitchToken += 1
-  const token = conversationSwitchToken
-  conversationSwitchStartedAt = Date.now()
-  switchingConvId.value = convId
-  isConversationSwitching.value = true
-  conversationSwitchMaxTimer = setTimeout(() => finishConversationSwitch(token), CONVERSATION_SWITCH_MAX_MS)
-}
-
-function switchToConversation(convId) {
-  startConversationSwitch(convId)
-  convStore.setCurrentConv(convId)
-}
-
-function isTabConversationSwitching(tabId) {
-  return isConversationSwitching.value && switchingConvId.value === tabId
-}
-
 let pendingMeasureFrame = 0
 function measureVisibleMessagesSoon() {
   if (pendingMeasureFrame) return
@@ -859,309 +597,6 @@ function measureVisibleMessagesSoon() {
 // Resize
 function onLeftResize(delta) { leftW.value = Math.min(380, Math.max(200, leftW.value + delta)) }
 function onRightResize(delta) { rightW.value = Math.min(500, Math.max(250, rightW.value + delta)) }
-
-function nextTabAccessAt() {
-  tabAccessSeq.value += 1
-  return Date.now() * 1000 + tabAccessSeq.value
-}
-
-function mostRecentlyAccessedTab() {
-  return [...tabs.value].sort((a, b) => (b.lastAccessed || 0) - (a.lastAccessed || 0))[0] || null
-}
-
-function evictLeastRecentlyAccessedTab() {
-  if (tabs.value.length < 5) return
-  let evictIndex = 0
-  let oldest = tabs.value[0]?.lastAccessed || 0
-  tabs.value.forEach((tab, index) => {
-    const accessAt = tab.lastAccessed || 0
-    if (accessAt < oldest) {
-      oldest = accessAt
-      evictIndex = index
-    }
-  })
-  tabs.value.splice(evictIndex, 1)
-}
-
-function scrollTabIntoView(tabId) {
-  nextTick(() => {
-    const scroller = tabScroller.value
-    if (!scroller) return
-    const tabEl = Array.from(scroller.querySelectorAll('[data-tab-id]'))
-      .find(el => el.dataset.tabId === tabId)
-    tabEl?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' })
-  })
-}
-
-// Tabs — max 5. Display order is stable; LRU is tracked separately.
-function addTab(conv) {
-  const existing = tabs.value.find(t => t.id === conv.id)
-  if (existing) {
-    existing.name = conv.title
-    existing.lastAccessed = nextTabAccessAt()
-    activeTabId.value = conv.id
-    switchToConversation(conv.id)
-    scrollTabIntoView(conv.id)
-    return
-  }
-  evictLeastRecentlyAccessedTab()
-  tabs.value.unshift({ id: conv.id, name: conv.title, lastAccessed: nextTabAccessAt() })
-  activeTabId.value = conv.id
-  switchToConversation(conv.id)
-  scrollTabIntoView(conv.id)
-}
-function activateTab(tabId) {
-  const tab = tabs.value.find(t => t.id === tabId)
-  if (tab) tab.lastAccessed = nextTabAccessAt()
-  activeTabId.value = tabId
-  switchToConversation(tabId)
-  scrollTabIntoView(tabId)
-}
-function closeTab(tabId) {
-  tabs.value = tabs.value.filter(t => t.id !== tabId)
-  if (activeTabId.value === tabId) {
-    if (tabs.value.length) {
-      const nextTab = mostRecentlyAccessedTab()
-      activeTabId.value = nextTab.id
-      switchToConversation(nextTab.id)
-      scrollTabIntoView(nextTab.id)
-    } else {
-      activeTabId.value = null
-    }
-  }
-}
-
-// Create conversation
-async function createChat(groupId) {
-  const conv = await convStore.createConv({
-    title: '新对话',
-    groupId: groupId || convStore.currentGroupId || 'default',
-  })
-  addTab(conv)
-}
-
-function selectConv(c) { addTab(c) }
-
-async function deleteConv(convId) {
-  await convStore.deleteConv(convId)
-  tabs.value = tabs.value.filter(t => t.id !== convId)
-  if (activeTabId.value === convId && tabs.value.length) {
-    const nextTab = mostRecentlyAccessedTab()
-    activeTabId.value = nextTab.id
-    switchToConversation(nextTab.id)
-    scrollTabIntoView(nextTab.id)
-  } else if (activeTabId.value === convId) {
-    activeTabId.value = null
-  }
-  msg.success('对话已删除')
-}
-
-function onConvRename(data) {
-  convStore.updateConv(data.id, { title: data.title })
-  const tab = tabs.value.find(t => t.id === data.id)
-  if (tab) tab.name = data.title
-  msg.success('对话已重命名')
-}
-
-function openConversationExport(conversationId) {
-  const conversation = conversations.value.find(item => item.id === conversationId)
-  if (!conversation) {
-    msg.error('对话不存在，无法导出')
-    return
-  }
-  exportTargetConversation.value = conversation
-  showConversationExport.value = true
-}
-
-function conversationForMessage(message) {
-  const conversationId = message?.conversationId || currentConvId.value
-  if (conversationId) return conversations.value.find(item => item.id === conversationId) || null
-  return currentConv.value
-}
-
-async function handleExportMessageMarkdown(message) {
-  if (!message?.id || exportingMessageId.value) return
-  if (message.role !== 'assistant' || message.status !== 'completed') {
-    msg.warning('只能导出已完成的 AI 消息')
-    return
-  }
-  const conversation = conversationForMessage(message)
-  if (!conversation) {
-    msg.error('对话不存在，无法导出')
-    return
-  }
-
-  exportingMessageId.value = message.id
-  try {
-    const exportedAt = new Date()
-    const title = deriveMessageExportTitle(message, conversation)
-    const markdown = buildSingleMessageMarkdown({ message, conversation })
-    const result = await saveTextFile({
-      title: '导出 Markdown',
-      defaultPath: sanitizeMessageMarkdownFileName(title, exportedAt),
-      filters: [{ name: 'Markdown', extensions: ['md'] }],
-      defaultExtension: 'md',
-      encoding: 'utf-8',
-    }, markdown)
-    if (result?.canceled) return
-    if (!result?.success) throw new Error(result?.error || 'EXPORT_WRITE_FAILED')
-    msg.success('Markdown 已导出')
-  } catch (error) {
-    console.error('[Workchat] Failed to export AI message:', error)
-    msg.error('Markdown 导出失败，请检查保存位置后重试')
-  } finally {
-    exportingMessageId.value = null
-  }
-}
-
-async function handleExportMessageWord(message) {
-  if (!message?.id || exportingMessageId.value) return
-  if (message.role !== 'assistant' || message.status !== 'completed') {
-    msg.warning('只能导出已完成的 AI 消息')
-    return
-  }
-  const conversation = conversationForMessage(message)
-  if (!conversation) {
-    msg.error('对话不存在，无法导出')
-    return
-  }
-
-  exportingMessageId.value = message.id
-  try {
-    const exportedAt = new Date()
-    const title = deriveMessageExportTitle(message, conversation)
-    const markdown = buildSingleMessageMarkdown({ message, conversation })
-    const result = await saveMarkdownDocx({
-      title: '导出 Word',
-      defaultPath: sanitizeMessageMarkdownFileName(title, exportedAt).replace(/\.md$/i, '.docx'),
-      filters: [{ name: 'Word 文档', extensions: ['docx'] }],
-      defaultExtension: 'docx',
-    }, markdown)
-    if (result?.canceled) return
-    if (!result?.success) throw new Error(result?.error || 'EXPORT_DOCX_FAILED')
-    msg.success('Word 已导出')
-  } catch (error) {
-    console.error('[Workchat] Failed to export AI message to Word:', error)
-    msg.error('Word 导出失败，请检查保存位置后重试')
-  } finally {
-    exportingMessageId.value = null
-  }
-}
-
-async function openSaveMessageToNote(message) {
-  if (!message?.id || savingMessageToNote.value) return
-  if (!settingsStore.isWorkspaceReady) {
-    msg.warning('请先在设置中配置授权根目录')
-    return
-  }
-  if (message.role !== 'assistant' || message.status !== 'completed') {
-    msg.warning('只能保存已完成的 AI 消息')
-    return
-  }
-  const conversation = conversationForMessage(message)
-  if (!conversation) {
-    msg.error('对话不存在，无法保存到笔记')
-    return
-  }
-
-  const sequence = ++noteTargetSequence
-  noteTargetMessage.value = message
-  noteTargetConversation.value = conversation
-  notePreviousUserMessage.value = null
-  notePreviousUserError.value = ''
-  saveMessageToNoteError.value = ''
-  notePreviousUserLoading.value = true
-  showSaveMessageToNote.value = true
-
-  try {
-    const api = window.electronAPI?.db?.msgs?.getPreviousUser
-    if (!api) throw new Error('PREVIOUS_USER_API_UNAVAILABLE')
-    const previous = await api(conversation.id, message.id)
-    if (sequence !== noteTargetSequence || !showSaveMessageToNote.value) return
-    notePreviousUserMessage.value = previous || null
-  } catch (error) {
-    if (sequence !== noteTargetSequence || !showSaveMessageToNote.value) return
-    const detail = String(error?.message || error || '')
-    if (detail.includes('SOURCE_MESSAGE_NOT_FOUND')) {
-      showSaveMessageToNote.value = false
-      msg.error('目标消息已不存在，无法保存到笔记')
-      return
-    }
-    console.error('[Workchat] Failed to find previous user message:', error)
-    notePreviousUserError.value = '读取对应用户提问失败'
-  } finally {
-    if (sequence === noteTargetSequence) notePreviousUserLoading.value = false
-  }
-}
-
-async function handleSaveMessageToNote({ title, folderId, includeUserPrompt }) {
-  if (savingMessageToNote.value || !noteTargetMessage.value || !noteTargetConversation.value) return
-  if (!settingsStore.isWorkspaceReady) {
-    saveMessageToNoteError.value = '请先在设置中配置授权根目录'
-    return
-  }
-  if (folderId && !notesStore.folders.some(folder => folder.id === folderId)) {
-    saveMessageToNoteError.value = '所选目录已不存在，请重新选择'
-    return
-  }
-
-  savingMessageToNote.value = true
-  saveMessageToNoteError.value = ''
-  try {
-    const getMessage = window.electronAPI?.db?.msgs?.get
-    if (!getMessage) throw new Error('MESSAGE_GET_API_UNAVAILABLE')
-    const currentMessage = await getMessage(noteTargetMessage.value.id)
-    if (
-      !currentMessage ||
-      currentMessage.conversationId !== noteTargetConversation.value.id ||
-      currentMessage.role !== 'assistant' ||
-      currentMessage.status !== 'completed'
-    ) {
-      showSaveMessageToNote.value = false
-      msg.error('目标消息已不存在，无法保存到笔记')
-      return
-    }
-    let currentUserMessage = null
-    if (includeUserPrompt) {
-      const getPreviousUser = window.electronAPI?.db?.msgs?.getPreviousUser
-      if (!getPreviousUser) throw new Error('PREVIOUS_USER_API_UNAVAILABLE')
-      currentUserMessage = await getPreviousUser(noteTargetConversation.value.id, currentMessage.id)
-      if (!currentUserMessage) throw new Error('PREVIOUS_USER_MESSAGE_NOT_FOUND')
-    }
-    const content = buildSingleMessageMarkdown({
-      message: currentMessage,
-      conversation: noteTargetConversation.value,
-      userMessage: currentUserMessage,
-      includeUserPrompt: !!includeUserPrompt,
-    })
-    const created = await notesStore.addNote({
-      folder_id: folderId || '',
-      title: title.trim(),
-      content,
-    })
-    showSaveMessageToNote.value = false
-    msg.success(`已保存到笔记：${created?.title || title.trim()}`)
-  } catch (error) {
-    console.error('[Workchat] Failed to save AI message to note:', error)
-    const detail = String(error?.message || error || '')
-    saveMessageToNoteError.value = detail.includes('PREVIOUS_USER_MESSAGE_NOT_FOUND')
-      ? '对应用户提问已不存在，请取消勾选后重试'
-      : '保存到笔记失败，请检查目录后重试'
-  } finally {
-    savingMessageToNote.value = false
-  }
-}
-
-watch(showSaveMessageToNote, (show) => {
-  if (show) return
-  noteTargetSequence += 1
-  noteTargetMessage.value = null
-  noteTargetConversation.value = null
-  notePreviousUserMessage.value = null
-  notePreviousUserLoading.value = false
-  notePreviousUserError.value = ''
-  saveMessageToNoteError.value = ''
-})
 
 function branchErrorMessage(error) {
   const message = String(error?.message || error || '')
@@ -1379,20 +814,21 @@ async function sendMessage(payload) {
   clearCtxItems()
   const inputDocument = Array.isArray(payload?.inputDocument) ? payload.inputDocument : []
   const resolvedContent = String(payload?.resolvedContent || trimmed).trim()
-  userScrolledUp = false
+  userScrolledUp.value = false
   showScrollBtn.value = false
   await nextTick()
   scrollToBottom('auto')
-  await agentRuntime.startChat({
-    convId,
-    userText: trimmed,
-    resolvedContent,
-    inputDocument,
-  agentId: selectedAgent.value?.id || '',
-    ctxItems,
-    wikiContext: wikiContext.value,
-    cloudContext: buildCloudContext(ctxItems),
-  })
+ await agentRuntime.startChat({
+   convId,
+   userText: trimmed,
+   resolvedContent,
+   inputDocument,
+ agentId: selectedAgent.value?.id || '',
+   ctxItems,
+   wikiContext: wikiContext.value,
+   cloudContext: buildCloudContext(ctxItems),
+   thinkingIntensity: payload?.thinkingIntensity || 'auto',
+ })
 }
 
 function cancelChat() { agentRuntime.cancel(currentConvId.value) }
@@ -1428,280 +864,6 @@ function handleBuiltinTool(tool) {
   }
 }
 
-function providerInfoFromModelRef(modelRef) {
-  const parsed = parseModelRef(modelRef)
-  if (!parsed.modelId) return null
-
-  const modelUsable = m => m?.enabled && m?.tier !== 'embedding'
-  if (parsed.scoped) {
-    const provider = settingsStore.providers.find(p => p.id === parsed.providerId && p.enabled && providerConfigured(p))
-    const model = provider?.models?.find(m => m.id === parsed.modelId && modelUsable(m))
-    return provider && model
-      ? { providerId: provider.id, apiFormat: providerApiFormat(provider), apiKey: provider.apiKey, baseUrl: provider.baseUrl, model: model.id, modelCtx: model.ctx || model.context_window || model.contextWindow || '', modelHasVision: !!model.capabilities?.vision }
-      : null
-  }
-
-  for (const provider of settingsStore.providers) {
-    if (!provider.enabled || !providerConfigured(provider)) continue
-    const model = provider.models?.find(m => m.id === parsed.modelId && modelUsable(m))
-    if (model) return { providerId: provider.id, apiFormat: providerApiFormat(provider), apiKey: provider.apiKey, baseUrl: provider.baseUrl, model: model.id, modelCtx: model.ctx || model.context_window || model.contextWindow || '', modelHasVision: !!model.capabilities?.vision }
-  }
-  return null
-}
-
-function resolveGenerationProviderInfo() {
-  const refs = [
-    settingsStore.defaultModels?.agent,
-    settingsStore.defaultModels?.chat,
-    settingsStore.defaultModels?.skill,
-  ].filter(Boolean)
-
-  for (const ref of refs) {
-    const info = providerInfoFromModelRef(ref)
-    if (info) return info
-  }
-
-  for (const provider of settingsStore.providers) {
-    if (!provider.enabled || !providerConfigured(provider)) continue
-    const model = provider.models?.find(m => m.enabled && m.tier !== 'embedding')
-    if (model) return { providerId: provider.id, apiFormat: providerApiFormat(provider), apiKey: provider.apiKey, baseUrl: provider.baseUrl, model: model.id, modelCtx: model.ctx || model.context_window || model.contextWindow || '', modelHasVision: !!model.capabilities?.vision }
-  }
-  return null
-}
-
-function resolveVisionProviderInfo() {
-  const info = providerInfoFromModelRef(settingsStore.defaultModels?.vision)
-  return info?.modelHasVision ? info : null
-}
-
-function providerConfigured(provider) {
-  return settingsStore.providerConfigured
-    ? settingsStore.providerConfigured(provider)
-    : !!(provider?.baseUrl && provider.apiKey)
-}
-
-function providerApiFormat(provider) {
-  return provider?.apiFormat || (provider?.id === 'anthropic' ? 'anthropic' : 'openai')
-}
-
-function cloneToolProviderConfigs() {
-  try {
-    return JSON.parse(JSON.stringify(agentsStore.toolProviderConfigMap || {}))
-  } catch (_) {
-    return {}
-  }
-}
-
-function normalizeGenerationWebSearch(params = {}) {
-  const raw = params?.webSearch
-  if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
-    return { enabled: raw.enabled === true, provider: raw.provider || 'auto' }
-  }
-  return {
-    enabled: params?.enableWebSearch === true || params?.enable_web_search === true,
-    provider: 'auto',
-  }
-}
-
-function resolveCloudBaseUrl() {
-  const envBase = import.meta.env.VITE_CLOUD_BASE_URL
-  if (envBase) return envBase
-  if (import.meta.env.DEV) return 'http://localhost:8000'
-  if (BASE_URL) return BASE_URL
-  if (typeof window !== 'undefined' && /^https?:/i.test(window.location.origin)) return window.location.origin
-  return ''
-}
-
-function normalizePptOutputFormat(format) {
-  return String(format || '').includes('pptx') ? 'pptx' : 'html'
-}
-
-function buildCloudContext(ctxItems) {
-  if (!kbEnabled.value) return {}
-  const defaultKbIds = new Set()
-  const defaultDocIds = new Set()
-  for (const item of ctxItems || []) {
-    if (item?.type === 'cloud_kb' && item.kbId) {
-      defaultKbIds.add(item.kbId)
-    } else if (item?.type === 'cloud_doc') {
-      if (item.kbId) defaultKbIds.add(item.kbId)
-      if (item.docId) defaultDocIds.add(item.docId)
-    }
-  }
-  return {
-    baseUrl: resolveCloudBaseUrl(),
-    token: userStore.token || '',
-    defaultKbIds: [...defaultKbIds],
-    defaultDocIds: [...defaultDocIds],
-    activeSourceId: activeSourceInfo.value?.type === 'mcp' ? '' : (activeSourceId.value || activeExternalKb.value?.sourceId || ''),
-    externalKbId: activeExternalKb.value?.kbId || '',
-  }
-}
-
-// Handle modal submit for background generation tasks
-async function handleGenTaskSubmit(payload) {
-  const { toolId, mode } = payload || {}
-  // Close the corresponding modal
-  if (toolId === 'mindmap') showMindmapModal.value = false
-  else if (toolId === 'graph') showGraphModal.value = false
-  else if (toolId === 'flashcard') showFlashcardModal.value = false
-  else if (toolId === 'studycard') showStudyCardModal.value = false
-  else if (toolId === 'qa') showQaModal.value = false
-  else if (toolId === 'glossary') showGlossaryModal.value = false
-  else if (toolId === 'cheatsheet') showCheatsheetModal.value = false
-  else if (toolId === 'quiz') showQuizModal.value = false
-  else if (toolId === 'chart') showChartModal.value = false
-  else if (toolId === 'podcast') showPodcastModal.value = false
-
-  else if (toolId === 'studyguide') showStudyguideModal.value = false
-  else if (toolId === 'research') showResearchModal.value = false
-  else if (toolId === 'ppt') showPptModal.value = false
-
-  if (!window.electronAPI?.genTasks?.create) {
-    msg.error('生成服务未就绪')
-    return
-  }
-
-  if (mode === 'cloud' && !userStore.token) {
-    msg.error('请先登录云端账号')
-    return
-  }
-
-  const providerInfo = resolveGenerationProviderInfo()
-
-  if (mode === 'local' && !providerInfo) {
-    msg.error('请先在设置中配置可用的默认模型 Provider')
-    return
-  }
-
-  const ctxSnapshot = JSON.parse(JSON.stringify(currentCtxItems.value || []))
-  const needsTopicOrSource = ['mindmap', 'graph', 'flashcard', 'quiz', 'chart', 'qa', 'glossary', 'cheatsheet', 'studycard'].includes(toolId)
-  if (needsTopicOrSource && !String(payload.topic || '').trim() && !readableGenerationContexts(ctxSnapshot).length && !selectedWikiRefs.value.length) {
-    msg.warning('请填写主题，或选择具体文件、知识库或 Wiki')
-    return
-  }
-
-  const webSearch = normalizeGenerationWebSearch(payload.params || {})
-
-  const req = {
-    toolId,
-    mode,
-    topic: payload.topic || '',
-    params: payload.params || {},
-    groupId: currentGroupId.value,
-    conversationId: currentConvId.value || '',
-    ctxItems: ctxSnapshot,
-    wikiContext: { enabled: selectedWikiRefs.value.length > 0, mode: 'selected', wikiIds: [...selectedWikiIds.value] },
-    sourceScope: {
-      wikiIds: [...selectedWikiIds.value],
-      wikiRefs: JSON.parse(JSON.stringify(selectedWikiRefs.value)),
-      web: webSearch,
-    },
-    toolProviderConfigs: cloneToolProviderConfigs(),
-    cloudContext: buildCloudContext(ctxSnapshot),
-    visionModel: resolveVisionProviderInfo(),
-    ...(providerInfo || {}),
-  }
-
-  const res = await window.electronAPI.genTasks.create(req)
-  if (!res?.success) {
-    msg.error(res?.error || '任务创建失败')
-    return
-  }
-
-  // Notify right-panel to refresh task list
-  window.dispatchEvent(new CustomEvent('reviva:gen-task-created', { detail: res.task }))
-  msg.success(`已开始生成${{ mindmap: '思维导图', graph: '知识图谱', flashcard: '闪卡', studycard: '知识卡片', quiz: '测验', chart: '图表', qa: 'Q&A 问答卡', glossary: '术语表', cheatsheet: '速查表', podcast: '播客', research: '深度研究', ppt: 'PPT', studyguide: '学习指南' }[toolId] || ''}`)
-}
-
-async function handleResearchStart({ requirement, settings }) {
-  const ctxItems = currentCtxItems.value
-  const sourceItems = [...ctxItems, ...selectedWikiRefs.value]
-  const fileNames = sourceItems.map(i => i.name || i.path).join('、')
-  const mode = settings?.mode === 'cloud' ? 'cloud' : 'local'
-  if (mode === 'local' && !sourceItems.length) {
-    msg.warning('请先选择要研究的文件、文件夹、知识库或 Wiki')
-    return
-  }
-  await handleGenTaskSubmit({
-    toolId: 'research',
-    mode,
-    topic: requirement || `请对以下资料进行深度研究分析：${fileNames}`,
-    params: mode === 'cloud'
-      ? {
-          outputFormats: ['markdown', 'html'],
-          detailLevel: 'standard',
-          language: 'zh-CN',
-          enable_web_search: settings?.enableWebSearch !== false,
-        }
-      : {
-          outputFormats: ['md', 'html'],
-          enable_web_search: settings?.enableWebSearch !== false,
-        },
-  })
-}
-
-async function handleStudyguideStart({ requirement, guideType, settings }) {
-  const ctxItems = currentCtxItems.value
-  const sourceItems = [...ctxItems, ...selectedWikiRefs.value]
-  const fileNames = sourceItems.map(i => i.name || i.path).join('、')
-  const mode = settings?.mode === 'cloud' ? 'cloud' : 'local'
-  if (mode === 'local' && !sourceItems.length) {
-    msg.warning('请先选择要学习的文件、文件夹、知识库或 Wiki')
-    return
-  }
-  await handleGenTaskSubmit({
-    toolId: 'studyguide',
-    mode,
-    topic: requirement || `请根据以下资料生成学习指南：${fileNames}`,
-    params: mode === 'cloud'
-      ? {
-          outputFormats: ['markdown', 'html'],
-          guideType: guideType || 'comprehensive',
-          detailLevel: 'standard',
-          language: 'zh-CN',
-          enable_web_search: settings?.enableWebSearch !== false,
-        }
-      : {
-          outputFormats: ['md', 'html'],
-          guideType: guideType || 'comprehensive',
-          enable_web_search: settings?.enableWebSearch !== false,
-        },
-  })
-}
-
-async function handlePptStart({ requirement, settings }) {
-  const ctxItems = currentCtxItems.value
-  const sourceItems = [...ctxItems, ...selectedWikiRefs.value]
-  const fileNames = sourceItems.map(i => i.name || i.path).join('、')
-  const mode = settings?.mode === 'cloud' ? 'cloud' : 'local'
-  const outputFormat = normalizePptOutputFormat(settings?.format)
-  if (mode === 'local' && !sourceItems.length) {
-    msg.warning('请先选择要处理的文件、文件夹、知识库或 Wiki')
-    return
-  }
-  await handleGenTaskSubmit({
-    toolId: 'ppt',
-    mode,
-    topic: requirement || `请根据以下资料生成演示文稿：${fileNames}`,
-    params: mode === 'cloud'
-      ? {
-          scene: settings?.scene || 'auto',
-          outputFormat,
-          pages: settings?.pages || 12,
-          stylePreset: settings?.stylePreset || 'auto',
-          customPrompt: settings?.customPrompt || '',
-          enable_web_search: !!settings?.enableWebSearch,
-        }
-      : {
-          scene: settings?.scene || 'auto',
-          format: outputFormat === 'pptx' ? 'pptx-local' : 'html',
-          pages: settings?.pages || 12,
-          enable_web_search: !!settings?.enableWebSearch,
-        },
-  })
-}
-
 // Compress context
 async function compressContext() {
   const convId = currentConvId.value
@@ -1721,7 +883,7 @@ function handleRetry(msgId) {
     msg.warning('当前对话正在生成，请等待完成或先停止任务')
     return
   }
-  agentRuntime.retryMessage(currentConvId.value, msgId)
+agentRuntime.retryMessage(currentConvId.value, msgId, undefined, settingsStore.chatThinkingIntensity || 'auto')
 }
 
 function handleCopy() {
@@ -1774,223 +936,10 @@ async function handleSaveEdit({ msgId, content, inputDocument, resolvedContent }
     delete nextMeta.resolvedContent
   }
   await convStore.updateMessage(convId, userMsg.id, { content, meta: nextMeta })
-  await agentRuntime.retryMessage(convId, userMsg.id)
+  await agentRuntime.retryMessage(convId, userMsg.id, undefined, settingsStore.chatThinkingIntensity || 'auto')
 }
 
 // Preview file
-function handlePreviewFile(file) {
-  if (!file) { previewFile.value = null; return }
-  const normalizedPath = normalizeFilePath(file.path)
-  const normalizedName = normalizeFilePath(file.name || normalizedPath.split(/[\\/]/).pop() || '')
-  const normalizedFile = { ...file, path: normalizedPath, name: normalizedName }
-  previewFile.value = normalizedFile
-  if (normalizedFile.path && window.electronAPI?.readFile) {
-    const ext = (normalizedFile.name || normalizedFile.path).split('.').pop().toLowerCase()
-    const textExts = [
-      'md', 'markdown', 'txt', 'json', 'js', 'ts', 'jsx', 'tsx', 'vue', 'css', 'scss', 'less',
-      'py', 'rb', 'go', 'rs', 'java', 'kt', 'swift', 'c', 'cpp', 'h', 'hpp', 'cs', 'php',
-      'sh', 'bash', 'zsh', 'fish', 'bat', 'ps1',
-      'yaml', 'yml', 'toml', 'xml', 'html', 'htm', 'svg', 'sql', 'graphql', 'proto',
-      'ini', 'cfg', 'conf', 'env', 'gitignore', 'editorconfig', 'dockerfile',
-      'log', 'csv', 'tsv', 'diff', 'patch',
-    ]
-    if (textExts.includes(ext) || (!ext && file.name?.startsWith('.'))) {
-      window.electronAPI.readFile(normalizedFile.path).then(res => {
-        if (res?.success) {
-          previewFile.value = { ...previewFile.value, content: res.data }
-        } else {
-          previewFile.value = { ...previewFile.value, content: '', error: res?.error || '读取失败' }
-        }
-      }).catch(err => {
-        previewFile.value = { ...previewFile.value, content: '', error: err.message }
-      })
-    }
-  }
-  if (!rightOpen.value) rightOpen.value = true
-}
-
-async function persistMessageMedia(messageId, file, patch) {
-  const conversationMessages = convStore.messages[currentConvId.value] || []
-  const matches = item => item?.id === file?.id || (!!item?.path && item.path === file?.path)
-  const message = conversationMessages.find(item => item.id === messageId)
-    || conversationMessages.find(item => (item.meta?.attachments || []).some(matches))
-  if (!message?.meta) return
-  const updateItems = items => (items || []).map(item => matches(item) ? { ...item, ...patch } : item)
-  await convStore.updateMessage(currentConvId.value, message.id, {
-    meta: {
-      ...message.meta,
-      ctx: updateItems(message.meta.ctx),
-      attachments: updateItems(message.meta.attachments),
-    },
-  })
-}
-
-async function resolveWorkchatMedia(file, messageId = '') {
-  if (!file) return null
-  if (file.mediaId) return { success: true, source: { id: file.mediaId, mediaType: file.mediaType || '' } }
-  const message = (convStore.messages[currentConvId.value] || []).find(item => item.id === messageId)
-    || (convStore.messages[currentConvId.value] || []).find(item => (item.meta?.attachments || []).some(attachment => attachment?.id === file?.id || (!!attachment?.path && attachment.path === file?.path)))
-  const owner = { type: 'message', id: message?.id || messageId || currentConvId.value || '', locator: file.id || file.path || file.name || 'attachment' }
-  let result = null
-  if (/\.media\.md$/i.test(String(file.name || file.path || '')) && file.path) {
-    const resolved = await window.electronAPI?.media?.resolveOwner?.({ type: 'docs_file', id: '', locator: file.path })
-    if (resolved?.success && resolved.found) {
-      await window.electronAPI?.media?.attachOwner?.(resolved.source.id, owner)
-      result = { success: true, source: resolved.source }
-    }
-  } else if (file.path) {
-    result = await window.electronAPI?.media?.register?.({
-      path: file.path,
-      sourceType: file.source === 'docs' ? 'document_upload' : 'attachment',
-      title: file.name || '',
-      owner,
-    })
-  }
-  if (result?.success && result.source?.id) {
-    const patch = {
-      mediaId: result.source.id,
-      mediaType: result.source.mediaType || result.source.media_type || (/\.(mp3|m4a|aac|wav|flac|ogg|opus)$/i.test(file.name || file.path || '') ? 'audio' : 'video'),
-    }
-    Object.assign(file, patch)
-    await persistMessageMedia(message?.id || messageId, file, patch)
-  }
-  return result
-}
-
-async function openWorkchatMediaDetail(payload) {
-  const file = payload?.file || payload
-  const messageId = payload?.messageId || ''
-  const result = await resolveWorkchatMedia(file, messageId)
-  if (!result?.success || !result.source?.id) {
-    msg.error(result?.message || '媒体登记失败，暂时无法打开解析详情')
-    return
-  }
-  mediaDetailItem.value = {
-    ...file,
-    mediaId: result.source.id,
-    mediaType: file.mediaType || result.source.mediaType || result.source.media_type || 'video',
-  }
-  showMediaDetail.value = true
-}
-
-async function reanalyzeWorkchatMedia(item) {
-  if (!item?.mediaId) return
-  const settings = await window.electronAPI?.db?.settings?.get?.('pdfReadStrategy') || {}
-  const result = await window.electronAPI?.media?.analyze?.(item.mediaId, {
-    presetId: settings.mediaPreset || 'subtitle_first',
-    language: settings.mediaPreferredLanguage === 'auto' ? '' : (settings.mediaPreferredLanguage || ''),
-    providerId: settings.mediaProviderId || 'auto',
-    modelRef: settings.mediaModelRef || '',
-    preferSubtitle: settings.mediaPreferSubtitle !== false,
-    extractKeyframes: settings.mediaExtractKeyframes === true,
-    keyframeLimit: settings.mediaKeyframeLimit || 12,
-  })
-  if (!result?.success) msg.error(result?.message || '媒体解析任务创建失败')
-  else msg.success('媒体解析任务已创建')
-}
-
-// Scroll
-let pendingScrollFrame = 0
-let pendingBottomSettleFrame = 0
-
-function cancelScheduledScrollToBottom() {
-  if (!pendingScrollFrame) return
-  cancelAnimationFrame(pendingScrollFrame)
-  pendingScrollFrame = 0
-}
-
-function cancelBottomSettle() {
-  if (!pendingBottomSettleFrame) return
-  cancelAnimationFrame(pendingBottomSettleFrame)
-  pendingBottomSettleFrame = 0
-}
-
-function scrollElementToBottom(el, behavior = 'auto') {
-  const bottom = Math.max(0, el.scrollHeight - el.clientHeight)
-  if (behavior === 'smooth') el.scrollTo({ top: bottom, behavior })
-  else if (bottom > el.scrollTop + BOTTOM_SCROLL_EPSILON) el.scrollTop = bottom
-}
-
-function settleAtBottom() {
-  cancelBottomSettle()
-  let remainingFrames = 2
-  const settle = () => {
-    pendingBottomSettleFrame = 0
-    const el = chatScrollRef.value
-    if (!el || userScrolledUp) return
-    scrollElementToBottom(el)
-    remainingFrames -= 1
-    if (remainingFrames > 0) pendingBottomSettleFrame = requestAnimationFrame(settle)
-  }
-  pendingBottomSettleFrame = requestAnimationFrame(settle)
-}
-
-function scrollToBottom(behavior = 'auto') {
-  const el = chatScrollRef.value
-  if (!el || !currentMessages.value.length) return
-  cancelBottomSettle()
-  markProgrammaticScroll(behavior)
-  userScrolledUp = false
-  userScrollSession = false
-  showScrollBtn.value = false
-  // Avoid Virtualizer's scrollToIndex reconciliation loop while a streamed
-  // message keeps changing height. The scroll container is the single owner.
-  scrollElementToBottom(el, behavior)
-  if (behavior !== 'smooth') settleAtBottom()
-  directoryWindowPinned.value = false
-  const lastRound = directoryRounds.value.at(-1)
-  if (lastRound) {
-    activeDirectoryMessageId.value = lastRound.userMessageId
-    keepDirectoryRoundVisible(directoryRounds.value.length - 1)
-  }
-  scheduleDirectorySync()
-}
-
-function followStreamingToBottom() {
-  const el = chatScrollRef.value
-  if (!el || userScrolledUp) return
-
-  // During streaming, move only forward to the newest rendered edge.
-  scrollElementToBottom(el)
-  userScrolledUp = false
-  showScrollBtn.value = false
-}
-
-function scheduleScrollToBottom({ force = false, behavior = 'auto' } = {}) {
-  if (!force && userScrolledUp) return
-  if (pendingScrollFrame) return
-  pendingScrollFrame = requestAnimationFrame(() => {
-    pendingScrollFrame = 0
-    // A user scroll may have happened after this frame was queued.
-    if (!force && userScrolledUp) return
-    if (force) scrollToBottom(behavior)
-    else followStreamingToBottom()
-  })
-}
-
-function resumeStreamingFollow() {
-  userScrolledUp = false
-  userScrollSession = false
-  showScrollBtn.value = false
-  scrollToBottom('smooth')
-}
-
-// Load older messages with ScrollLoader
-async function loadOlderMessages() {
-  if (loadingOlder.value) return
-  loadingOlder.value = true
-  const el = chatScrollRef.value || document.getElementById('chat-scroll')
-  const anchor = findVirtualAnchor(el)
-  try {
-    await convStore.loadMoreMessages(currentConvId.value)
-    await nextTick()
-    rowVirtualizer.value.measure()
-    restoreVirtualAnchor(anchor, el)
-  } finally {
-    loadingOlder.value = false
-  }
-}
-
 // Auth handlers (updated for new AuthCard API with allowSession)
 function handleAuthApprove(data) {
   agentRuntime.respondAuth(data.requestId, true)
@@ -2003,8 +952,6 @@ function handleAuthDeny(data) {
 
 onMounted(() => {
   window.addEventListener('mindspace:workchat-toggle-panel', handleShortcutPanelToggle)
-  window.addEventListener('mindspace:workchat-activate-conversation', handleShortcutConversationActivate)
-  ensureConversationTab(currentConvId.value)
   agentRuntime.registerListeners()
   wikiStore.loadWikis?.().catch(() => {})
   // Load active source from backend so kb_search tool is available even before
@@ -2031,15 +978,10 @@ watch(availableWikis, (items) => {
 
 onBeforeUnmount(() => {
   window.removeEventListener('mindspace:workchat-toggle-panel', handleShortcutPanelToggle)
-  window.removeEventListener('mindspace:workchat-activate-conversation', handleShortcutConversationActivate)
   if (_liveTimer) { clearInterval(_liveTimer); _liveTimer = null }
-  clearConversationSwitchTimers()
-  cancelScheduledScrollToBottom()
-  cancelBottomSettle()
   detachedTailResizeObserver?.disconnect()
   detachedTailResizeObserver = null
   observedDetachedTail = null
-  if (pendingDirectorySyncFrame) cancelAnimationFrame(pendingDirectorySyncFrame)
 })
 
 // Smart auto-scroll during streaming
@@ -2061,7 +1003,7 @@ watch(() => [
 
 watch(currentConvId, () => {
   ensureConversationTab(currentConvId.value)
-  userScrolledUp = false
+  userScrolledUp.value = false
   showScrollBtn.value = false
   directoryWindowStart.value = 0
   activeDirectoryMessageId.value = ''
@@ -2071,17 +1013,6 @@ watch(currentConvId, () => {
     scrollToBottom('auto')
   })
 })
-
-watch(() => [
-  currentConvId.value,
-  hasConversationMessagesLoaded(currentConvId.value),
-], () => {
-  if (!isConversationSwitching.value) return
-  if (switchingConvId.value && currentConvId.value !== switchingConvId.value) return
-  if (hasConversationMessagesLoaded(currentConvId.value)) {
-    nextTick(() => finishConversationSwitchAfterMinimum())
-  }
-}, { flush: 'post' })
 
 watch(() => currentMessages.value.map(m => m.id).join('|'), () => {
   nextTick(measureVisibleMessagesSoon)
@@ -2100,32 +1031,6 @@ watch(() => currentMessages.value.map(m => m.id).join('|'), () => {
   })
 })
 
-// Typewriter title animation — triggered by titleAnimation signal from AgentRuntime
-const typewriterTitles = ref({}) // { convId: displayedTitle } for tab bar
-
-watch(() => convStore.titleAnimation, (anim, old) => {
-  if (!anim || anim === old) return
-  const { convId, newTitle } = anim
-  const tab = tabs.value.find(t => t.id === convId)
-  animateTitle(convId, newTitle, tab)
-  convStore.titleAnimation = null
-}, { flush: 'sync' })
-
-function animateTitle(convId, targetTitle, tab) {
-  convStore.titleTypewriterMap[convId] = ''
-  let idx = 0
-  const interval = setInterval(() => {
-    idx++
-    const partial = targetTitle.slice(0, idx)
-    convStore.titleTypewriterMap[convId] = partial
-    if (tab) tab.name = partial
-    if (idx >= targetTitle.length) {
-      clearInterval(interval)
-      if (tab) tab.name = targetTitle
-      delete convStore.titleTypewriterMap[convId]
-    }
-  }, 60)
-}
 </script>
 
 <template>
@@ -2143,9 +1048,7 @@ function animateTitle(convId, targetTitle, tab) {
           <div class="flex">
             <button @click="leftTab = 'conv'"
               class="flex-1 h-[36px] flex flex-col items-center justify-center gap-0.5 text-[14px] font-medium transition-colors"
-              :class="leftTab === 'conv'
-                ? (isDark ? 'text-wt-main' : 'text-lt-main')
-                : (isDark ? 'text-wt-aux hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub')">
+              :class="tabClass('conv')">
               <span class="flex items-center gap-1.5">
                 <i class="ri-message-ai-3-line text-[14px]" />对话
               </span>
@@ -2153,9 +1056,7 @@ function animateTitle(convId, targetTitle, tab) {
             </button>
             <button @click="leftTab = 'docs'"
               class="flex-1 h-[36px] flex flex-col items-center justify-center gap-0.5 text-[14px] font-medium transition-colors"
-              :class="leftTab === 'docs'
-                ? (isDark ? 'text-wt-main' : 'text-lt-main')
-                : (isDark ? 'text-wt-aux hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub')">
+              :class="tabClass('docs')">
               <span class="flex items-center gap-1.5">
                 <i class="ri-folder-2-line text-[14px]" />文档
               </span>
@@ -2163,9 +1064,7 @@ function animateTitle(convId, targetTitle, tab) {
             </button>
             <button @click="leftTab = 'kb'"
               class="flex-1 h-[36px] flex flex-col items-center justify-center gap-0.5 text-[14px] font-medium transition-colors"
-              :class="leftTab === 'kb'
-                ? (isDark ? 'text-wt-main' : 'text-lt-main')
-                : (isDark ? 'text-wt-aux hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub')">
+              :class="tabClass('kb')">
               <span class="flex items-center gap-1.5">
                 <i class="ri-database-2-line text-[14px]" />知识库
               </span>

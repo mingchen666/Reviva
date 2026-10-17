@@ -28,7 +28,7 @@ const shortcuts = computed(() => [
     <div class="text-center max-w-[280px]">
       <i class="ri-chat-new-line text-[36px] mb-4" :class="isDark ? 'text-brand-400/40' : 'text-brand-500/40'" />
       <p class="text-[15px] font-medium" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">开始一段新对话</p>
-      <p class="text-[12px] mt-2 leading-relaxed">选择智能体，输入你的问题，开启学习之旅</p>
+      <p class="text-[12px] mt-2 leading-relaxed">选择Agent智能体，输入你的问题，开启学习之旅~</p>
       <!-- Agent suggestion cards -->
       <div v-if="suggestedAgents.length" class="mt-4 flex flex-col gap-2">
         <button v-for="agent in suggestedAgents" :key="agent.id"
@@ -50,9 +50,9 @@ const shortcuts = computed(() => [
         </button>
       </div>
       <button @click="emit('create-conv')"
-        class="mt-3 h-8 px-5 rounded-lg text-[12px] font-medium flex items-center gap-1.5 transition-colors mx-auto"
+        class="mt-3 h-8 px-5 rounded-lg text-[12.5px] font-medium flex items-center gap-1.5 transition-colors mx-auto"
         :class="isDark ? 'bg-brand-400/15 text-brand-400 hover:bg-brand-400/25' : 'bg-brand-50 text-brand-500 hover:bg-brand-100'">
-        <i class="ri-add-line text-[12px]" /> 新建对话
+        <i class="ri-add-line text-[16px]" /> 新建对话
       </button>
       <!-- Keyboard shortcuts -->
       <div class="mt-4 flex items-center justify-center gap-4 text-[10px]"
@@ -69,10 +69,10 @@ const shortcuts = computed(() => [
   <!-- Has conversation but no messages -->
   <div v-else class="flex-1 flex items-center justify-center"
     :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">
-    <div class="text-center max-w-[240px]">
+    <div class="text-center max-w-[280px]">
       <i class="ri-chat-smile-2-line text-[32px] mb-3" :class="isDark ? 'text-agent-400/40' : 'text-agent-500/40'" />
       <p class="text-[14px] font-medium" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">开始对话</p>
-      <p class="text-[12px] mt-1">请这输入框选择 @Agent 智能体，再输入问题</p>
+      <p class="text-[12px] mt-1">请在输入框选择 @Agent 智能体，输入你的问题，开启学习之旅~</p>
       <!-- Agent suggestion -->
       <div v-if="suggestedAgents.length" class="mt-3 flex flex-col gap-2">
         <button v-for="agent in suggestedAgents" :key="agent.id"

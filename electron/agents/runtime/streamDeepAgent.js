@@ -2,6 +2,74 @@ import { ToolMessage } from '@langchain/core/messages'
 import { UNLIMITED_RECURSION_LIMIT } from './constants.js'
 import { normalizeTodos } from '../messages/messageAdapters.js'
 
+class ThinkingStreamParser {
+  constructor() {
+    this.mode = 'content'
+    this.buffer = ''
+  }
+
+ feed(text) {
+   if (!text) return []
+   this.buffer += text
+   const segments = []
+    const openTag = '<think'
+    const closeTag = '</think>'
+
+   while (this.buffer) {
+     if (this.mode === 'content') {
+       const idx = this.buffer.indexOf(openTag)
+       if (idx === -1) {
+         const partial = this._partialMatch(this.buffer, openTag)
+         if (partial > 0 && this.buffer.length > partial) {
+           segments.push({ type: 'content', text: this.buffer.slice(0, -partial) })
+           this.buffer = this.buffer.slice(-partial)
+         } else if (partial === 0) {
+           segments.push({ type: 'content', text: this.buffer })
+           this.buffer = ''
+         }
+         break
+       }
+       if (idx > 0) segments.push({ type: 'content', text: this.buffer.slice(0, idx) })
+       this.buffer = this.buffer.slice(idx + openTag.length)
+       this.mode = 'thinking'
+     } else {
+        const closeIdx = this.buffer.indexOf(closeTag)
+
+       if (closeIdx === -1) {
+          const partial = this._partialMatch(this.buffer, closeTag)
+         if (partial > 0 && this.buffer.length > partial) {
+           segments.push({ type: 'think', text: this.buffer.slice(0, -partial) })
+           this.buffer = this.buffer.slice(-partial)
+         } else if (partial === 0) {
+           segments.push({ type: 'think', text: this.buffer })
+           this.buffer = ''
+         }
+         break
+       }
+       if (closeIdx > 0) segments.push({ type: 'think', text: this.buffer.slice(0, closeIdx) })
+        this.buffer = this.buffer.slice(closeIdx + closeTag.length)
+       this.mode = 'content'
+     }
+   }
+   return segments
+ }
+
+  flush() {
+    if (!this.buffer) return []
+    const seg = { type: this.mode, text: this.buffer }
+    this.buffer = ''
+    this.mode = 'content'
+    return [seg]
+  }
+
+  _partialMatch(text, tag) {
+    for (let i = Math.min(text.length, tag.length - 1); i > 0; i--) {
+      if (text.endsWith(tag.slice(0, i))) return i
+    }
+    return 0
+  }
+}
+
 function extractMessageText(message) {
   if (!message) return ''
   if (typeof message.text === 'string' && message.text) return message.text
@@ -27,10 +95,11 @@ function extractMessageText(message) {
 export async function iterateDeepStream(agent, input, config, sendFn, channelPrefix, offsets = {}) {
   const stepIndexOffset = offsets.stepIndex || 0
   const iterationOffset = offsets.iteration || 0
-  let fullContent = ''
-  let thinkingContent = ''
-  let chunkCount = 0
-  let iteration = 0
+ let fullContent = ''
+ let thinkingContent = ''
+ let chunkCount = 0
+ const thinkParser = new ThinkingStreamParser()
+ let iteration = 0
   let lastNodeName = ''
   let totalUsage = { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0, thinkingTokens: 0 }
   let latestTodos = []
@@ -165,11 +234,20 @@ export async function iterateDeepStream(agent, input, config, sendFn, channelPre
 
       // Coordinator text (only from the main graph's final response).
       // DeepAgents also streams built-in tool internals under tools:<id>; do not surface those as assistant text.
-      if (!toolNamespace && messageText && !message.tool_call_chunks?.length) {
-        chunkCount++
-        fullContent += messageText
-        sendFn({ type: 'content', text: messageText })
-      }
+     if (!toolNamespace && messageText && !message.tool_call_chunks?.length) {
+       chunkCount++
+       const segments = thinkParser.feed(messageText)
+       for (const seg of segments) {
+         if (seg.type === 'think') {
+           thinkingContent += seg.text
+           currentStep.thinking += seg.text
+           sendFn({ type: 'thinking', text: seg.text })
+         } else if (seg.text) {
+           fullContent += seg.text
+           sendFn({ type: 'content', text: seg.text })
+         }
+       }
+     }
 
       // Thinking/reasoning blocks (Anthropic extended thinking + LangChain normalized reasoning)
       if (Array.isArray(message.content)) {
@@ -182,14 +260,21 @@ export async function iterateDeepStream(agent, input, config, sendFn, channelPre
           }
         }
       }
-      // DeepSeek / OpenAI reasoning: reasoning_content in additional_kwargs
-      const reasoningKwargs = message.additional_kwargs?.reasoning_content
-      if (typeof reasoningKwargs === 'string' && reasoningKwargs.length > 0) {
-        thinkingContent += reasoningKwargs
-        currentStep.thinking += reasoningKwargs
-        sendFn({ type: 'thinking', text: reasoningKwargs })
-      }
-      // Capture reasoning tokens from output_token_details
+    // DeepSeek / OpenAI reasoning: reasoning_content in additional_kwargs
+    const reasoningKwargs = message.additional_kwargs?.reasoning_content
+    if (typeof reasoningKwargs === 'string' && reasoningKwargs.length > 0) {
+       thinkingContent += reasoningKwargs
+       currentStep.thinking += reasoningKwargs
+       sendFn({ type: 'thinking', text: reasoningKwargs })
+     }
+     // Some providers use 'reasoning' or 'thinking' instead of 'reasoning_content'
+     const reasoningAlt = message.additional_kwargs?.reasoning || message.additional_kwargs?.thinking
+     if (typeof reasoningAlt === 'string' && reasoningAlt.length > 0) {
+       thinkingContent += reasoningAlt
+       currentStep.thinking += reasoningAlt
+       sendFn({ type: 'thinking', text: reasoningAlt })
+     }
+     // Capture reasoning tokens from output_token_details
       if (message.usage_metadata?.output_token_details?.reasoning) {
         totalUsage.thinkingTokens += message.usage_metadata.output_token_details.reasoning
       }
@@ -383,19 +468,41 @@ export async function iterateDeepStream(agent, input, config, sendFn, channelPre
             }
           }
         }
-        // Thinking content fallback: DeepSeek reasoning_content in additional_kwargs
-        if (msg?.additional_kwargs?.reasoning_content) {
-          thinkingContent += msg.additional_kwargs.reasoning_content
-        }
-      }
+       // Thinking content fallback: DeepSeek reasoning_content in additional_kwargs
+       if (msg?.additional_kwargs?.reasoning_content) {
+         thinkingContent += msg.additional_kwargs.reasoning_content
+       }
+       // Also check alternative field names
+       if (msg?.additional_kwargs?.reasoning) {
+         thinkingContent += msg.additional_kwargs.reasoning
+       }
+       if (msg?.additional_kwargs?.thinking) {
+         thinkingContent += msg.additional_kwargs.thinking
+       }
+     }
     } catch (e) {
       console.warn('[AgentService] Could not get final state:', e.message)
     }
   }
 
-  if (thinkingContent && !totalUsage.thinkingTokens) {
-    totalUsage.thinkingTokens = Math.ceil(thinkingContent.length / 4)
-  }
+ // Flush any remaining buffered text from the thinking parser
+ {
+   const flushSegments = thinkParser.flush()
+   for (const seg of flushSegments) {
+     if (seg.type === 'think') {
+       thinkingContent += seg.text
+       currentStep.thinking += seg.text
+       sendFn({ type: 'thinking', text: seg.text })
+     } else if (seg.text) {
+       fullContent += seg.text
+       sendFn({ type: 'content', text: seg.text })
+     }
+   }
+ }
+
+ if (thinkingContent && !totalUsage.thinkingTokens) {
+   totalUsage.thinkingTokens = Math.ceil(thinkingContent.length / 4)
+ }
 
   console.log('[AgentService] Stream finished. Content:', fullContent.length, 'chars, Thinking:', thinkingContent.length, 'chars, Steps:', steps.length, ', Chunks:', chunkCount)
 

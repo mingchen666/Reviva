@@ -17,7 +17,7 @@
     "webSearch": true,
     "fileDelete": false,
     "fileRename": false,
-    "execCommand": false
+    "execCommand": true
   },
   "tools": [
     "mcp:exa",

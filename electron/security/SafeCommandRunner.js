@@ -8,37 +8,6 @@ const EXEC_COMMAND_STDOUT_LIMIT = 10000
 const EXEC_COMMAND_STDERR_LIMIT = 5000
 const SHELL_SCRIPT_EXTS = new Set(['.sh', '.bash'])
 const SCRIPT_SHELL_COMMANDS = new Set(['bash', 'sh'])
-const DEFAULT_COMMAND_WHITELIST = [
-  'echo',
-  'where',
-  'which',
-  'whoami',
-  'hostname',
-  'ver',
-  'uname',
-  'pwd',
-  'dir',
-  'tree',
-  'python',
-  'python3',
-  'py',
-  'node',
-  'pip',
-  'pip3',
-  'ls',
-  'type',
-  'more',
-  'cat',
-  'findstr',
-  'grep',
-  'fc',
-  'diff',
-  'ipconfig',
-  'ifconfig',
-  'ping',
-  'nslookup',
-  'dig',
-]
 const DEFAULT_COMMAND_BLACKLIST = [
   'rm -rf',
   'rm -r',
@@ -78,10 +47,10 @@ export function isDestructiveCommand(commandStr) {
 }
 
 export const SAFE_COMMAND_TOOL_DESCRIPTION = [
-  '在终端执行单条白名单命令。推荐使用结构化参数 {cmd,args,cwd}，路径参数使用 /project、/docs、/context、/agents/... 等虚拟路径。',
+  '在终端执行单条命令。推荐使用结构化参数 {cmd,args,cwd}，路径参数使用 /project、/docs、/context、/agents/... 等虚拟路径。',
   '结构化命令会在执行前把虚拟路径映射为真实路径，输出中的真实路径会尽量脱敏回虚拟路径。超时30秒，输出限制10KB。',
   '旧版 command 字符串仍兼容，但禁止管道、重定向、多命令串联。',
-  'bash/sh 支持 --version/--help、授权工作区内 .sh/.bash 脚本，以及 -c/-lc 的单条内部命令；内部命令仍会重新经过白名单、黑名单和控制符校验。',
+  'bash/sh 支持 --version/--help、授权工作区内 .sh/.bash 脚本，以及 -c/-lc 的单条内部命令；内部命令仍会重新经过黑名单和控制符校验。',
 ].join('\n')
 
 function clipOutput(value, limit) {
@@ -132,15 +101,6 @@ function commandList(value) {
   return (Array.isArray(value) ? value : [])
     .map(item => commandRuleText(item))
     .filter(Boolean)
-}
-
-function commandAllowedByWhitelist(trimmedCmd, baseCmd, cmdName, whitelist) {
-  if (!whitelist.length) return true
-  const commandLower = commandRuleText(trimmedCmd)
-  return whitelist.some(rule => {
-    if (cmdName === rule || baseCmd === rule) return true
-    return commandLower === rule || commandLower.startsWith(`${rule} `)
-  })
 }
 
 function isScriptShellCommand(baseCmd, cmdName) {
@@ -198,7 +158,7 @@ function prepareScriptShellCommand(tokens, ctx) {
     return { error: '安全限制：未初始化工作空间，不能执行 shell 脚本。' }
   }
   if (tokens.length < 2) {
-    return { error: '安全限制：bash/sh 不能以交互模式运行。请使用 bash --version、bash /path/to/script.sh，或 bash -lc "单条白名单命令"。' }
+    return { error: '安全限制：bash/sh 不能以交互模式运行。请使用 bash --version、bash /path/to/script.sh，或 bash -lc "单条命令"。' }
   }
 
   const scriptPath = tokens[1]
@@ -252,7 +212,7 @@ export function prepareSafeCommand(command, {
     return { error: '安全限制：未初始化工作空间，不能执行命令。' }
   }
 
-  const allowExec = dbService.getSetting?.('allowExecCommand') ?? false
+  const allowExec = dbService.getSetting?.('allowExecCommand') ?? true
   if (!allowExec) {
     return { error: `安全限制：命令执行功能已被全局禁用。请在设置 > 沙箱保护 > 命令执行安全中开启"允许执行命令"。` }
   }
@@ -269,7 +229,7 @@ export function prepareSafeCommand(command, {
   ]
   for (const rule of forbiddenShellSyntax) {
     if (rule.pattern.test(trimmedCmd)) {
-      return { error: `安全限制：exec_command 不允许${rule.label}。请只提交单个白名单命令。` }
+      return { error: `安全限制：exec_command 不允许${rule.label}。请只提交单个命令。` }
     }
   }
 
@@ -284,13 +244,6 @@ export function prepareSafeCommand(command, {
     if (commandText.startsWith(commandRuleText(pattern))) {
       return { error: `安全限制：命令匹配黑名单规则 "${pattern}"，已被拒绝执行。如需允许请在设置中移除该黑名单规则。` }
     }
-  }
-
-  const globalWhitelist = commandList(dbService.getSetting?.('commandWhitelist') ?? DEFAULT_COMMAND_WHITELIST)
-  const agentWhitelist = commandList(execConfig?.whitelist ?? [])
-  const effectiveWhitelist = [...globalWhitelist, ...agentWhitelist]
-  if (!hitlEnabled && !commandAllowedByWhitelist(trimmedCmd, baseCmd, cmdName, effectiveWhitelist)) {
-    return { error: `安全限制：命令 "${baseCmd}" 不在白名单中。当前允许的命令：${effectiveWhitelist.join(', ')}。如需允许请在设置中添加。` }
   }
 
   if (isScriptShellCommand(baseCmd, cmdName)) {
@@ -318,7 +271,6 @@ export function prepareSafeStructuredCommand(input = {}, {
   execConfig = null,
   vfsResolver = null,
   vfsContext = null,
-  hitlEnabled = false,
 } = {}) {
   if (!dbService?.getSetting) {
     return { error: '安全限制：未初始化命令安全设置，不能执行命令。' }
@@ -326,7 +278,7 @@ export function prepareSafeStructuredCommand(input = {}, {
   if (!workDirService?.getRootPath?.()) {
     return { error: '安全限制：未初始化工作空间，不能执行命令。' }
   }
-  const allowExec = dbService.getSetting?.('allowExecCommand') ?? false
+  const allowExec = dbService.getSetting?.('allowExecCommand') ?? true
   if (!allowExec) {
     return { error: `安全限制：命令执行功能已被全局禁用。请在设置 > 沙箱保护 > 命令执行安全中开启"允许执行命令"。` }
   }
@@ -349,13 +301,6 @@ export function prepareSafeStructuredCommand(input = {}, {
     if (commandText.startsWith(commandRuleText(pattern))) {
       return { error: `安全限制：命令匹配黑名单规则 "${pattern}"，已被拒绝执行。如需允许请在设置中移除该黑名单规则。` }
     }
-  }
-
-  const globalWhitelist = commandList(dbService.getSetting?.('commandWhitelist') ?? DEFAULT_COMMAND_WHITELIST)
-  const agentWhitelist = commandList(execConfig?.whitelist ?? [])
-  const effectiveWhitelist = [...globalWhitelist, ...agentWhitelist]
-  if (!hitlEnabled && !commandAllowedByWhitelist(commandText, baseCmd, cmdName, effectiveWhitelist)) {
-    return { error: `安全限制：命令 "${baseCmd}" 不在白名单中。当前允许的命令：${effectiveWhitelist.join(', ')}。如需允许请在设置中添加。` }
   }
 
   if (!vfsResolver?.resolveExecCommand) {

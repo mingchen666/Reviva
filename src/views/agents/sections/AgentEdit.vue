@@ -14,29 +14,9 @@ const emit = defineEmits(['cancel', 'save'])
 const store = useAgentsStore()
 const ss = useSettingsStore()
 
-const agentWlInput = ref(null)
-const agentBlInput = ref(null)
 const toolSearch = ref('')
 const skillSearch = ref('')
 
-function addAgentWhitelist() {
-  if (!agentWlInput.value) return
-  const v = agentWlInput.value.value?.trim().toLowerCase()
-  if (v) {
-    if (!props.editAgent.permissions.execCommandWhitelist) props.editAgent.permissions.execCommandWhitelist = []
-    if (!props.editAgent.permissions.execCommandWhitelist.includes(v)) props.editAgent.permissions.execCommandWhitelist.push(v)
-    agentWlInput.value.value = ''
-  }
-}
-function addAgentBlacklist() {
-  if (!agentBlInput.value) return
-  const v = agentBlInput.value.value?.trim().toLowerCase()
-  if (v) {
-    if (!props.editAgent.permissions.execCommandBlacklist) props.editAgent.permissions.execCommandBlacklist = []
-    if (!props.editAgent.permissions.execCommandBlacklist.includes(v)) props.editAgent.permissions.execCommandBlacklist.push(v)
-    agentBlInput.value.value = ''
-  }
-}
 const showModelPicker = ref(false)
 const showReviewerModelPicker = ref(false)
 
@@ -175,16 +155,6 @@ const agentIconOptions = [
 ]
 
 const colorOptions = ['#6C8AFF', '#A78BFA', '#4ADE80', '#FACC15', '#F87171', '#3B82F6', '#EC4899', '#8B5CF6', '#38BDF8', '#F472B6', '#FB923C', '#14B8A6']
-const thinkingModeOptions = [
-  { key: 'auto', label: '自动' },
-  { key: 'enabled', label: '启用' },
-  { key: 'disabled', label: '禁用' },
-]
-const thinkingIntensityOptions = [
-  { key: 'low', label: '轻量', icon: 'ri-flashlight-line', desc: '快速推理，适合简单任务' },
-  { key: 'medium', label: '标准', icon: 'ri-brain-line', desc: '平衡速度与深度' },
-  { key: 'high', label: '深度', icon: 'ri-mind-map', desc: '深入推理，适合复杂任务' },
-]
 const permList = [
   { key: 'fileRead', label: '文件读取', icon: 'ri-eye-line', desc: '读取授权目录内的文件内容' },
   { key: 'fileWrite', label: '文件写入', icon: 'ri-edit-line', desc: '在授权目录内创建或修改文件' },
@@ -563,59 +533,9 @@ function toggleSubAgentEnabled() {
                 <div class="flex justify-between mt-0.5">
                   <span class="text-[9px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">精确</span>
                   <span class="text-[9px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">创意</span>
-                </div>
-              </div>
-              <!-- Thinking Mode -->
-              <div class="mb-3 pt-3" :class="isDark ? 'border-t border-d4' : 'border-t border-bdrF'">
-                <div class="flex items-center justify-between mb-2">
-                  <div class="flex items-center gap-1.5">
-                    <i class="ri-brain-line text-[12px]" :class="isDark ? 'text-brand-400' : 'text-brand-500'" />
-                    <label class="text-[11px] font-medium" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">思考模式</label>
-                  </div>
-                  <div class="flex items-center gap-1">
-                    <button v-for="opt in thinkingModeOptions" :key="opt.key" @click="editAgent.thinkingMode = opt.key"
-                      class="h-6 px-2 rounded-md text-[10px] font-medium transition-all"
-                      :class="editAgent.thinkingMode === opt.key
-                        ? (isDark ? 'bg-brand-400/12 text-brand-400 border border-brand-400/30' : 'bg-brand-50 text-brand-500 border border-brand-200')
-                        : (isDark ? 'text-wt-dim hover:text-wt-sub border border-d4' : 'text-lt-aux hover:text-lt-sub border border-bdrF')">
-                      {{ opt.label }}
-                    </button>
-                  </div>
-                </div>
-                <div v-if="editAgent.thinkingMode !== 'disabled'" class="space-y-2">
-                  <div class="flex items-center justify-between mb-1.5">
-                    <label class="text-[11px] font-medium" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">思考强度</label>
-                  </div>
-                  <div class="flex items-center gap-1.5">
-                    <button v-for="opt in thinkingIntensityOptions" :key="opt.key" @click="editAgent.thinkingIntensity = opt.key"
-                      class="flex-1 rounded-lg p-2 text-left transition-all"
-                      :class="editAgent.thinkingIntensity === opt.key
-                        ? (isDark ? 'bg-brand-400/10 border border-brand-400/30' : 'bg-brand-50 border border-brand-200')
-                        : (isDark ? 'border border-d4 hover:border-brand-400/20 bg-d0' : 'border border-bdrF hover:border-brand-200 bg-l2')">
-                      <div class="flex items-center gap-1.5">
-                        <i
-                          :class="[
-                            opt.icon,
-                            'text-[12px]',
-                            editAgent.thinkingIntensity === opt.key
-                              ? (isDark ? 'text-brand-400' : 'text-brand-500')
-                              : (isDark ? 'text-wt-dim' : 'text-lt-aux')
-                          ]"
-                        /><span class="text-[11px] font-medium"
-                          :class="editAgent.thinkingIntensity === opt.key ? (isDark ? 'text-brand-400' : 'text-brand-500') : (isDark ? 'text-wt-sub' : 'text-lt-sub')">{{ opt.label }}</span>
-                      </div>
-                      <span class="text-[9px] mt-0.5 block" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">{{ opt.desc }}</span>
-                    </button>
-                  </div>
-                </div>
-                <div v-if="editAgent.thinkingMode === 'disabled'" class="rounded-md px-3 py-1.5" :class="isDark ? 'bg-d0' : 'bg-l2'">
-                  <div class="flex items-start gap-1.5">
-                    <i class="ri-information-line text-[10px] mt-0.5" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'" />
-                    <p class="text-[10px] leading-relaxed" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">已禁用思考。模型将直接输出结果，不展示推理过程。</p>
-                  </div>
-                </div>
-              </div>
-              <!-- Advanced params -->
+               </div>
+             </div>
+             <!-- Advanced params -->
               <div v-show="editAgent.showAdvanced" class="space-y-3 pt-3" :class="isDark ? 'border-t border-d4' : 'border-t border-bdrF'">
                 <div class="grid grid-cols-2 gap-3">
                   <div>
@@ -673,61 +593,7 @@ function toggleSubAgentEnabled() {
                   </div>
                   <div class="toggle shrink-0" :class="editAgent.permissions[p.key] ? 'on' : (isDark ? 'off' : 'light-off')" @click="togglePerm(p.key)" />
                 </div>
-              </div>
-              <!-- Per-agent command whitelist/blacklist additions -->
-              <div v-if="editAgent.permissions.execCommand" class="mt-3 space-y-2">
-                <div class="rounded-lg p-3" :class="isDark ? 'bg-d0/60 border border-d4' : 'bg-l2/60 border border-bdrF'">
-                  <div class="flex items-center gap-1.5 mb-1.5">
-                    <i class="ri-check-double-line text-[11px] text-emerald-400" />
-                    <span class="text-[10px] font-medium" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">命令白名单追加</span>
-                    <span class="text-[9px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">与全局设置合并；留空仅使用全局设置</span>
-                  </div>
-                  <div class="flex flex-wrap gap-1 mb-1.5">
-                    <span v-for="(cmd, idx) in (editAgent.permissions.execCommandWhitelist || [])" :key="idx"
-                      class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-mono cursor-pointer"
-                      :class="isDark ? 'bg-emerald-400/10 text-emerald-400 hover:text-red-400' : 'bg-emerald-50 text-emerald-600 hover:text-red-500'"
-                      @click="editAgent.permissions.execCommandWhitelist.splice(idx, 1)">
-                      {{ cmd }} <i class="ri-close-line text-[8px]" />
-                    </span>
-                  </div>
-                  <div class="flex items-center gap-1">
-                    <input :ref="el => { if(el) agentWlInput = el }" type="text" placeholder="命令名或前缀"
-                      class="flex-1 h-6 px-1.5 rounded text-[10px] outline-none"
-                      :class="isDark ? 'bg-d0 border border-d4 text-wt-sub placeholder:text-wt-dim' : 'bg-l2 border border-bdrF text-lt-sub placeholder:text-lt-aux'"
-                      @keydown.enter="addAgentWhitelist">
-                    <button @click="addAgentWhitelist" class="h-6 px-2 rounded text-[9px]"
-                      :class="isDark ? 'bg-emerald-400/10 text-emerald-400 hover:bg-emerald-400/20' : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100'">
-                      <i class="ri-add-line text-[10px]" />
-                    </button>
-                  </div>
-                </div>
-                <div class="rounded-lg p-3" :class="isDark ? 'bg-d0/60 border border-d4' : 'bg-l2/60 border border-bdrF'">
-                  <div class="flex items-center gap-1.5 mb-1.5">
-                    <i class="ri-forbid-line text-[11px] text-red-400" />
-                    <span class="text-[10px] font-medium" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">命令黑名单追加</span>
-                    <span class="text-[9px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">与全局设置合并；留空仅使用全局设置</span>
-                  </div>
-                  <div class="flex flex-wrap gap-1 mb-1.5">
-                    <span v-for="(cmd, idx) in (editAgent.permissions.execCommandBlacklist || [])" :key="idx"
-                      class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-mono cursor-pointer"
-                      :class="isDark ? 'bg-red-400/10 text-red-400 hover:text-wt-aux' : 'bg-red-50 text-red-500 hover:text-lt-aux'"
-                      @click="editAgent.permissions.execCommandBlacklist.splice(idx, 1)">
-                      {{ cmd }} <i class="ri-close-line text-[8px]" />
-                    </span>
-                  </div>
-                  <div class="flex items-center gap-1">
-                    <input :ref="el => { if(el) agentBlInput = el }" type="text" placeholder="命令前缀"
-                      class="flex-1 h-6 px-1.5 rounded text-[10px] outline-none"
-                      :class="isDark ? 'bg-d0 border border-d4 text-wt-sub placeholder:text-wt-dim' : 'bg-l2 border border-bdrF text-lt-sub placeholder:text-lt-aux'"
-                      @keydown.enter="addAgentBlacklist">
-                    <button @click="addAgentBlacklist" class="h-6 px-2 rounded text-[9px]"
-                      :class="isDark ? 'bg-red-400/10 text-red-400 hover:bg-red-400/20' : 'bg-red-50 text-red-500 hover:bg-red-100'">
-                      <i class="ri-add-line text-[10px]" />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
+              </div></div>
 
             <!-- Tools -->
             <div class="rounded-xl p-3" :class="isDark ? 'bg-d3 border border-bdr' : 'bg-l3 border border-bdrF'">

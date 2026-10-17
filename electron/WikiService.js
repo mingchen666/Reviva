@@ -14,6 +14,12 @@ import { WikiPageRegistryService } from './wiki/WikiPageRegistryService.js'
 import { WikiSchemaService } from './wiki/WikiSchemaService.js'
 import { WikiSearchService } from './wiki/WikiSearchService.js'
 import { WikiSemanticAuditService } from './wiki/WikiSemanticAuditService.js'
+
+import { nowIso, mediaTimestamp, safeSegment, safeTitle, parseModelRef, hasModelRunConfig, readJson, readJsonSync, writeJson, isPathInside, MODEL_REF_SEPARATOR } from './wiki/wikiUtils.js'
+import { WikiModelConfig, normalizeAgentConfig } from './wiki/WikiModelConfig.js'
+import { resolveWritablePagePath, normalizePageContent, normalizeMarkdownAssetImageRefs, normalizeMarkdownImageTarget, snippet } from './wiki/WikiContentNormalizer.js'
+import { schemaTemplate, indexTemplate, overviewTemplate } from './wiki/WikiPageTemplates.js'
+import { WikiOcrCrud } from './wiki/WikiOcrCrud.js'
 import {
   fetchPublicWikiWebSource,
   htmlToWikiMarkdown,
@@ -21,91 +27,28 @@ import {
   readWikiWebResponseText,
   webSourceId,
 } from './wiki/WikiWebResearchService.js'
+import { mediaExtractMarkdown, extractMarkdownLinks, normalizeWikiPageLink, uniqueNavigationLinks, rankNavigationLinks, queryTerms, clipQueryText, citationRecord, resultCitation, snippetWrapper, sourceRemovalMarkers, pageReferencesRemainingSource, buildAgentMaintenanceInstruction, sourceSummaryPath, fallbackSourceSummaryContent, markdownFence, hashFile, walkMarkdown } from './wiki/wikiQueryUtils.js'
 
 const REGISTRY_FILE = 'registry.json'
 const LEGACY_WIKI_ROOT = 'wiki'
 const LEGACY_NESTED_WIKIS_DIR = 'wikis'
-const MODEL_REF_SEPARATOR = '::'
 
-function nowIso() {
-  return new Date().toISOString()
-}
 
-function mediaTimestamp(ms) {
-  if (ms === null || ms === undefined || !Number.isFinite(Number(ms))) return ''
-  const totalSeconds = Math.max(0, Math.floor(Number(ms) / 1000))
-  const seconds = totalSeconds % 60
-  const totalMinutes = Math.floor(totalSeconds / 60)
-  const minutes = totalMinutes % 60
-  const hours = Math.floor(totalMinutes / 60)
-  return hours > 0
-    ? `${hours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
-    : `${minutes}:${String(seconds).padStart(2, '0')}`
-}
 
-function safeSegment(value, fallback = '') {
-  const raw = String(value || '').trim().toLowerCase()
-  const ascii = raw
-    .normalize('NFKD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z0-9_-]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 64)
-  return ascii || fallback
-}
 
-function safeTitle(value) {
-  return String(value || '').trim().slice(0, 120)
-}
 
-function parseModelRef(ref) {
-  const value = String(ref || '')
-  const idx = value.indexOf(MODEL_REF_SEPARATOR)
-  if (idx <= 0) return { providerId: '', modelId: value, scoped: false }
-  return {
-    providerId: value.slice(0, idx),
-    modelId: value.slice(idx + MODEL_REF_SEPARATOR.length),
-    scoped: true,
-  }
-}
 
-function hasModelRunConfig(req = {}) {
-  return !!(req.providerId && req.apiKey && req.model)
-}
 
-async function readJson(filePath, fallback) {
-  try {
-    const raw = await fs.promises.readFile(filePath, 'utf-8')
-    return JSON.parse(raw)
-  } catch {
-    return fallback
-  }
-}
 
-function readJsonSync(filePath, fallback) {
-  try {
-    const raw = fs.readFileSync(filePath, 'utf-8')
-    return JSON.parse(raw)
-  } catch {
-    return fallback
-  }
-}
 
-async function writeJson(filePath, data) {
-  await fs.promises.mkdir(path.dirname(filePath), { recursive: true })
-  await fs.promises.writeFile(filePath, JSON.stringify(data, null, 2), 'utf-8')
-}
 
-function isPathInside(parent, child) {
-  const parentPath = path.resolve(parent).toLowerCase()
-  const childPath = path.resolve(child).toLowerCase()
-  return childPath === parentPath || childPath.startsWith(parentPath + path.sep)
-}
 
 export class WikiService {
   constructor(workDirService, dbService = null, agentService = null, mediaModule = null) {
     this._workDir = workDirService
     this._db = dbService
+    this._modelConfig = new WikiModelConfig({ db: dbService, wikiDirResolver: (id) => this._wikiDir(id) })
+    this._ocrCrud = new WikiOcrCrud({ db: dbService })
     this._agentService = agentService
     this._mediaModule = mediaModule
     this._wikiAgent = new WikiAgentService({
@@ -584,7 +527,7 @@ export class WikiService {
       }
 
       const registry = await this._loadSources(id)
-      const contentHash = await this._hashFile(originalPath)
+      const contentHash = await hashFile(originalPath)
       const originalUri = this._workspaceUri(originalPath)
       const existing = registry.sources.find(src => src.original_uri === originalUri)
       if (existing && existing.content_hash === contentHash) {
@@ -684,52 +627,6 @@ export class WikiService {
     return { metadata, segments, chapters, timelineAvailable }
   }
 
-  _mediaExtractMarkdown(source, payload) {
-    const media = payload.metadata.media || {}
-    const run = payload.metadata.run || {}
-    const lines = [
-      '---',
-      `source_id: ${source.id}`,
-      'source_type: media',
-      `media_id: ${JSON.stringify(media.id || '')}`,
-      `media_type: ${JSON.stringify(media.mediaType || '')}`,
-      `title: ${JSON.stringify(source.title || '')}`,
-      `duration_ms: ${Number(media.durationMs) || 0}`,
-      `run_id: ${JSON.stringify(run.id || '')}`,
-      `timeline_available: ${payload.timelineAvailable ? 'true' : 'false'}`,
-      `content_hash: ${JSON.stringify(source.content_hash || '')}`,
-      '---',
-      '',
-      `# ${source.title || '媒体转录'}`,
-      '',
-      `- Media ID: \`${media.id || ''}\``,
-      `- Type: ${media.mediaType || 'media'}`,
-      `- Duration: ${mediaTimestamp(media.durationMs) || '未知'}`,
-      `- Timeline: ${payload.timelineAvailable ? 'available' : 'unavailable'}`,
-      '',
-    ]
-    if (payload.chapters.length) {
-      lines.push('## Source Chapters', '')
-      for (const chapter of payload.chapters) {
-        const range = [mediaTimestamp(chapter.startMs), mediaTimestamp(chapter.endMs)].filter(Boolean).join('–')
-        lines.push(`### ${range ? `[${range}] ` : ''}${chapter.title || '未命名章节'}`, '')
-        if (chapter.summary) lines.push(chapter.summary, '')
-      }
-    }
-    lines.push('## Transcript', '')
-    for (const segment of payload.segments) {
-      const text = String(segment.text || '').trim()
-      if (!text) continue
-      if (payload.timelineAvailable && segment.startMs !== null && segment.endMs !== null) {
-        lines.push(`- [${mediaTimestamp(segment.startMs)}–${mediaTimestamp(segment.endMs)}] ${text}`)
-      } else {
-        lines.push(text, '')
-      }
-    }
-    lines.push('')
-    return lines.join('\n')
-  }
-
   _upsertMediaSourceLink(wikiId, source, mediaId) {
     const repository = this._mediaModule?.repositories?.media
     if (!repository?.upsertMediaSourceLink) return null
@@ -801,7 +698,7 @@ export class WikiService {
         },
         updated_at: nowIso(),
       })
-      const markdown = this._mediaExtractMarkdown(source, payload)
+      const markdown = mediaExtractMarkdown(source, payload)
       source.size = Buffer.byteLength(markdown, 'utf-8')
       const extractPath = path.join(this._wikiDir(id), relPath)
       await fs.promises.mkdir(path.dirname(extractPath), { recursive: true })
@@ -852,7 +749,7 @@ export class WikiService {
       if (!stat.isFile()) throw new Error('Source file is not available')
 
       source.original_path = originalPath
-      source.content_hash = await this._hashFile(originalPath)
+      source.content_hash = await hashFile(originalPath)
       source.size = stat.size
       source.status = 'extracting'
       source.parser_status = 'pending'
@@ -1370,7 +1267,7 @@ export class WikiService {
           pages.push({ path: fileName, title: fileName.replace(/\.md$/i, ''), type: 'root', updated_at: stat.mtime.toISOString() })
         }
       }
-      await this._walkMarkdown(path.join(dir, 'pages'), 'pages', pages, new Set(['pages/index.md']))
+      await walkMarkdown(path.join(dir, 'pages'), 'pages', pages, new Set(['pages/index.md']))
       const pageRegistry = await this._pageRegistryService(id).load()
       for (const page of pages) {
         const record = pageRegistry.pages?.[page.path]
@@ -1840,7 +1737,7 @@ export class WikiService {
             ...item,
             wiki_id: wikiId,
             wiki_name: wiki.name || wikiId,
-            citation: this._resultCitation(wiki, item),
+            citation: resultCitation(wiki, item),
           })
         }
         const scope = String(options.scope || 'all').toLowerCase()
@@ -1851,7 +1748,7 @@ export class WikiService {
               ...item,
               wiki_id: wikiId,
               wiki_name: wiki.name || wikiId,
-              citation: this._resultCitation(wiki, item),
+              citation: resultCitation(wiki, item),
             })
           }
         }
@@ -1886,7 +1783,7 @@ export class WikiService {
       const fallbackHits = []
       let usedChars = 0
       const perWikiPageLimit = Math.max(2, Math.ceil(limit / Math.max(wikiIds.length, 1)))
-      const queryTerms = this._queryTerms(query)
+      const queryTerms = queryTerms(query)
 
       for (const wikiId of wikiIds) {
         const wiki = wikiMap.get(wikiId) || { id: wikiId, name: wikiId }
@@ -1897,21 +1794,21 @@ export class WikiService {
           overviewRead.success ? { path: 'overview.md', title: 'overview', content: overviewRead.data.content || '' } : null,
         ].filter(Boolean)
 
-        const wikiLinks = this._uniqueNavigationLinks(rootPages.flatMap(page =>
-          this._extractMarkdownLinks(page.content, page.path).map(link => ({
+        const wikiLinks = uniqueNavigationLinks(rootPages.flatMap(page =>
+          extractMarkdownLinks(page.content, page.path).map(link => ({
             ...link,
             wiki_id: wikiId,
             wiki_name: wiki.name || wikiId,
           }))
         ))
-        const rankedLinks = this._rankNavigationLinks(wikiLinks, query)
+        const rankedLinks = rankNavigationLinks(wikiLinks, query)
         navigationLinks.push(...rankedLinks)
 
         const rootText = [
           `## Wiki: ${wiki.name || wikiId} (${wikiId})`,
           ...rootPages.map(page => [
             `### ${page.path}`,
-            this._clipQueryText(page.content, Math.max(1200, Math.floor(maxChars / Math.max(wikiIds.length * 3, 1)))),
+            clipQueryText(page.content, Math.max(1200, Math.floor(maxChars / Math.max(wikiIds.length * 3, 1)))),
           ].join('\n')),
           rankedLinks.length
             ? [
@@ -1921,12 +1818,12 @@ export class WikiService {
             : '',
         ].filter(Boolean).join('\n\n')
         if (rootText && usedChars < maxChars) {
-          const chunk = this._clipQueryText(rootText, maxChars - usedChars)
+          const chunk = clipQueryText(rootText, maxChars - usedChars)
           if (chunk) {
             contextParts.push(chunk)
             usedChars += chunk.length
             for (const page of rootPages) {
-              citations.push(this._citationRecord({
+              citations.push(citationRecord({
                 kind: 'navigation',
                 wiki_id: wikiId,
                 wiki_name: wiki.name || wikiId,
@@ -1960,16 +1857,16 @@ export class WikiService {
           const chunk = [
             `### ${result.wiki_name} / ${result.path}`,
             `Citation: ${result.citation}`,
-            this._clipQueryText(read.data.content || '', Math.max(1000, Math.floor(maxChars / Math.max(limit, 1)))),
+            clipQueryText(read.data.content || '', Math.max(1000, Math.floor(maxChars / Math.max(limit, 1)))),
           ].join('\n')
           if (usedChars < maxChars) {
-            const clipped = this._clipQueryText(chunk, maxChars - usedChars)
+            const clipped = clipQueryText(chunk, maxChars - usedChars)
             if (clipped) {
               contextParts.push(clipped)
               usedChars += clipped.length
             }
           }
-          citations.push(this._citationRecord(result))
+          citations.push(citationRecord(result))
         }
 
         const search = query
@@ -1980,7 +1877,7 @@ export class WikiService {
             ...item,
             wiki_id: wikiId,
             wiki_name: wiki.name || wikiId,
-            citation: this._resultCitation(wiki, item),
+            citation: resultCitation(wiki, item),
             via: 'fallback_search',
           }
           fallbackHits.push(hit)
@@ -1995,18 +1892,18 @@ export class WikiService {
           const chunkBody = await this._queryContextChunk(hit, Math.max(1000, Math.floor(maxChars / Math.max(limit, 1))))
           const chunk = [
             `### ${hit.wiki_name || hit.wiki_id} / ${hit.path || hit.source_id || hit.id || hit.title || 'fallback hit'}`,
-            `Citation: ${hit.citation || this._resultCitation(wikiMap.get(hit.wiki_id), hit)}`,
+            `Citation: ${hit.citation || resultCitation(wikiMap.get(hit.wiki_id), hit)}`,
             chunkBody,
           ].filter(Boolean).join('\n')
           if (usedChars < maxChars) {
-            const clipped = this._clipQueryText(chunk, maxChars - usedChars)
+            const clipped = clipQueryText(chunk, maxChars - usedChars)
             if (clipped) {
               contextParts.push(clipped)
               usedChars += clipped.length
             }
           }
           results.push(hit)
-          citations.push(this._citationRecord(hit))
+          citations.push(citationRecord(hit))
           resultKeys.add(key)
           if (results.length >= limit) break
         }
@@ -2114,7 +2011,7 @@ export class WikiService {
   }
 
   async _legacySearchWiki(id, { query, scope = 'all', limit = 10, sources = [] } = {}) {
-    const terms = this._queryTerms(query)
+    const terms = queryTerms(query)
     const results = []
     if (scope === 'all' || scope === 'pages' || scope === 'wiki') {
       const pagesResult = await this.listPages(id)
@@ -2124,7 +2021,7 @@ export class WikiService {
         const haystack = `${page.path}\n${read.data.content}`.toLowerCase()
         const score = terms.reduce((sum, term) => sum + (haystack.includes(term) ? 1 : 0), 0)
         if (!score) continue
-        results.push({ kind: 'page', path: page.path, title: page.title, score, snippet: this._snippet(read.data.content, terms), search_backend: 'text_fallback' })
+        results.push({ kind: 'page', path: page.path, title: page.title, score, snippet: snippetWrapper(read.data.content, terms), search_backend: 'text_fallback' })
       }
     }
     if (scope === 'all' || scope === 'sources' || scope === 'source') {
@@ -2141,7 +2038,7 @@ export class WikiService {
           title: source.title,
           parser_status: source.parser_status,
           score,
-          snippet: this._snippet(content || source.parser_message || '', terms),
+          snippet: snippetWrapper(content || source.parser_message || '', terms),
           search_backend: 'text_fallback',
         })
       }
@@ -2187,121 +2084,17 @@ export class WikiService {
       .slice(0, Math.min(Math.max(Number(limit || 10), 1), 50))
   }
 
-  _extractMarkdownLinks(content = '', basePath = 'index.md') {
-    const text = String(content || '')
-    const links = []
-    const re = /(?<!!)\[([^\]]{1,160})\]\(([^)\s]+)(?:\s+"[^"]*")?\)/g
-    let match
-    while ((match = re.exec(text))) {
-      const title = safeTitle(match[1] || '')
-      const rawHref = String(match[2] || '').trim()
-      const normalized = this._normalizeWikiPageLink(rawHref, basePath)
-      if (!normalized) continue
-      const lineStart = text.lastIndexOf('\n', match.index) + 1
-      const lineEnd = text.indexOf('\n', match.index)
-      const context = safeTitle(text.slice(lineStart, lineEnd === -1 ? text.length : lineEnd).replace(/\s+/g, ' '))
-      links.push({
-        title,
-        path: normalized,
-        href: rawHref,
-        source_page: basePath,
-        context,
-      })
-    }
-    const wikiLinkRe = /\[\[([^\]]{1,240})\]\]/g
-    while ((match = wikiLinkRe.exec(text))) {
-      const inner = String(match[1] || '').trim()
-      const [targetPart, titlePart] = inner.split('|')
-      const rawHref = String(targetPart || '').split('#')[0].trim()
-      const normalized = this._normalizeWikiPageLink(rawHref, basePath)
-      if (!normalized) continue
-      const title = safeTitle(titlePart || path.posix.basename(normalized, '.md') || rawHref)
-      const lineStart = text.lastIndexOf('\n', match.index) + 1
-      const lineEnd = text.indexOf('\n', match.index)
-      const context = safeTitle(text.slice(lineStart, lineEnd === -1 ? text.length : lineEnd).replace(/\s+/g, ' '))
-      links.push({
-        title,
-        path: normalized,
-        href: rawHref,
-        source_page: basePath,
-        context,
-      })
-    }
-    return links
-  }
-
-  _normalizeWikiPageLink(href = '', basePath = 'index.md') {
-    const raw = String(href || '').trim().replace(/\\/g, '/')
-    if (!raw || raw.startsWith('#')) return ''
-    if (/^(https?:|mailto:|data:|file:)/i.test(raw)) return ''
-    const withoutHash = raw.split('#')[0].split('?')[0].trim()
-    if (!withoutHash) return ''
-    const hrefPath = withoutHash.startsWith('/') ? withoutHash.replace(/^\/+/, '') : withoutHash
-    const baseDir = path.posix.dirname(String(basePath || 'index.md').replace(/\\/g, '/'))
-    let resolved = path.posix.normalize(path.posix.join(withoutHash.startsWith('/') || baseDir === '.' ? '' : baseDir, hrefPath))
-    if (!resolved || resolved === '.' || resolved.startsWith('../') || path.posix.isAbsolute(resolved)) return ''
-    const ext = path.posix.extname(resolved).toLowerCase()
-    if (ext && ext !== '.md') return ''
-    if (!ext && !resolved.endsWith('/')) resolved = `${resolved}.md`
-    if (resolved === 'pages/index.md') return 'index.md'
-    if (resolved === 'pages/overview.md') return 'overview.md'
-    return resolved
-  }
-
-  _uniqueNavigationLinks(links = []) {
-    const byPath = new Map()
-    for (const link of links || []) {
-      if (!link?.path) continue
-      const key = `${link.wiki_id || ''}:${link.path}`
-      if (!byPath.has(key)) byPath.set(key, link)
-    }
-    return Array.from(byPath.values())
-  }
-
-  _rankNavigationLinks(links = [], query = '') {
-    const terms = this._queryTerms(query)
-    return [...(links || [])]
-      .map(link => {
-        const title = String(link.title || '').toLowerCase()
-        const pathText = String(link.path || '').toLowerCase()
-        const context = String(link.context || '').toLowerCase()
-        const score = terms.length
-          ? terms.reduce((sum, term) => {
-              if (!term) return sum
-              return sum +
-                (title.includes(term) ? 4 : 0) +
-                (pathText.includes(term) ? 3 : 0) +
-                (context.includes(term) ? 2 : 0)
-            }, 0)
-          : 1
-        return { ...link, score }
-      })
-      .sort((a, b) => Number(b.score || 0) - Number(a.score || 0) || String(a.path || '').localeCompare(String(b.path || '')))
-  }
-
-  _queryTerms(query = '') {
-    const normalized = String(query || '').trim().toLowerCase()
-    if (!normalized) return []
-    const terms = new Set(normalized.split(/[\s,，。；;:：!?！？、/\\|()[\]{}"'`]+/).filter(Boolean))
-    if (normalized.length <= 32) terms.add(normalized)
-    const cjk = normalized.replace(/[^\p{Script=Han}]/gu, '')
-    if (cjk.length >= 2 && cjk.length <= 24) {
-      for (let i = 0; i < cjk.length - 1; i++) terms.add(cjk.slice(i, i + 2))
-    }
-    return Array.from(terms)
-  }
-
   async _queryContextChunk(result, maxChars = 2000) {
     const limit = Math.min(Math.max(Number(maxChars || 2000), 500), 10000)
     if (result.kind === 'page' && result.path) {
       const read = await this.readPage(result.wiki_id, result.path)
       if (!read.success) return result.snippet || ''
-      return this._clipQueryText(read.data.content || '', limit)
+      return clipQueryText(read.data.content || '', limit)
     }
     if (result.kind === 'source' && result.source_id) {
       const read = await this.readSource(result.wiki_id, result.source_id)
       if (!read.success) return result.snippet || ''
-      return this._clipQueryText(read.data.content || read.data.source?.parser_message || '', limit)
+      return clipQueryText(read.data.content || read.data.source?.parser_message || '', limit)
     }
     if (result.kind === 'asset') {
       const lines = [
@@ -2311,40 +2104,9 @@ export class WikiService {
         result.vision?.summary ? `Vision summary: ${result.vision.summary}` : '',
         result.snippet ? `Snippet: ${result.snippet}` : '',
       ].filter(Boolean)
-      return this._clipQueryText(lines.join('\n'), limit)
+      return clipQueryText(lines.join('\n'), limit)
     }
-    return this._clipQueryText(result.snippet || '', limit)
-  }
-
-  _clipQueryText(text, maxChars = 2000) {
-    const content = String(text || '').trim()
-    const limit = Math.max(Number(maxChars || 0), 0)
-    if (!limit) return ''
-    if (content.length <= limit) return content
-    const suffix = '\n...[truncated]'
-    if (limit <= suffix.length) return content.slice(0, limit)
-    return `${content.slice(0, limit - suffix.length)}${suffix}`
-  }
-
-  _citationRecord(result) {
-    return {
-      wiki_id: result.wiki_id,
-      wiki_name: result.wiki_name,
-      kind: result.kind,
-      title: result.title || '',
-      path: result.path || '',
-      source_id: result.source_id || '',
-      asset_id: result.id && result.kind === 'asset' ? result.id : '',
-      citation: result.citation || '',
-    }
-  }
-
-  _resultCitation(wiki, result) {
-    const wikiName = wiki?.name || wiki?.id || result.wiki_id || ''
-    if (result.kind === 'page') return `${wikiName}:${result.path || result.title || ''}`
-    if (result.kind === 'source') return `${wikiName}:source:${result.source_id || result.title || ''}`
-    if (result.kind === 'asset') return `${wikiName}:asset:${result.path || result.id || ''}`
-    return wikiName
+    return clipQueryText(result.snippet || '', limit)
   }
 
   async readSource(id, sourceId) {
@@ -2523,82 +2285,35 @@ export class WikiService {
   }
 
   async listOcrProviders() {
-    try {
-      return { success: true, data: this._db?.listOcrProviders?.() || [] }
-    } catch (err) {
-      return { success: false, error: err.message, data: [] }
-    }
+    return this._ocrCrud.listProviders()
   }
 
   async createOcrProvider(data = {}) {
-    try {
-      if (!this._db?.createOcrProvider) throw new Error('OCR provider storage is not available')
-      return { success: true, data: this._db.createOcrProvider(data) }
-    } catch (err) {
-      return { success: false, error: err.message }
-    }
+    return this._ocrCrud.createProvider(data)
   }
 
   async updateOcrProvider(providerId, data = {}) {
-    try {
-      if (!providerId) throw new Error('Provider id is required')
-      if (!this._db?.updateOcrProvider) throw new Error('OCR provider storage is not available')
-      return { success: true, data: this._db.updateOcrProvider(providerId, data) }
-    } catch (err) {
-      return { success: false, error: err.message }
-    }
+    return this._ocrCrud.updateProvider(providerId, data)
   }
 
   async deleteOcrProvider(providerId) {
-    try {
-      if (!providerId) throw new Error('Provider id is required')
-      if (!this._db?.deleteOcrProvider) throw new Error('OCR provider storage is not available')
-      return this._db.deleteOcrProvider(providerId)
-    } catch (err) {
-      return { success: false, error: err.message }
-    }
+    return this._ocrCrud.deleteProvider(providerId)
   }
 
   async listOcrJobs(id, sourceId = '') {
-    try {
-      return { success: true, data: this._db?.listWikiOcrJobs?.(id, sourceId) || [] }
-    } catch (err) {
-      return { success: false, error: err.message, data: [] }
-    }
+    return this._ocrCrud.listJobs(id, sourceId)
   }
 
   _resolveWritablePagePath(pagePath, title = 'wiki-page') {
-    const raw = String(pagePath || '').trim().replace(/\\/g, '/')
-    const fallback = `pages/summaries/${safeSegment(title, 'wiki-page')}.md`
-    let rel = raw || fallback
-    rel = rel.replace(/^\/+/, '')
-    if (!rel.toLowerCase().endsWith('.md')) rel += '.md'
-    const normalized = path.posix.normalize(rel)
-    if (!normalized || normalized.startsWith('../') || normalized === '..' || path.posix.isAbsolute(normalized)) {
-      throw new Error('Invalid Wiki page path')
-    }
-    if (normalized === 'pages/index.md') return 'index.md'
-    if (normalized === 'pages/overview.md') return 'overview.md'
-    const allowedRootFiles = new Set(['index.md', 'overview.md'])
-    if (allowedRootFiles.has(normalized)) return normalized
-    if (normalized.startsWith('pages/')) return normalized
-    return `pages/${normalized}`
+    return resolveWritablePagePath(pagePath, title)
   }
 
   _normalizePageContent({ relPath, title, content }) {
-    const body = String(content || '').trim()
-    const heading = title || path.posix.basename(relPath, '.md')
-    const normalizedBody = body.startsWith('---') || /^#\s+/m.test(body)
-      ? body
-      : `# ${heading}\n\n${body || 'No content yet.'}`
-    return `${this._normalizeMarkdownAssetImageRefs(normalizedBody, relPath)}\n`
+    return normalizePageContent({ relPath, title, content })
   }
 
   _normalizeMarkdownAssetImageRefs(markdown, relPath) {
-    return String(markdown || '').replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (match, label, rawTarget) => {
-      const target = this._normalizeMarkdownImageTarget(rawTarget, relPath)
-      return target ? `![${label}](${target})` : match
-    })
+    return normalizeMarkdownAssetImageRefs(markdown, relPath)
   }
 
   async recordAssetVision(id, assetPath, result = {}) {
@@ -2620,29 +2335,7 @@ export class WikiService {
   }
 
   _normalizeMarkdownImageTarget(rawTarget, relPath) {
-    const text = String(rawTarget || '').trim()
-    if (!text) return ''
-    const match = text.match(/^(\S+)(\s+["'][\s\S]*["'])?$/)
-    if (!match) return ''
-    const rawRef = match[1].replace(/^<|>$/g, '')
-    const title = match[2] || ''
-    if (!rawRef || /^(https?:|data:|blob:|file:|reviva-file:|mailto:|#)/i.test(rawRef)) return ''
-    if (/^[a-zA-Z]:[\\/]/.test(rawRef) || /^\\\\/.test(rawRef)) return ''
-
-    const refMatch = rawRef.match(/^([^?#]*)([?#].*)?$/)
-    const pathPart = String(refMatch?.[1] || rawRef).replace(/\\/g, '/')
-    const suffix = refMatch?.[2] || ''
-    const cleanPath = pathPart.replace(/^\/+/, '')
-    const pagePath = String(relPath || 'index.md').replace(/\\/g, '/')
-    const pageDir = pagePath.includes('/') ? pagePath.slice(0, pagePath.lastIndexOf('/')) : ''
-    const candidate = pathPart.startsWith('/') || cleanPath.startsWith('assets/')
-      ? path.posix.normalize(cleanPath)
-      : path.posix.normalize(path.posix.join(pageDir || '.', cleanPath))
-
-    if (!candidate.startsWith('assets/images/')) return ''
-    const rel = path.posix.relative(pageDir || '.', candidate)
-    const safeRel = rel && !rel.startsWith('.') ? rel : rel
-    return `${safeRel || path.posix.basename(candidate)}${suffix}${title}`
+    return normalizeMarkdownImageTarget(rawTarget, relPath)
   }
 
   async _snapshotPage(wikiDir, relPath, reason = '') {
@@ -2673,16 +2366,6 @@ export class WikiService {
     await fs.promises.mkdir(path.dirname(logPath), { recursive: true })
     await fs.promises.appendFile(logPath, `- ${nowIso()}: ${String(message || '').replace(/\r?\n/g, ' ').trim()}\n`, 'utf-8')
     return true
-  }
-
-  _snippet(content, terms) {
-    const text = String(content || '').replace(/\s+/g, ' ').trim()
-    if (!text) return ''
-    const lower = text.toLowerCase()
-    const index = terms.map(term => lower.indexOf(term)).filter(pos => pos >= 0).sort((a, b) => a - b)[0] ?? 0
-    const start = Math.max(index - 80, 0)
-    const end = Math.min(index + 220, text.length)
-    return `${start > 0 ? '...' : ''}${text.slice(start, end)}${end < text.length ? '...' : ''}`
   }
 
   async runOcr(id, sourceId, providerId = '') {
@@ -2959,40 +2642,9 @@ export class WikiService {
     }
   }
 
-  _sourceRemovalMarkers(source) {
-    const sourceId = source?.id || ''
-    if (!sourceId) return []
-    const normalizedOriginalPath = String(source?.original_path || '').replace(/\\/g, '/')
-    const markers = [
-      sourceId,
-      `source_id: ${sourceId}`,
-      `source_id: "${sourceId}"`,
-      `source_id: '${sourceId}'`,
-      `source_id: \`${sourceId}\``,
-      `Source ID: \`${sourceId}\``,
-      source?.original_uri,
-      normalizedOriginalPath,
-      normalizedOriginalPath ? path.posix.basename(normalizedOriginalPath) : '',
-      source?.content_hash,
-      source?.extract_path,
-    ]
-    return [...new Set(markers
-      .filter(Boolean)
-      .map(item => String(item).trim().toLowerCase())
-      .filter(item => item.length >= 6))]
-  }
-
   _pageReferencesSource(content, pagePath, source) {
     const haystack = `${pagePath}\n${content}`.replace(/\\/g, '/').toLowerCase()
-    return this._sourceRemovalMarkers(source).some(marker => haystack.includes(marker))
-  }
-
-  _pageReferencesRemainingSource(content, remainingSources = [], removedSourceId = '') {
-    const haystack = String(content || '').toLowerCase()
-    return remainingSources.some(source => {
-      const sourceId = String(source?.id || '').trim().toLowerCase()
-      return sourceId && sourceId !== String(removedSourceId || '').toLowerCase() && haystack.includes(sourceId)
-    })
+    return sourceRemovalMarkers(source).some(marker => haystack.includes(marker))
   }
 
   async _removeSourceKnowledgePages(id, source, remainingSources = []) {
@@ -3040,7 +2692,7 @@ export class WikiService {
       if (!this._pageReferencesSource(content, pagePath, source)) continue
 
       const isSourceOwnedPage = pagePath.startsWith('pages/summaries/') || pagePath.toLowerCase().includes(sourceId.toLowerCase())
-      const hasOtherSourceEvidence = this._pageReferencesRemainingSource(content, remainingSources, sourceId)
+      const hasOtherSourceEvidence = pageReferencesRemainingSource(content, remainingSources, sourceId)
       if (!isSourceOwnedPage && hasOtherSourceEvidence) continue
 
       await this._snapshotPage(this._wikiDir(id), pagePath, 'source_page_removed').catch(() => {})
@@ -3205,77 +2857,19 @@ export class WikiService {
   }
 
   _modelPricing(providerId, modelId) {
-    const providers = this._db?.getSetting?.('providers') || []
-    const provider = Array.isArray(providers) ? providers.find(p => p.id === providerId) : null
-    const model = provider?.models?.find(m => m.id === modelId)
-    return model ? {
-      costInput: Number(model.costInput) || 0,
-      costOutput: Number(model.costOutput) || 0,
-      costCacheRead: Number(model.costCacheRead) || 0,
-      costCacheWrite: Number(model.costCacheWrite ?? model.costCacheRead) || 0,
-    } : {}
+    return this._modelConfig.modelPricing(providerId, modelId)
   }
 
   _modelHasVision(providerId, modelId) {
-    const providers = this._db?.getSetting?.('providers') || []
-    const provider = Array.isArray(providers) ? providers.find(item => item.id === providerId) : null
-    const model = provider?.models?.find(item => item.id === modelId)
-    return !!model?.capabilities?.vision
+    return this._modelConfig.modelHasVision(providerId, modelId)
   }
 
   _defaultOcrProviderId() {
-    const providers = this._db?.listOcrProviders?.() || []
-    const provider = providers.find(item =>
-      item?.enabled !== false &&
-      ['mineru', 'paddleocr'].includes(String(item.type || '').toLowerCase()) &&
-      item.base_url &&
-      item.api_key_ref
-    )
-    return provider?.id || ''
+    return this._modelConfig.defaultOcrProviderId()
   }
 
   _resolveWikiAgentModelConfig(id, runId = '', overrideRef = '') {
-    const providers = this._db?.getSetting?.('providers') || []
-    const defaultModels = this._db?.getSetting?.('defaultModels') || {}
-    if (!Array.isArray(providers) || !providers.length) {
-      throw new Error('请先在设置中配置可用的聊天模型')
-    }
-
-    const dbWiki = this._db?.getWiki?.(id)
-    const meta = readJsonSync(path.join(this._wikiDir(id), 'wiki.json'), null)
-    const agentConfig = {
-      ...(meta?.agent || {}),
-      ...(dbWiki?.agent_config || {}),
-    }
-    const ref = overrideRef || agentConfig.model_ref || defaultModels.chat || defaultModels.agent || ''
-    const parsed = parseModelRef(ref)
-    if (!parsed.modelId) throw new Error('请先配置 WikiAgent 模型或全局默认对话模型')
-
-    let provider = null
-    if (parsed.scoped) {
-      provider = providers.find(p => p.id === parsed.providerId && p.enabled !== false)
-    } else {
-      provider = providers.find(p => p.enabled !== false && p.models?.some(m => m.id === parsed.modelId && m.enabled !== false))
-    }
-    const model = provider?.models?.find(m => m.id === parsed.modelId && m.enabled !== false)
-    if (!provider || !model) throw new Error(`模型 ${parsed.modelId} 无可用供应商或未启用`)
-    if (!provider.apiKey) throw new Error(`模型供应商 ${provider.name || provider.id} 还没有配置 API Key`)
-
-    return {
-      providerId: provider.id,
-      apiFormat: provider.apiFormat || (provider.id === 'anthropic' ? 'anthropic' : 'openai'),
-      apiKey: provider.apiKey,
-      baseUrl: provider.baseUrl || '',
-      model: model.id,
-      modelHasVision: !!model.capabilities?.vision,
-      pricing: {
-        costInput: Number(model.costInput) || 0,
-        costOutput: Number(model.costOutput) || 0,
-        costCacheRead: Number(model.costCacheRead) || 0,
-        costCacheWrite: Number(model.costCacheWrite ?? model.costCacheRead) || 0,
-      },
-      runId,
-    }
+    return this._modelConfig.resolveWikiAgentModelConfig(id, runId, overrideRef)
   }
 
   _enqueueAgentMaintenance(wikiId, reason = 'source_changed') {
@@ -3322,7 +2916,7 @@ export class WikiService {
       await this.agentRun({
         wikiId,
         ...config,
-        instruction: this._buildAgentMaintenanceInstruction(reason),
+        instruction: buildAgentMaintenanceInstruction(reason),
       })
     } catch (err) {
       if (!this._canPersistWiki(wikiId)) return
@@ -3339,32 +2933,6 @@ export class WikiService {
       }).catch(() => {})
       await this._setWikiAgentStatus(wikiId, 'idle').catch(() => {})
     }
-  }
-
-  _buildAgentMaintenanceInstruction(reason = 'source_changed') {
-    const text = String(reason || 'source_changed')
-    const parts = [
-      `Maintain this Wiki after ${text}.`,
-      'Read recent_changes, list_sources, and existing pages before writing.',
-      'For each parser_status=complete source that is not yet represented, maintain at least one concise source summary page under pages/summaries/.',
-      'If a summary page has frontmatter status: fallback, replace or upgrade it with a real human-readable summary instead of treating it as complete.',
-      'Create pages/concepts entries only when the source contains durable reusable concepts, definitions, mechanisms, formulas, or domain terms.',
-      'You MUST refresh index.md and overview.md whenever summaries, concepts, entities, questions, comparisons, or source coverage change. A completed source upload always counts as a source coverage change.',
-      'index.md must be a routing table with Markdown relative links and one-line descriptions so query agents can read it first and choose relevant pages without full-text search.',
-      'Preserve human-readable source citations.',
-      'Handle images from every source format semantically, not by order. For each candidate image, first identify its visible meaning with wiki_vision_analyze when available; otherwise require a reliable original inline position, caption, or nearby source text found through its page, slide, sheet, or DOM location. Insert it only below the exact knowledge point it directly supports. Page, slide, sheet, DOM, file, and extraction order or filename alone are never sufficient evidence. Never dump images into a gallery or trailing image section. If confidence is low, omit the image.',
-    ]
-    if (text.startsWith('source_deleted:')) {
-      const partsForDelete = text.split(':')
-      const sourceId = partsForDelete[1] || ''
-      const sourceTitle = partsForDelete.slice(2).join(':')
-      parts.push(
-        `A source was removed from this Wiki: source_id=${sourceId}${sourceTitle ? `, title=${sourceTitle}` : ''}.`,
-        'Do not use removed source extracts or assets as evidence.',
-        'Search existing pages for this source id/title and remove, rewrite, or mark unsupported claims and stale links. Do not delete unrelated knowledge that is still supported by remaining sources.',
-      )
-    }
-    return parts.join(' ')
   }
 
   async _ensureSourceSummaryFallbacks(id, options = {}) {
@@ -3408,7 +2976,7 @@ export class WikiService {
         const hasCurrentHash = !currentHash || fallbackContent.includes(`source_hash: "${currentHash}"`) || fallbackContent.includes(`source_hash: ${currentHash}`)
         if (!hasCurrentHash) {
           const extractPreview = await this._readSourceExtractPreview(id, source, 3600)
-          const content = this._fallbackSourceSummaryContent(source, extractPreview)
+          const content = fallbackSourceSummaryContent(source, extractPreview)
           const written = await writePage({
             pagePath: fallbackSummary.path,
             title: `${source.title || source.id} Summary`,
@@ -3429,9 +2997,9 @@ export class WikiService {
       })
       if (represented) continue
 
-      const pagePath = this._sourceSummaryPath(source)
+      const pagePath = sourceSummaryPath(source)
       const extractPreview = await this._readSourceExtractPreview(id, source, 3600)
-      const content = this._fallbackSourceSummaryContent(source, extractPreview)
+      const content = fallbackSourceSummaryContent(source, extractPreview)
       const written = await writePage({
         pagePath,
         title: `${source.title || source.id} Summary`,
@@ -3503,12 +3071,6 @@ export class WikiService {
     return !!(indexWritten.success && overviewWritten.success)
   }
 
-  _sourceSummaryPath(source) {
-    const title = safeSegment(source?.title || '', 'source')
-    const sourceId = safeSegment(source?.id || '', `src-${Date.now().toString(36)}`)
-    return `pages/summaries/${title}-${sourceId}.md`
-  }
-
   async _readSourceExtractPreview(id, source, limit = 3600) {
     const rel = source?.extract_path || (source?.id ? `sources/extracts/${source.id}.md` : '')
     if (!rel) return ''
@@ -3518,59 +3080,6 @@ export class WikiService {
     if (target !== root && !isPathInside(root, target)) return ''
     const content = await fs.promises.readFile(target, 'utf-8').catch(() => '')
     return String(content || '').trim().slice(0, limit)
-  }
-
-  _fallbackSourceSummaryContent(source, extractPreview = '') {
-    const updatedAt = nowIso()
-    const title = safeTitle(source?.title || source?.id || 'Source')
-    const meta = source?.meta || {}
-    const parseStats = meta.parse_stats ? JSON.stringify(meta.parse_stats).slice(0, 1200) : ''
-    const previewFence = this._markdownFence(extractPreview || '')
-    const lines = [
-      '---',
-      `id: summary-${source.id}`,
-      'type: source_summary',
-      `source_id: ${source.id}`,
-      `source_title: ${JSON.stringify(title)}`,
-      `source_uri: ${JSON.stringify(source.original_uri || '')}`,
-      `source_hash: ${JSON.stringify(source.content_hash || '')}`,
-      'status: review_required',
-      'fallback: true',
-      `updated_at: ${updatedAt}`,
-      '---',
-      '',
-      `# ${title}`,
-      '',
-      '> This source summary was created automatically because WikiAgent did not write a dedicated summary page. Use it as an entry point; deeper concept/entity pages may be generated by later maintenance runs.',
-      '',
-      '## Source',
-      '',
-      `- Source ID: \`${source.id}\``,
-      `- Type: \`${source.type || 'unknown'}\``,
-      `- Original URI: \`${source.original_uri || ''}\``,
-      `- Extract: \`${source.extract_path || ''}\``,
-      `- Parser status: \`${source.parser_status || ''}\``,
-      parseStats ? `- Parse stats: \`${parseStats.replace(/`/g, '\\`')}\`` : null,
-      '',
-      '## Extract Preview',
-      '',
-      extractPreview ? `${previewFence}markdown` : '',
-      extractPreview || 'No extract preview is available. Use wiki_tool read_source for full source text if the source still exists.',
-      extractPreview ? previewFence : '',
-      '',
-      '## Maintenance Notes',
-      '',
-      '- Important claims should be checked against the parsed source before being reused.',
-      '- WikiAgent should replace this fallback with a concise human-readable summary when it next maintains this Wiki.',
-      '',
-    ]
-    return lines.filter(line => line !== null).join('\n')
-  }
-
-  _markdownFence(content = '') {
-    const matches = String(content || '').match(/`{3,}/g) || []
-    const max = matches.reduce((len, item) => Math.max(len, item.length), 3)
-    return '`'.repeat(max + 1)
   }
 
   async _setWikiAgentStatus(id, status, expectedLifecycleVersion = undefined) {
@@ -3603,26 +3112,7 @@ export class WikiService {
   }
 
   _normalizeAgentConfig(agent = {}) {
-    const webResearch = agent.web_research && typeof agent.web_research === 'object' ? agent.web_research : {}
-    const semanticAudit = agent.semantic_audit && typeof agent.semantic_audit === 'object' ? agent.semantic_audit : {}
-    return {
-      ...agent,
-      mode: ['supervised', 'disabled'].includes(agent.mode) ? agent.mode : 'supervised',
-      status: agent.status || 'idle',
-      default_write_policy: 'direct',
-      auto_maintain: agent.auto_maintain !== false,
-      web_research: {
-        ...webResearch,
-        mode: ['inherit', 'enabled', 'disabled'].includes(webResearch.mode) ? webResearch.mode : 'inherit',
-      },
-      semantic_audit: {
-        ...semanticAudit,
-        enabled: !!semanticAudit.enabled,
-        trigger: ['manual', 'after_maintenance'].includes(semanticAudit.trigger) ? semanticAudit.trigger : 'manual',
-        auto_fix: false,
-        model_ref: String(semanticAudit.model_ref || ''),
-      },
-    }
+    return normalizeAgentConfig(agent)
   }
 
   async _touchWiki(id) {
@@ -3687,45 +3177,12 @@ export class WikiService {
     return true
   }
 
-  async _hashFile(filePath) {
-    const hash = crypto.createHash('sha256')
-    await new Promise((resolve, reject) => {
-      const stream = fs.createReadStream(filePath)
-      stream.on('data', chunk => hash.update(chunk))
-      stream.on('error', reject)
-      stream.on('end', resolve)
-    })
-    return `sha256:${hash.digest('hex')}`
-  }
-
   _workspaceUri(absPath) {
     const root = this._workDir?.getRootPath?.()
     if (!root) return absPath
     const rel = path.relative(root, absPath).replace(/\\/g, '/')
     if (rel.startsWith('..')) return absPath
     return `workspace:${rel}`
-  }
-
-  async _walkMarkdown(absDir, relDir, out, skip = new Set()) {
-    if (!fs.existsSync(absDir)) return
-    const entries = await fs.promises.readdir(absDir, { withFileTypes: true })
-    for (const entry of entries) {
-      const abs = path.join(absDir, entry.name)
-      const rel = `${relDir}/${entry.name}`.replace(/\\/g, '/')
-      if (entry.isDirectory()) {
-        await this._walkMarkdown(abs, rel, out, skip)
-        continue
-      }
-      if (!entry.isFile() || !entry.name.toLowerCase().endsWith('.md')) continue
-      if (skip.has(rel)) continue
-      const stat = await fs.promises.stat(abs)
-      out.push({
-        path: rel,
-        title: entry.name.replace(/\.md$/i, ''),
-        type: 'page',
-        updated_at: stat.mtime.toISOString(),
-      })
-    }
   }
 
   async _ensurePageMetadata(id) {
@@ -3748,7 +3205,7 @@ export class WikiService {
       if (fs.existsSync(abs)) files.push({ abs, rel: rootFile })
     }
     const pages = []
-    await this._walkMarkdown(path.join(wikiDir, 'pages'), 'pages', pages)
+    await walkMarkdown(path.join(wikiDir, 'pages'), 'pages', pages)
     for (const page of pages) files.push({ abs: path.join(wikiDir, page.path), rel: page.path })
 
     const sources = await this._loadSources(id)
@@ -3795,15 +3252,16 @@ export class WikiService {
   }
 
   _schemaTemplate(title) {
-    return `# ${title} Schema\n\n## Layers\n\n- sources: immutable raw files and parsed extracts. The Wiki Agent may read them but must not modify them.\n- pages: LLM-maintained Markdown knowledge pages.\n- assets: local images and other attachments referenced from Markdown by relative paths.\n- history: automatic snapshots created before page writes.\n\n## Page Types\n\n- summaries: source-level summaries.\n- concepts: reusable concept pages.\n- entities: people, organizations, products, projects, and named objects.\n- questions: reusable Q&A pages.\n- comparisons: structured comparisons.\n\n## Write Policy\n\nThe built-in Wiki Agent maintains official Wiki pages directly through the wiki_tool write_page action. Every write should preserve citations, update index.md or overview.md when useful, and rely on automatic history snapshots plus log.md for traceability.\n\n## Citation Policy\n\nImportant claims should cite source ids and locators when available. Uncertain or inferred claims must be marked explicitly.\n`
+    return schemaTemplate(title)
   }
 
   _indexTemplate(title) {
-    return `---\nid: index\nstatus: active\nupdated_at: ${nowIso()}\n---\n\n# ${title}\n\nThis Wiki is ready. Add sources to let the Wiki Agent build and maintain Markdown knowledge pages.\n\n## Entry\n\n- [Overview](overview.md)\n`
+    return indexTemplate(title)
   }
 
   _overviewTemplate(title) {
-    return `---\nid: overview\nstatus: active\nupdated_at: ${nowIso()}\n---\n\n# ${title} Overview\n\nNo sources have been ingested yet.\n`
+    return overviewTemplate(title)
   }
 
 }
+

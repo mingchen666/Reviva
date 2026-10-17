@@ -60,6 +60,7 @@ const showContext = computed(() => ss.chatToolbarContext !== false)
 const showVoice = computed(() => ss.chatToolbarVoice !== false)
 const showTokenCounter = computed(() => ss.chatToolbarTokenCounter !== false)
 const showLatency = computed(() => ss.chatToolbarLatency !== false)
+const allowRevivaManage = computed(() => ss.allowRevivaManage === true)
 </script>
 
 <template>
@@ -359,6 +360,33 @@ const showLatency = computed(() => ss.chatToolbarLatency !== false)
               <div class="text-[10px] leading-snug" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">破坏性操作弹窗，其余自动</div>
             </div>
             <div v-if="hitlMode === 'sensitive'" class="w-2 h-2 rounded-full bg-brand-400 shrink-0" />
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======== Reviva 应用管控 ======== -->
+    <section>
+      <div class="flex items-center gap-2 mb-4">
+        <div class="w-1 h-4 rounded-full bg-emerald-400" />
+        <span class="text-[14px] font-bold" :class="isDark ? 'text-wt-main' : 'text-lt-main'">Reviva 应用管控</span>
+        <span class="text-[10px] ml-1" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">允许 Agent 在对话中查询和管理应用设置</span>
+      </div>
+
+      <div class="rounded-xl overflow-hidden border" :class="isDark ? 'border-d4 bg-d3' : 'border-bdrF bg-l3'">
+        <div class="flex items-center gap-3 px-4 py-3.5">
+          <span class="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" :class="allowRevivaManage ? (isDark ? 'bg-brand-400/14 text-brand-300' : 'bg-brand-50 text-brand-600') : (isDark ? 'bg-d0 text-wt-dim' : 'bg-l2 text-lt-aux')">
+            <i class="ri-settings-3-line text-[24px]" />
+          </span>
+          <span class="min-w-0 flex-1">
+            <span class="flex items-center gap-1.5 text-[12.5px] font-semibold" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">
+              允许 Agent 管理 Reviva 设置
+              <span class="px-1.5 py-0.5 rounded text-[9px] font-medium" :class="allowRevivaManage ? (isDark ? 'bg-brand-400/12 text-brand-300' : 'bg-brand-50 text-brand-600') : (isDark ? 'bg-d0 text-wt-dim' : 'bg-l2 text-lt-aux')">{{ allowRevivaManage ? '已开启' : '已关闭' }}</span>
+            </span>
+            <span class="block mt-0.5 text-[10.5px] leading-relaxed" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">开启后所有 Agent 获得查看用量统计、切换主题、管理偏好设置和创作工具等能力。</span>
+          </span>
+          <button type="button" role="switch" :aria-checked="allowRevivaManage" aria-label="允许 Agent 管理 Reviva 设置" :title="(allowRevivaManage ? '关闭' : '开启')" class="w-10 h-6 rounded-full p-0.5 shrink-0 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-400/70 focus-visible:ring-offset-2" :class="allowRevivaManage ? 'bg-brand-500' : (isDark ? 'bg-d0 border border-d4' : 'bg-l4 border border-bdrF')" @click="ss.savePreference('allowRevivaManage', !allowRevivaManage)">
+            <span class="block w-5 h-5 rounded-full bg-white shadow-sm transition-transform" :class="allowRevivaManage ? 'translate-x-4' : 'translate-x-0'" />
           </button>
         </div>
       </div>
