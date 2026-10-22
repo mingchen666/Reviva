@@ -53,7 +53,7 @@
 </p>
 </div>
 
-> 📣 **微信交流群已迁移至 QQ 群，欢迎扫码加入！** [查看群二维码 ↓](#联系与交流)
+> 📣 **微信群已迁移至 QQ 群（群号：`1131466242`），欢迎扫码加入！** [查看群二维码 ↓](#联系与交流)
 
 Reviva 是一个面向学习、研究和知识工作的本地桌面 Agent。它把对话、文档、知识库、笔记、复习工具和创作输出放在同一个工作台里。
 
@@ -425,7 +425,7 @@ AI 生成内容可能存在错误、遗漏或不适合直接使用的情况。�
 - 问题反馈：[GitHub Issues](https://github.com/mingchen666/Reviva/issues)
 - 项目主页：[GitHub](https://github.com/mingchen666/Reviva)
 - 合作与交流：可通过下方微信联系作者
-- 用户交流群：微信群已迁移至 QQ 群，欢迎扫码加入！
+- 用户交流群：微信群已迁移至 QQ 群（群号：`1131466242`），欢迎扫码加入
 
 <table>
   <tr>
@@ -434,7 +434,7 @@ AI 生成内容可能存在错误、遗漏或不适合直接使用的情况。�
   </tr>
   <tr>
     <td align="center"><img src="./docs/images/my.jpg" alt="微信" /></td>
-    <td align="center"><img src="./docs/images/qq-group.jpg" alt="QQ交流群" /></td>
+    <td align="center"><img src="./docs/images/qq-group.jpg" alt="QQ交流群" /><br />群号：<code>1131466242</code></td>
   </tr>
 </table>
 

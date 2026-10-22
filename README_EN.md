@@ -52,7 +52,7 @@ Desktop · Local-First · AI Agent · Learning Toolkit
 </p>
 </div>
 
-> 📣 **WeChat group has migrated to QQ! Scan to join!** [View QR code ↓](#contact-and-community)
+> 📣 **WeChat group has migrated to QQ (group: `1131466242`)! Scan to join!** [View QR code ↓](#contact-and-community)
 
 Reviva is a local desktop Agent for learning, research, and knowledge work. It brings conversations, documents, knowledge bases, notes, review tools, and creative outputs into one workspace.
 
@@ -438,7 +438,7 @@ AI-generated content may contain errors, omissions, or content unsuitable for di
 - Bug reports: [GitHub Issues](https://github.com/mingchen666/Reviva/issues)
 - Project homepage: [GitHub](https://github.com/mingchen666/Reviva)
 - Collaboration: contact the author via WeChat below
-- Community group: WeChat group has migrated to QQ, scan to join
+- Community group: WeChat group has migrated to QQ (group: `1131466242`), scan to join
 
 <table>
   <tr>
@@ -447,7 +447,7 @@ AI-generated content may contain errors, omissions, or content unsuitable for di
   </tr>
   <tr>
     <td align="center"><img src="./docs/images/my.jpg" alt="WeChat" /></td>
-    <td align="center"><img src="./docs/images/qq-group.jpg" alt="QQ Community" /></td>
+    <td align="center"><img src="./docs/images/qq-group.jpg" alt="QQ Community" /><br />Group: <code>1131466242</code></td>
   </tr>
 </table>
 
