@@ -22,15 +22,18 @@ Desktop · Local-First · AI Agent · Learning Toolkit
   <a href="https://github.com/mingchen666/Reviva/stargazers">
     <img src="https://img.shields.io/github/stars/mingchen666/Reviva?style=flat&color=F59E0B" alt="GitHub Stars" />
   </a>
-  <a href="#license-and-commercial-use">
-    <img src="https://img.shields.io/badge/license-AGPL--3.0%20%2B%20Commercial-111827" alt="License AGPL-3.0 + Commercial" />
+  <a href="#contact-and-community">
+    <img src="https://img.shields.io/badge/Community-QQ-16A34A?style=flat" alt="Community" />
   </a>
 </p>
 
 <p>
 
+  <a href="#license-and-commercial-use">
+    <img src="https://img.shields.io/badge/license-AGPL--3.0%20%2B%20Commercial-111827" alt="License AGPL-3.0 + Commercial" />
+  </a>
   <img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS-2E2E3A" alt="Platform Windows and macOS" />
-  <img src="https://img.shields.io/github/downloads/mingchen666/Reviva/total?logo=github&label=Downloads" alt="Downloads" />
+  <img src="https://img.shields.io/github/downloads/mingchen666/Reviva/total?logo=github&label=Downloads&color=4A6CFF" alt="Downloads" />
   <img src="https://img.shields.io/badge/SQLite-Local--First-003B57?logo=sqlite&logoColor=white" alt="Local First" />
 </p>
 
@@ -39,15 +42,17 @@ Desktop · Local-First · AI Agent · Learning Toolkit
   ·
   <a href="#core-capabilities">Core Capabilities</a>
   ·
-  <a href="#learning-loop">Learning Loop</a>
-  ·
-  <a href="#use-cases">Use Cases</a>
+  <a href="#interface-demo">Interface Demo</a>
   ·
   <a href="#license-and-commercial-use">License</a>
   ·
   <a href="#contact-and-community">Community</a>
+  ·
+  <a href="#sponsor">Sponsor</a>
 </p>
 </div>
+
+> 📣 **WeChat group has migrated to QQ! Scan to join!** [View QR code ↓](#contact-and-community)
 
 Reviva is a local desktop Agent for learning, research, and knowledge work. It brings conversations, documents, knowledge bases, notes, review tools, and creative outputs into one workspace.
 
@@ -133,6 +138,9 @@ Most AI tools start from a blank chat box, while real learning keeps accumulatin
 - 💼 **Knowledge workers**: analyze, edit, present, and organize project materials, meeting notes, and Office documents.
 - 🧠 **Personal knowledge managers**: use different Agents to manage long-term materials, notes, memory, and Wiki pages as a continuously growing second brain.
 
+<details>
+<summary><b>⚡ Core Capabilities</b></summary>
+
 ## Core Capabilities
 
 | Core capability | What you can do |
@@ -155,6 +163,12 @@ Most AI tools start from a blank chat box, while real learning keeps accumulatin
 4. **Control execution**: command execution, file writes, external requests, and MCP tools are governed by permissions, request limits, and the security sandbox.
 5. **Capture results**: conversations, document queries, visual results, and learning artifacts can be saved locally and reused through notes, Wiki pages, tasks, and global Agent memory.
 
+
+</details>
+
+<details>
+<summary><b>🔄 Learning Loop</b></summary>
+
 ## Learning Loop
 
 1. **Import materials**: upload Office files, PDFs, Markdown, images, audio, or video, or import content from a URL.
@@ -172,6 +186,12 @@ Imagine you have a recorded lecture and its course handouts:
 3. Switch to a review coach Agent, share the existing context, and generate quizzes, flashcards, and a mind map.
 4. Save mistake explanations and chapter summaries to notes, then let the Agent maintain the course Wiki.
 5. During the next review session, search the knowledge base, revisit the conversation, and focus on weak concepts.
+
+
+</details>
+
+<details>
+<summary><b>🛠️ Agent Workspace Full Features</b></summary>
 
 ## Agent Workspace Complete Feature Set
 
@@ -273,6 +293,12 @@ Reviva ships with the **KBP (Knowledge Base Protocol)** so Agents can retrieve f
 - Unified Recycle Bin for restoring or permanently deleting documents, notes, conversations, and more
 - Local gateway service exposing Agent capabilities through OpenAI Chat Completions and Responses API formats
 
+
+</details>
+
+<details>
+<summary><b>📦 Product Modules</b></summary>
+
 ## Product Modules
 
 | Module | Description |
@@ -290,6 +316,12 @@ Reviva ships with the **KBP (Knowledge Base Protocol)** so Agents can retrieve f
 | Output Center | Manage Agent-generated documents, queries, and visual artifacts |
 | Recycle Bin | Restore or permanently delete documents, notes, conversations, and more |
 | Settings | Configure models, speech, OCR, appearance, permissions, data, environment, and usage |
+
+
+</details>
+
+<details>
+<summary><b>📋 Use Cases</b></summary>
 
 ## Use Cases
 
@@ -321,6 +353,9 @@ Reviva ships with the **KBP (Knowledge Base Protocol)** so Agents can retrieve f
 3. Capture valuable conclusions in notes and Wiki knowledge bases.
 4. Retrieve and reuse your previous understanding when similar questions come up.
 
+
+</details>
+
 ## Quick Start
 
 1. Download and install Reviva from the channels above.
@@ -342,11 +377,17 @@ For detailed installation, environment, and feature documentation, see the docum
 
 ## Project Status
 
-Reviva's current official version is `1.3.1`. Features and UI continue to evolve. The project currently targets Windows and macOS desktop users; back up important data before long-term use.
+Reviva's current official version is `1.4.2`. Features and UI continue to evolve. The project currently targets Windows and macOS desktop users; back up important data before long-term use.
 
 For issues, please open a [GitHub Issue](https://github.com/mingchen666/Reviva/issues).
 
 ## Roadmap
+
+- [ ] More built-in Agents and Skills
+- [ ] More...
+
+<details>
+<summary><b>✅ Completed</b></summary>
 
 - [x] Automatic update checks
 - [x] URL import and crawling
@@ -354,7 +395,6 @@ For issues, please open a [GitHub Issue](https://github.com/mingchen666/Reviva/i
 - [x] Wiki links and audio/video parsing
 - [x] Responses API format
 - [x] Custom Skills
-- [ ] More built-in Agents and Skills
 - [x] Conversation navigation
 - [x] Improved import, export, and backup capabilities
 - [x] Agent autonomous learning growth loop (accumulate user preferences, learning profiles, and weak points over time; keep all growth results auditable, reversible, and evaluable)(beta)
@@ -362,7 +402,9 @@ For issues, please open a [GitHub Issue](https://github.com/mingchen666/Reviva/i
 - [x] Study cards, study guide, Q&A, glossary, and cheatsheet creation tools
 - [x] Voice input, image generation/editing model configuration, and 7 built-in themes
 - [x] Beginner guide and local gateway integration docs
-- [ ] More...
+
+</details>
+
 
 ## License and Commercial Use
 
@@ -389,32 +431,61 @@ The following scenarios require prior commercial authorization from the author:
 
 AI-generated content may contain errors, omissions, or content unsuitable for direct use. Verify important outputs yourself in learning, research, commercial, legal, medical, and other high-stakes contexts. Reviva does not guarantee the accuracy, completeness, or applicability of model outputs.
 
+---
+
 ## Contact and Community
 
 - Bug reports: [GitHub Issues](https://github.com/mingchen666/Reviva/issues)
 - Project homepage: [GitHub](https://github.com/mingchen666/Reviva)
-- Collaboration and community: use the contact options below
+- Collaboration: contact the author via WeChat below
+- Community group: WeChat group has migrated to QQ, scan to join
 
 <table>
   <tr>
     <td align="center"><b>Contact the Author</b></td>
-    <td align="center"><b>Community Group</b></td>
+    <td align="center"><b>QQ Community</b></td>
   </tr>
   <tr>
     <td align="center"><img src="./docs/images/my.jpg" alt="WeChat" /></td>
-    <td align="center"><img src="./docs/images/wx-group.jpg" alt="Community Group" /></td>
+    <td align="center"><img src="./docs/images/qq-group.jpg" alt="QQ Community" /></td>
   </tr>
 </table>
 
 ## Sponsor
 
-Reviva requires continuous development effort. If it helps with your learning or work, consider buying the author a coffee:
+Reviva has been built with tremendous effort and countless days and nights. If it helps with your learning or work:
+
+- ⭐ **Give it a Star** — Help more people discover Reviva, and keep the author motivated
+- 💬 **Recommend to friends** — If you find it useful, share it with classmates and colleagues
+- ☕ **Buy the author a coffee** — Your support keeps the project going
 
 <img src="./docs/images/sponsor.png" alt="Sponsor" width="400" />
 
 ## Other Projects by the Author
 
-- [DocTranslator](https://github.com/mingchen666/DocTranslator) — AI-powered document translation platform
+<table>
+  <tr>
+    <td width="55%" align="center">
+      <h3>🔥 KnowStep</h3>
+      <p><b>Professional audio/video learning workspace</b></p>
+      <p>Scan to upload audio/video from Douyin, Bilibili, and more. AI auto-summarizes, transcribes, and extracts keyframes to power your learning loop.</p>
+      <p>
+        <a href="https://www.knowstep.cn/">
+          <img src="https://img.shields.io/badge/Website-KnowStep-4A6CFF?style=for-the-badge&logo=googlechrome&logoColor=white" alt="KnowStep Website" />
+        </a>
+      </p>
+    </td>
+    <td width="45%" align="center">
+      <h3>DocTranslator</h3>
+      <p>AI-powered document translation platform</p>
+      <p>
+        <a href="https://github.com/mingchen666/DocTranslator">
+          <img src="https://img.shields.io/badge/GitHub-DocTranslator-111827?style=for-the-badge&logo=github&logoColor=white" alt="DocTranslator" />
+        </a>
+      </p>
+    </td>
+  </tr>
+</table>
 
 ## Acknowledgments
 
@@ -424,3 +495,5 @@ Reviva requires continuous development effort. If it helps with your learning or
 - [Linux Do](https://linux.do/)
 
 Thanks to all open-source contributors and community users.
+
+<p align="center"><a href="#reviva">⬆ Back to top</a></p>

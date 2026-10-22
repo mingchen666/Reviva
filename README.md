@@ -23,15 +23,18 @@
   <a href="https://github.com/mingchen666/Reviva/stargazers">
     <img src="https://img.shields.io/github/stars/mingchen666/Reviva?style=flat&color=F59E0B" alt="GitHub Stars" />
   </a>
-  <a href="#开源协议与商业授权">
-    <img src="https://img.shields.io/badge/license-AGPL--3.0%20%2B%20Commercial-111827" alt="License AGPL-3.0 + Commercial" />
+  <a href="#联系与交流">
+    <img src="https://img.shields.io/badge/%E4%BA%A4%E6%B5%81%E7%BE%A4-QQ-16A34A?style=flat" alt="交流群" />
   </a>
 </p>
 
 <p>
 
+  <a href="#开源协议与商业授权">
+    <img src="https://img.shields.io/badge/license-AGPL--3.0%20%2B%20Commercial-111827" alt="License AGPL-3.0 + Commercial" />
+  </a>
   <img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS-2E2E3A" alt="Platform Windows and macOS" />
-  <img src="https://img.shields.io/github/downloads/mingchen666/Reviva/total?logo=github&label=Downloads" alt="Downloads" />
+  <img src="https://img.shields.io/github/downloads/mingchen666/Reviva/total?logo=github&label=Downloads&color=4A6CFF" alt="Downloads" />
   <img src="https://img.shields.io/badge/SQLite-Local--First-003B57?logo=sqlite&logoColor=white" alt="Local First" />
 </p>
 
@@ -40,15 +43,17 @@
   ·
   <a href="#核心能力一览">核心能力</a>
   ·
-  <a href="#学习闭环">学习闭环</a>
-  ·
-  <a href="#典型使用场景">使用场景</a>
+  <a href="#界面演示">界面预览</a>
   ·
   <a href="#开源协议与商业授权">开源协议</a>
   ·
-  <a href="#联系与交流">交流群</a>
+  <a href="#联系与交流">QQ交流群</a>
+  ·
+  <a href="#支持作者">支持作者</a>
 </p>
 </div>
+
+> 📣 **微信交流群已迁移至 QQ 群，欢迎扫码加入！** [查看群二维码 ↓](#联系与交流)
 
 Reviva 是一个面向学习、研究和知识工作的本地桌面 Agent。它把对话、文档、知识库、笔记、复习工具和创作输出放在同一个工作台里。
 
@@ -60,20 +65,6 @@ Reviva = 本地资料库 + Wiki 知识库 + AI Agent + 知识库检索 + 笔记�
 
 > 🌐 **Reviva 官网已上线** —— 完整介绍、功能演示与最新动态，欢迎前往 [官网](https://www.reviva.cn/) 查看
 
-<table width="100%">
-  <tr>
-    <td align="center">
-      <h2>🎉 Reviva v1.4.0 正式发布</h2>
-      <p>以 Agent 为核心，连接本地资料、知识库、笔记与学习工具，完成从理解、复习到创作输出的完整学习工作流。</p>
-      <p><b>Agent 驱动 · 本地优先 · 13 个创作工具 · 可接入外部知识库 · 成长画像 Beta</b></p>
-      <p>
-        <a href="https://github.com/mingchen666/Reviva/releases/latest"><img src="https://img.shields.io/badge/Download-Reviva_1.4.2-4A6CFF?style=for-the-badge&logo=github&logoColor=white" alt="下载 Reviva 1.4.2" /></a>
-        <a href="https://github.com/mingchen666/Reviva/releases"><img src="https://img.shields.io/badge/Release-更新日志-111827?style=for-the-badge" alt="查看发布说明" /></a>
-        <a href="#联系与交流"><img src="https://img.shields.io/badge/Join-交流群-16A34A?style=for-the-badge" alt="加入用户交流群" /></a>
-      </p>
-    </td>
-  </tr>
-</table>
 
 ## 下载与安装
 
@@ -116,6 +107,7 @@ Reviva = 本地资料库 + Wiki 知识库 + AI Agent + 知识库检索 + 笔记�
   </tr>
 </table>
 
+
 ## 为什么是 Reviva
 
 普通 AI 工具往往从一个空白聊天框开始，而真实的学习过程会不断积累资料、笔记、问题和复习结果。Reviva 将这些内容放在同一个本地工作区中：
@@ -131,6 +123,9 @@ Reviva = 本地资料库 + Wiki 知识库 + AI Agent + 知识库检索 + 笔记�
 - 🎓 **学生与备考者**：整理课程资料、讲义和错题，生成测验、闪卡、导图与复习内容。
 - 💼 **知识工作者**：围绕项目资料、会议记录和 Office 文档完成分析、编辑、汇报与知识沉淀。
 - 🧠 **个人知识管理用户**：用不同 Agent 管理长期资料、笔记、记忆和 Wiki，构建可持续更新的第二大脑。
+
+<details>
+<summary><b>⚡ 核心能力一览</b></summary>
 
 ## 核心能力一览
 
@@ -154,6 +149,12 @@ Reviva = 本地资料库 + Wiki 知识库 + AI Agent + 知识库检索 + 笔记�
 4. **控制执行**：命令执行、文件写入、外部请求和 MCP 工具都受权限、请求限制和安全沙箱控制。
 5. **输出沉淀**：对话、文档查询、可视化结果和学习产物保存本地，可随时查看。
 
+
+</details>
+
+<details>
+<summary><b>🔄 学习闭环</b></summary>
+
 ## 学习闭环
 
 1. **导入资料**：上传 Office、PDF、Markdown、图片、音视频等本地资料，也可以通过 URL 导入内容。
@@ -171,6 +172,12 @@ Reviva = 本地资料库 + Wiki 知识库 + AI Agent + 知识库检索 + 笔记�
 3. 切换复习教练 Agent，共享已有上下文并生成测验、闪卡和思维导图。
 4. 把错题解析和章节总结保存到笔记，由 Agent 继续维护课程 Wiki。
 5. 下一次复习时直接检索知识库、查看历史对话，并围绕薄弱知识点继续学习。
+
+
+</details>
+
+<details>
+<summary><b>🛠️ Agent 工作台完整功能</b></summary>
 
 ## Agent 工作台完整功能
 
@@ -271,6 +278,12 @@ Reviva 内置 **KBP（Knowledge Base Protocol）**，让 Agent 在对话时直�
 - 支持多工作区登记、切换与迁移，支持清除系统缓存和临时文件
 - 支持本地网关服务，对外提供 OpenAI Chat Completions、Responses API 等方式调用 Agent
 
+
+</details>
+
+<details>
+<summary><b>📦 产品模块</b></summary>
+
 ## 产品模块
 
 | 模块 | 说明 |
@@ -288,6 +301,12 @@ Reviva 内置 **KBP（Knowledge Base Protocol）**，让 Agent 在对话时直�
 | 输出中心 | 管理 Agent 生成的文档、查询结果和可视化成果 |
 | 回收站 | 统一恢复或永久删除文档、笔记、对话等内容 |
 | 设置 | 配置模型、语音、OCR、外观、权限、数据、环境和用量统计 |
+
+
+</details>
+
+<details>
+<summary><b>📋 典型使用场景</b></summary>
 
 ## 典型使用场景
 
@@ -319,6 +338,9 @@ Reviva 内置 **KBP（Knowledge Base Protocol）**，让 Agent 在对话时直�
 3. 将高价值结论沉淀到笔记和 Wiki 知识库。
 4. 下一次遇到相似问题时，直接检索并复用已有理解。
 
+
+</details>
+
 ## 快速开始
 
 1. 从上方渠道下载并安装 Reviva。
@@ -326,9 +348,7 @@ Reviva 内置 **KBP（Knowledge Base Protocol）**，让 Agent 在对话时直�
 3. 在设置中配置一个 LLM 服务商、API Key 或本地模型。
 4. 导入一份文档，或直接创建一个知识库。
 5. 打开学习工作台，选择 Agent 和资料后开始提问。
-6. 尝试使用 `/` 调用测验、闪卡或导图工具，再把结果保存到笔记或 Wiki。
 
-更完整的安装、环境和功能说明请参考项目中的文档站源码：`docs/src/views/docs-site`。
 
 ## 本地优先
 
@@ -346,13 +366,20 @@ Reviva 当前正式版本为 `1.4.2`，功能和界面仍在持续更新。项�
 
 ## 未来计划
 
+- [ ] 支持ima作为外部知识源
+- [ ] 支持夸克网盘skill
+- [ ] 更丰富的内置 Agent 和 Skills
+- [ ] 更多......
+
+<details>
+<summary><b>✅ 已完成</b></summary>
+
 - [x] 支持检查自动更新
 - [x] 支持Url导入爬取
 - [x] 音视频文件解析处理
 - [x] wiki支持链接和音视频解析
 - [x] 支持response api格式
 - [x] 自定义skill
-- [ ] 更丰富的内置 Agent 和 Skills
 - [x] 对话页面导航功能
 - [x] 更完善的导入导出与备份能力
 - [x] Agent 自主学习成长闭环（长期积累用户偏好、学习画像、薄弱点，所有成长结果可审计、可撤销、可评测）目前beta
@@ -360,7 +387,10 @@ Reviva 当前正式版本为 `1.4.2`，功能和界面仍在持续更新。项�
 - [x] 新增知识卡片、学习指南、Q&A、术语表、速查表五个创作工具
 - [x] 语音输入、图像生成编辑模型配置与 7 套内置主题
 - [x] 新手教程页面与本地开放服务接入文档
-- [ ] 更多......
+- [x] 自定义主题和字体大小设置
+
+</details>
+
 
 ## 开源协议与商业授权
 
@@ -387,32 +417,62 @@ Reviva 当前正式版本为 `1.4.2`，功能和界面仍在持续更新。项�
 
 AI 生成内容可能存在错误、遗漏或不适合直接使用的情况。请在学习、研究、商业、法律、医疗等重要场景中自行核验。Reviva 不对模型输出的准确性、完整性或适用性作保证。
 
+
+---
+
 ## 联系与交流
 
 - 问题反馈：[GitHub Issues](https://github.com/mingchen666/Reviva/issues)
 - 项目主页：[GitHub](https://github.com/mingchen666/Reviva)
-- 合作与交流：可通过下方微信联系
+- 合作与交流：可通过下方微信联系作者
+- 用户交流群：微信群已迁移至 QQ 群，欢迎扫码加入！
 
 <table>
   <tr>
     <td align="center"><b>联系作者</b></td>
-    <td align="center"><b>用户交流群</b></td>
+    <td align="center"><b>QQ 交流群</b></td>
   </tr>
   <tr>
     <td align="center"><img src="./docs/images/my.jpg" alt="微信" /></td>
-    <td align="center"><img src="./docs/images/wx-group.jpg" alt="交流群" /></td>
+    <td align="center"><img src="./docs/images/qq-group.jpg" alt="QQ交流群" /></td>
   </tr>
 </table>
 
-## 赞赏支持
+## 支持作者
 
-Reviva 的开发需要持续投入。如果它对你的学习或工作有帮助，欢迎请作者喝杯咖啡~
+Reviva 从设计、开发到打磨，投入了大量心血与无数个日夜。如果它对你的学习或工作有帮助：
+
+- ⭐ **给个 Star** —— 让更多人看到 Reviva，也是作者持续更新的动力
+- 💬 **推荐给朋友** —— 如果你觉得好用，欢迎分享给身边的同学和同事
+- ☕ **请作者喝杯咖啡** —— 你的支持是持续开发的动力
 
 <img src="./docs/images/sponsor.png" alt="赞赏" width="400" />
 
 ## 作者的其他项目
 
-- [DocTranslator](https://github.com/mingchen666/DocTranslator) — AI 驱动的文档翻译平台
+<table>
+  <tr>
+    <td width="55%" align="center">
+      <h3>🔥 KnowStep</h3>
+      <p><b>专业的音视频学习工作台</b></p>
+      <p>支持抖音、B站等平台手机扫码上传音视频，AI 自动总结、转录、提取关键帧，打造你的音视频学习闭环。</p>
+      <p>
+        <a href="https://www.knowstep.cn/">
+          <img src="https://img.shields.io/badge/官网-KnowStep-4A6CFF?style=for-the-badge&logo=googlechrome&logoColor=white" alt="KnowStep 官网" />
+        </a>
+      </p>
+    </td>
+    <td width="45%" align="center">
+      <h3>DocTranslator</h3>
+      <p>AI 驱动的文档翻译平台</p>
+      <p>
+        <a href="https://github.com/mingchen666/DocTranslator">
+          <img src="https://img.shields.io/badge/GitHub-DocTranslator-111827?style=for-the-badge&logo=github&logoColor=white" alt="DocTranslator" />
+        </a>
+      </p>
+    </td>
+  </tr>
+</table>
 
 ## 致谢
 
@@ -422,3 +482,5 @@ Reviva 的开发需要持续投入。如果它对你的学习或工作有帮助�
 - [Linux Do](https://linux.do/)
 
 感谢所有开源贡献者和社区用户。
+
+<p align="center"><a href="#reviva">⬆ 返回顶部</a></p>
