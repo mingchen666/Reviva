@@ -70,7 +70,7 @@ watch(() => props.kb?.id, () => {
           </div>
           <button
             class="w-7 h-7 rounded-md flex items-center justify-center"
-            :class="isDark ? 'text-wt-aux hover:text-wt-sub hover:bg-white/5' : 'text-slate-400 hover:text-slate-700 hover:bg-slate-100'"
+            :class="isDark ? 'text-wt-sub hover:text-wt-main hover:bg-white/5' : 'text-slate-400 hover:text-slate-700 hover:bg-slate-100'"
             @click="emit('close')">
             <i class="ri-close-line text-[15px]" />
           </button>
@@ -81,7 +81,7 @@ watch(() => props.kb?.id, () => {
             <span class="text-[12px] font-medium" :class="isDark ? 'text-wt-aux' : 'text-slate-700'">名称</span>
             <input
               v-model="form.title"
-              class="mt-1.5 w-full h-9 rounded-md px-3 text-[12.5px] outline-none transition-colors"
+              class="mt-1.5 w-full h-9 rounded-md px-3 text-[12px] outline-none transition-colors"
               :class="isDark ? 'bg-d0 border border-d4 text-wt-main placeholder-wt-dim focus:border-brand-400/45' : 'bg-slate-50 border border-slate-200 text-slate-900 placeholder-slate-400 focus:bg-white focus:border-blue-500'"
               placeholder="知识库名称"
               @keydown.enter.prevent="submit" />
@@ -92,7 +92,7 @@ watch(() => props.kb?.id, () => {
             <textarea
               v-model="form.description"
               rows="3"
-              class="mt-1.5 w-full rounded-md px-3 py-2 text-[12.5px] outline-none resize-none transition-colors"
+              class="mt-1.5 w-full rounded-md px-3 py-2 text-[12px] outline-none resize-none transition-colors"
               :class="isDark ? 'bg-d0 border border-d4 text-wt-main placeholder-wt-dim focus:border-brand-400/45' : 'bg-slate-50 border border-slate-200 text-slate-900 placeholder-slate-400 focus:bg-white focus:border-blue-500'"
               placeholder="补充这组资料的用途" />
           </label>
@@ -119,7 +119,7 @@ watch(() => props.kb?.id, () => {
         <div class="px-5 py-4 border-t flex items-center justify-end gap-2" :class="isDark ? 'border-d4 bg-d1/60' : 'border-slate-100 bg-slate-50'">
           <button
             class="h-8 px-3 rounded-md text-[12px] font-medium"
-            :class="isDark ? 'text-wt-aux hover:text-wt-sub hover:bg-white/5' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'"
+            :class="isDark ? 'text-wt-sub hover:text-wt-main hover:bg-white/5' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'"
             @click="emit('close')">
             取消
           </button>

@@ -98,7 +98,7 @@ watch(() => props.activeScope, (scope) => {
 
       <template v-else-if="showMineGroups">
         <div v-if="ownKbs.length" class="mb-4">
-          <h3 class="px-4 mb-1.5 text-[10px] font-semibold uppercase tracking-wider" :class="isDark ? 'text-wt-dim' : 'text-slate-400'">
+          <h3 class="px-4 mb-1.5 text-[11px] font-semibold uppercase tracking-wider" :class="isDark ? 'text-wt-dim' : 'text-slate-400'">
             自建知识库
           </h3>
           <KbListItem
@@ -118,7 +118,7 @@ watch(() => props.activeScope, (scope) => {
         </div>
 
         <div v-if="joinedSystemKbs.length">
-          <h3 class="px-4 mb-1.5 text-[10px] font-semibold uppercase tracking-wider" :class="isDark ? 'text-wt-dim' : 'text-slate-400'">
+          <h3 class="px-4 mb-1.5 text-[11px] font-semibold uppercase tracking-wider" :class="isDark ? 'text-wt-dim' : 'text-slate-400'">
             已加入系统库
           </h3>
           <KbListItem
@@ -167,7 +167,7 @@ watch(() => props.activeScope, (scope) => {
         <p class="text-[12px] font-medium" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">
           {{ hasSearch ? '没有匹配的知识库' : activeScope === 'system' ? '暂无系统知识库' : '暂无知识库' }}
         </p>
-        <p class="mt-1 text-[10.5px] leading-relaxed">
+        <p class="mt-1 text-[11px] leading-relaxed">
           {{
             hasSearch
               ? '换个关键词试试'
@@ -208,14 +208,14 @@ watch(() => props.activeScope, (scope) => {
                 :class="[activeScope === 'system' ? 'ri-cloud-line' : 'ri-database-2-line', 'text-[13px]']"
                 :style="{ color: activeScope === 'system' ? '#059669' : '#2563EB' }" />
               <p
-                class="text-[10px] font-medium truncate"
+                class="text-[11px] font-medium truncate"
                 :class="activeScope === 'system' ? (isDark ? 'text-emerald-200' : 'text-emerald-700') : (isDark ? 'text-brand-200' : 'text-blue-700')">
                 {{ activeScope === 'system' ? '系统库' : '知识库' }}
               </p>
             </div>
             <p class="mt-0.5 text-[14px] font-semibold tabular-nums" :class="activeScope === 'system' ? (isDark ? 'text-emerald-100' : 'text-emerald-900') : (isDark ? 'text-brand-100' : 'text-blue-900')">
               {{ sidebarKbs.length }}
-              <span class="text-[10px] font-medium">个</span>
+              <span class="text-[11px] font-medium">个</span>
             </p>
           </div>
           <div
@@ -223,7 +223,7 @@ watch(() => props.activeScope, (scope) => {
             :class="isDark ? 'bg-amber-400/8' : 'bg-amber-50'">
             <div class="flex items-center gap-1.5">
               <i class="ri-file-list-3-line text-[13px]" style="color: #D97706" />
-              <p class="text-[10px] font-medium" :class="isDark ? 'text-amber-200' : 'text-amber-700'">文档</p>
+              <p class="text-[11px] font-medium" :class="isDark ? 'text-amber-200' : 'text-amber-700'">文档</p>
             </div>
             <p class="mt-0.5 text-[14px] font-semibold tabular-nums" :class="isDark ? 'text-amber-100' : 'text-amber-900'">
               {{ totalDocs }}

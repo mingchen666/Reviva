@@ -20,7 +20,7 @@ let _learningMemoryService = null
 let _mainWindowRef = null
 let _revivaWriteCount = 0
 let _taskCounters = { web_search: 0, file_op: 0 }
-let _taskLimits = { web_search: 10, file_op: 30 }
+let _taskLimits = { web_search: 30, file_op: 30 }
 let _cloudCtx = { baseUrl: '', token: '', defaultKbIds: [], defaultDocIds: [], activeSourceId: '', externalKbId: '' }
 let _externalKbBodyFields = ''
 let _kbRegistry = null
@@ -135,10 +135,12 @@ export function resetTaskCounters() {
   _taskCounters = { web_search: 0, file_op: 0 }
   _revivaWriteCount = 0
   // Read limits from DB settings
-  const searchLimit = _dbService?.getSetting('searchLimit')
+  // One-time migration: old default was 10; bump stale stored value to new default 30.
+  let searchLimit = _dbService?.getSetting('searchLimit')
+  if (searchLimit === 10) { _dbService?.setSetting('searchLimit', 30); searchLimit = 30 }
   const fileOpLimit = _dbService?.getSetting('fileOpLimit')
-  if (searchLimit && searchLimit !== '10') _taskLimits.web_search = Number(searchLimit) || 10
-  if (fileOpLimit && fileOpLimit !== '30') _taskLimits.file_op = Number(fileOpLimit) || 30
+  if (typeof searchLimit === 'number' && searchLimit > 0) _taskLimits.web_search = searchLimit
+  if (typeof fileOpLimit === 'number' && fileOpLimit > 0) _taskLimits.file_op = fileOpLimit
 }
 
 export function setRevivaWriteCount(n) { _revivaWriteCount = n }

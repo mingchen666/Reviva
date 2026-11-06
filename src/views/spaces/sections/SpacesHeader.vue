@@ -27,7 +27,7 @@ const emit = defineEmits(['update:activeScope', 'update:searchQuery', 'refresh',
         <button
           v-for="scope in scopes"
           :key="scope.value"
-          class="relative h-full px-1 flex items-center gap-1.5 text-[12.5px] font-medium border-b-2 transition-colors"
+          class="relative h-full px-1 flex items-center gap-1.5 text-[12px] font-medium border-b-2 transition-colors"
           :class="
             activeScope === scope.value
               ? scope.value === 'system'
@@ -45,7 +45,7 @@ const emit = defineEmits(['update:activeScope', 'update:searchQuery', 'refresh',
           <i :class="[scope.icon, 'text-[13px]']" />
           <span>{{ scope.label }}</span>
           <span
-            class="min-w-5 h-4 px-1 rounded-full text-[10px] leading-4 text-center tabular-nums"
+            class="min-w-5 h-4 px-1 rounded-full text-[11px] leading-4 text-center tabular-nums"
             :class="
               activeScope === scope.value
                 ? scope.value === 'system'
@@ -84,7 +84,7 @@ const emit = defineEmits(['update:activeScope', 'update:searchQuery', 'refresh',
         <button
           v-if="searchQuery"
           class="absolute right-2 top-1/2 -translate-y-1/2 w-5 h-5 rounded flex items-center justify-center"
-          :class="isDark ? 'text-wt-dim hover:text-wt-sub hover:bg-white/5' : 'text-lt-aux hover:text-lt-sub hover:bg-l4'"
+          :class="isDark ? 'text-wt-dim hover:text-wt-sub hover:bg-white/5' : 'text-lt-sub hover:text-lt-main hover:bg-l4'"
           @click="emit('update:searchQuery', '')">
           <i class="ri-close-line text-[13px]" />
         </button>
@@ -92,7 +92,7 @@ const emit = defineEmits(['update:activeScope', 'update:searchQuery', 'refresh',
 
       <button
         class="h-8 w-8 rounded-lg flex items-center justify-center transition-colors"
-        :class="isDark ? 'text-wt-aux hover:text-wt-sub hover:bg-white/5' : 'text-lt-aux hover:text-lt-sub hover:bg-l4'"
+        :class="isDark ? 'text-wt-sub hover:text-wt-main hover:bg-white/5' : 'text-lt-sub hover:text-lt-main hover:bg-l4'"
         title="刷新"
         @click="emit('refresh')">
         <i class="ri-refresh-line text-[15px]" :class="loading ? 'animate-spin' : ''" />

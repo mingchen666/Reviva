@@ -698,7 +698,7 @@ onMounted(load)
               <div class="flex gap-1 p-0.5 rounded-lg" :class="isDark ? 'bg-d0' : 'bg-l2'">
                 <button v-for="tab in capabilityTabs" :key="tab.key" @click="activeCapabilityTab = tab.key"
                   class="h-7 px-2 rounded-md text-[10px] font-medium flex items-center gap-1.5 transition-colors"
-                  :class="activeCapabilityTab === tab.key ? (isDark ? 'bg-d3 text-wt-main shadow' : 'bg-l1 text-lt-main shadow') : (isDark ? 'text-wt-aux hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub')">
+                  :class="activeCapabilityTab === tab.key ? (isDark ? 'bg-d3 text-wt-main shadow' : 'bg-l1 text-lt-main shadow') : (isDark ? 'text-wt-sub hover:text-wt-main' : 'text-lt-sub hover:text-lt-main')">
                   <i :class="`${tab.icon} text-[11px]`" />
                   {{ tab.label }}
                   <span class="font-mono" :class="activeCapabilityTab === tab.key ? '' : (isDark ? 'text-wt-dim' : 'text-lt-aux')">{{ capabilityCount(selected, tab.key) }}</span>
@@ -800,12 +800,12 @@ onMounted(load)
           <div class="flex gap-1 p-0.5 rounded-lg" :class="isDark ? 'bg-d0' : 'bg-l2'">
             <button @click="switchMode('json')" type="button"
               class="flex-1 h-7 rounded-md text-[11px] font-medium flex items-center justify-center gap-1.5 transition-colors"
-              :class="editMode === 'json' ? (isDark ? 'bg-d3 text-wt-main shadow' : 'bg-l1 text-lt-main shadow') : (isDark ? 'text-wt-aux hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub')">
+              :class="editMode === 'json' ? (isDark ? 'bg-d3 text-wt-main shadow' : 'bg-l1 text-lt-main shadow') : (isDark ? 'text-wt-sub hover:text-wt-main' : 'text-lt-sub hover:text-lt-main')">
               <i class="ri-braces-line text-[12px]" /> 粘贴 JSON
             </button>
             <button @click="switchMode('form')" type="button"
               class="flex-1 h-7 rounded-md text-[11px] font-medium flex items-center justify-center gap-1.5 transition-colors"
-              :class="editMode === 'form' ? (isDark ? 'bg-d3 text-wt-main shadow' : 'bg-l1 text-lt-main shadow') : (isDark ? 'text-wt-aux hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub')">
+              :class="editMode === 'form' ? (isDark ? 'bg-d3 text-wt-main shadow' : 'bg-l1 text-lt-main shadow') : (isDark ? 'text-wt-sub hover:text-wt-main' : 'text-lt-sub hover:text-lt-main')">
               <i class="ri-list-check-2 text-[12px]" /> 分项填写
             </button>
           </div>
@@ -908,7 +908,7 @@ onMounted(load)
           </button>
           <div class="flex gap-2">
             <button @click="cancelEdit" class="px-4 py-1.5 rounded-lg text-[11px] font-medium transition-colors"
-              :class="isDark ? 'text-wt-aux hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub'">取消</button>
+              :class="isDark ? 'text-wt-sub hover:text-wt-main' : 'text-lt-sub hover:text-lt-main'">取消</button>
             <button @click="saveEdit" class="px-4 py-1.5 rounded-lg text-[11px] font-semibold flex items-center gap-1 transition-colors"
               :class="isDark ? 'bg-emerald-400 text-d0 hover:bg-emerald-500' : 'bg-emerald-500 text-white hover:bg-emerald-600'">
               <i class="ri-check-line text-[12px]" /> 保存

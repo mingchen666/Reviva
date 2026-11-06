@@ -22,6 +22,9 @@ export const PPTX_STYLE_OPTIONS = [
 
 export const HTML_STYLE_OPTIONS = [
   { value: 'auto', label: '自动选择', description: '根据场景自动选择 html-ppt-skill theme 或 full-deck。', category: 'smart' },
+  { value: 'guizang:editorial', label: '杂志风（电子墨水）', description: '归藏电子杂志风，WebGL 流体背景、衬线标题、暖色调，适合人文分享、行业观察、商业发布。', category: '归藏 · 杂志风' },
+  { value: 'guizang:swiss', label: '瑞士国际主义', description: '归藏瑞士风，网格点阵、无衬线极致字号对比、高饱和锚点色，适合数据汇报、科技产品、年度总结。', category: '归藏 · 瑞士风' },
+  { value: 'guizang:cover', label: '多平台封面', description: '归藏多尺寸封面：公众号 21:9、分享卡 1:1、小红书 3:4、视频号横版。', category: '归藏 · 封面' },
   { value: 'theme:minimal-white', label: 'minimal-white', description: 'Light & calm theme', category: 'Light & calm' },
   { value: 'theme:editorial-serif', label: 'editorial-serif', description: 'Light & calm theme', category: 'Light & calm' },
   { value: 'theme:soft-pastel', label: 'soft-pastel', description: 'Light & calm theme', category: 'Light & calm' },

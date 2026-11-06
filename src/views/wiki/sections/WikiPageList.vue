@@ -23,7 +23,7 @@ const emit = defineEmits(['open-page', 'refresh'])
       </div>
       <button
         class="h-7 w-7 rounded-md flex items-center justify-center transition-colors disabled:cursor-default disabled:opacity-70"
-        :class="isDark ? 'text-wt-dim hover:text-wt-sub hover:bg-white/5' : 'text-lt-aux hover:text-lt-sub hover:bg-l4'"
+        :class="isDark ? 'text-wt-dim hover:text-wt-sub hover:bg-white/5' : 'text-lt-sub hover:text-lt-main hover:bg-l4'"
         :disabled="refreshing"
         :aria-busy="refreshing"
         title="刷新"

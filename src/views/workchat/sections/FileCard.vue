@@ -129,15 +129,15 @@ function formatSize(bytes) {
         <i class="ri-file-list-3-line text-[12px]" />
       </button>
       <button v-if="file.path" @click.stop="openExternally" class="h-5 w-5 rounded flex items-center justify-center transition-colors"
-        :class="isDark ? 'text-wt-aux hover:text-wt-sub hover:bg-white/5' : 'text-lt-aux hover:text-lt-sub hover:bg-l4'" title="打开">
+        :class="isDark ? 'text-wt-sub hover:text-wt-main hover:bg-white/5' : 'text-lt-sub hover:text-lt-main hover:bg-l4'" title="打开">
         <i class="ri-external-link-line text-[12px]" />
       </button>
       <button v-if="file.path" @click.stop="copyPath" class="h-5 w-5 rounded flex items-center justify-center transition-colors"
-        :class="isDark ? 'text-wt-aux hover:text-wt-sub hover:bg-white/5' : 'text-lt-aux hover:text-lt-sub hover:bg-l4'" title="复制路径">
+        :class="isDark ? 'text-wt-sub hover:text-wt-main hover:bg-white/5' : 'text-lt-sub hover:text-lt-main hover:bg-l4'" title="复制路径">
         <i class="ri-clipboard-line text-[12px]" />
       </button>
       <button v-if="file.path" @click.stop="showInFolder" class="h-5 w-5 rounded flex items-center justify-center transition-colors"
-        :class="isDark ? 'text-wt-aux hover:text-wt-sub hover:bg-white/5' : 'text-lt-aux hover:text-lt-sub hover:bg-l4'" title="在文件夹中显示">
+        :class="isDark ? 'text-wt-sub hover:text-wt-main hover:bg-white/5' : 'text-lt-sub hover:text-lt-main hover:bg-l4'" title="在文件夹中显示">
         <i class="ri-folder-open-line text-[12px]" />
       </button>
     </div>

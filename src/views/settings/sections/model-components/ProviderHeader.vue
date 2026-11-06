@@ -5,7 +5,7 @@ defineProps({
   accentHex: { type: String, default: '#4A6CFF' },
 })
 
-defineEmits(['toggle-provider'])
+defineEmits(['toggle-provider', 'delete-provider'])
 </script>
 
 <template>
@@ -35,6 +35,12 @@ defineEmits(['toggle-provider'])
       </div>
       <div class="text-[12px] mt-0.5" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">{{ provider.desc }}</div>
     </div>
+    <button v-if="provider.custom"
+      class="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-colors"
+      :class="isDark ? 'text-wt-dim hover:text-red-400 hover:bg-red-400/10' : 'text-lt-aux hover:text-red-500 hover:bg-red-50'"
+      @click="$emit('delete-provider')">
+      <i class="ri-delete-bin-line text-[16px]" />
+    </button>
     <NSwitch :value="provider.enabled" size="small" :active-color="accentHex" @update:value="$emit('toggle-provider', provider.id)" />
   </div>
 </template>

@@ -63,19 +63,19 @@ const emptyTitle = computed(() => {
                 </h2>
                 <span
                   v-if="kb.isSystem"
-                  class="px-1.5 py-0.5 rounded text-[10px] font-semibold border uppercase leading-none"
+                  class="px-1.5 py-0.5 rounded text-[11px] font-semibold border uppercase leading-none"
                   :class="isDark ? 'text-wt-aux bg-white/5 border-white/8' : 'text-slate-600 bg-slate-100 border-slate-200'">
                   Sys
                 </span>
                 <span
                   v-if="readonly"
-                  class="px-1.5 py-0.5 rounded text-[10px] font-medium border leading-none"
+                  class="px-1.5 py-0.5 rounded text-[11px] font-medium border leading-none"
                   :class="isDark ? 'text-wt-aux bg-white/4 border-white/8' : 'text-slate-500 bg-slate-50 border-slate-200'">
                   只读
                 </span>
                 <span
                   v-if="kb.isSystem"
-                  class="px-1.5 py-0.5 rounded text-[10px] font-medium border leading-none"
+                  class="px-1.5 py-0.5 rounded text-[11px] font-medium border leading-none"
                   :class="
                     kb.isJoined
                       ? isDark
@@ -89,7 +89,7 @@ const emptyTitle = computed(() => {
                 </span>
               </div>
               <p
-                class="mt-1 text-[12.5px] leading-relaxed max-w-[680px] overflow-hidden"
+                class="mt-1 text-[12px] leading-relaxed max-w-[680px] overflow-hidden"
                 :class="isDark ? 'text-wt-aux' : 'text-lt-sub'"
                 style="display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;">
                 {{ kb.description || (kb.isSystem ? '系统共享资料库' : '暂无描述') }}
@@ -157,7 +157,7 @@ const emptyTitle = computed(() => {
 
         <div
           v-if="readonly"
-          class="mt-3 rounded-lg border px-3 py-2 text-[11.5px] flex items-center gap-2"
+          class="mt-3 rounded-lg border px-3 py-2 text-[11px] flex items-center gap-2"
           :class="isDark ? 'text-wt-aux bg-d1 border-d4' : 'text-lt-aux bg-l3 border-bdrF'">
           <i class="ri-lock-line text-[13px]" />
           系统知识库为只读，可查看文档并参与检索，不能上传或删除文档。

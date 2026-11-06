@@ -131,7 +131,7 @@ function handleSubmit() {
           <i class="ri-slideshow-line text-[14px] text-brand-500" />
         </div>
         <div>
-          <div class="text-[13px] font-bold" :class="isDark ? 'text-wt-main' : 'text-lt-main'">生成 PPT</div>
+          <div class="fs-body font-bold" :class="isDark ? 'text-wt-main' : 'text-lt-main'">生成 PPT</div>
           <div class="text-[10px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">根据资料和需求生成演示文稿</div>
         </div>
       </div>
@@ -233,7 +233,7 @@ function handleSubmit() {
         />
       </div>
 
-      <div v-if="settings.mode === 'cloud'" class="rounded-xl p-3" :class="isDark ? 'bg-d2 border border-bdr/50' : 'bg-l2 border border-bdrF/50'">
+      <div class="rounded-xl p-3" :class="isDark ? 'bg-d2 border border-bdr/50' : 'bg-l2 border border-bdrF/50'">
         <div class="flex items-center gap-2 mb-2.5">
           <i class="ri-palette-line text-[12px] text-purple-400" />
           <span class="text-[11px] font-semibold" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">视觉风格</span>
@@ -290,7 +290,7 @@ function handleSubmit() {
         </span>
         <button @click="close()"
           class="h-8 px-4 rounded-lg text-[11px] font-medium transition-colors"
-          :class="isDark ? 'text-wt-aux hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub'">
+          :class="isDark ? 'text-wt-sub hover:text-wt-main' : 'text-lt-sub hover:text-lt-main'">
           取消
         </button>
         <button

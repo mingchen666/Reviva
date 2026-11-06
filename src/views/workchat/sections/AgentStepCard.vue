@@ -93,7 +93,7 @@ const statusIcon = computed(() => {
     <!-- Expand toggle -->
     <button v-if="step.usage || hasToolNames" @click="showDetails = !showDetails"
       class="mt-0.5 text-[10px] transition-colors"
-      :class="isDark ? 'text-wt-dim hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub'">
+      :class="isDark ? 'text-wt-dim hover:text-wt-sub' : 'text-lt-sub hover:text-lt-main'">
       {{ showDetails ? '收起' : '详情' }}
     </button>
   </div>

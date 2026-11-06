@@ -13,7 +13,8 @@ import { _resolveVfsPath, _toVirtualWorkspacePath } from './vfsHelpers.js'
 import { _workDirService, _dbService, _taskCounters, _taskLimits } from './toolContext.js'
 
 const OFFICE_EXTS = new Set(['.docx', '.xlsx', '.pptx'])
-const OFFICE_MODES = new Set(['overview', 'text', 'outline', 'stats', 'issues', 'images'])
+const OFFICE_MODES = new Set(['overview', 'text', 'outline', 'stats', 'issues', 'images', 'annotated', 'html', 'screenshot', 'svg', 'forms'])
+const OFFICE_RENDER_MODES = new Set(['screenshot', 'svg'])
 const OFFICE_DEFAULT_MAX_CHARS = 40000
 const OFFICE_MAX_CHARS = 80000
 const OFFICE_DEFAULT_MAX_LINES = 100
@@ -150,6 +151,17 @@ async function _runOfficeView(resolvedPath, mode, options = {}) {
   if (mode === 'issues') {
     args.push('--limit', String(Math.min(Number(options.maxLines) || 50, 100)))
   }
+  if (mode === 'screenshot') {
+    if (options.outputPath) args.push('-o', options.outputPath)
+    if (options.page) args.push('--page', String(options.page))
+    if (options.grid === true) args.push('--grid')
+    if (options.screenshotWidth) args.push('--screenshot-width', String(options.screenshotWidth))
+    if (options.screenshotHeight) args.push('--screenshot-height', String(options.screenshotHeight))
+    if (options.render) args.push('--render', options.render)
+  }
+  if (mode === 'svg') {
+    if (options.page) args.push('--page', String(options.page))
+  }
   return _runOfficeCli(args)
 }
 
@@ -158,7 +170,7 @@ function _officeError(code, message, extra = {}) {
 }
 
 export async function invokeOfficeRead(input = {}, { countFileOp = true, toolName = 'office_read' } = {}) {
-    const { path: filePath, mode = 'overview', start, end, maxLines, maxChars, exportImages = false, imagePath = '', maxImages } = input || {}
+    const { path: filePath, mode = 'overview', start, end, maxLines, maxChars, exportImages = false, imagePath = '', maxImages, page, grid, screenshotWidth, screenshotHeight, render } = input || {}
     const readToolLabel = toolName === 'document_read' ? 'document_read' : 'office_read'
     if (!_workDirService) {
       return _officeError('NO_WORKSPACE', '未初始化工作空间，无法读取 Office 文档。')
@@ -283,6 +295,92 @@ export async function invokeOfficeRead(input = {}, { countFileOp = true, toolNam
       })
     }
 
+    if (safeMode === 'screenshot') {
+      const root = _workDirService.getRootPath()
+      const docBase = _safeOfficeSegment(path.basename(resolved, ext), 'document')
+      const outputDir = path.join(root, 'context', 'office-screenshots', docBase)
+      fs.mkdirSync(outputDir, { recursive: true })
+      const pageSuffix = page ? `_p${page}` : ''
+      const gridSuffix = grid === true ? '_grid' : ''
+      const outputFile = path.join(outputDir, `${docBase}${pageSuffix}${gridSuffix}.png`)
+      const outputRelDir = _toVirtualWorkspacePath(outputDir)
+      const outputPath = path.join(outputRelDir, `${docBase}${pageSuffix}${gridSuffix}.png`)
+      const result = await _runOfficeView(resolved, 'screenshot', {
+        outputPath: outputFile,
+        page,
+        grid,
+        screenshotWidth,
+        screenshotHeight,
+        render,
+      })
+      if (result.code !== 0) {
+        const parsed = _parseOfficeCliOutput(result.stdout, result.stderr)
+        const detail = parsed.structured?.error?.suggestion || (result.stderr || result.stdout || '').slice(0, 1200)
+        return _officeError('OFFICECLI_SCREENSHOT_FAILED', '截图渲染失败。', {
+          path: virtualPath, format, mode: safeMode, detail,
+        })
+      }
+      const parsed = _parseOfficeCliOutput(result.stdout, result.stderr)
+      const shotPath = parsed.structured?.data || outputFile
+      return JSON.stringify({
+        success: true,
+        path: virtualPath,
+        format,
+        mode: safeMode,
+        screenshot: outputPath,
+        page: page || 'all',
+        grid: grid === true,
+        note: '截图已写入工作区。可使用 ![预览](截图路径) 在 Markdown 中引用，或供支持视觉的模型读取。--range 元素裁剪需要 headless 浏览器。',
+      })
+    }
+
+    if (safeMode === 'svg') {
+      const result = await _runOfficeView(resolved, 'svg', { page })
+      if (result.code !== 0) {
+        return _officeError('OFFICECLI_SVG_FAILED', 'SVG 渲染失败。', {
+          path: virtualPath, format, mode: safeMode,
+          detail: (result.stderr || result.stdout || '').slice(0, 1200),
+        })
+      }
+      const parsed = _parseOfficeCliOutput(result.stdout, result.stderr)
+      const svgContent = parsed.structured?.data || parsed.raw
+      const clipped = _clipText(svgContent, safeMaxChars)
+      return JSON.stringify({
+        success: true,
+        path: virtualPath,
+        format,
+        mode: safeMode,
+        page: page || 1,
+        content: clipped.content,
+        truncated: clipped.truncated,
+        note: clipped.truncated
+          ? 'SVG 内容过大已截断。需要完整 SVG 时请增大 maxChars，或用 screenshot 模式输出 PNG。'
+          : 'SVG 是矢量格式，可直接嵌入 HTML 或保存为 .svg 文件。仅 pptx 支持。',
+      })
+    }
+
+    if (safeMode === 'forms') {
+      const result = await _runOfficeView(resolved, 'forms')
+      if (result.code !== 0) {
+        return _officeError('OFFICECLI_FORMS_FAILED', '表单字段读取失败。', {
+          path: virtualPath, format, mode: safeMode,
+          detail: (result.stderr || result.stdout || '').slice(0, 1200),
+        })
+      }
+      const parsed = _parseOfficeCliOutput(result.stdout, result.stderr)
+      const clipped = _clipText(parsed.raw, safeMaxChars)
+      return JSON.stringify({
+        success: true,
+        path: virtualPath,
+        format,
+        mode: safeMode,
+        content: clipped.content,
+        structured: clipped.truncated ? null : parsed.structured,
+        truncated: clipped.truncated,
+        note: 'forms 模式返回文档保护状态和表单字段列表（name/type/value/editable）。仅 docx 支持。',
+      })
+    }
+
     const result = await _runOfficeView(resolved, safeMode, {
       start: safeStart,
       end: safeEnd,
@@ -323,6 +421,10 @@ export const officeRead = tool(
       '读取 Office 文档的底层精确工具，支持 .docx、.xlsx、.pptx。常规 Office/PDF 资料读取优先使用 document_read；只有需要 Office 专属模式、精确诊断或用户明确要求底层工具时才直接调用 office_read。',
       '默认 mode=overview，只返回结构概览和下一步建议，避免长文档撑爆上下文。',
       '需要正文时使用 mode=text，并用 start/maxLines 分段读取。还支持 outline、stats、issues。',
+      'mode=annotated 返回带格式标注的正文（粗体/颜色等内联标注），适合需要同时看正文和格式的场景。mode=html 返回静态 HTML 快照（带 --json 时为结构化结果），适合一次性存档或对比，但不适合大文档全文读取。',
+      'mode=screenshot 把文档渲染为 PNG 写入工作区 /context/office-screenshots/...，返回可引用的图片路径。支持 page（指定页/幻灯片）、grid（缩略图拼版）。适合视觉验证或给支持视觉的模型读取。',
+      'mode=svg 仅 pptx：返回单张幻灯片的 SVG 矢量图，支持 page 参数。适合需要无损缩放或嵌入 HTML 的场景。',
+      'mode=forms 仅 docx：返回文档保护状态和表单字段列表（name/type/value/editable）。适合检查可填写表单的结构。',
       '需要文档内图片或图文并茂回答时，使用 mode=images；需要把图片保存为可渲染本地 Markdown 图片时传 exportImages=true，返回 exported[].path，可写成 ![说明](/context/office-images/.../xxx.png)。',
       '图片导出会在对应目录写入 .manifest.json 缓存；同一文档同一 DOM path 再次导出会优先返回已有图片路径。',
       '只需要定位图片时先用 mode=images；只需要单张图片时传 imagePath 匹配 DOM path、图片名或 relId。',
@@ -330,7 +432,7 @@ export const officeRead = tool(
     ].join('\n'),
     schema: z.object({
       path: z.string().describe('Office 文件路径，必须位于授权工作空间内。'),
-      mode: z.enum(['overview', 'text', 'outline', 'stats', 'issues', 'images']).optional().describe('读取模式。默认 overview；正文用 text 分段读取；images 默认只列出嵌入图片 DOM 路径。'),
+      mode: z.enum(['overview', 'text', 'outline', 'stats', 'issues', 'images', 'annotated', 'html', 'screenshot', 'svg', 'forms']).optional().describe('读取模式。默认 overview；正文用 text；annotated 带格式标注；html 快照；screenshot 渲染 PNG；svg 矢量图(pptx)；forms 表单字段(docx)；images 列出嵌入图片。'),
       start: z.number().optional().describe('text/html 等支持分页/分段模式的起始位置，默认 1。'),
       end: z.number().optional().describe('text/html 等支持分页/分段模式的结束位置。'),
       maxLines: z.number().optional().describe('text 模式最多读取行数，默认 100，最大 300。'),
@@ -338,6 +440,11 @@ export const officeRead = tool(
       exportImages: z.boolean().optional().describe('仅 mode=images 有效。true 时通过 officecli get --save 将文档内图片导出到 /context/office-images/...。默认 false。'),
       imagePath: z.string().optional().describe('仅 mode=images 有效。可传 officecli DOM path、图片名称或 relId 片段，只列出/导出匹配图片。'),
       maxImages: z.number().optional().describe('仅 mode=images 有效。最多列出/导出图片数，默认 200，最大 500。'),
+      page: z.union([z.number(), z.string()]).optional().describe('screenshot/svg/pdf 模式的页码或范围，例如 1、"1-5"、"1,3,5"。screenshot 默认全部页，svg 默认第 1 页。'),
+      grid: z.boolean().optional().describe('仅 screenshot：true 时生成缩略图拼版（contact sheet）。默认 false。'),
+      screenshotWidth: z.number().optional().describe('仅 screenshot：视口宽度，默认 1600。'),
+      screenshotHeight: z.number().optional().describe('仅 screenshot：视口高度，默认 1200。'),
+      render: z.enum(['auto', 'native', 'html']).optional().describe('仅 screenshot：渲染路径。auto 默认（Windows 优先原生），native 强制原生（需 Word/PowerPoint），html 用 headless 浏览器。'),
     }),
   },
 )

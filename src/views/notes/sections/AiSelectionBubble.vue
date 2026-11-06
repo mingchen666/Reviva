@@ -70,6 +70,6 @@ const ACTIONS = [
   opacity: 0;
   transition: opacity 0.15s;
   white-space: nowrap;
-  display: none;
 }
+.action-btn:hover .action-tip { opacity: 1 }
 </style>

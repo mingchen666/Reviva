@@ -22,7 +22,7 @@ export const BUILTIN_TOOLS = [
     id: 'web_search_tavily', name: 'Tavily 搜索', icon: 'ri-search-line', color: '#3B82F6', cat: 'web', desc: '使用 Tavily 高质量搜索 API 搜索互联网，专为 AI 应用设计',
     permReq: '', archCompat: ['react', 'plan_exec', 'hybrid'], type: '',
     params: [{ name: 'query', type: 'string', required: true, desc: '搜索关键词' }, { name: 'max_results', type: 'number', required: false, desc: '最大返回结果数，默认 5' }, { name: 'language', type: 'string', required: false, desc: '搜索语言偏好，如 zh-CN / en' }],
-    sandbox: '每任务最多 10 次调用，每次超时 10 秒', builtin: true, enabled: false,
+    sandbox: 'Tavily/SearXNG/Bing 三个联网搜索工具共享每任务调用上限，默认 30 次，可在设置-沙箱-资源限流调整；单次请求超时 60 秒。', builtin: true, enabled: false,
     needsConfig: true, needsKey: true,
     providerConfig: {
       apiKey: '', baseUrl: '',
@@ -35,7 +35,7 @@ export const BUILTIN_TOOLS = [
     id: 'web_search_searxng', name: 'SearXNG 搜索', icon: 'ri-search-eye-line', color: '#4ADE80', cat: 'web', desc: '使用 SearXNG 开源元搜索引擎搜索互联网，可自建实例，免费',
     permReq: '', archCompat: ['react', 'plan_exec', 'hybrid'], type: '',
     params: [{ name: 'query', type: 'string', required: true, desc: '搜索关键词' }, { name: 'max_results', type: 'number', required: false, desc: '最大返回结果数，默认 5' }, { name: 'language', type: 'string', required: false, desc: '搜索语言偏好，如 zh-CN / en' }],
-    sandbox: '每任务最多 10 次调用，每次超时 10 秒', builtin: true, enabled: false,
+    sandbox: 'Tavily/SearXNG/Bing 三个联网搜索工具共享每任务调用上限，默认 30 次，可在设置-沙箱-资源限流调整；单次请求超时 60 秒。', builtin: true, enabled: false,
     needsConfig: true, needsKey: 'optional',
     providerConfig: {
       apiKey: '', baseUrl: '',
@@ -48,7 +48,7 @@ export const BUILTIN_TOOLS = [
     id: 'web_search_bing', name: 'Bing 搜索', icon: 'ri-microsoft-line', color: '#38BDF8', cat: 'web', desc: '通过本地请求 Bing 搜索互联网，免费，无需 API Key',
     permReq: '', archCompat: ['react', 'plan_exec', 'hybrid'], type: '',
     params: [{ name: 'query', type: 'string', required: true, desc: '搜索关键词' }, { name: 'max_results', type: 'number', required: false, desc: '最大返回结果数，默认 5' }, { name: 'language', type: 'string', required: false, desc: '搜索语言偏好，如 zh-CN / en' }],
-    sandbox: '每任务最多 10 次调用，每次超时 10 秒', builtin: true, enabled: false,
+    sandbox: 'Tavily/SearXNG/Bing 三个联网搜索工具共享每任务调用上限，默认 30 次，可在设置-沙箱-资源限流调整；单次请求超时 60 秒。', builtin: true, enabled: false,
     needsConfig: false, needsKey: false,
     providerConfig: {
       providerLabel: 'Bing', providerDesc: '本地搜索，直接请求 Bing，免费无需 API Key',
@@ -97,19 +97,22 @@ export const BUILTIN_TOOLS = [
     providerConfig: {}
   },
   {
-    id: 'office_read', name: 'Office 读取', icon: 'ri-file-text-line', color: '#3B82F6', cat: 'filesystem', desc: '读取 Word、Excel、PPT 的结构概览、分段正文和嵌入图片（底层精确工具）',
+    id: 'office_read', name: 'Office 读取', icon: 'ri-file-text-line', color: '#3B82F6', cat: 'filesystem', desc: '读取 Word、Excel、PPT 的结构概览、分段正文、格式标注、渲染截图、SVG 矢量图、表单字段和嵌入图片（底层精确工具）',
     permReq: '', archCompat: ['全架构'], type: '',
     params: [
       { name: 'path', type: 'string', required: true, desc: 'Office 文件路径（.docx / .xlsx / .pptx）' },
-      { name: 'mode', type: 'string', required: false, desc: 'overview / text / outline / stats / issues / images，默认 overview' },
+      { name: 'mode', type: 'string', required: false, desc: 'overview / text / outline / stats / issues / annotated / html / screenshot / svg / forms / images，默认 overview' },
       { name: 'start', type: 'number', required: false, desc: 'text 模式分段读取起始位置' },
       { name: 'maxLines', type: 'number', required: false, desc: 'text 模式最多读取行数' },
       { name: 'maxChars', type: 'number', required: false, desc: '返回内容最大字符数' },
       { name: 'exportImages', type: 'boolean', required: false, desc: 'images 模式下导出嵌入图片到 /context/office-images/...' },
       { name: 'imagePath', type: 'string', required: false, desc: 'images 模式下指定 DOM path、图片名或 relId 片段' },
       { name: 'maxImages', type: 'number', required: false, desc: 'images 模式最多列出/导出图片数' },
+      { name: 'page', type: 'string', required: false, desc: 'screenshot/svg 模式的页码或范围，例如 1 或 1-5' },
+      { name: 'grid', type: 'boolean', required: false, desc: 'screenshot 模式生成缩略图拼版' },
+      { name: 'render', type: 'string', required: false, desc: 'screenshot 渲染路径：auto/native/html' },
     ],
-    sandbox: '底层只读工具。仅允许读取授权目录内 .docx/.xlsx/.pptx，依赖 officecli；默认概览，正文需分段读取；图片导出写入 /context/office-images/...。常规文档读取优先使用 document_read。',
+    sandbox: '底层只读工具。仅允许读取授权目录内 .docx/.xlsx/.pptx，依赖 officecli；默认概览，正文需分段读取；截图写入 /context/office-screenshots/...，图片导出写入 /context/office-images/...。常规文档读取优先使用 document_read。',
     builtin: true, enabled: false,
     providerConfig: {}
   },
@@ -132,14 +135,15 @@ export const BUILTIN_TOOLS = [
     id: 'office_write', name: 'Office 创建编辑', icon: 'ri-file-edit-line', color: '#2563EB', cat: 'document', desc: '受控创建和编辑 Word、Excel、PPT，支持 batch 提速和按需 raw_set。默认输出副本，不覆盖原文件',
     permReq: 'fileWrite', archCompat: ['react', 'plan_exec', 'hybrid'], type: 'router',
     params: [
-      { name: 'operation', type: 'string', required: true, desc: 'help / create / edit' },
-      { name: 'path', type: 'string', required: false, desc: 'edit 操作的输入 Office 文件路径' },
+      { name: 'operation', type: 'string', required: true, desc: 'help / create / edit / import_data / refresh' },
+      { name: 'path', type: 'string', required: false, desc: 'edit/import_data/refresh 操作的输入 Office 文件路径' },
+     { name: 'importOptions', type: 'object', required: false, desc: '仅 import_data：CSV/TSV 源文件路径、目标工作表、header/delimiter/decimal/startCell' },
       { name: 'filename', type: 'string', required: false, desc: '输出文件名，例如 report.docx' },
-      { name: 'actions', type: 'array', required: false, desc: '结构化 Office actions，支持 add/clone/set/remove/query/get/raw_set/replace_text 和格式快捷动作' },
+      { name: 'actions', type: 'array', required: false, desc: '结构化 Office actions，支持 add/clone/set/remove/query/get/raw_set/replace_text/move/swap 和格式快捷动作' },
       { name: 'useBatch', type: 'boolean', required: false, desc: '是否用 officecli batch 一次性执行 actions' },
       { name: 'allowRawXml', type: 'boolean', required: false, desc: '是否允许 raw_set；action 仍需 confirm=true' },
     ],
-    sandbox: '只注册 office_write 路由工具；不开放 raw command/watch。batch 由结构化 actions 自动生成；raw_set 需显式 allowRawXml 和 confirm。输入必须在授权工作区内，输出写入 /agents/{agent}/outputs/YYYY-MM-DD/。',
+    sandbox: '只注册 office_write 路由工具；不开放 raw command/watch。batch 由结构化 actions 自动生成；raw_set 需显式 allowRawXml 和 confirm。move/swap 编译为原生 CLI 动词并支持 batch。import_data 仅 xlsx 导入 CSV/TSV；refresh 仅 docx 重算 TOC/页码。输入必须在授权工作区内，输出写入 /agents/{agent}/outputs/YYYY-MM-DD/。',
     builtin: true, enabled: false,
     providerConfig: {}
   },

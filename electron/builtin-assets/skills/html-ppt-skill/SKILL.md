@@ -3,6 +3,16 @@ name: html-ppt-skill
 description: HTML PPT Studio — author professional static HTML presentations in many styles, layouts, and animations, all driven by templates. Use when the user asks for a presentation, PPT, slides, keynote, deck, slideshow, "幻灯片", "演讲稿", "做一份 PPT", "做一份 slides", a reveal-style HTML deck, a 小红书 图文, or any kind of multi-slide pitch/report/sharing document that should look tasteful and be usable with keyboard navigation. Triggers include keywords like "presentation", "ppt", "slides", "deck", "keynote", "reveal", "slideshow", "幻灯片", "演讲稿", "分享稿", "小红书图文", "talk slides", "pitch deck", "tech sharing", "technical presentation".
 ---
 
+# Reviva / MindSpace 适配说明
+
+本 Skill 原生面向 Claude Code（有 bash/shell 权限）。在 Reviva MindSpace Desktop 的 Agent 运行时中：
+
+- **所有资源路径** → VFS 路径前缀 `/skills/html-ppt-skill/`。如 `assets/themes/aurora.css` → `/skills/html-ppt-skill/assets/themes/aurora.css`
+- **读取模板/主题/布局** → 使用 `file_read` 工具
+- **scaffold / new-deck.sh** → 不使用脚本，直接 `file_read` 读取 `templates/deck.html` 获取骨架，`file_write` 写入输出
+- **输出目录** → `/agents/ppt-generator/outputs/{今天日期}/`
+- **render.sh (PNG 导出)** → 可选，通过 `exec_command` 运行（需要 Chrome）
+
 # html-ppt — HTML PPT Studio
 
 Author professional HTML presentations as static files. One theme file = one

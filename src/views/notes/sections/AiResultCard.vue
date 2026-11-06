@@ -75,12 +75,12 @@ function doCopy() {
       <div class="flex-1" />
       <button v-if="isStreaming" @click="emit('cancel')"
         class="h-7 px-2.5 rounded-md text-[12px] font-medium flex items-center gap-1 transition-colors"
-        :class="isDark ? 'text-wt-dim hover:text-wt-sub hover:bg-white/6' : 'text-lt-aux hover:text-lt-sub hover:bg-l4'">
+        :class="isDark ? 'text-wt-dim hover:text-wt-sub hover:bg-white/6' : 'text-lt-sub hover:text-lt-main hover:bg-l4'">
         <i class="ri-stop-circle-line text-[13px]" />停止
       </button>
       <button v-else @click="emit('dismiss')"
         class="h-7 px-2.5 rounded-md text-[12px] font-medium flex items-center gap-1 transition-colors"
-        :class="isDark ? 'text-wt-dim hover:text-wt-sub hover:bg-white/6' : 'text-lt-aux hover:text-lt-sub hover:bg-l4'">
+        :class="isDark ? 'text-wt-dim hover:text-wt-sub hover:bg-white/6' : 'text-lt-sub hover:text-lt-main hover:bg-l4'">
         <i class="ri-close-line text-[13px]" />关闭
       </button>
     </div>
@@ -108,7 +108,7 @@ function doCopy() {
         class="h-7 px-3 rounded-md text-[12px] font-medium flex items-center gap-1 transition-colors"
         :class="copied
           ? (isDark ? 'text-emerald-400 bg-emerald-400/10' : 'text-emerald-600 bg-emerald-50')
-          : (isDark ? 'text-wt-aux hover:text-wt-sub hover:bg-white/6' : 'text-lt-aux hover:text-lt-sub hover:bg-l4')">
+          : (isDark ? 'text-wt-sub hover:text-wt-main hover:bg-white/6' : 'text-lt-sub hover:text-lt-main hover:bg-l4')">
         <i :class="copied ? 'ri-check-line' : 'ri-file-copy-line'" class="text-[13px]" />
         {{ copied ? '已复制' : '复制' }}
       </button>

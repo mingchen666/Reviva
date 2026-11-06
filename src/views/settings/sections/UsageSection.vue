@@ -543,7 +543,7 @@ onMounted(async () => {
                 class="h-6 px-2 rounded text-11px font-500 transition-all duration-150"
                 :class="modelMetric === opt.v
                   ? (isDark ? 'bg-d0 text-wt-main shadow-sm' : 'bg-white text-lt-main shadow-sm')
-                  : (isDark ? 'text-wt-dim hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub')"
+                  : (isDark ? 'text-wt-dim hover:text-wt-sub' : 'text-lt-sub hover:text-lt-main')"
                 @click="modelMetric = opt.v"
               >
                 {{ opt.l }}

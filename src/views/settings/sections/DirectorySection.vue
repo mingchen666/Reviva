@@ -121,7 +121,7 @@ const {
             @click="dismissRestartPrompt"
             class="h-7 px-2.5 rounded-lg text-[10.5px] font-medium transition-colors"
             :class="
-              isDark ? 'text-wt-aux hover:text-wt-sub hover:bg-white/4' : 'text-lt-aux hover:text-lt-sub hover:bg-l4'
+              isDark ? 'text-wt-sub hover:text-wt-main hover:bg-white/4' : 'text-lt-sub hover:text-lt-main hover:bg-l4'
             ">
             稍后
           </button>
@@ -391,7 +391,7 @@ const {
       </div>
       <template #footer="{ close }">
         <button v-if="!requiresImmediateRestart" @click="close" :disabled="restarting" class="h-8 px-4 rounded-lg text-[11px] font-medium disabled:opacity-40"
-          :class="isDark ? 'text-wt-aux hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub'">稍后重启</button>
+          :class="isDark ? 'text-wt-sub hover:text-wt-main' : 'text-lt-sub hover:text-lt-main'">稍后重启</button>
         <button @click="relaunchApp" :disabled="restarting"
           class="h-8 px-4 rounded-lg text-[11px] font-medium bg-amber-500 text-white hover:bg-amber-600 disabled:opacity-50 flex items-center gap-1.5">
           <i :class="restarting ? 'ri-loader-4-line animate-spin' : 'ri-restart-line'" />
@@ -502,7 +502,7 @@ const {
           @click="cancelMigration"
           :disabled="migrating || cleaningMigration"
           class="h-8 px-4 rounded-lg text-[11px] font-medium transition-colors"
-          :class="isDark ? 'text-wt-aux hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub'">
+          :class="isDark ? 'text-wt-sub hover:text-wt-main' : 'text-lt-sub hover:text-lt-main'">
           取消
         </button>
         <button

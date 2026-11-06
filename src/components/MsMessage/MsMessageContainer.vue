@@ -102,7 +102,7 @@ const placementGroups = computed(() => {
         <div
           v-for="msg in group.messages"
           :key="msg.id"
-          class="ms-msg-card pointer-events-auto w-full rounded-lg pr-2.5 pl-0 flex items-center gap-2.5 relative overflow-hidden backdrop-blur-md"
+          class="ms-msg-card pointer-events-auto w-full rounded-md pr-2.5 pl-0 flex items-center gap-2.5 relative overflow-hidden backdrop-blur-md"
           :class="cardClasses(msg)"
           @mouseenter="pauseTimer(msg.id)"
           @mouseleave="resumeTimer(msg.id)"
@@ -134,7 +134,7 @@ const placementGroups = computed(() => {
             ]"
             @click="remove(msg.id)"
             aria-label="关闭">
-            <i class="ri-close-line" :class="msg.title ? 'text-[13px]' : 'text-[12px]'" />
+            <i class="ri-close-line" :class="msg.title ? 'text-[17px]' : 'text-[16px]'" />
           </button>
         </div>
       </TransitionGroup>

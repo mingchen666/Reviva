@@ -68,7 +68,13 @@ export const useTasksStore = defineStore('tasks', () => {
   }
 
   async function removeTask(id) {
-    if (window.electronAPI?.db) await db().delete(id)
+    // Route through recycle bin so the task can be restored later
+    if (window.electronAPI?.recycleBin) {
+      const { useRecycleBinStore } = await import('./recycleBin')
+      await useRecycleBinStore().trashTask(id)
+    } else if (window.electronAPI?.db) {
+      await db().delete(id)
+    }
     tasks.value = tasks.value.filter(t => t.id !== id)
   }
 

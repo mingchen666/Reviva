@@ -18,7 +18,7 @@ defineProps({
   costUnitLabel: { type: Function, required: true },
 })
 
-defineEmits(['fetch-models', 'add-model', 'edit-model', 'delete-model', 'toggle-model'])
+defineEmits(['fetch-models', 'add-model', 'edit-model', 'delete-model', 'toggle-model', 'enable-all-models', 'disable-all-models'])
 </script>
 
 <template>
@@ -57,8 +57,24 @@ defineEmits(['fetch-models', 'add-model', 'edit-model', 'delete-model', 'toggle-
           :disabled="!isProviderConfigured"
           @click="$emit('add-model')"
         >
-          <i class="ri-add-line text-[12px]" />手动添加
+          <i class="ri-add-line text-[14px]" />手动添加
         </button>
+        <template v-if="provider.models.length > 0">
+          <button
+            class="flex items-center gap-1 h-7 px-2.5 rounded-md text-[11px] font-medium transition-colors"
+            :class="isDark ? 'text-brand-400 hover:bg-brand-400/10' : 'text-brand-600 hover:bg-brand-50'"
+            @click="$emit('enable-all-models')"
+          >
+            <i class="ri-flashlight-line text-[12px]" />全部启用
+          </button>
+          <button
+            class="flex items-center gap-1 h-7 px-2.5 rounded-md text-[11px] font-medium transition-colors border"
+            :class="isDark ? 'text-amber-400 border-amber-400/25 hover:bg-amber-400/10' : 'text-amber-600 border-amber-300 hover:bg-amber-50'"
+            @click="$emit('disable-all-models')"
+          >
+            <i class="ri-shut-down-line text-[12px]" />全部禁用
+          </button>
+        </template>
       </div>
     </div>
 

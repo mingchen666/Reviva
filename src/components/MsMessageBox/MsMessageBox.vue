@@ -145,7 +145,7 @@ onBeforeUnmount(() => {
               <input
                 ref="inputRef"
                 v-model="inputValue"
-                class="w-full h-9 px-3 rounded-lg text-[12px] outline-none border transition-colors focus:ring-2"
+                class="w-full h-8 px-2 rounded-4px text-[14px] outline-none border transition-colors focus:ring-1"
                 :class="[
                   inputError
                     ? (isDark ? 'bg-d0 border-red-400/70 text-wt-sub' : 'bg-l2 border-red-300 text-lt-sub')
@@ -164,12 +164,12 @@ onBeforeUnmount(() => {
           <div class="px-4 py-3 flex items-center gap-2 justify-end" :class="isDark ? 'border-t border-d4' : 'border-t border-bdrL'">
             <button
               v-if="type !== 'alert'"
-              class="h-8 min-w-[72px] px-3.5 rounded-lg text-[12px] font-medium transition-colors"
+              class="h-8 min-w-[72px] px-3.5 rounded-lg text-[13px] font-medium transition-colors"
               :class="isDark ? 'bg-d4 text-wt-sub border border-bdr hover:bg-d0 hover:text-wt-main' : 'bg-l3 text-lt-sub border border-bdrF hover:bg-l4 hover:text-lt-main'"
               @click="onCancel"
             >{{ cancelText }}</button>
             <button
-              class="h-8 min-w-[72px] px-3.5 rounded-lg text-[12px] font-semibold transition-colors focus:outline-none focus:ring-2"
+              class="h-8 min-w-[72px] px-3.5 rounded-lg text-[13px] font-semibold transition-colors focus:outline-none focus:ring-2"
               :class="variantConfig.btnClass"
               @click="onConfirm"
             >{{ confirmText }}</button>

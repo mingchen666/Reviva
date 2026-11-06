@@ -160,7 +160,7 @@ watch(() => settingsStore.workDirRoot, (newVal) => {
           <!-- Folder toggle arrow -->
           <button v-if="item.isDirectory" @click.stop="expandFolder(item.path)"
             class="h-3 w-3 rounded flex items-center justify-center shrink-0 transition-colors"
-            :class="isDark ? 'text-wt-dim hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub'">
+            :class="isDark ? 'text-wt-dim hover:text-wt-sub' : 'text-lt-sub hover:text-lt-main'">
             <i class="ri-arrow-right-s-line text-[20px] transition-transform duration-200 ease-out"
                :style="{ transform: expandedFolders[item.path] ? 'rotate(90deg)' : 'rotate(0deg)' }" />
           </button>

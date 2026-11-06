@@ -27,7 +27,8 @@ export function normalizeCustomToolRecord(tool = {}) {
     archCompat: tool.archCompat || tool.arch_compat || ['react', 'plan_exec', 'hybrid'],
     responseFormat: tool.responseFormat || tool.response_format || 'JSON',
     providerConfig: tool.providerConfig || tool.provider_config || {},
-    enabled: tool.enabled !== false && tool.enabled !== 0,
+    // All tools default to enabled; per-agent binding decides runtime use.
+    enabled: true,
     runtimeDisabled,
     unsupportedReason: runtimeDisabled ? '本地脚本工具暂未开放运行' : '',
     builtin: !!tool.builtin,

@@ -170,7 +170,7 @@ async function handleSave() {
             </div>
             <div class="min-w-0 flex-1">
               <div class="text-[13px] font-semibold" :class="isDark ? 'text-wt-main' : 'text-lt-main'">{{ p.name }}</div>
-              <div class="text-[10px] truncate" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">{{ p.base_url }}</div>
+              <div class="text-[11px] truncate" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">{{ p.base_url }}</div>
             </div>
             <i class="ri-arrow-right-s-line text-[16px] shrink-0" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'" />
           </div>
@@ -184,7 +184,7 @@ async function handleSave() {
             </div>
             <div class="min-w-0 flex-1">
               <div class="text-[13px] font-semibold" :class="isDark ? 'text-wt-main' : 'text-lt-main'">自定义 HTTP</div>
-              <div class="text-[10px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">手动配置请求模板和响应映射</div>
+              <div class="text-[11px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">手动配置请求模板和响应映射</div>
             </div>
             <i class="ri-arrow-right-s-line text-[16px] shrink-0" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'" />
           </div>
@@ -202,11 +202,11 @@ async function handleSave() {
             <div v-for="field in selectedPreset.userFields" :key="field.name">
               <label class="block text-[11px] font-medium mb-1.5" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">
                 {{ field.label }}
-                <span v-if="field.isAuth" class="ml-1 text-[10px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">(API 密钥)</span>
+                <span v-if="field.isAuth" class="ml-1 text-[11px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">(API 密钥)</span>
               </label>
               <input v-model="userFieldValues[field.name]" :type="field.isAuth ? 'password' : 'text'" class="w-full h-9 px-3 rounded-lg text-[13px] outline-none transition-colors" :class="isDark ? 'bg-d2 border border-bdr text-wt-main focus:border-brand-400' : 'bg-l2 border border-bdrF text-lt-main focus:border-brand-500'" :placeholder="field.isAuth ? '粘贴 API Key / Token' : '填写 ' + field.label" />
             </div>
-            <div v-if="selectedPreset.base_url" class="flex items-center gap-1.5 text-[10px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">
+            <div v-if="selectedPreset.base_url" class="flex items-center gap-1.5 text-[11px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">
               <i class="ri-link text-[12px]" />
               {{ selectedPreset.base_url }}
             </div>
@@ -217,7 +217,7 @@ async function handleSave() {
             <div>
               <label class="block text-[11px] font-medium mb-1.5" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">配置 (JSON)</label>
               <textarea v-model="configJson" rows="14" class="w-full px-3 py-2 rounded-lg text-[11px] font-mono outline-none transition-colors resize-none thin-scroll" :class="isDark ? 'bg-d2 border border-bdr text-wt-main focus:border-brand-400' : 'bg-l2 border border-bdrF text-lt-main focus:border-brand-500'" spellcheck="false" />
-              <p v-if="!isEdit" class="mt-1.5 text-[10px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">使用 <code class="font-mono">{query}</code> 和 <code class="font-mono">{top_k}</code> 作为运行时占位符</p>
+              <p v-if="!isEdit" class="mt-1.5 text-[11px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">使用 <code class="font-mono">{query}</code> 和 <code class="font-mono">{top_k}</code> 作为运行时占位符</p>
             </div>
           </template>
         </div>

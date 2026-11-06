@@ -4,6 +4,7 @@ defineProps({
   isDark: Boolean,
   depth: Number,
   expanded: Boolean,
+  isExpandedDir: Function,
   selectedPath: String,
 })
 
@@ -24,7 +25,8 @@ const emit = defineEmits(['toggle-dir', 'select-file'])
     <div v-if="expanded && item.children">
       <TreeItem v-for="child in item.children" :key="child.path"
         :item="child" :is-dark="isDark" :depth="depth + 1"
-        :expanded="expanded"
+        :expanded="isExpandedDir ? isExpandedDir(child.path) : expanded"
+        :is-expanded-dir="isExpandedDir"
         :selected-path="selectedPath"
         @toggle-dir="(p) => emit('toggle-dir', p)"
         @select-file="(p, v) => emit('select-file', p, v)" />

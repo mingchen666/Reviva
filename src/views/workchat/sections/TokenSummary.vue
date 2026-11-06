@@ -71,7 +71,7 @@ const costDisplay = computed(() => {
     <!-- Expand toggle -->
     <button v-if="msg.thinkingTokens || msg.cacheWriteTokens" @click="showDetail = !showDetail"
       class="h-5 w-5 rounded flex items-center justify-center transition-colors"
-      :class="isDark ? 'text-wt-dim hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub'">
+      :class="isDark ? 'text-wt-dim hover:text-wt-sub' : 'text-lt-sub hover:text-lt-main'">
       <i :class="showDetail ? 'ri-arrow-down-s-line' : 'ri-arrow-right-s-line'" class="text-[10px]" />
     </button>
     <!-- Detail row -->

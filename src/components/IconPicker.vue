@@ -152,7 +152,7 @@ watch(showDialog, (open) => {
               ? 'bg-brand-400/12 border-brand-400/25 text-brand-300'
               : 'bg-blue-50 border-blue-200 text-blue-700'
             : isDark
-              ? 'bg-d0 border-d4 text-wt-aux hover:text-wt-sub hover:bg-white/5'
+              ? 'bg-d0 border-d4 text-wt-sub hover:text-wt-main hover:bg-white/5'
               : 'bg-slate-50 border-slate-200 text-slate-500 hover:text-slate-900 hover:bg-white'
         "
         type="button"
@@ -163,7 +163,7 @@ watch(showDialog, (open) => {
       <button
         class="col-span-2 w-full h-9 rounded-md border flex items-center justify-center gap-1.5 text-[11px] font-medium transition-colors"
         :class="isDark
-          ? 'bg-d0 border-d4 text-wt-aux hover:text-wt-sub hover:bg-white/5'
+          ? 'bg-d0 border-d4 text-wt-sub hover:text-wt-main hover:bg-white/5'
           : 'bg-white border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-50'"
         type="button"
         title="更多图标"
@@ -189,7 +189,7 @@ watch(showDialog, (open) => {
             </div>
             <button
               class="w-7 h-7 rounded-md flex items-center justify-center"
-              :class="isDark ? 'text-wt-aux hover:text-wt-sub hover:bg-white/5' : 'text-slate-400 hover:text-slate-700 hover:bg-slate-100'"
+              :class="isDark ? 'text-wt-sub hover:text-wt-main hover:bg-white/5' : 'text-slate-400 hover:text-slate-700 hover:bg-slate-100'"
               type="button"
               @click="showDialog = false">
               <i class="ri-close-line text-[15px]" />
@@ -234,7 +234,7 @@ watch(showDialog, (open) => {
                       ? 'bg-brand-400/12 text-brand-300 ring-1 ring-brand-400/25'
                       : 'bg-blue-50 text-blue-700 ring-1 ring-blue-200'
                     : isDark
-                      ? 'text-wt-aux hover:text-wt-sub hover:bg-white/5'
+                      ? 'text-wt-sub hover:text-wt-main hover:bg-white/5'
                       : 'text-slate-500 hover:text-slate-900 hover:bg-white'
                 "
                 type="button"

@@ -2,13 +2,15 @@
 import { useAppStore } from '@/stores/app'
 import { useSettingsStore } from '@/stores/settings'
 import { useRecycleBinStore } from '@/stores/recycleBin'
+import { useWechatBotStore } from '@/stores/wechatBot'
 import { useRoute, useRouter } from 'vue-router'
-import { computed } from 'vue'
+import { computed, onMounted } from 'vue'
 import TitleBar from './TitleBar.vue'
 
 const appStore = useAppStore()
 const settingsStore = useSettingsStore()
 const recycleBinStore = useRecycleBinStore()
+const botStore = useWechatBotStore()
 const route = useRoute()
 const router = useRouter()
 
@@ -48,6 +50,24 @@ function isSettingsActive() {
 function isProfileActive() {
   return currentPath.value.startsWith('/profile')
 }
+function isWeChatBridgeActive() {
+  return currentPath.value.startsWith('/wechat-bridge')
+}
+
+const wxDotClass = computed(() => {
+  switch (botStore.connectionStatus) {
+    case 'connected':
+      return isDark.value ? 'bg-emerald-400' : 'bg-emerald-500'
+    case 'scanning':
+      return isDark.value ? 'bg-amber-400' : 'bg-amber-500'
+    case 'expired':
+      return 'bg-red-500'
+    default:
+      return isDark.value ? 'bg-white/25' : 'bg-l4'
+  }
+})
+
+onMounted(() => { botStore.initStatus() })
 
 const themeIcon = computed(() => (isDark.value ? 'ri-sun-line' : 'ri-moon-line'))
 
@@ -71,15 +91,15 @@ function toggleTheme() {
           <button
             v-for="item in navItems"
             :key="item.name"
-            class="nav-btn h-9 rounded-lg flex items-center justify-center transition-all"
+            class="nav-btn h-8 rounded-lg flex items-center justify-center transition-all"
             :class="
               isActive(item)
                 ? isDark
                   ? 'text-wt-main bg-brand-400/12'
                   : 'text-lt-main bg-brand-50'
                 : isDark
-                  ? 'text-wt-aux hover:text-wt-sub hover:bg-white/4'
-                  : 'text-lt-aux hover:text-lt-sub hover:bg-l4'
+                  ? 'text-wt-sub hover:text-wt-main hover:bg-white/4'
+                  : 'text-lt-sub hover:text-lt-main hover:bg-l4'
             "
             @click="router.push(item.route)">
             <!-- Active indicator bar -->
@@ -105,25 +125,46 @@ function toggleTheme() {
         <div class="no-drag flex flex-col gap-1.5 w-full px-[6px] mt-auto mb-2">
           <!-- Theme toggle -->
           <button
-            class="nav-btn h-9 rounded-lg flex items-center justify-center transition-all"
+            class="nav-btn h-8 rounded-lg flex items-center justify-center transition-all"
             :class="
-              isDark ? 'text-wt-aux hover:text-wt-sub hover:bg-white/4' : 'text-lt-aux hover:text-lt-sub hover:bg-l4'
+              isDark ? 'text-wt-sub hover:text-wt-main hover:bg-white/4' : 'text-lt-sub hover:text-lt-main hover:bg-l4'
             "
             @click="toggleTheme()">
             <i :class="themeIcon" class="text-[20px]" />
             <span class="tip" :class="isDark ? 'bg-d3 text-wt-main' : 'bg-l3 text-lt-main shadow-sm'">切换主题</span>
           </button>
+          <!-- WeChat Bridge -->
+          <button
+            class="nav-btn h-8 rounded-lg flex items-center justify-center transition-all"
+            :class="
+              isWeChatBridgeActive()
+                ? isDark
+                  ? 'text-wt-main bg-brand-400/12'
+                  : 'text-lt-main bg-brand-50'
+                : isDark
+                  ? 'text-wt-sub hover:text-wt-main hover:bg-white/4'
+                  : 'text-lt-sub hover:text-lt-main hover:bg-l4'
+            "
+            @click="router.push('/wechat-bridge')">
+            <span
+              v-show="isWeChatBridgeActive()"
+              class="absolute left-0 top-2 bottom-2 w-[3px] rounded-r"
+              :style="{ backgroundColor: accentHex }" />
+              <SvgIcon iconClass="clawbot" :size="20" />
+            <span class="tip" :class="isDark ? 'bg-d3 text-wt-main' : 'bg-l3 text-lt-main shadow-sm'">微信Bot助手</span>
+            <span class="absolute top-[5px] right-[5px] w-[7px] h-[7px] rounded-full" :class="wxDotClass" />
+          </button>
           <!-- Settings -->
           <button
-            class="nav-btn h-9 rounded-lg flex items-center justify-center transition-all"
+            class="nav-btn h-8 rounded-lg flex items-center justify-center transition-all"
             :class="
               isSettingsActive()
                 ? isDark
                   ? 'text-wt-main bg-brand-400/12'
                   : 'text-lt-main bg-brand-50'
                 : isDark
-                  ? 'text-wt-aux hover:text-wt-sub hover:bg-white/4'
-                  : 'text-lt-aux hover:text-lt-sub hover:bg-l4'
+                  ? 'text-wt-sub hover:text-wt-main hover:bg-white/4'
+                  : 'text-lt-sub hover:text-lt-main hover:bg-l4'
             "
             @click="router.push('/settings')">
             <!-- Active indicator bar -->
@@ -169,7 +210,7 @@ function toggleTheme() {
   white-space: nowrap;
   padding: 5px 10px;
   border-radius: 6px;
-  font-size: 12px;
+  font-size: 13px;
   pointer-events: none;
   opacity: 0;
   transition: opacity 0.15s;

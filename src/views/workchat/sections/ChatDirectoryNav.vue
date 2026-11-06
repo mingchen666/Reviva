@@ -98,7 +98,7 @@ onBeforeUnmount(() => {
       @click="toggleDirectory">
       <i :class="[triggerIcon, 'text-[18px]']" />
       <span class="directory-trigger-label">目录</span>
-      <span class="directory-trigger-count" aria-hidden="true">{{ totalRoundCount }}</span>
+      <span class="directory-trigger-count text-red" aria-hidden="true">{{ totalRoundCount }}</span>
     </button>
 
     <nav :id="panelId" class="directory-panel" aria-label="对话目录">
@@ -244,8 +244,9 @@ onBeforeUnmount(() => {
   min-width: 17px;
   height: 17px;
   padding: 0 4px;
-  color: var(--ui-brand-500);
-  background: color-mix(in srgb, var(--directory-bg) 78%, var(--ui-brand-400));
+  color: var(--text-brand-500);
+  font-weight: bold;
+  background: color-mix(in srgb, var(--directory-bg) 78%, var(--text-brand-400));
   box-shadow: 0 0 0 2px var(--directory-bg);
 }
 
@@ -311,7 +312,7 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: center;
   border: 1px solid rgba(var(--ui-brand-400-rgb), 0.2);
-  border-radius: 8px;
+  border-radius: 6px;
   color: var(--ui-brand-400);
   background: rgba(var(--ui-brand-400-rgb), 0.1);
   font-size: 13px;
@@ -333,7 +334,7 @@ onBeforeUnmount(() => {
   border-radius: 999px;
   color: var(--directory-subtle);
   background: rgba(var(--ui-text-main-rgb), 0.055);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 600;
   line-height: 1;
   white-space: nowrap;

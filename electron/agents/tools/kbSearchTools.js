@@ -150,6 +150,9 @@ export function createKbSearchExternal() {
       if (!ctx.activeSourceId || !_kbRegistry) {
         return JSON.stringify({ status: 'error', message: 'No external knowledge source active' })
       }
+      if (!ctx.externalKbId) {
+        return JSON.stringify({ status: 'error', message: '当前未选择具体知识库，请在对话侧边栏的知识库选择器中选择一个知识库后再检索。' })
+      }
       try {
         const result = await _kbRegistry.search(ctx.activeSourceId, {
           query, top_k, extra_body,

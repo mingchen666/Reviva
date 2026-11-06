@@ -27,7 +27,7 @@ defineExpose({ onStreamEnd })
     <!-- Toggle header -->
     <button @click="expanded = !expanded"
       class="flex items-center gap-2 text-[11px] font-medium transition-colors w-full"
-      :class="isDark ? 'text-wt-dim hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub'">
+      :class="isDark ? 'text-wt-dim hover:text-wt-sub' : 'text-lt-sub hover:text-lt-main'">
       <i :class="expanded ? 'ri-arrow-down-s-line' : 'ri-arrow-right-s-line'" class="text-[11px]" />
       <span>{{ expanded ? '执行步骤' : collapsedLabel }}</span>
       <span v-if="isStreaming" class="text-[10px] px-1.5 py-0.5 rounded"

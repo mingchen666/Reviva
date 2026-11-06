@@ -268,7 +268,7 @@ const isFullscreenRenderer = computed(() => isMindmap.value || isGraph.value || 
         </button>
         <button @click="emit('close')"
           class="h-7 w-7 rounded-lg flex items-center justify-center transition-colors"
-          :class="isDark ? 'text-wt-aux hover:text-wt-sub hover:bg-white/5' : 'text-lt-aux hover:text-lt-sub hover:bg-l4'">
+          :class="isDark ? 'text-wt-sub hover:text-wt-main hover:bg-white/5' : 'text-lt-sub hover:text-lt-main hover:bg-l4'">
           <i class="ri-close-line text-[20px]" />
         </button>
       </div>
@@ -386,13 +386,13 @@ const isFullscreenRenderer = computed(() => isMindmap.value || isGraph.value || 
             <div class="ml-auto flex items-center gap-1 shrink-0">
               <button @click="openFile"
                 class="h-6 w-6 rounded-md flex items-center justify-center transition-colors"
-                :class="isDark ? 'text-wt-aux hover:text-wt-sub hover:bg-white/5' : 'text-lt-aux hover:text-lt-sub hover:bg-l4'"
+                :class="isDark ? 'text-wt-sub hover:text-wt-main hover:bg-white/5' : 'text-lt-sub hover:text-lt-main hover:bg-l4'"
                 title="用系统应用打开">
                 <i class="ri-external-link-line text-[12px]" />
               </button>
               <button @click="showInFolder"
                 class="h-6 w-6 rounded-md flex items-center justify-center transition-colors"
-                :class="isDark ? 'text-wt-aux hover:text-wt-sub hover:bg-white/5' : 'text-lt-aux hover:text-lt-sub hover:bg-l4'"
+                :class="isDark ? 'text-wt-sub hover:text-wt-main hover:bg-white/5' : 'text-lt-sub hover:text-lt-main hover:bg-l4'"
                 title="所在目录">
                 <i class="ri-folder-open-line text-[12px]" />
               </button>
@@ -497,11 +497,11 @@ const isFullscreenRenderer = computed(() => isMindmap.value || isGraph.value || 
         :class="isDark ? 'border-t border-d4' : 'border-t border-bdrL'">
         <div class="flex items-center gap-2">
           <button class="text-[11px] font-medium flex items-center gap-1 transition-colors"
-            :class="isDark ? 'text-wt-aux hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub'">
+            :class="isDark ? 'text-wt-sub hover:text-wt-main' : 'text-lt-sub hover:text-lt-main'">
             <i class="ri-share-line text-[11px]" />分享
           </button>
           <button class="text-[11px] font-medium flex items-center gap-1 transition-colors"
-            :class="isDark ? 'text-wt-aux hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub'">
+            :class="isDark ? 'text-wt-sub hover:text-wt-main' : 'text-lt-sub hover:text-lt-main'">
             <i class="ri-download-line text-[11px]" />下载
           </button>
         </div>

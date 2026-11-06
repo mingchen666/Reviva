@@ -77,4 +77,41 @@ export const PRESETS = [
       },
     },
   },
+  {
+    preset: 'ima',
+    name: 'IMA',
+    type: 'http',
+    base_url: 'https://ima.qq.com',
+    auth: { type: 'none' },
+    default_headers: {
+      'ima-openapi-clientid': '{{CLIENT_ID}}',
+      'ima-openapi-apikey': '{{API_KEY}}',
+    },
+    capabilities: { interfaces: ['search'], content_types: ['text'] },
+    endpoints: {
+      list: {
+        method: 'POST',
+        path: '/openapi/wiki/v1/search_knowledge_base',
+        body: { query: '', cursor: '', limit: 20 },
+        response: {
+          items_path: 'data.info_list',
+          field_mapping: { id: 'kb_id', name: 'kb_name' },
+        },
+      },
+      search: {
+        method: 'POST',
+        path: '/openapi/wiki/v1/search_knowledge',
+        body: {
+          query: '{query}',
+          cursor: '',
+          knowledge_base_id: '{KB_ID}',
+        },
+        response: {
+          items_path: 'data.info_list',
+          field_mapping: { content: 'highlight_content', title: 'title', source: 'media_id' },
+          total_path: '',
+        },
+      },
+    },
+  },
 ]

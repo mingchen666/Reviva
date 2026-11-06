@@ -3,10 +3,13 @@ import { computed } from 'vue';
 import { useAppStore } from '@/stores/app';
 import logoUrl from '@/assets/logo-light.png';
 import { getAppVersion } from '@/utils/tools';
+import { useMessage } from '@/components/MsMessage/useMessage';
 
 const appVersion = getAppVersion();
 const appStore = useAppStore();
 const isDark = computed(() => appStore.isDark);
+const msg = useMessage();
+const qqGroupNumber = '1131466242';
 
 /* ── 文案（对齐 README 定位） ── */
 const author = {
@@ -29,10 +32,10 @@ const social = [
   // 问题反馈：跳转 GitHub Issues
   { name: '问题反馈', icon: 'ri-feedback-line', value: 'GitHub Issues', url: 'https://github.com/mingchen666/Reviva/issues', color: 'brand', svg: false },
   { name: 'GitHub', icon: 'ri-github-fill', value: 'mingchen666/Reviva', url: 'https://github.com/mingchen666/Reviva', color: 'brand', svg: false },
-  // 交流群：点击在浏览器打开群二维码图片，请替换为真实图片 URL
-  { name: '用户交流群', icon: 'ri-group-line', value: '点击查看群二维码', url: 'https://github.com/mingchen666/Reviva/raw/main/docs/images/wx-group.jpg', color: 'emerald', svg: false },
+  // QQ 交流群：点击在浏览器打开群二维码图片
+  { name: 'QQ交流群', icon: 'ri-group-line', value: '群号：1131466242', url: 'https://github.com/mingchen666/Reviva/raw/main/docs/images/qq-group.jpg', color: 'emerald', svg: false },
   { name: '抖音', icon: 'ri-tiktok-line', value: 'Reviva 抖音', url: 'https://v.douyin.com/W5RneZFGXRw/', color: 'tiktok', svg: false },
-  { name: '小红书', icon: 'xiaohongshu', value: 'Reviva 小红书', url: '', color: 'red', svg: true },
+  // { name: '小红书', icon: 'xiaohongshu', value: 'Reviva 小红书', url: '', color: 'red', svg: true },
   { name: 'Bilibili', icon: 'ri-bilibili-line', value: 'B站账号', url: '', color: 'pink', svg: false },
 ];
 
@@ -108,7 +111,7 @@ const milestones = [
 const stats = [
   { label: '发布状态', value: '正式版 · Stable', icon: 'ri-shield-check-line', iconColor: 'text-emerald-400' },
   { label: '当前版本', value: `v${appVersion}`, icon: 'ri-code-s-slash-line', iconColor: 'text-brand-400' },
-  { label: '支持平台', value: 'Windows / macOS', icon: 'ri-computer-line', iconColor: 'text-purple-400' },
+  { label: '支持平台', value: 'Windows / macOS / Linux', icon: 'ri-computer-line', iconColor: 'text-purple-400' },
   { label: '开源协议', value: 'AGPL-3.0 + 多人/商用需授权', icon: 'ri-open-source-line', iconColor: 'text-amber-400' },
 ];
 
@@ -122,6 +125,10 @@ function open(url) {
   } else {
     window.open(url, '_blank', 'noopener,noreferrer');
   }
+}
+
+function copyQQGroup() {
+  navigator.clipboard?.writeText(qqGroupNumber).then(() => msg.success('QQ 群号已复制')).catch(() => {});
 }
 
 function toneClass(tone) {
@@ -234,7 +241,7 @@ function socialIconStyle(color) {
         >
           <div class="flex items-center justify-between mb-2.5">
             <i :class="[item.icon, 'text-[18px]', toneText(item.color)]" />
-            <span class="text-[10px] font-mono font-bold" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">
+            <span class="text-[12.5px] font-mono font-bold" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">
               {{ item.num }}
             </span>
           </div>
@@ -255,7 +262,7 @@ function socialIconStyle(color) {
         :class="isDark ? 'bg-d3 border border-bdr' : 'bg-l3 border border-bdrF'"
       >
         <div class="flex items-center gap-2 mb-3">
-          <i class="ri-bar-chart-box-line text-brand-400 text-[14px]" />
+          <i class="ri-bar-chart-box-line text-brand-400 text-[16px]" />
           <span class="section-title" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">产品状态</span>
         </div>
         <div class="space-y-2">
@@ -283,7 +290,7 @@ function socialIconStyle(color) {
         :class="isDark ? 'bg-d3 border border-bdr' : 'bg-l3 border border-bdrF'"
       >
         <div class="flex items-center gap-2 mb-1">
-          <i class="ri-links-line text-purple-400 text-[14px]" />
+          <i class="ri-links-line text-purple-400 text-[16px]" />
           <span class="section-title" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">反馈与联系</span>
         </div>
         <p class="text-[10px] mb-2.5" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">
@@ -308,10 +315,25 @@ function socialIconStyle(color) {
             />
             <i v-else :class="[item.icon, 'text-[16px]', socialIconStyle(item.color)]" />
             <span class="flex-1 min-w-0">
-              <span class="block text-[11px] font-medium" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">
+              <span class="block text-[12.5px] font-medium" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">
                 {{ item.name }}
               </span>
-              <span class="block text-[10px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">
+              <!-- QQ 群号：badge + 复制按钮 -->
+              <span v-if="item.name === 'QQ交流群'" class="flex items-center gap-1.5 mt-0.5">
+                <span
+                  class="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-mono font-bold leading-none"
+                  :class="isDark ? 'bg-emerald-400/15 text-emerald-400' : 'bg-emerald-50 text-emerald-600'"
+                >{{ qqGroupNumber }}</span>
+                <button
+                  class="w-4 h-4 rounded flex items-center justify-center transition-colors"
+                  :class="isDark ? 'text-wt-dim hover:text-emerald-400' : 'text-lt-aux hover:text-emerald-600'"
+                  title="复制群号"
+                  @click.stop="copyQQGroup"
+                >
+                  <i class="ri-file-copy-line text-[11px]" />
+                </button>
+              </span>
+              <span v-else class="block text-[10px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">
                 {{ item.value }}
               </span>
             </span>
@@ -332,7 +354,7 @@ function socialIconStyle(color) {
         :class="isDark ? 'bg-d3 border border-bdr' : 'bg-l3 border border-bdrF'"
       >
         <div class="flex items-center gap-2 mb-4">
-          <i class="ri-focus-3-line text-purple-400 text-[14px]" />
+          <i class="ri-focus-3-line text-purple-400 text-[16px]" />
           <span class="section-title" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">重点方向</span>
         </div>
         <div class="space-y-2.5">
@@ -367,7 +389,7 @@ function socialIconStyle(color) {
         :class="isDark ? 'bg-d3 border border-bdr' : 'bg-l3 border border-bdrF'"
       >
         <div class="flex items-center gap-2 mb-4">
-          <i class="ri-road-map-line text-emerald-400 text-[14px]" />
+          <i class="ri-road-map-line text-emerald-400 text-[16px]" />
           <span class="section-title" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">开发历程</span>
         </div>
         <div class="space-y-2.5">
@@ -399,7 +421,7 @@ function socialIconStyle(color) {
     <!-- ═══ Footer ═══ -->
     <div class="flex items-center justify-center gap-2 pt-2">
       <div class="h-px flex-1" :class="isDark ? 'bg-bdr' : 'bg-bdrF'" />
-      <p class="text-[10px] px-3" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">
+      <p class="text-[12px] px-3" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">
         © 2026 Reviva · {{ author.name }} · v{{ appVersion }} · AGPL-3.0
       </p>
       <div class="h-px flex-1" :class="isDark ? 'bg-bdr' : 'bg-bdrF'" />

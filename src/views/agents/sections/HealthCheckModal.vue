@@ -79,7 +79,7 @@ function runCheck() {
           <button @click="toggleAll" class="flex items-center gap-2 text-[12px] font-medium transition-colors"
             :class="selectedIds.length === agents.length
               ? (isDark ? 'text-emerald-400' : 'text-emerald-600')
-              : (isDark ? 'text-wt-aux hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub')">
+              : (isDark ? 'text-wt-sub hover:text-wt-main' : 'text-lt-sub hover:text-lt-main')">
             <i :class="selectedIds.length === agents.length ? 'ri-checkbox-circle-fill text-emerald-400' : 'ri-checkbox-blank-circle-line'" class="text-[14px]" />
             全选 ({{ selectedIds.length }}/{{ agents.length }})
           </button>

@@ -331,7 +331,7 @@ async function saveCurrent() {
       </div>
       <button
         class="h-8 px-2.5 rounded-lg text-[11px] font-medium flex items-center gap-1.5 transition-colors disabled:opacity-50"
-        :class="isDark ? 'bg-d0 text-wt-aux hover:text-wt-sub border border-d4' : 'bg-white text-lt-aux hover:text-lt-sub border border-emerald-100'"
+        :class="isDark ? 'bg-d0 text-wt-sub hover:text-wt-main border border-d4' : 'bg-white text-lt-sub hover:text-lt-main border border-emerald-100'"
         :disabled="loading"
         @click="loadProviders">
         <i class="ri-refresh-line text-[12px]" />
@@ -522,7 +522,7 @@ async function saveCurrent() {
         <div class="flex items-center gap-2">
           <button
             class="h-8 px-3 rounded-lg text-[12px] font-medium flex items-center gap-1.5 transition-colors disabled:opacity-50"
-            :class="isDark ? 'bg-d0 text-wt-aux hover:text-wt-sub border border-d4' : 'bg-l2 text-lt-aux hover:text-lt-sub border border-bdrF'"
+            :class="isDark ? 'bg-d0 text-wt-sub hover:text-wt-main border border-d4' : 'bg-l2 text-lt-sub hover:text-lt-main border border-bdrF'"
             :disabled="loading || saving"
             @click="loadProviders">
             <i class="ri-refresh-line text-[12px]" />

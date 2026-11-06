@@ -209,7 +209,7 @@ const voiceButtonClass = computed(() => {
   if (showVoiceModelDropdown.value) {
     return props.isDark ? 'text-brand-400 bg-brand-400/10' : 'text-brand-500 bg-brand-50'
   }
-  return props.isDark ? 'text-wt-aux hover:text-wt-sub hover:bg-white/5' : 'text-lt-aux hover:text-lt-sub hover:bg-l4'
+  return props.isDark ? 'text-wt-sub hover:text-wt-main hover:bg-white/5' : 'text-lt-sub hover:text-lt-main hover:bg-l4'
 })
 
 const voiceShowStreamingText = computed(() =>
@@ -527,7 +527,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick, true))
             </button>
             <button @click.stop="voiceResetError"
                     class="shrink-0 text-[16px] px-1 leading-none opacity-50 hover:opacity-100 transition-opacity"
-                    :class="isDark ? 'text-wt-aux hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub'"
+                    :class="isDark ? 'text-wt-sub hover:text-wt-main' : 'text-lt-sub hover:text-lt-main'"
                     title="关闭">
               <i class="ri-close-line" />
             </button>
@@ -551,8 +551,8 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick, true))
                   ? 'text-brand-400 bg-brand-400/10'
                   : 'text-brand-500 bg-brand-50'
                 : isDark
-                  ? 'text-wt-aux hover:text-wt-sub hover:bg-white/5'
-                  : 'text-lt-aux hover:text-lt-sub hover:bg-l4'
+                  ? 'text-wt-sub hover:text-wt-main hover:bg-white/5'
+                  : 'text-lt-sub hover:text-lt-main hover:bg-l4'
             ">
             <i class="ri-attachment-line text-[12px]" />
             <span class="toolbar-label toolbar-label-optional">附件</span>
@@ -570,8 +570,8 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick, true))
                   ? 'text-agent-400 bg-agent-400/10'
                   : 'text-agent-500 bg-agent-50'
                 : isDark
-                  ? 'text-wt-aux hover:text-wt-sub hover:bg-white/5'
-                  : 'text-lt-aux hover:text-lt-sub hover:bg-l4'
+                  ? 'text-wt-sub hover:text-wt-main hover:bg-white/5'
+                  : 'text-lt-sub hover:text-lt-main hover:bg-l4'
             ">
             <i :class="selectedAgent ? 'ri-sparkling-2-line' : 'ri-at-line'" class="text-[12px]" />
             <span class="toolbar-label toolbar-label-primary toolbar-label-agent truncate">{{ selectedAgent ? selectedAgent.name : 'Agent' }}</span>
@@ -588,8 +588,8 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick, true))
                     ? 'text-brand-400 bg-brand-400/10'
                     : 'text-brand-500 bg-brand-50'
                   : isDark
-                    ? 'text-wt-aux hover:text-wt-sub hover:bg-white/5'
-                    : 'text-lt-aux hover:text-lt-sub hover:bg-l4'
+                    ? 'text-wt-sub hover:text-wt-main hover:bg-white/5'
+                    : 'text-lt-sub hover:text-lt-main hover:bg-l4'
               ">
               <i class="ri-brain-line text-[12px]" />
               <span class="toolbar-label toolbar-label-optional">{{ thinkingLabel }}</span>
@@ -600,7 +600,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick, true))
             ref="wikiBtnRef"
             v-if="showWiki"
             @click="togglePopover('wiki')"
-            :title="selectedWikiNames.length ? selectedWikiNames.join('、') : 'Wiki'"
+            :title="selectedWikiNames.length ? selectedWikiNames.join('、') : 'Wiki知识库'"
             class="toolbar-btn toolbar-btn-wiki h-8 px-2 sm:px-2.5 rounded-lg flex items-center gap-1 text-[0.8125rem] transition-colors min-w-0"
             :class="
               selectedWikiCount || activePopover === 'wiki'
@@ -608,8 +608,8 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick, true))
                   ? 'text-indigo-300 bg-indigo-400/10'
                   : 'text-indigo-600 bg-indigo-50'
                 : isDark
-                  ? 'text-wt-aux hover:text-wt-sub hover:bg-white/5'
-                  : 'text-lt-aux hover:text-lt-sub hover:bg-l4'
+                  ? 'text-wt-sub hover:text-wt-main hover:bg-white/5'
+                  : 'text-lt-sub hover:text-lt-main hover:bg-l4'
             ">
             <i class="ri-book-2-line text-[12px]" />
             <span class="toolbar-label toolbar-label-primary toolbar-label-wiki truncate">{{ wikiButtonLabel }}</span>
@@ -628,8 +628,8 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick, true))
                   ? 'text-wt-sub bg-white/6'
                   : 'text-lt-sub bg-l3'
                 : isDark
-                  ? 'text-wt-aux hover:text-wt-sub hover:bg-white/5'
-                  : 'text-lt-aux hover:text-lt-sub hover:bg-l4'
+                  ? 'text-wt-sub hover:text-wt-main hover:bg-white/5'
+                  : 'text-lt-sub hover:text-lt-main hover:bg-l4'
             ">
             <i v-if="isCompressing" class="ri-loader-4-line text-[12px]" style="animation: spin 1s linear infinite" />
             <i v-else class="ri-text-wrap text-[12px]" />
@@ -674,7 +674,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick, true))
               :class="
                 showVoiceModelDropdown
                   ? isDark ? 'text-brand-400 bg-brand-400/10' : 'text-brand-500 bg-brand-50'
-                  : isDark ? 'text-wt-aux hover:text-wt-sub hover:bg-white/5' : 'text-lt-aux hover:text-lt-sub hover:bg-l4'
+                  : isDark ? 'text-wt-sub hover:text-wt-main hover:bg-white/5' : 'text-lt-sub hover:text-lt-main hover:bg-l4'
              ">
               <i :class="showVoiceModelDropdown ? 'ri-arrow-down-s-line' : 'ri-arrow-up-s-line'" class="text-[12px]" />
             </button>
@@ -698,19 +698,19 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick, true))
           <!-- Token counter -->
           <div
             v-if="showTokenCounter && totalTokens > 0"
-            class="chat-token-counter flex items-center gap-1.2 text-[12px] tabular-nums shrink-0"
+            class="chat-token-counter flex items-center gap-1.2 text-[12.5px] tabular-nums shrink-0"
             :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">
-            <i class="ri-coin-line text-[12px]" />
+            <i class="ri-coin-line text-[12.5px]" />
             <span :class="isDark ? 'text-brand-400' : 'text-brand-500'">{{ formatTokenCount(totalInputTokens) }}↓</span>
             <span :class="isDark ? 'text-output-400' : 'text-output-500'">
               {{ formatTokenCount(totalOutputTokens) }}↑
             </span>
             <span v-if="showLatency && lastLatencyMs" class="chat-token-extra flex items-center gap-0.5">
-              <i class="ri-timer-line text-[12px]" />
+              <i class="ri-timer-line text-[12.5px]" />
               {{ lastLatencyMs < 1000 ? lastLatencyMs + 'ms' : (lastLatencyMs / 1000).toFixed(1) + 's' }}
             </span>
             <span v-if="lastCost > 0" class="chat-token-extra flex items-center gap-0.5">
-              <i class="ri-money-dollar-circle-line text-[12px]" />
+              <i class="ri-money-dollar-circle-line text-[12.5px]" />
               {{ lastCost < 0.01 ? '$' + lastCost.toFixed(4) : '$' + lastCost.toFixed(2) }}
             </span>
           </div>
@@ -720,7 +720,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick, true))
         <button
           v-if="isStreaming"
           @click="emit('cancel')"
-          class="chat-send-btn h-9 px-3.5 rounded-md flex items-center gap-1 text-sm font-medium transition-colors shrink-0"
+          class="chat-send-btn h-8 px-3.5 rounded-md flex items-center gap-1 text-sm font-medium transition-colors shrink-0"
           :class="stopButtonClass">
           <i class="ri-stop-circle-line text-[14px]" />
           <span class="send-label">停止</span>
@@ -728,7 +728,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick, true))
         <button
           v-else
           @click="handleSend"
-          class="chat-send-btn h-9 px-3.5 rounded-md flex items-center gap-1 text-sm font-500 transition-colors shrink-0"
+          class="chat-send-btn h-8 px-3.5 rounded-md flex items-center gap-1 text-sm font-500 transition-colors shrink-0"
           :class="sendButtonClass">
           <i class="ri-send-plane-line text-[14px]" />
           <span class="send-label">发送</span>
@@ -783,7 +783,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick, true))
           <button
             @click="showVoiceModelDropdown = false"
             class="h-5 w-5 rounded flex items-center justify-center transition-colors"
-            :class="isDark ? 'text-wt-dim hover:text-wt-sub hover:bg-white/5' : 'text-lt-aux hover:text-lt-sub hover:bg-l4'">
+            :class="isDark ? 'text-wt-dim hover:text-wt-sub hover:bg-white/5' : 'text-lt-sub hover:text-lt-main hover:bg-l4'">
             <i class="ri-close-line text-[16px]" />
           </button>
         </div>
@@ -855,7 +855,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick, true))
           <button
             @click="showThinkingDropdown = false"
             class="h-5 w-5 rounded flex items-center justify-center transition-colors"
-            :class="isDark ? 'text-wt-dim hover:text-wt-sub hover:bg-white/5' : 'text-lt-aux hover:text-lt-sub hover:bg-l4'">
+            :class="isDark ? 'text-wt-dim hover:text-wt-sub hover:bg-white/5' : 'text-lt-sub hover:text-lt-main hover:bg-l4'">
             <i class="ri-close-line text-[16px]" />
           </button>
        </div>

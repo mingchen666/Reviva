@@ -462,7 +462,7 @@ function menuCanRename() {
         </span>
         <button type="button" @click="emit('refresh')" :disabled="refreshing"
           class="h-6 w-6 rounded-md flex items-center justify-center transition-colors disabled:opacity-50"
-          :class="isDark ? 'text-wt-aux hover:text-wt-sub hover:bg-white/5' : 'text-lt-aux hover:text-lt-sub hover:bg-l4'"
+          :class="isDark ? 'text-wt-sub hover:text-wt-main hover:bg-white/5' : 'text-lt-sub hover:text-lt-main hover:bg-l4'"
           title="刷新生成结果" aria-label="刷新生成结果">
           <i class="ri-refresh-line text-[13px]" :class="refreshing ? 'animate-spin' : ''" />
         </button>
@@ -482,7 +482,7 @@ function menuCanRename() {
           : 'bg-l2 border border-bdrF text-lt-sub placeholder:text-lt-aux focus:border-brand-300'" />
       <button v-if="searchQuery" type="button" @click="searchQuery = ''"
         class="absolute right-1.5 top-1/2 -translate-y-1/2 h-5 w-5 rounded flex items-center justify-center"
-        :class="isDark ? 'text-wt-dim hover:text-wt-sub hover:bg-white/5' : 'text-lt-aux hover:text-lt-sub hover:bg-l4'"
+        :class="isDark ? 'text-wt-dim hover:text-wt-sub hover:bg-white/5' : 'text-lt-sub hover:text-lt-main hover:bg-l4'"
         aria-label="清空搜索">
         <i class="ri-close-line text-[14px]" />
       </button>
@@ -511,7 +511,7 @@ function menuCanRename() {
             </div>
             <div class="flex-1 min-w-0">
               <div class="flex items-center gap-1.5 min-w-0">
-                <div class="text-[13px] font-semibold truncate" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">
+                <div class="fs-body font-semibold truncate" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">
                   {{ entry.task.name }}
                 </div>
                 <span
@@ -543,7 +543,7 @@ function menuCanRename() {
               @click.stop="openMenu('task', entry.task, $event)"
               class="h-6 w-6 rounded flex items-center justify-center transition-colors shrink-0"
               :class="
-                isDark ? 'text-wt-aux hover:text-wt-sub hover:bg-white/4' : 'text-lt-aux hover:text-lt-sub hover:bg-l4'
+                isDark ? 'text-wt-sub hover:text-wt-main hover:bg-white/4' : 'text-lt-sub hover:text-lt-main hover:bg-l4'
               "
               title="更多">
               <i class="ri-more-2-fill text-[14px]" />
@@ -594,7 +594,7 @@ function menuCanRename() {
               <i :class="(entry.artifact.icon || 'ri-file-line') + ' text-[16px]'" />
             </div>
             <div class="flex-1 min-w-0">
-              <div class="text-[13px] font-semibold truncate" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">
+              <div class="fs-body font-semibold truncate" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">
                 {{ displayArtifactTitle(entry.artifact) }}
               </div>
               <div
@@ -608,7 +608,7 @@ function menuCanRename() {
               @click.stop="openMenu('artifact', entry.artifact, $event)"
               class="h-6 w-6 rounded flex items-center justify-center transition-colors shrink-0"
               :class="
-                isDark ? 'text-wt-aux hover:text-wt-sub hover:bg-white/4' : 'text-lt-aux hover:text-lt-sub hover:bg-l4'
+                isDark ? 'text-wt-sub hover:text-wt-main hover:bg-white/4' : 'text-lt-sub hover:text-lt-main hover:bg-l4'
               "
               title="更多">
               <i class="ri-more-2-fill text-[12px]" />

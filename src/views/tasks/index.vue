@@ -224,9 +224,9 @@ const cancelTask = async (task) => {
 const deleteTask = async (task) => {
   if (!task?.id) return;
   const confirmed = await mbox.confirm({
-    title: '删除任务记录', subtitle: '只会移除任务中心里的记录',
+    title: '删除任务记录', subtitle: '将移入回收站，可稍后还原',
     message: `确定删除「${task.name || '未命名任务'}」吗？`,
-    variant: 'danger', confirmText: '删除', cancelText: '取消'
+    variant: 'danger', confirmText: '移入回收站', cancelText: '取消'
   });
   if (!confirmed) return;
   busyTaskId.value = task.id;

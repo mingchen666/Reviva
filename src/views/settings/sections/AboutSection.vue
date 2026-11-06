@@ -4,11 +4,15 @@ import { useRouter } from 'vue-router';
 import { useAppStore } from '@/stores/app';
 import { useAutoUpdate } from '@/composables/useAutoUpdate';
 import { getAppVersion } from '@/utils/tools';
+import { versionChangelog } from '@/config/release';
+import { useMessage } from '@/components/MsMessage/useMessage';
 
 const appVersion = getAppVersion();
 const router = useRouter();
 const appStore = useAppStore();
 const isDark = computed(() => appStore.isDark);
+const msg = useMessage();
+const qqGroupNumber = '1131466242';
 const { checking, updateInfo, error, lastCheckStatus, lastCheckMessage, checkForUpdate } =
   useAutoUpdate();
 
@@ -22,18 +26,12 @@ const updateNotice = computed(() => {
   return '';
 });
 
-const versionHighlights = [
-  '多 Agent 协作：对话中切换 Agent，共享上下文与全局记忆。',
-  '围绕资料对话：本地文档、文件夹、Wiki 知识库与音视频皆可引用。',
-  '可视化学习与创作：测验、闪卡、导图、知识图谱、PPT 与研究报告。',
-  '知识持续沉淀：输出回流笔记、Wiki 与本地目录，形成学习闭环。',
-  '本地优先与可控：自有模型、权限沙箱、数据备份与迁移。',
-];
+const changelogTypeMap = {
+  new: { label: '新增', tone: 'emerald' },
+  improve: { label: '优化', tone: 'brand' },
+  fix: { label: '修复', tone: 'amber' },
+};
 
-const versionTips = [
-  '自动更新优先走系统通道；网络不可达时可从备用入口下载。',
-  '模型价格与能力以服务商为准，长期使用前建议定期备份。',
-];
 function go(route) {
   if (!route) return;
   router.push(route);
@@ -50,6 +48,10 @@ function openExternal(url) {
   } else {
     window.open(url, '_blank', 'noopener,noreferrer');
   }
+}
+
+function copyQQGroup() {
+  navigator.clipboard?.writeText(qqGroupNumber).then(() => msg.success('QQ 群号已复制')).catch(() => {});
 }
 
 function toneClass(tone) {
@@ -175,7 +177,7 @@ function toneClass(tone) {
             数据与隐私
           </h3>
           <p
-            class="text-[12px] leading-relaxed"
+            class="text-[12px] leading-relaxed flex-1"
             :class="isDark ? 'text-wt-aux' : 'text-lt-aux'"
           >
             对话、文档、笔记、知识库和 Agent 配置主要存储在本机工作区与 SQLite
@@ -185,61 +187,50 @@ function toneClass(tone) {
       </div>
     </div>
 
-    <!-- ═══ 版本更新 ═══ -->
+    <!-- ═══ 当前版本更新日志 ═══ -->
     <div class="rounded-xl p-4"
         :class="isDark ? 'bg-d3 border border-bdr' : 'bg-l3 border border-bdrF'"
     >
-      <div class="flex items-center justify-between gap-3 mb-4">
-          <div class="flex items-center gap-2">
-            <i class="ri-history-line text-brand-400 text-[14px]" />
-            <span class="section-title" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'"
-              >版本更新</span
-            >
-          </div>
-          <span class="text-[10px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'"
-            >v{{ appVersion }} 版本要点与使用提示</span
+      <div class="flex items-center justify-between gap-3 mb-3">
+        <div class="flex items-center gap-2">
+          <i class="ri-file-list-3-line text-brand-400 text-[18px]" />
+          <span class="section-title" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'"
+            >当前版本更新日志</span
           >
         </div>
-
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <!-- 亮点 -->
-          <div class="rounded-lg p-3" :class="isDark ? 'bg-d0' : 'bg-l2'">
-            <div class="flex items-center gap-1.5 mb-2.5">
-              <i class="ri-sparkling-2-fill text-emerald-400 text-[13px]" />
-              <span class="text-[11px] font-bold" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">版本亮点</span>
-            </div>
-            <ul class="space-y-1.5">
-              <li
-                v-for="item in versionHighlights"
-                :key="item"
-                class="flex items-start gap-2 text-[11px] leading-relaxed"
-                :class="isDark ? 'text-wt-aux' : 'text-lt-aux'"
-              >
-                <span class="w-1 h-1 rounded-full mt-2 shrink-0 bg-emerald-400/70" />
-                <span>{{ item }}</span>
-              </li>
-            </ul>
-          </div>
-          <!-- 使用提示 -->
-          <div class="rounded-lg p-3" :class="isDark ? 'bg-d0' : 'bg-l2'">
-            <div class="flex items-center gap-1.5 mb-2.5">
-              <i class="ri-lightbulb-line text-amber-400 text-[13px]" />
-              <span class="text-[11px] font-bold" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">使用提示</span>
-            </div>
-            <ul class="space-y-1.5">
-              <li
-                v-for="item in versionTips"
-                :key="item"
-                class="flex items-start gap-2 text-[11px] leading-relaxed"
-                :class="isDark ? 'text-wt-aux' : 'text-lt-aux'"
-              >
-                <span class="w-1 h-1 rounded-full mt-2 shrink-0" :class="isDark ? 'bg-amber-400/70' : 'bg-amber-400'" />
-                <span>{{ item }}</span>
-              </li>
-            </ul>
-          </div>
-        </div>
+        <span class="text-[14px] font-mono" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'"
+          >v{{ appVersion }}</span
+        >
       </div>
+
+      <ul class="max-h-[280px] overflow-y-auto pr-1 -mt-1">
+        <li
+          v-for="(item, idx) in versionChangelog"
+          :key="idx"
+          class="flex items-baseline gap-2 py-2 border-b last:border-b-0"
+          :class="isDark ? 'border-white/5' : 'border-black/5'"
+        >
+          <span
+            class="shrink-0 w-4 text-[12px] font-mono font-semibold leading-relaxed"
+            :class="isDark ? 'text-wt-dim' : 'text-lt-aux'"
+          >
+            {{ idx + 1 }}
+          </span>
+          <span
+            class="shrink-0 px-1.5 rounded text-[11px] font-bold leading-relaxed border"
+            :class="toneClass(changelogTypeMap[item.type]?.tone || 'brand')"
+          >
+            {{ changelogTypeMap[item.type]?.label || '更新' }}
+          </span>
+          <span
+            class="text-[12px] leading-relaxed flex-1"
+            :class="isDark ? 'text-wt-aux' : 'text-lt-aux'"
+          >
+            {{ item.text }}
+          </span>
+        </li>
+      </ul>
+    </div>
 
     <!-- ═══ 反馈与交流 ═══ -->
     <div
@@ -264,9 +255,18 @@ function toneClass(tone) {
             class="text-[12px] leading-relaxed mb-3"
             :class="isDark ? 'text-wt-aux' : 'text-lt-aux'"
           >
-            使用中遇到问题、有功能建议或合作意向，欢迎反馈与联系。可以提交 Issue、加入用户交流群，或直接联系作者。
+            使用中遇到问题、有功能建议或合作意向，欢迎反馈与联系。可以提交 Issue、加入 QQ 交流群（群号 1131466242），或直接联系作者。
           </p>
           <div class="flex flex-wrap gap-2">
+            <button
+              class="h-8 px-3 rounded-lg text-[11px] font-semibold flex items-center gap-1.5 border transition-all"
+              :class="isDark ? 'bg-brand-400/12 border-brand-400/25 text-brand-300 hover:bg-brand-400/20 hover:border-brand-400/40' : 'bg-brand-50 border-brand-200 text-brand-600 hover:bg-brand-100 hover:border-brand-300'"
+              @click="openExternal('https://www.reviva.cn/tutorial')"
+            >
+              <i class="ri-graduation-cap-line text-[12px]" />
+              新手教程
+              <i class="ri-arrow-right-up-line text-[9px] opacity-50" />
+            </button>
             <button
               class="h-8 px-3 rounded-lg text-[11px] font-medium flex items-center gap-1.5 border transition-colors"
               :class="isDark ? 'bg-d0 border-bdr text-wt-sub hover:border-brand-400/30' : 'bg-l2 border-bdrF text-lt-sub hover:border-brand-200'"
@@ -275,15 +275,28 @@ function toneClass(tone) {
               <i class="ri-bug-line text-[12px]" />
               提交反馈
             </button>
-            <!-- 交流群：点击在浏览器打开群二维码图片，请替换为真实图片 URL -->
+            <!-- QQ 交流群：点击查看二维码，群号可一键复制 -->
             <button
-              class="h-8 px-3 rounded-lg text-[11px] font-medium flex items-center gap-1.5 border transition-colors"
+              class="h-8 pl-3 pr-2 rounded-lg text-[11px] font-medium flex items-center gap-1.5 border transition-colors"
               :class="isDark ? 'bg-d0 border-bdr text-wt-sub hover:border-emerald-400/30' : 'bg-l2 border-bdrF text-lt-sub hover:border-emerald-200'"
-              @click="openExternal('https://github.com/mingchen666/Reviva/raw/main/docs/images/wx-group.jpg')"
+              @click="openExternal('https://github.com/mingchen666/Reviva/raw/main/docs/images/qq-group.jpg')"
             >
               <i class="ri-group-line text-[12px]" />
-              加入交流群
+              加入QQ群
+              <span
+                class="ml-0.5 px-1.5 py-0.5 rounded text-[10px] font-mono font-bold leading-none"
+                :class="isDark ? 'bg-emerald-400/15 text-emerald-400' : 'bg-emerald-100 text-emerald-600'"
+              >{{ qqGroupNumber }}</span>
+                          <button
+              class="h-8 w-8 rounded-lg flex items-center justify-center border transition-colors"
+              :class="isDark ? 'bg-d0 border-bdr text-wt-aux hover:border-emerald-400/30 hover:text-emerald-400' : 'bg-l2 border-bdrF text-lt-aux hover:border-emerald-200 hover:text-emerald-600'"
+              title="复制群号"
+              @click.stop="copyQQGroup"
+            >
+              <i class="ri-file-copy-line text-[12px]" />
             </button>
+            </button>
+
             <button
               class="h-8 px-3 rounded-lg text-[11px] font-medium flex items-center gap-1.5 border transition-colors"
               :class="isDark ? 'bg-d0 border-bdr text-wt-sub hover:border-purple-400/30' : 'bg-l2 border-bdrF text-lt-sub hover:border-purple-200'"
@@ -298,7 +311,7 @@ function toneClass(tone) {
     </div>
 
     <!-- ═══ Footer ═══ -->
-    <p class="text-center text-[10px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">
+    <p class="text-center text-[12px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">
       Reviva Desktop · v{{ appVersion }} · 本地优先 · AGPL-3.0 · 持续更新
     </p>
   </div>

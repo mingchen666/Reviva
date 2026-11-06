@@ -16,6 +16,7 @@ import { z } from 'zod'
 import { builtinCloudAdapter } from './adapters/BuiltinCloudAdapter.js'
 import { customHttpAdapter } from './adapters/CustomHttpAdapter.js'
 import { getMcpSourceAdapter } from './adapters/McpSourceAdapter.js'
+import { PRESETS } from './presets.js'
 
 /**
  * Parse a JSON string field, returning the original value on parse failure.
@@ -73,18 +74,55 @@ export class KnowledgeSourceRegistry {
    */
   _parseSource(row) {
     if (!row) return null
+   let config = parseJSON(row.config) || {}
+   // For preset sources, sync endpoint structure from the current preset template
+   // so saved configs auto-pick up fixes (field_mapping/path/body) after app updates,
+   // without requiring users to delete and recreate the source. User credentials
+   // (_form, default_headers, base_url) are preserved.
+   if (row.type === 'preset' && row.preset) {
+     config = this._syncPresetConfig(row.preset, config)
+   }
     return {
       id: row.id,
       name: row.name,
       type: row.type,               // 'builtin' | 'preset' | 'mcp' | 'http'
       preset: row.preset || '',
       enabled: !!row.enabled,
-      config: parseJSON(row.config) || {},
+     config,
       cachedCapabilities: parseJSON(row.cached_capabilities) || {},
       cachedTools: parseJSON(row.cached_tools) || [],
       createdAt: row.created_at,
       lastSyncedAt: row.last_synced_at,
       lastStatus: row.last_status,  // 'connected' | 'error' | 'never_tested'
+    }
+  }
+
+  /**
+   * Merge a saved preset config with the current preset template.
+   * Endpoint structure (path/method/body/response/field_mapping/items_path)
+   * comes from the template; user credentials (_form, default_headers, base_url)
+   * and auth are preserved from the saved config. This lets app updates fix
+   * endpoint bugs (e.g. IMA field mapping) without breaking user credentials.
+   */
+  _syncPresetConfig(presetName, savedConfig) {
+    const template = PRESETS.find(p => p.preset === presetName)
+    if (!template) return savedConfig
+    try {
+      const merged = { ...savedConfig }
+      // Template-driven fields: always use latest structure
+      merged.endpoints = JSON.parse(JSON.stringify(template.endpoints))
+      merged.capabilities = JSON.parse(JSON.stringify(template.capabilities || { interfaces: ['search'], content_types: ['text'] }))
+      // Preserve user credentials: default_headers has real values ({{CLIENT_ID}} already filled at save time)
+      // Only fall back to template default_headers if saved config has none.
+      if (!merged.default_headers && template.default_headers) {
+        merged.default_headers = template.default_headers
+      }
+      // auth stays from saved config; if it was a {{USER_TOKEN}} placeholder it was filled at save time
+      // base_url: prefer saved (user may have customized), fall back to template
+      if (!merged.base_url) merged.base_url = template.base_url
+      return merged
+    } catch {
+      return savedConfig
     }
   }
 
@@ -163,6 +201,7 @@ export class KnowledgeSourceRegistry {
      if (params.kbId) {
        config = this._injectKbId(config, params.kbId)
      }
+     // DEBUG: log search params for diagnosis
      const adapter = this._getAdapter(source.type)
      return await adapter.search(config, params)
    } catch (e) {

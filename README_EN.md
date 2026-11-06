@@ -50,6 +50,10 @@ Desktop · Local-First · AI Agent · Learning Toolkit
   ·
   <a href="#sponsor">Sponsor</a>
 </p>
+
+<p align="center">
+  <img src="docs/images/banner.jpg" alt="Reviva AI learning workspace" width="960" />
+</p>
 </div>
 
 > 📣 **WeChat group has migrated to QQ (group: `1131466242`)! Scan to join!** [View QR code ↓](#contact-and-community)

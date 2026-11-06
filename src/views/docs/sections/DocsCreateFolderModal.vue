@@ -38,7 +38,7 @@ function submit() {
     </div>
 
     <template #footer="{ close }">
-      <button @click="close()" class="px-4 py-2 rounded-lg text-[11px] font-medium transition-colors" :class="isDark ? 'text-wt-aux hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub'">取消</button>
+      <button @click="close()" class="px-4 py-2 rounded-lg text-[11px] font-medium transition-colors" :class="isDark ? 'text-wt-sub hover:text-wt-main' : 'text-lt-sub hover:text-lt-main'">取消</button>
       <button @click="submit" class="px-4 py-2 rounded-lg text-[11px] font-medium transition-colors" :class="isDark ? 'bg-brand-400 text-d0 hover:bg-brand-500' : 'bg-brand-500 text-white hover:bg-brand-600'">确认创建</button>
     </template>
   </MsModal>

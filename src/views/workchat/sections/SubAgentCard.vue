@@ -71,7 +71,7 @@ const canToggleDetails = computed(() =>
     <!-- Expand toggle -->
     <button v-if="canToggleDetails" @click="showDetails = !showDetails"
       class="mt-1 text-[10px] transition-colors"
-      :class="isDark ? 'text-wt-dim hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub'">
+      :class="isDark ? 'text-wt-dim hover:text-wt-sub' : 'text-lt-sub hover:text-lt-main'">
       <i :class="showDetails ? 'ri-arrow-down-s-line' : 'ri-arrow-right-s-line'" class="text-[10px]" />
       {{ showDetails ? '收起详情' : '展开详情' }}
     </button>

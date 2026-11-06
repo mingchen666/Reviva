@@ -70,8 +70,8 @@ const allowRevivaManage = computed(() => ss.allowRevivaManage === true)
     <section>
       <div class="flex items-center gap-2 mb-4">
         <div class="w-1 h-4 rounded-full bg-rose-400" />
-        <span class="text-[14px] font-bold" :class="isDark ? 'text-wt-main' : 'text-lt-main'">AI 回答风格</span>
-        <span class="text-[10px] ml-1" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">学习台与 Agent 的教学语气和陪伴人格</span>
+        <span class="fs-title font-bold" :class="isDark ? 'text-wt-main' : 'text-lt-main'">AI 回答风格</span>
+        <span class="fs-caption ml-1" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">学习台与 Agent 的教学语气和陪伴人格</span>
       </div>
       <div class="grid grid-cols-2 gap-4">
         <div class="rounded-xl p-3 overflow-y-auto thin-scroll" :class="isDark ? 'bg-d3 border border-bdr' : 'bg-l3 border border-bdrF'">
@@ -100,8 +100,8 @@ const allowRevivaManage = computed(() => ss.allowRevivaManage === true)
     <section>
       <div class="flex items-center gap-2 mb-4">
         <div class="w-1 h-4 rounded-full bg-brand-400" />
-        <span class="text-[14px] font-bold" :class="isDark ? 'text-wt-main' : 'text-lt-main'">对话导航</span>
-        <span class="text-[10px] ml-1" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">在聊天区内快速回到任一轮提问</span>
+        <span class="fs-title font-bold" :class="isDark ? 'text-wt-main' : 'text-lt-main'">对话导航</span>
+        <span class="fs-caption ml-1" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">在聊天区内快速回到任一轮提问</span>
       </div>
 
       <div class="rounded-xl overflow-hidden border" :class="isDark ? 'border-d4 bg-d3' : 'border-bdrF bg-l3'">
@@ -115,7 +115,7 @@ const allowRevivaManage = computed(() => ss.allowRevivaManage === true)
               启用对话导航
               <span class="px-1.5 py-0.5 rounded text-[9px] font-medium" :class="chatNavigationEnabled ? (isDark ? 'bg-brand-400/12 text-brand-300' : 'bg-brand-50 text-brand-600') : (isDark ? 'bg-d0 text-wt-dim' : 'bg-l2 text-lt-aux')">{{ chatNavigationEnabled ? '已开启' : '已关闭' }}</span>
             </span>
-            <span class="block mt-0.5 text-[10.5px] leading-relaxed" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">{{ chatNavigationEnabled ? '在对话区域右侧提供问答定位；不会改变 Agent 的上下文或消息内容。' : '对话区域不会显示目录或缩略图；你选择的样式会被保留。' }}</span>
+            <span class="block mt-0.5 fs-caption leading-relaxed" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">{{ chatNavigationEnabled ? '在对话区域右侧提供问答定位；不会改变 Agent 的上下文或消息内容。' : '对话区域不会显示目录或缩略图；你选择的样式会被保留。' }}</span>
           </span>
           <button
             type="button"
@@ -225,8 +225,8 @@ const allowRevivaManage = computed(() => ss.allowRevivaManage === true)
     <section>
       <div class="flex items-center gap-2 mb-4">
         <div class="w-1 h-4 rounded-full bg-indigo-400" />
-        <span class="text-[14px] font-bold" :class="isDark ? 'text-wt-main' : 'text-lt-main'">对话输入框</span>
-        <span class="text-[10px] ml-1" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">自定义输入框底部工具按钮的显示</span>
+        <span class="fs-title font-bold" :class="isDark ? 'text-wt-main' : 'text-lt-main'">对话输入框</span>
+        <span class="fs-caption ml-1" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">自定义输入框底部工具按钮的显示</span>
       </div>
 
       <div class="rounded-xl overflow-hidden border" :class="isDark ? 'border-d4 bg-d3' : 'border-bdrF bg-l3'">
@@ -237,7 +237,7 @@ const allowRevivaManage = computed(() => ss.allowRevivaManage === true)
           </span>
           <span class="min-w-0 flex-1">
             <span class="text-[12.5px] font-semibold" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">附件</span>
-            <span class="block mt-0.5 text-[10.5px] leading-relaxed" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">添加文件、图片等作为对话上下文</span>
+            <span class="block mt-0.5 fs-caption leading-relaxed" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">添加文件、图片等作为对话上下文</span>
           </span>
           <button type="button" role="switch" :aria-checked="showAttach" aria-label="附件" :title="(showAttach ? '隐藏' : '显示')" class="w-10 h-6 rounded-full p-0.5 shrink-0 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-400/70 focus-visible:ring-offset-2" :class="showAttach ? 'bg-brand-500' : (isDark ? 'bg-d0 border border-d4' : 'bg-l4 border border-bdrF')" @click="ss.savePreference('chatToolbarAttach', !showAttach)">
             <span class="block w-5 h-5 rounded-full bg-white shadow-sm transition-transform" :class="showAttach ? 'translate-x-4' : 'translate-x-0'" />
@@ -250,7 +250,7 @@ const allowRevivaManage = computed(() => ss.allowRevivaManage === true)
           </span>
           <span class="min-w-0 flex-1">
             <span class="text-[12.5px] font-semibold" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">Wiki 知识库</span>
-            <span class="block mt-0.5 text-[10.5px] leading-relaxed" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">选择知识库为对话提供参考资料</span>
+            <span class="block mt-0.5 fs-caption leading-relaxed" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">选择知识库为对话提供参考资料</span>
           </span>
           <button type="button" role="switch" :aria-checked="showWiki" aria-label="Wiki 知识库" :title="(showWiki ? '隐藏' : '显示')" class="w-10 h-6 rounded-full p-0.5 shrink-0 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-400/70 focus-visible:ring-offset-2" :class="showWiki ? 'bg-brand-500' : (isDark ? 'bg-d0 border border-d4' : 'bg-l4 border border-bdrF')" @click="ss.savePreference('chatToolbarWiki', !showWiki)">
             <span class="block w-5 h-5 rounded-full bg-white shadow-sm transition-transform" :class="showWiki ? 'translate-x-4' : 'translate-x-0'" />
@@ -263,7 +263,7 @@ const allowRevivaManage = computed(() => ss.allowRevivaManage === true)
           </span>
           <span class="min-w-0 flex-1">
             <span class="text-[12.5px] font-semibold" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">上下文</span>
-            <span class="block mt-0.5 text-[10.5px] leading-relaxed" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">管理上下文长度与压缩</span>
+            <span class="block mt-0.5 fs-caption leading-relaxed" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">管理上下文长度与压缩</span>
           </span>
           <button type="button" role="switch" :aria-checked="showContext" aria-label="上下文" :title="(showContext ? '隐藏' : '显示')" class="w-10 h-6 rounded-full p-0.5 shrink-0 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-400/70 focus-visible:ring-offset-2" :class="showContext ? 'bg-brand-500' : (isDark ? 'bg-d0 border border-d4' : 'bg-l4 border border-bdrF')" @click="ss.savePreference('chatToolbarContext', !showContext)">
             <span class="block w-5 h-5 rounded-full bg-white shadow-sm transition-transform" :class="showContext ? 'translate-x-4' : 'translate-x-0'" />
@@ -276,7 +276,7 @@ const allowRevivaManage = computed(() => ss.allowRevivaManage === true)
           </span>
           <span class="min-w-0 flex-1">
             <span class="text-[12.5px] font-semibold" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">语音输入</span>
-            <span class="block mt-0.5 text-[10.5px] leading-relaxed" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">语音转文字输入消息</span>
+            <span class="block mt-0.5 fs-caption leading-relaxed" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">语音转文字输入消息</span>
           </span>
           <button type="button" role="switch" :aria-checked="showVoice" aria-label="语音输入" :title="(showVoice ? '隐藏' : '显示')" class="w-10 h-6 rounded-full p-0.5 shrink-0 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-400/70 focus-visible:ring-offset-2" :class="showVoice ? 'bg-brand-500' : (isDark ? 'bg-d0 border border-d4' : 'bg-l4 border border-bdrF')" @click="ss.savePreference('chatToolbarVoice', !showVoice)">
             <span class="block w-5 h-5 rounded-full bg-white shadow-sm transition-transform" :class="showVoice ? 'translate-x-4' : 'translate-x-0'" />
@@ -289,7 +289,7 @@ const allowRevivaManage = computed(() => ss.allowRevivaManage === true)
           </span>
           <span class="min-w-0 flex-1">
             <span class="text-[12.5px] font-semibold" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">Token 计数器</span>
-            <span class="block mt-0.5 text-[10.5px] leading-relaxed" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">显示输入/输出 Token 用量</span>
+            <span class="block mt-0.5 fs-caption leading-relaxed" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">显示输入/输出 Token 用量</span>
           </span>
           <button type="button" role="switch" :aria-checked="showTokenCounter" aria-label="Token 计数器" :title="(showTokenCounter ? '隐藏' : '显示')" class="w-10 h-6 rounded-full p-0.5 shrink-0 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-400/70 focus-visible:ring-offset-2" :class="showTokenCounter ? 'bg-brand-500' : (isDark ? 'bg-d0 border border-d4' : 'bg-l4 border border-bdrF')" @click="ss.savePreference('chatToolbarTokenCounter', !showTokenCounter)">
             <span class="block w-5 h-5 rounded-full bg-white shadow-sm transition-transform" :class="showTokenCounter ? 'translate-x-4' : 'translate-x-0'" />
@@ -302,7 +302,7 @@ const allowRevivaManage = computed(() => ss.allowRevivaManage === true)
           </span>
           <span class="min-w-0 flex-1">
             <span class="text-[12.5px] font-semibold" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">消耗时间</span>
-            <span class="block mt-0.5 text-[10.5px] leading-relaxed" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">显示每次回复的耗时</span>
+            <span class="block mt-0.5 fs-caption leading-relaxed" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">显示每次回复的耗时</span>
           </span>
           <button type="button" role="switch" :aria-checked="showLatency" aria-label="消耗时间" :title="(showLatency ? '隐藏' : '显示')" class="w-10 h-6 rounded-full p-0.5 shrink-0 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-400/70 focus-visible:ring-offset-2" :class="showLatency ? 'bg-brand-500' : (isDark ? 'bg-d0 border border-d4' : 'bg-l4 border border-bdrF')" @click="ss.savePreference('chatToolbarLatency', !showLatency)">
             <span class="block w-5 h-5 rounded-full bg-white shadow-sm transition-transform" :class="showLatency ? 'translate-x-4' : 'translate-x-0'" />
@@ -315,8 +315,8 @@ const allowRevivaManage = computed(() => ss.allowRevivaManage === true)
     <section>
       <div class="flex items-center gap-2 mb-4">
         <div class="w-1 h-4 rounded-full bg-brand-400" />
-        <span class="text-[14px] font-bold" :class="isDark ? 'text-wt-main' : 'text-lt-main'">工具审批</span>
-        <span class="text-[10px] ml-1" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">Agent 执行操作时是否需要确认</span>
+        <span class="fs-title font-bold" :class="isDark ? 'text-wt-main' : 'text-lt-main'">工具审批</span>
+        <span class="fs-caption ml-1" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">Agent 执行操作时是否需要确认</span>
       </div>
 
       <div class="rounded-xl overflow-hidden border" :class="isDark ? 'border-d4 bg-d3' : 'border-bdrF bg-l3'">
@@ -329,7 +329,7 @@ const allowRevivaManage = computed(() => ss.allowRevivaManage === true)
               审批策略
               <span class="px-1.5 py-0.5 rounded text-[9px] font-medium" :class="hitlMode === 'sensitive' ? (isDark ? 'bg-brand-400/12 text-brand-300' : 'bg-brand-50 text-brand-600') : (isDark ? 'bg-d0 text-wt-dim' : 'bg-l2 text-lt-aux')">{{ hitlMode === 'sensitive' ? '询问审批' : '自动审批' }}</span>
             </span>
-            <span class="block mt-0.5 text-[10.5px] leading-relaxed" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">{{ hitlMode === 'sensitive' ? '仅破坏性操作（rm -rf、git push --force、npm publish 等）需确认，其余静默执行。' : '全部自动执行，不弹窗。适合信任 Agent 的场景。' }}</span>
+            <span class="block mt-0.5 fs-caption leading-relaxed" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">{{ hitlMode === 'sensitive' ? '仅破坏性操作（rm -rf、git push --force、npm publish 等）需确认，其余静默执行。' : '全部自动执行，不弹窗。适合信任 Agent 的场景。' }}</span>
           </span>
         </div>
 
@@ -369,8 +369,8 @@ const allowRevivaManage = computed(() => ss.allowRevivaManage === true)
     <section>
       <div class="flex items-center gap-2 mb-4">
         <div class="w-1 h-4 rounded-full bg-emerald-400" />
-        <span class="text-[14px] font-bold" :class="isDark ? 'text-wt-main' : 'text-lt-main'">Reviva 应用管控</span>
-        <span class="text-[10px] ml-1" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">允许 Agent 在对话中查询和管理应用设置</span>
+        <span class="fs-title font-bold" :class="isDark ? 'text-wt-main' : 'text-lt-main'">Reviva 应用管控</span>
+        <span class="fs-caption ml-1" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">允许 Agent 在对话中查询和管理应用设置</span>
       </div>
 
       <div class="rounded-xl overflow-hidden border" :class="isDark ? 'border-d4 bg-d3' : 'border-bdrF bg-l3'">
@@ -383,7 +383,7 @@ const allowRevivaManage = computed(() => ss.allowRevivaManage === true)
               允许 Agent 管理 Reviva 设置
               <span class="px-1.5 py-0.5 rounded text-[9px] font-medium" :class="allowRevivaManage ? (isDark ? 'bg-brand-400/12 text-brand-300' : 'bg-brand-50 text-brand-600') : (isDark ? 'bg-d0 text-wt-dim' : 'bg-l2 text-lt-aux')">{{ allowRevivaManage ? '已开启' : '已关闭' }}</span>
             </span>
-            <span class="block mt-0.5 text-[10.5px] leading-relaxed" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">开启后所有 Agent 获得查看用量统计、切换主题、管理偏好设置和创作工具等能力。</span>
+            <span class="block mt-0.5 fs-caption leading-relaxed" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">开启后所有 Agent 获得查看用量统计、切换主题、管理偏好设置和创作工具等能力。</span>
           </span>
           <button type="button" role="switch" :aria-checked="allowRevivaManage" aria-label="允许 Agent 管理 Reviva 设置" :title="(allowRevivaManage ? '关闭' : '开启')" class="w-10 h-6 rounded-full p-0.5 shrink-0 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-400/70 focus-visible:ring-offset-2" :class="allowRevivaManage ? 'bg-brand-500' : (isDark ? 'bg-d0 border border-d4' : 'bg-l4 border border-bdrF')" @click="ss.savePreference('allowRevivaManage', !allowRevivaManage)">
             <span class="block w-5 h-5 rounded-full bg-white shadow-sm transition-transform" :class="allowRevivaManage ? 'translate-x-4' : 'translate-x-0'" />

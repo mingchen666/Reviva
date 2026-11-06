@@ -294,12 +294,28 @@ const router = createRouter({
     //   component: () => import('@/views/legal/PrivacyPolicy.vue'),
     //   meta: { title: '隐私政策', icon: 'ri-lock-line', layout: { iconRail: true, iconRailWidth: 48 } },
     // },
-    // {
-    //   path: '/test',
-    //   name: 'Test',
-    //   component: () => import('@/views/test/index.vue'),
-    //   meta: { title: '组件测试', icon: 'ri-test-tube-line', layout: { iconRail: true, iconRailWidth: 52 } },
-    // },
+    {
+      path: '/test',
+      name: 'Test',
+      component: () => import('@/views/test/index.vue'),
+      meta: { title: '组件测试', icon: 'ri-test-tube-line', layout: { iconRail: true, iconRailWidth: 52 } },
+    },
+    {
+      path: '/wechat-bridge',
+      name: 'WeChatBridge',
+      component: () => import('@/views/wechat-bridge/index.vue'),
+      redirect: '/wechat-bridge/connection',
+      meta: { title: '微信助手', icon: 'ri-wechat-line', layout: { iconRail: true, iconRailWidth: 52 } },
+      children: [
+        { path: 'connection', name: 'WeChatBridgeConnection', component: () => import('@/views/wechat-bridge/tabs/ConnectionTab.vue'), meta: { title: '微信连接' } },
+        { path: 'agent', name: 'WeChatBridgeAgent', component: () => import('@/views/wechat-bridge/tabs/AgentTab.vue'), meta: { title: 'AI 助手' } },
+        { path: 'memory', name: 'WeChatBridgeMemory', component: () => import('@/views/wechat-bridge/tabs/MemoryTab.vue'), meta: { title: '对话记忆' } },
+        { path: 'files', name: 'WeChatBridgeFiles', component: () => import('@/views/wechat-bridge/tabs/FileTab.vue'), meta: { title: '文件管理' } },
+        { path: 'reminder', name: 'WeChatBridgeReminder', component: () => import('@/views/wechat-bridge/tabs/ReminderTab.vue'), meta: { title: '提醒推送' } },
+        { path: 'log', name: 'WeChatBridgeLog', component: () => import('@/views/wechat-bridge/tabs/MessageLogTab.vue'), meta: { title: '消息记录' } },
+        { path: 'help', name: 'WeChatBridgeHelp', component: () => import('@/views/wechat-bridge/tabs/HelpTab.vue'), meta: { title: '使用帮助' } },
+      ],
+    },
   ],
 })
 

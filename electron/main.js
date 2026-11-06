@@ -34,6 +34,8 @@ import { registerMediaIpcHandlers } from './media/ipc/mediaIpcHandlers.js'
 import { PdfLifecycleService } from './tools/pdf/PdfLifecycleService.js'
 import { createLocalGateway } from './local-gateway/index.js'
 import { registerGatewayIpcHandlers } from './local-gateway/ipc/gatewayIpcHandlers.js'
+import { createWeChatBridge } from './wechat-bridge/index.js'
+import { registerWeChatBridgeIpcHandlers } from './wechat-bridge/ipc/bridgeIpcHandlers.js'
 import path from 'node:path'
 import fs from 'node:fs'
 import { initAutoUpdater } from './AutoUpdater'
@@ -109,6 +111,7 @@ let backupService = null
 let themeService = null
 let pdfLifecycleService = null
 let localGateway = null
+let weChatBridge = null
 const storageCleanupService = new StorageCleanupService()
 const skillImportSessions = new Map()
 
@@ -286,6 +289,7 @@ function createWindow() {
 
 app.on('will-quit', () => {
   void localGateway?.stop?.()
+  void weChatBridge?.stop?.()
   learningMemoryService?.dispose?.()
   mediaModule?.runner?.stop?.()
   mediaModule?.maintenance?.stop?.()
@@ -457,6 +461,14 @@ app.whenReady().then(async () => {
     secretStore: safeStorage, appVersion: app.getVersion(), logger: console,
   })
   registerGatewayIpcHandlers(ipcMain, localGateway)
+
+  // 微信 Bot 桥接：扫码连接微信，长轮询监听入站消息，主进程跑服务端
+  weChatBridge = createWeChatBridge({
+    dbService, agentService, workDirService, secretStore: safeStorage,
+    getWin: () => win, logger: console,
+  })
+  registerWeChatBridgeIpcHandlers(ipcMain, weChatBridge)
+  weChatBridge.start().catch(err => console.warn('[WeChatBridge] start failed:', err && err.message))
 
   backupService = new BackupService(dbService, workDirService, {
     appVersion: app.getVersion(), restoreStateRoot: app.getPath('userData'),

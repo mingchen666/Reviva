@@ -108,7 +108,7 @@ async function handlePaste(e) {
 
     <div class="px-3 py-1.5 flex items-center justify-between" :class="isDark ? 'border-t border-d4' : 'border-t border-bdrL'">
       <span class="text-[10px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">仅添加本地上下文</span>
-      <button @click="emit('close')" class="text-[10px]" :class="isDark ? 'text-wt-dim hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub'">关闭</button>
+      <button @click="emit('close')" class="text-[10px]" :class="isDark ? 'text-wt-dim hover:text-wt-sub' : 'text-lt-sub hover:text-lt-main'">关闭</button>
     </div>
   </div>
 </template>

@@ -45,6 +45,14 @@ const addForm = ref({ id: '', name: '', ctx: '', maxOutput: '', tier: 'balanced'
 const showDeleteModal = ref(false)
 const pendingDeleteModel = ref(null)
 
+// Add provider modal state
+const showAddProviderModal = ref(false)
+const addProviderForm = ref({ name: '', apiFormat: 'openai' })
+
+// Delete provider modal state
+const showDeleteProviderModal = ref(false)
+const pendingDeleteProvider = ref(null)
+
 // Test connection modal state
 const showTestModal = ref(false)
 const testModelId = ref('')
@@ -550,6 +558,7 @@ function confirmFetchAdd() {
     }))
   settingsStore.addFetchedModels(selectedProvider.value.id, modelsToAdd)
   hasUnsavedChanges.value = true
+  debouncedAutoSave()
   showFetchModal.value = false
   msg.info(`已添加 ${modelsToAdd.length} 个模型，点击保存生效`)
 }
@@ -603,11 +612,56 @@ function confirmAddModel() {
     costCacheRead: cacheCost,
     costCacheWrite: cacheCost,
     addedBy: 'user',
-    enabled: false,
+    enabled: true,
   })
   hasUnsavedChanges.value = true
+  debouncedAutoSave()
   showAddModal.value = false
   msg.success('模型已添加，点击保存生效')
+}
+
+// Add provider
+function openAddProviderModal() {
+  addProviderForm.value = { name: '', apiFormat: 'openai' }
+  showAddProviderModal.value = true
+}
+
+function confirmAddProvider() {
+  const name = addProviderForm.value.name.trim()
+  if (!name) return
+  const id = settingsStore.addCustomProvider({ name, apiFormat: addProviderForm.value.apiFormat })
+  if (id) {
+    selectedProviderId.value = id
+    hasUnsavedChanges.value = true
+    debouncedAutoSave()
+    showAddProviderModal.value = false
+    msg.success('已添加模型服务商，请填写 API Key 和 Base URL')
+  }
+}
+
+function requestDeleteProvider() {
+  if (!selectedProvider.value?.custom) return
+  pendingDeleteProvider.value = { id: selectedProvider.value.id, name: selectedProvider.value.name }
+  showDeleteProviderModal.value = true
+}
+
+async function confirmDeleteProvider() {
+  if (!pendingDeleteProvider.value) return
+  const id = pendingDeleteProvider.value.id
+  settingsStore.removeCustomProvider(id)
+  try {
+    await saveProvidersOrThrow()
+    if (selectedProviderId.value === id) {
+      const first = settingsStore.providers.find(p => p.enabled) || settingsStore.providers[0]
+      selectedProviderId.value = first ? first.id : null
+    }
+    hasUnsavedChanges.value = false
+    msg.success('服务商已删除')
+    pendingDeleteProvider.value = null
+  } catch (e) {
+    hasUnsavedChanges.value = true
+    msg.error(e.message || '删除后保存失败', { title: '保存失败', duration: 4000 })
+  }
 }
 
 // Edit model
@@ -646,29 +700,9 @@ function confirmEditModel() {
     costCacheWrite: cacheCost,
   })
   hasUnsavedChanges.value = true
+  debouncedAutoSave()
   showEditModal.value = false
   msg.success('模型修改已暂存，点击保存生效')
-}
-
-async function saveAll() {
-  clearTimeout(_autoSaveTimer)
-  try {
-    if (selectedProvider.value) selectedProvider.value.configured = settingsStore.providerConfigured(selectedProvider.value)
-    await saveProvidersOrThrow()
-    hasUnsavedChanges.value = false
-    msg.success('模型服务配置已保存')
-  } catch (e) {
-    msg.error(e.message || '保存失败', { title: '保存失败', duration: 4000 })
-  }
-}
-
-async function resetChanges() {
-  await settingsStore.loadFromDb()
-  showApiKeys.value = {}
-  fetchError.value = null
-  hasUnsavedChanges.value = false
-  if (selectedProvider.value?.official) loadOfficialProviderData({ silent: true })
-  msg.info('已放弃未保存改动')
 }
 
 const filteredFetchedModels = computed(() => {
@@ -681,6 +715,58 @@ const existingModelIds = computed(() => {
   if (!selectedProvider.value) return []
   return selectedProvider.value.models.map(m => m.id)
 })
+const fetchSelectableModels = computed(() =>
+  filteredFetchedModels.value.filter(m => !existingModelIds.value.includes(m.id))
+)
+
+const fetchAllChecked = computed(() =>
+  fetchSelectableModels.value.length > 0 &&
+  fetchSelectableModels.value.every(m => fetchSelectedIds.value.includes(m.id))
+)
+
+const fetchIndeterminate = computed(() => {
+  const selectable = fetchSelectableModels.value
+  if (!selectable.length) return false
+  const checked = selectable.filter(m => fetchSelectedIds.value.includes(m.id)).length
+  return checked > 0 && checked < selectable.length
+})
+
+function toggleFetchSelectAll() {
+  const selectable = fetchSelectableModels.value
+  if (!selectable.length) return
+  if (selectable.every(m => fetchSelectedIds.value.includes(m.id))) {
+    const ids = new Set(selectable.map(m => m.id))
+    fetchSelectedIds.value = fetchSelectedIds.value.filter(id => !ids.has(id))
+  } else {
+    for (const m of selectable) {
+      if (!fetchSelectedIds.value.includes(m.id)) {
+        if (!fetchCapabilityDrafts.value[m.id]) {
+          fetchCapabilityDrafts.value[m.id] = normalizeCapabilities(m.capabilities)
+        }
+        fetchSelectedIds.value.push(m.id)
+      }
+    }
+  }
+}
+
+function enableAllModels() {
+  if (!selectedProvider.value) return
+  let changed = false
+  for (const m of selectedProvider.value.models) {
+    if (!m.enabled) { m.enabled = true; changed = true }
+  }
+  if (changed) { hasUnsavedChanges.value = true; debouncedAutoSave() }
+}
+
+function disableAllModels() {
+  if (!selectedProvider.value) return
+  let changed = false
+  for (const m of selectedProvider.value.models) {
+    if (m.enabled) { m.enabled = false; changed = true }
+  }
+  if (changed) { hasUnsavedChanges.value = true; debouncedAutoSave() }
+}
+
 
 async function loadUsageRecords({ page = 1, append = false, silent = false } = {}) {
   if (!selectedProvider.value?.official || !userStore.isLoggedIn) return
@@ -777,39 +863,19 @@ const COST_FIELDS = [
       :accent-hex="accentHex"
       @select-provider="selectedProviderId = $event"
       @toggle-provider="toggleProviderEnabled"
+      @add-provider="openAddProviderModal"
     />
 
     <!-- Right Panel -->
     <div class="flex-1 overflow-y-auto relative">
       <template v-if="selectedProvider">
-        <!-- Sticky Save Bar -->
-        <Transition name="fade">
-          <div v-if="hasUnsavedChanges" class="sticky top-0 z-20 backdrop-blur-md"
-            :class="isDark ? 'bg-d1/85 border-b border-bdr' : 'bg-l1/90 border-b border-bdrF'">
-            <div class="max-w-4xl mx-auto px-6 lg:px-8 h-11 flex items-center gap-2.5">
-              <span class="w-1.5 h-1.5 rounded-full animate-pulse" :style="{ backgroundColor: accentHex }" />
-              <span class="text-[12px] font-medium" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">有未保存改动</span>
-              <div class="flex-1" />
-              <button @click="resetChanges"
-                class="h-7 px-3 rounded-md text-[11px] font-medium transition-colors flex items-center gap-1"
-                :class="isDark ? 'text-wt-aux hover:text-wt-sub hover:bg-white/5' : 'text-lt-aux hover:text-lt-sub hover:bg-l3'">
-                <i class="ri-arrow-go-back-line text-[12px]" />重置
-              </button>
-              <button @click="saveAll"
-                class="h-7 px-3.5 rounded-md text-[11px] font-semibold transition-all flex items-center gap-1 text-white shadow-sm hover:shadow-md"
-                :style="{ backgroundColor: accentHex }">
-                <i class="ri-save-line text-[12px]" />保存
-              </button>
-            </div>
-          </div>
-        </Transition>
-
 <div class="max-w-4xl mx-auto px-4 lg:px-6 py-4 space-y-4">
   <ProviderHeader
     :provider="selectedProvider"
     :is-dark="isDark"
     :accent-hex="accentHex"
     @toggle-provider="toggleProviderEnabled"
+    @delete-provider="requestDeleteProvider"
   />
 
   <!-- [占位] 官方服务商 -  -->
@@ -906,6 +972,8 @@ const COST_FIELDS = [
     @edit-model="openEditModal"
     @delete-model="requestDeleteModel"
     @toggle-model="toggleModelEnabled"
+    @enable-all-models="enableAllModels"
+    @disable-all-models="disableAllModels"
   />
 
   <!-- 
@@ -952,7 +1020,7 @@ const COST_FIELDS = [
       </p>
       <template #footer="{ close }">
         <button @click="close()" class="px-4 py-2 rounded-lg text-[11px] font-medium transition-colors"
-          :class="isDark ? 'text-wt-aux hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub'">取消</button>
+          :class="isDark ? 'text-wt-sub hover:text-wt-main' : 'text-lt-sub hover:text-lt-main'">取消</button>
         <button @click="confirmDeleteModel(); close()" class="px-4 py-2 rounded-lg text-[11px] font-medium transition-colors bg-red-500 text-white hover:bg-red-600">确认删除</button>
       </template>
     </MsModal>
@@ -1004,7 +1072,7 @@ const COST_FIELDS = [
 
       <template #footer="{ close }">
         <button @click="close()" class="px-4 py-2 rounded-lg text-[11px] font-medium transition-colors"
-          :class="isDark ? 'text-wt-aux hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub'">关闭</button>
+          :class="isDark ? 'text-wt-sub hover:text-wt-main' : 'text-lt-sub hover:text-lt-main'">关闭</button>
         <button @click="runTestConnection" :disabled="testLoading || !testModelId" class="px-4 py-2 rounded-lg text-[11px] font-medium transition-colors"
           :class="(testLoading || !testModelId)
             ? (isDark ? 'bg-d4 text-wt-dim' : 'bg-l4 text-lt-aux')
@@ -1034,6 +1102,20 @@ const COST_FIELDS = [
           <input v-model="fetchSearchQuery" type="text" placeholder="搜索模型..."
             class="w-full h-8 rounded-lg py-0 pl-7 pr-2 text-[12px] outline-none transition-colors"
             :class="isDark ? 'bg-d0 border border-d4 text-wt-sub placeholder-wt-dim focus:border-brand-400/40' : 'bg-l2 border border-bdrL text-lt-sub placeholder-lt-aux focus:border-brand-400'" />
+        </div>
+        <div v-if="fetchSelectableModels.length > 0" class="flex items-center gap-2 px-3 py-2 border-b" :class="isDark ? 'border-d4' : 'border-bdrF'">
+          <div class="w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 cursor-pointer transition-all"
+            :class="fetchAllChecked
+              ? (isDark ? 'bg-brand-400 border-brand-400' : 'bg-brand-500 border-brand-500')
+              : (fetchIndeterminate
+                ? (isDark ? 'bg-d0 border-brand-400/60' : 'bg-l2 border-brand-400')
+                : (isDark ? 'bg-d0 border-d4 hover:border-brand-400/60' : 'bg-l2 border-bdrL hover:border-brand-400'))"
+            @click="toggleFetchSelectAll">
+            <i v-if="fetchAllChecked" class="ri-check-line text-[12px] text-white" />
+            <i v-else-if="fetchIndeterminate" class="ri-subtract-line text-[12px]" :class="isDark ? 'text-brand-400' : 'text-brand-600'" />
+          </div>
+          <span class="text-[12px] cursor-pointer select-none font-medium" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'" @click="toggleFetchSelectAll">全选</span>
+          <span class="text-[11px] ml-auto" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">已选 {{ fetchSelectedIds.length }} / 可选 {{ fetchSelectableModels.length }}</span>
         </div>
         <div class="max-h-[300px] overflow-y-auto space-y-0.5">
           <div v-for="model in filteredFetchedModels" :key="model.id"
@@ -1084,7 +1166,7 @@ const COST_FIELDS = [
           <span v-if="fetchSelectedIds.length > 0">已选择 {{ fetchSelectedIds.length }} 个模型</span>
         </div>
         <button @click="close()" class="px-4 py-2 rounded-lg text-[12px] font-medium transition-colors"
-          :class="isDark ? 'text-wt-aux hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub'">取消</button>
+          :class="isDark ? 'text-wt-sub hover:text-wt-main' : 'text-lt-sub hover:text-lt-main'">取消</button>
         <button @click="confirmFetchAdd(); close()" :disabled="fetchSelectedIds.length === 0"
           class="px-4 py-2 rounded-lg text-[12px] font-medium transition-colors"
           :class="fetchSelectedIds.length === 0
@@ -1175,7 +1257,7 @@ const COST_FIELDS = [
 
       <template #footer="{ close }">
         <button @click="close()" class="px-4 py-2 rounded-lg text-[12px] font-medium transition-colors"
-          :class="isDark ? 'text-wt-aux hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub'">取消</button>
+          :class="isDark ? 'text-wt-sub hover:text-wt-main' : 'text-lt-sub hover:text-lt-main'">取消</button>
         <button @click="confirmAddModel(); close()" :disabled="!addForm.id"
           class="px-4 py-2 rounded-lg text-[12px] font-medium transition-colors"
           :class="addForm.id
@@ -1266,11 +1348,65 @@ const COST_FIELDS = [
 
       <template #footer="{ close }">
         <button @click="close()" class="px-4 py-2 rounded-lg text-[12px] font-medium transition-colors"
-          :class="isDark ? 'text-wt-aux hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub'">取消</button>
+          :class="isDark ? 'text-wt-sub hover:text-wt-main' : 'text-lt-sub hover:text-lt-main'">取消</button>
         <button @click="confirmEditModel(); close()"
           class="px-4 py-2 rounded-lg text-[12px] font-medium transition-colors"
           :class="isDark ? 'bg-brand-400 text-d0 hover:bg-brand-500' : 'bg-brand-500 text-white hover:bg-brand-600'">
           保存修改
+        </button>
+      </template>
+    </MsModal>
+
+    <!-- Add Provider Modal -->
+    <MsModal v-if="showAddProviderModal" v-model:show="showAddProviderModal" :width="440" :show-footer="true">
+      <template #header>
+        <div class="flex items-center gap-2.5">
+          <div class="w-8 h-8 rounded-lg flex items-center justify-center" :class="isDark ? 'bg-violet-400/8' : 'bg-violet-50'">
+            <i class="ri-add-circle-line text-[16px] text-violet-400" />
+          </div>
+          <span class="text-[13px] font-bold" :class="isDark ? 'text-wt-main' : 'text-lt-main'">添加模型服务商</span>
+        </div>
+      </template>
+      <div class="space-y-3">
+        <div>
+          <label class="text-[11px] font-medium mb-1 block" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">请输入自定义服务商名称</label>
+          <input v-model="addProviderForm.name" type="text" placeholder="例如：Reviva模型服务商" @keyup.enter="confirmAddProvider"
+            class="w-full h-8 rounded-md px-3 text-[13.5px] outline-none transition-colors"
+            :class="isDark ? 'bg-d0 border border-d4 text-wt-sub placeholder-wt-dim focus:border-brand-400/40' : 'bg-l2 border border-bdrL text-lt-sub placeholder-lt-aux focus:border-brand-400'" />
+        </div>
+      </div>
+      <template #footer="{ close }">
+        <button @click="close()" class="px-4 py-2 rounded-lg text-[12.5px] font-medium transition-colors"
+          :class="isDark ? 'text-wt-sub hover:text-wt-main' : 'text-lt-sub hover:text-lt-main'">取消</button>
+        <button @click="confirmAddProvider(); close()" :disabled="!addProviderForm.name.trim()"
+          class="px-4 py-2 rounded-lg text-[12.5px] font-medium transition-colors"
+          :class="!addProviderForm.name.trim()
+            ? (isDark ? 'bg-d4 text-wt-dim' : 'bg-l4 text-lt-aux')
+            : (isDark ? 'bg-violet-400 text-d0 hover:bg-violet-500' : 'bg-violet-500 text-white hover:bg-violet-600')">
+          添加
+        </button>
+      </template>
+    </MsModal>
+
+    <!-- Delete Provider Modal -->
+    <MsModal v-if="showDeleteProviderModal" v-model:show="showDeleteProviderModal" :width="400" :show-footer="true">
+      <template #header>
+        <div class="flex items-center gap-2.5">
+          <div class="w-8 h-8 rounded-lg flex items-center justify-center" :class="isDark ? 'bg-red-400/8' : 'bg-red-50'">
+            <i class="ri-delete-bin-line text-[16px] text-red-400" />
+          </div>
+          <span class="text-[13px] font-bold" :class="isDark ? 'text-wt-main' : 'text-lt-main'">删除服务商</span>
+        </div>
+      </template>
+      <p class="text-[13px] leading-relaxed" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">
+        确认删除「{{ pendingDeleteProvider?.name }}」？该服务商及其下所有模型配置将被移除，此操作不可撤销。
+      </p>
+      <template #footer="{ close }">
+        <button @click="close()" class="px-4 py-2 rounded-lg text-[12px] font-medium transition-colors"
+          :class="isDark ? 'text-wt-sub hover:text-wt-main' : 'text-lt-sub hover:text-lt-main'">取消</button>
+        <button @click="confirmDeleteProvider(); close()"
+          class="px-4 py-2 rounded-lg text-[12px] font-medium transition-colors text-white bg-red-500 hover:bg-red-600">
+          删除
         </button>
       </template>
     </MsModal>

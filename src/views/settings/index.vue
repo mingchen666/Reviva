@@ -40,7 +40,7 @@ const sectionMap = {
   'learning-memory': { name: '成长画像', icon: 'ri-seedling-line', color: 'brand', hint: '管理长期学习、能力与协作偏好的个性化画像' },
   usage: { name: '用量统计', icon: 'ri-line-chart-line', color: 'emerald', hint: '查看 Token 消耗与成本' },
   theme: { name: '主题配置', icon: 'ri-palette-line', color: 'agent', hint: '界面主题、颜色模式与自定义 CSS' },
-  preference: { name: '偏好配置', icon: 'ri-equalizer-line', color: 'agent', hint: '回答风格等使用偏好' },
+  preference: { name: '偏好配置', icon: 'ri-user-settings-line', color: 'agent', hint: '回答风格等使用偏好' },
   shortcuts: { name: '系统快捷键', icon: 'ri-keyboard-line', color: 'brand', hint: '全局与应用内键盘快捷键' },
   'quick-inputs': { name: '快捷输入', icon: 'ri-at-line', color: 'brand', hint: '管理聊天中的 @ 快捷输入' },
   notifications: { name: '通知与启动', icon: 'ri-notification-3-line', color: 'amber', hint: '声音通知、托盘与开机自启' },
@@ -104,7 +104,7 @@ const currentSectionInfo = computed(() => sectionMap[activeSection.value])
       <div v-if="false" class="mx-3 my-2 rounded-lg p-2.5" :class="isDark ? 'bg-d0 border border-d4' : 'bg-l2 border border-bdrL'">
         <div class="flex items-center justify-between mb-1.5">
           <span class="text-[10px] font-semibold uppercase tracking-wider" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">云端连接</span>
-          <button class="text-[10px]" :class="isDark ? 'text-wt-dim hover:text-wt-aux' : 'text-lt-aux hover:text-lt-sub'" @click="userStore.setConnStatus('connecting'); setTimeout(() => userStore.setConnStatus('connected'), 800)">
+          <button class="text-[10px]" :class="isDark ? 'text-wt-dim hover:text-wt-aux' : 'text-lt-sub hover:text-lt-main'" @click="userStore.setConnStatus('connecting'); setTimeout(() => userStore.setConnStatus('connected'), 800)">
             <i class="ri-refresh-line text-[10px]" />
           </button>
         </div>
@@ -118,8 +118,8 @@ const currentSectionInfo = computed(() => sectionMap[activeSection.value])
 
       <!-- Footer -->
       <div class="px-4 py-2 flex items-center justify-between" :class="isDark ? 'border-t border-d4' : 'border-t border-bdrL'">
-        <span class="text-[12px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">v{{appVersion}}</span>
-        <span class="text-[12px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">© Reviva</span>
+        <span class="text-[12.5px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">v{{appVersion}}</span>
+        <span class="text-[12.5px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">© Reviva</span>
       </div>
     </LeftPanel>
 

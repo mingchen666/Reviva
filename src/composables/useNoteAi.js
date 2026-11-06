@@ -131,7 +131,7 @@ function buildPromptContext({
  * @param {string} opts.userPrompt
  * @param {string} [opts.providerId]
  * @param {string} [opts.model]
- * @param {number} [opts.maxTokens=800]
+ * @param {number} [opts.maxTokens=12000]
  * @param {number} [opts.temperature=0.6]
  * @param {AbortSignal} [opts.signal]
  * @param {(chunk:string, full:string)=>void} [opts.onChunk]
@@ -154,7 +154,7 @@ export async function runNoteAiTask(opts) {
     systemPrompt: opts.systemPrompt || '',
     messages: [{ role: 'user', content: opts.userPrompt || '' }],
     temperature: opts.temperature ?? 0.6,
-    maxTokens: opts.maxTokens ?? 800,
+    maxTokens: opts.maxTokens ?? 12000,
     contextItems: [],
   }
 

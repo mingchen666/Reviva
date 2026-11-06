@@ -22,7 +22,7 @@ function closeTab(tabId) { emit('close', tabId) }
       class="tab-item h-[32px] px-3 flex items-center gap-1.5 text-[12px] min-w-[120px] max-w-[180px] relative cursor-pointer rounded-t-lg transition-all"
       :class="activeTabId === tab.id
         ? (isDark ? 'bg-d2 text-wt-main' : 'bg-l2 text-lt-main')
-        : (isDark ? 'text-wt-aux hover:text-wt-sub hover:bg-white/4' : 'text-lt-aux hover:text-lt-sub hover:bg-l4')">
+        : (isDark ? 'text-wt-sub hover:text-wt-main hover:bg-white/4' : 'text-lt-sub hover:text-lt-main hover:bg-l4')">
       <i class="ri-chat-3-line text-brand-400 text-[12px]" />
       <span class="truncate">{{ tab.name }}</span>
       <button @click.stop="closeTab(tab.id)"
@@ -33,20 +33,20 @@ function closeTab(tabId) { emit('close', tabId) }
       <div v-if="activeTabId === tab.id" class="absolute top-0 left-0 w-full h-[2px] rounded-t-md bg-brand-400" />
     </div>
     <button @click="emit('create')" class="h-[32px] w-7 flex items-center justify-center rounded-t-lg transition-colors"
-      :class="isDark ? 'text-wt-aux hover:text-wt-sub hover:bg-white/4' : 'text-lt-aux hover:text-lt-sub hover:bg-l4'">
+      :class="isDark ? 'text-wt-sub hover:text-wt-main hover:bg-white/4' : 'text-lt-sub hover:text-lt-main hover:bg-l4'">
       <i class="ri-add-line text-[12px]" />
     </button>
     <div class="ml-auto flex items-center gap-1 self-center h-full pb-1.5">
       <button v-if="!leftOpen" @click="emit('toggle-left')"
         class="h-7 w-7 rounded-md flex items-center justify-center transition-colors"
-        :class="isDark ? 'text-wt-aux hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub'">
+        :class="isDark ? 'text-wt-sub hover:text-wt-main' : 'text-lt-sub hover:text-lt-main'">
         <i class="ri-side-bar-line text-[14px]" />
       </button>
       <button @click="emit('toggle-right')"
         class="h-7 w-7 rounded-md flex items-center justify-center transition-colors"
         :class="rightOpen
           ? (isDark ? 'text-brand-400 bg-brand-400/8' : 'text-brand-500 bg-brand-50')
-          : (isDark ? 'text-wt-aux hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub')">
+          : (isDark ? 'text-wt-sub hover:text-wt-main' : 'text-lt-sub hover:text-lt-main')">
         <i class="ri-layout-column-line text-[14px]" />
       </button>
     </div>

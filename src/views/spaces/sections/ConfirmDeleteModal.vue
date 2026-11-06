@@ -29,14 +29,14 @@ const emit = defineEmits(['close', 'confirm'])
           </div>
         </div>
 
-        <p class="mt-4 text-[12.5px] leading-relaxed" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">
+        <p class="mt-4 text-[12px] leading-relaxed" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">
           删除「{{ target.name }}」？此操作不可撤销。
         </p>
 
         <div class="mt-5 flex items-center justify-end gap-2">
           <button
             class="h-8 px-3 rounded-lg text-[12px] font-medium"
-            :class="isDark ? 'text-wt-aux hover:text-wt-sub hover:bg-white/5' : 'text-lt-aux hover:text-lt-sub hover:bg-l4'"
+            :class="isDark ? 'text-wt-sub hover:text-wt-main hover:bg-white/5' : 'text-lt-sub hover:text-lt-main hover:bg-l4'"
             @click="emit('close')">
             取消
           </button>

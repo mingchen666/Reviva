@@ -121,6 +121,8 @@ my-theme/
 
 如果颜色需要透明度工具类，请同时定义对应的 `-rgb` 变量。
 
+字体大小（`--ui-font-scale`、`--ui-size-dialog` / `--ui-size-title` / `--ui-size-content` / `--ui-size-body` / `--ui-size-label` / `--ui-size-caption`）由软件内「设置 > 主题 > 字体显示」在运行时通过 JavaScript 注入，不属于主题 CSS。主题 CSS 不需要也不应该定义这些变量。页面中使用的 `.fs-dialog` / `.fs-title` / `.fs-content` / `.fs-body` / `.fs-label` / `.fs-caption` 工具类会自动读取用户设置的字号。
+
 设置中的“主题颜色”只替换交互主色，不会改变界面主题定义的背景、圆角、边框、阴影、间距、动效和第二强调色。
 
 ## CSS 选择器覆盖

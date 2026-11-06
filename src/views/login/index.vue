@@ -393,7 +393,7 @@ onMounted(loadVersion)
 
           <!-- FORGOT PASSWORD -->
           <template v-if="mode === 'forgot'">
-            <button class="flex items-center gap-1 text-[12px] mb-6 transition-colors" :class="isDark ? 'text-wt-aux hover:text-wt-sub' : 'text-gray-400 hover:text-gray-600'" @click="mode = 'login'; errorMsg = ''; sentCode = false; verifyCode = ''; password = ''">
+            <button class="flex items-center gap-1 text-[12px] mb-6 transition-colors" :class="isDark ? 'text-wt-sub hover:text-wt-main' : 'text-gray-400 hover:text-gray-600'" @click="mode = 'login'; errorMsg = ''; sentCode = false; verifyCode = ''; password = ''">
               <i class="ri-arrow-left-line text-[14px]" /> 返回登录
             </button>
 

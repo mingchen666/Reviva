@@ -4,7 +4,6 @@ import { ref, computed } from 'vue'
 import {
   REMOVED_TOOL_IDS,
   TOOL_CATEGORIES,
-  DOCUMENT_READ_TOOL_MIGRATION_KEY,
   BUILTIN_TOOLS,
   SUB_AGENTS,
 } from './constants'
@@ -100,20 +99,11 @@ export const useAgentsStore = defineStore('agents', () => {
       }
     }
 
-    if (toolEnabledMap.value[DOCUMENT_READ_TOOL_MIGRATION_KEY] !== true) {
-      toolEnabledMap.value.document_read = true
-      toolEnabledMap.value.office_read = false
-      toolEnabledMap.value.pdf_read = false
-      toolEnabledMap.value[DOCUMENT_READ_TOOL_MIGRATION_KEY] = true
-    }
 
+    // All builtin tools default to enabled; per-agent tool binding decides
+    // runtime availability. Only provider config (API keys, base URLs) is restored.
     for (const tool of builtinTools.value) {
-      if (tool.alwaysEnabled) {
-        tool.enabled = true
-        toolEnabledMap.value[tool.id] = true
-      } else if (toolEnabledMap.value[tool.id] !== undefined) {
-        tool.enabled = toolEnabledMap.value[tool.id]
-      }
+      tool.enabled = true
       if (toolProviderConfigMap.value[tool.id]) {
         const saved = toolProviderConfigMap.value[tool.id]
         tool.providerConfig = {
@@ -147,19 +137,6 @@ export const useAgentsStore = defineStore('agents', () => {
     return true
   }
 
-  function toggleBuiltinTool(toolId) {
-    const tool = builtinTools.value.find(t => t.id === toolId)
-    if (!tool) return
-    if (tool.alwaysEnabled) {
-      tool.enabled = true
-      toolEnabledMap.value[toolId] = true
-      return
-    }
-    // Cannot enable a tool that needs config but isn't configured
-    if (!tool.enabled && tool.needsConfig && !_isConfigured(tool)) return
-    tool.enabled = !tool.enabled
-    toolEnabledMap.value[toolId] = tool.enabled
-  }
 
   function updateToolProviderConfig(toolId, config) {
     const tool = builtinTools.value.find(t => t.id === toolId)
@@ -511,7 +488,9 @@ export const useAgentsStore = defineStore('agents', () => {
       description: raw.desc || raw.description,
       prompt_template: raw.promptTemplate || raw.promptContent,
       prompt_content: raw.promptContent || raw.promptTemplate,
-      category: raw.category,
+      category: raw.category ?? existing.category,
+      allowed_tools: raw.allowedTools ?? existing.allowedTools ?? [],
+      output_types: raw.outputTypes ?? existing.outputTypes ?? [],
       source: 'custom',
     }
     for (const k of Object.keys(mapped)) {
@@ -650,7 +629,7 @@ export const useAgentsStore = defineStore('agents', () => {
     TOOL_CATEGORIES,
     healthCheckResults, healthChecking, healthCheckingIds,
     loadFromDb, addAgent, updateAgent, removeAgent, duplicateAgent,
-    togglePlatformSkill, toggleBuiltinTool, _isConfigured, updateToolProviderConfig,
+    togglePlatformSkill, _isConfigured, updateToolProviderConfig,
     addSkill, updateSkill, removeSkill, importSkill,
     addTool, updateTool, removeTool,
     addSubAgent, updateSubAgent, removeSubAgent,

@@ -135,14 +135,14 @@ function getOriginalPathShort(item) {
             class="h-7 w-7 flex items-center justify-center transition-colors"
             :class="viewMode === 'grid'
               ? (isDark ? 'bg-brand-400/12 text-brand-400' : 'bg-brand-50 text-brand-500')
-              : (isDark ? 'text-wt-dim hover:text-wt-aux' : 'text-lt-aux hover:text-lt-sub')">
+              : (isDark ? 'text-wt-dim hover:text-wt-aux' : 'text-lt-sub hover:text-lt-main')">
             <i class="ri-grid-line text-[16px]" />
           </button>
           <button @click="emit('update:viewMode', 'list')"
             class="h-7 w-7 flex items-center justify-center transition-colors"
             :class="viewMode === 'list'
               ? (isDark ? 'bg-brand-400/12 text-brand-400' : 'bg-brand-50 text-brand-500')
-              : (isDark ? 'text-wt-dim hover:text-wt-aux' : 'text-lt-aux hover:text-lt-sub')">
+              : (isDark ? 'text-wt-dim hover:text-wt-aux' : 'text-lt-sub hover:text-lt-main')">
             <i class="ri-list-unordered text-[14px]" />
           </button>
         </div>
@@ -161,7 +161,7 @@ function getOriginalPathShort(item) {
           </button>
           <button @click="emit('update:selectedIds', [])"
             class="h-7 px-2 rounded-lg text-[11px] transition-colors shrink-0"
-            :class="isDark ? 'text-wt-aux hover:text-wt-sub hover:bg-white/5' : 'text-lt-aux hover:text-lt-sub hover:bg-l4'">
+            :class="isDark ? 'text-wt-sub hover:text-wt-main hover:bg-white/5' : 'text-lt-sub hover:text-lt-main hover:bg-l4'">
             取消选择
           </button>
         </template>
@@ -169,7 +169,7 @@ function getOriginalPathShort(item) {
         <!-- Select all -->
         <button v-if="filteredItems.length > 0" @click="toggleSelectAll"
           class="h-7 px-2 text-[13px] rounded-lg text-[11px] flex items-center gap-1 transition-colors shrink-0"
-          :class="isDark ? 'text-wt-aux hover:text-wt-sub hover:bg-white/5' : 'text-lt-aux hover:text-lt-sub hover:bg-l4'">
+          :class="isDark ? 'text-wt-sub hover:text-wt-main hover:bg-white/5' : 'text-lt-sub hover:text-lt-main hover:bg-l4'">
           <i :class="isAllSelected ? 'ri-checkbox-line' : 'ri-checkbox-blank-line'" class="text-[15px]" />
           {{ isAllSelected ? '取消全选' : '全选' }}
         </button>
@@ -181,13 +181,13 @@ function getOriginalPathShort(item) {
 
       <!-- Empty state -->
       <div v-if="filteredItems.length === 0" class="flex flex-col items-center justify-center py-16 gap-3">
-        <div class="w-14 h-14 rounded-2xl flex items-center justify-center" :class="isDark ? 'bg-d3' : 'bg-l3'">
-          <i class="ri-delete-bin-line text-[24px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'" />
+        <div class="w-14 h-14 rounded-2xl flex items-center justify-center">
+          <i class="ri-delete-bin-line text-[30px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'" />
         </div>
         <p class="text-[13px] font-medium" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">
           {{ totalCount === 0 ? '回收站为空' : '没有匹配的项目' }}
         </p>
-        <p v-if="totalCount === 0" class="text-[11px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">删除的文件会暂存此处</p>
+        <p v-if="totalCount === 0" class="text-[11px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">删除的文件/对话会暂存此处</p>
       </div>
 
       <!-- ═══ GRID Layout ═══ -->

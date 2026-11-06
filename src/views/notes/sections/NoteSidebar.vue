@@ -180,7 +180,7 @@ defineExpose({ createNote })
         class="w-7 h-7 rounded-md flex items-center justify-center transition-colors cursor-pointer relative"
         :class="aiConfigured
           ? (isDark ? 'text-agent-400 bg-agent-400/10 hover:bg-agent-400/18' : 'text-agent-500 bg-violet-50 hover:bg-violet-100')
-          : (isDark ? 'text-wt-dim hover:text-wt-sub hover:bg-d3' : 'text-lt-aux hover:text-lt-sub hover:bg-l4')">
+          : (isDark ? 'text-wt-dim hover:text-wt-sub hover:bg-d3' : 'text-lt-sub hover:text-lt-main hover:bg-l4')">
         <i :class="aiConfigured ? 'ri-sparkling-line' : 'ri-settings-3-line'" class="text-[18px]" />
         <span v-if="aiConfigured" class="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-emerald-400" />
       </button>
@@ -195,7 +195,7 @@ defineExpose({ createNote })
           :class="isDark ? 'bg-d2 border border-d4 text-wt-sub placeholder-wt-dim focus:border-brand-400/50 focus:bg-d0' : 'bg-l2 border border-bdrL text-lt-sub placeholder-lt-aux focus:border-brand-400 focus:bg-white'" />
         <button v-if="searchQuery" @click="searchQuery = ''"
           class="absolute right-1.5 top-1/2 -translate-y-1/2 w-5 h-5 rounded flex items-center justify-center transition-colors"
-          :class="isDark ? 'text-wt-dim hover:text-wt-sub hover:bg-d3' : 'text-lt-aux hover:text-lt-sub hover:bg-l3'">
+          :class="isDark ? 'text-wt-dim hover:text-wt-sub hover:bg-d3' : 'text-lt-sub hover:text-lt-main hover:bg-l3'">
           <i class="ri-close-line text-[14px]" />
         </button>
       </div>
@@ -257,11 +257,11 @@ defineExpose({ createNote })
 
       <!-- Empty -->
       <div v-if="!filteredTree.length && !rootNotes.length" class="flex flex-col items-center justify-center py-10 gap-3 px-4">
-        <div class="w-12 h-12 rounded-2xl flex items-center justify-center" :class="isDark ? 'bg-d3' : 'bg-l3'">
+        <div class="w-12 h-12 rounded-2xl flex items-center justify-center">
         <i 
   :class="[
     searchQuery ? 'ri-search-line' : 'ri-quill-pen-line',
-    'text-[20px]',
+    'text-[28px]',
     isDark ? 'text-wt-dim' : 'text-lt-aux'
   ]"
 />
@@ -366,7 +366,7 @@ defineExpose({ createNote })
       </div>
       <template #footer="{ close }">
         <button @click="close()" class="px-4 py-2 rounded-lg text-[11px] font-medium transition-colors"
-          :class="isDark ? 'text-wt-aux hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub'">取消</button>
+          :class="isDark ? 'text-wt-sub hover:text-wt-main' : 'text-lt-sub hover:text-lt-main'">取消</button>
         <button @click="createFolder(); close()" class="px-4 py-2 rounded-lg text-[11px] font-medium transition-colors"
           :class="isDark ? 'bg-brand-400 text-d0 hover:bg-brand-500' : 'bg-brand-500 text-white hover:bg-brand-600'">确认创建</button>
       </template>
@@ -396,7 +396,7 @@ defineExpose({ createNote })
       </div>
       <template #footer="{ close }">
         <button @click="close()" class="px-4 py-2 rounded-lg text-[11px] font-medium transition-colors"
-          :class="isDark ? 'text-wt-aux hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub'">取消</button>
+          :class="isDark ? 'text-wt-sub hover:text-wt-main' : 'text-lt-sub hover:text-lt-main'">取消</button>
         <button @click="confirmRename(); close()" class="px-4 py-2 rounded-lg text-[11px] font-medium transition-colors"
           :class="isDark ? 'bg-brand-400 text-d0 hover:bg-brand-500' : 'bg-brand-500 text-white hover:bg-brand-600'">确认重命名</button>
       </template>
@@ -418,7 +418,7 @@ defineExpose({ createNote })
       </div>
       <template #footer="{ close }">
         <button @click="close()" class="px-4 py-2 rounded-lg text-[11px] font-medium transition-colors"
-          :class="isDark ? 'text-wt-aux hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub'">取消</button>
+          :class="isDark ? 'text-wt-sub hover:text-wt-main' : 'text-lt-sub hover:text-lt-main'">取消</button>
         <button @click="confirmDelete(); close()" class="px-4 py-2 rounded-lg text-[11px] font-medium bg-red-500 text-white hover:bg-red-600">确认删除</button>
       </template>
     </MsModal>

@@ -99,6 +99,13 @@ jobs:
       - name: Build renderer and main process
         run: pnpm exec vite build
 
+      - name: Download officecli binary
+        run: |
+          mkdir -p electron/builtin-assets/bin/officecli
+          curl -fsSL -o "electron/builtin-assets/bin/officecli/officecli-mac-${{ matrix.arch }}" \
+            "https://github.com/iOfficeAI/OfficeCLI/releases/download/v1.0.158/officecli-mac-${{ matrix.arch }}"
+          chmod +x "electron/builtin-assets/bin/officecli/officecli-mac-${{ matrix.arch }}"
+
       - name: Build macOS DMG
         run: pnpm exec electron-builder --mac dmg --${{ matrix.arch }} --publish never
 
@@ -114,6 +121,73 @@ jobs:
         with:
           tag_name: ${{ needs.resolve-release.outputs.tag }}
           files: release/**/*.dmg
+
+  build-linux:
+    name: Build Linux AppImage (${{ matrix.arch }})
+    needs: resolve-release
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x64
+            runner: ubuntu-22.04
+          - arch: arm64
+            runner: ubuntu-22.04-arm
+    runs-on: ${{ matrix.runner }}
+
+    env:
+      NODE_OPTIONS: --max-old-space-size=8192
+      VITE_CLOUD_BASE_URL: ${{ secrets.VITE_CLOUD_BASE_URL }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install system dependencies for AppImage
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libfuse2 libgtk-3-0 libnotify4 libnss3 libxss1 libxtst6 xdg-utils libatspi2.0-0 libdrm2 libgbm1 libasound2
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build renderer and main process
+        run: pnpm exec vite build
+
+      - name: Download officecli binary
+        run: |
+          mkdir -p electron/builtin-assets/bin/officecli
+          curl -fsSL -o "electron/builtin-assets/bin/officecli/officecli-linux-${{ matrix.arch }}" \
+            "https://github.com/iOfficeAI/OfficeCLI/releases/download/v1.0.158/officecli-linux-${{ matrix.arch }}"
+          chmod +x "electron/builtin-assets/bin/officecli/officecli-linux-${{ matrix.arch }}"
+
+      - name: Build Linux AppImage
+        run: pnpm exec electron-builder --linux AppImage --${{ matrix.arch }} --publish never
+
+      - name: Upload AppImage
+        uses: actions/upload-artifact@v4
+        with:
+          name: Reviva-Linux-${{ matrix.arch }}-AppImage
+          path: release/**/*.AppImage
+          if-no-files-found: error
+
+      - name: Upload AppImage to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.resolve-release.outputs.tag }}
+          files: release/**/*.AppImage
 
   build-windows:
     name: Build Windows x64 installer

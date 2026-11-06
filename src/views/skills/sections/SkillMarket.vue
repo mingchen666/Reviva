@@ -43,7 +43,7 @@ const filtered = computed(() => {
       <div v-if="platformSkills.length" class="relative ml-auto w-64 shrink min-w-0">
         <i class="ri-search-line absolute left-3 top-1/2 -translate-y-1/2 text-[14px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'" />
         <input v-model="searchQuery" type="text" placeholder="搜索名称、ID 或描述" class="w-full h-8 pl-9 pr-8 rounded-md text-[12px] outline-none transition-colors" :class="isDark ? 'bg-d0 border border-d4 text-wt-sub placeholder-wt-dim focus:border-brand-400/35' : 'bg-l2 border border-bdrF text-lt-sub placeholder-lt-aux focus:border-brand-300'">
-        <button v-if="searchQuery" type="button" class="absolute right-2.5 top-1/2 -translate-y-1/2" :class="isDark ? 'text-wt-dim hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub'" title="清空搜索" aria-label="清空搜索" @click="searchQuery = ''">
+        <button v-if="searchQuery" type="button" class="absolute right-2.5 top-1/2 -translate-y-1/2" :class="isDark ? 'text-wt-dim hover:text-wt-sub' : 'text-lt-sub hover:text-lt-main'" title="清空搜索" aria-label="清空搜索" @click="searchQuery = ''">
           <i class="ri-close-circle-line text-[14px]" />
         </button>
       </div>

@@ -316,21 +316,21 @@ onBeforeUnmount(closeMediaPresetMenu)
         class="flex-1 h-8 rounded-md text-[14px] font-medium transition-all flex items-center justify-center gap-1.5"
         :class="tab === 'local'
           ? (isDark ? 'bg-d3 text-wt-main shadow-sm' : 'bg-white text-lt-main shadow-sm')
-          : (isDark ? 'text-wt-dim hover:text-wt-aux' : 'text-lt-aux hover:text-lt-sub')">
+          : (isDark ? 'text-wt-dim hover:text-wt-aux' : 'text-lt-sub hover:text-lt-main')">
         <i class="ri-folder-upload-line text-[14px]" />本地文件
       </button>
       <button @click="tab = 'url'"
         class="flex-1 h-8 rounded-md text-[14px] font-medium transition-all flex items-center justify-center gap-1.5"
         :class="tab === 'url'
           ? (isDark ? 'bg-d3 text-wt-main shadow-sm' : 'bg-white text-lt-main shadow-sm')
-          : (isDark ? 'text-wt-dim hover:text-wt-aux' : 'text-lt-aux hover:text-lt-sub')">
+          : (isDark ? 'text-wt-dim hover:text-wt-aux' : 'text-lt-sub hover:text-lt-main')">
         <i class="ri-global-line text-[14px]" />网页 URL
       </button>
       <button @click="tab = 'media'"
         class="flex-1 h-8 rounded-md text-[14px] font-medium transition-all flex items-center justify-center gap-1.5"
         :class="tab === 'media'
           ? (isDark ? 'bg-d3 text-wt-main shadow-sm' : 'bg-white text-lt-main shadow-sm')
-          : (isDark ? 'text-wt-dim hover:text-wt-aux' : 'text-lt-aux hover:text-lt-sub')">
+          : (isDark ? 'text-wt-dim hover:text-wt-aux' : 'text-lt-sub hover:text-lt-main')">
         <i class="ri-movie-2-ai-line text-[14px]" />音视频链接
       </button>
     </div>
@@ -444,7 +444,7 @@ onBeforeUnmount(closeMediaPresetMenu)
         <div v-if="webJobs.length" class="pt-2 border-t" :class="isDark ? 'border-d4' : 'border-bdrL'">
           <div class="flex items-center justify-between mb-1.5">
             <span class="text-[10.5px] font-semibold" :class="isDark ? 'text-wt-main' : 'text-lt-main'">最近导入</span>
-            <button class="text-[10px]" :class="isDark ? 'text-wt-dim hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub'" @click="emit('clear-web-jobs')">清除已完成记录</button>
+            <button class="text-[10px]" :class="isDark ? 'text-wt-dim hover:text-wt-sub' : 'text-lt-sub hover:text-lt-main'" @click="emit('clear-web-jobs')">清除已完成记录</button>
           </div>
           <div class="max-h-[150px] overflow-y-auto thin-scroll space-y-1.5">
             <div v-for="job in recentWebJobs" :key="job.id" class="rounded-lg px-2.5 py-2 flex items-center gap-2" :class="isDark ? 'bg-d0' : 'bg-l3'">
@@ -584,7 +584,7 @@ onBeforeUnmount(closeMediaPresetMenu)
 
     <template #footer="{ close }">
       <button @click="close()" class="px-4 py-2 rounded-lg text-[13px] font-medium transition-colors"
-        :class="isDark ? 'text-wt-aux hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub'">取消</button>
+        :class="isDark ? 'text-wt-sub hover:text-wt-main' : 'text-lt-sub hover:text-lt-main'">取消</button>
       <button @click="handleSubmit"
         :disabled="tab === 'local' ? pickedFiles.length === 0 : (tab === 'url' ? !canSubmitUrl : !canSubmitMedia)"
         class="px-4 py-2 rounded-lg text-[13px] font-medium transition-all flex items-center gap-1"

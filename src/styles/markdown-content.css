@@ -21,7 +21,7 @@
   --mdc-code-attr: #b13f77;
 
   color: var(--mdc-fg);
-  font-size: 14px;
+  font-size: var(--ui-size-content, 14px);
   line-height: 1.75;
   word-break: break-word;
   overflow-wrap: anywhere;

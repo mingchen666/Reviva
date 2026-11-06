@@ -201,7 +201,7 @@ function removeCtx(idx) {
           <button
             class="h-7 w-7 rounded-lg flex items-center justify-center shrink-0 transition-colors"
             :class="
-              isDark ? 'text-wt-aux hover:text-wt-sub hover:bg-white/6' : 'text-lt-aux hover:text-lt-sub hover:bg-l4'
+              isDark ? 'text-wt-sub hover:text-wt-main hover:bg-white/6' : 'text-lt-sub hover:text-lt-main hover:bg-l4'
             "
             title="返回知识库列表">
             <i class="ri-arrow-left-s-line text-[15px]" />
@@ -230,8 +230,8 @@ function removeCtx(idx) {
                   ? 'text-wt-main'
                   : 'text-lt-main'
                 : isDark
-                  ? 'text-wt-aux hover:text-wt-sub'
-                  : 'text-lt-aux hover:text-lt-sub'
+                  ? 'text-wt-sub hover:text-wt-main'
+                  : 'text-lt-sub hover:text-lt-main'
             ">
             <i class="ri-file-text-line text-[12px] mr-1" />
             文档
@@ -248,8 +248,8 @@ function removeCtx(idx) {
                   ? 'text-wt-main'
                   : 'text-lt-main'
                 : isDark
-                  ? 'text-wt-aux hover:text-wt-sub'
-                  : 'text-lt-aux hover:text-lt-sub'
+                  ? 'text-wt-sub hover:text-wt-main'
+                  : 'text-lt-sub hover:text-lt-main'
             ">
             <i class="ri-chat-3-line text-[12px] mr-1" />
             对话
@@ -274,7 +274,7 @@ function removeCtx(idx) {
             <button
               @click="checkedDocs = []"
               class="text-[11px]"
-              :class="isDark ? 'text-wt-dim hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub'">
+              :class="isDark ? 'text-wt-dim hover:text-wt-sub' : 'text-lt-sub hover:text-lt-main'">
               清空
             </button>
           </div>
@@ -387,7 +387,7 @@ function removeCtx(idx) {
                 <button
                   @click.stop="startRename(chat)"
                   class="p-1 rounded transition-colors"
-                  :class="isDark ? 'text-wt-dim hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub'"
+                  :class="isDark ? 'text-wt-dim hover:text-wt-sub' : 'text-lt-sub hover:text-lt-main'"
                   title="重命名">
                   <i class="ri-pencil-line text-[11px]" />
                 </button>
@@ -437,8 +437,8 @@ function removeCtx(idx) {
                 ? 'text-wt-main bg-white/6'
                 : 'text-lt-main bg-l3'
               : isDark
-                ? 'text-wt-aux hover:text-wt-sub'
-                : 'text-lt-aux hover:text-lt-sub'
+                ? 'text-wt-sub hover:text-wt-main'
+                : 'text-lt-sub hover:text-lt-main'
           ">
           <i class="ri-chat-3-line text-[12px] mr-1" />
           消息对话
@@ -452,8 +452,8 @@ function removeCtx(idx) {
                 ? 'text-wt-main bg-white/6'
                 : 'text-lt-main bg-l3'
               : isDark
-                ? 'text-wt-aux hover:text-wt-sub'
-                : 'text-lt-aux hover:text-lt-sub'
+                ? 'text-wt-sub hover:text-wt-main'
+                : 'text-lt-sub hover:text-lt-main'
           ">
           <i class="ri-booklet-line text-[12px] mr-1" />
           笔记列表
@@ -467,8 +467,8 @@ function removeCtx(idx) {
                 ? 'text-wt-main bg-white/6'
                 : 'text-lt-main bg-l3'
               : isDark
-                ? 'text-wt-aux hover:text-wt-sub'
-                : 'text-lt-aux hover:text-lt-sub'
+                ? 'text-wt-sub hover:text-wt-main'
+                : 'text-lt-sub hover:text-lt-main'
           ">
           <i class="ri-group-line text-[12px] mr-1" />
           虚拟辩论场
@@ -725,7 +725,7 @@ function removeCtx(idx) {
                 <div class="w-px h-3 mx-1" :class="isDark ? 'bg-bdr' : 'bg-bdrF'" />
                 <button
                   class="p-1.5 rounded-md"
-                  :class="isDark ? 'text-wt-aux hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub'">
+                  :class="isDark ? 'text-wt-sub hover:text-wt-main' : 'text-lt-sub hover:text-lt-main'">
                   <i class="ri-at-line text-[14px]" />
                 </button>
                 <button
@@ -887,7 +887,7 @@ function removeCtx(idx) {
               </div>
               <span
                 class="text-[10px] font-medium"
-                :class="isDark ? 'text-wt-aux group-hover:text-wt-sub' : 'text-lt-aux group-hover:text-lt-sub'">
+                :class="isDark ? 'text-wt-sub group-hover:text-wt-main' : 'text-lt-sub group-hover:text-lt-main'">
                 {{ t.name }}
               </span>
             </button>
@@ -944,7 +944,7 @@ function removeCtx(idx) {
                 <button
                   @click="artifactMenuOpen = artifactMenuOpen === a.id ? null : a.id"
                   class="p-1 rounded"
-                  :class="isDark ? 'text-wt-dim hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub'">
+                  :class="isDark ? 'text-wt-dim hover:text-wt-sub' : 'text-lt-sub hover:text-lt-main'">
                   <i class="ri-more-2-fill text-[12px]" />
                 </button>
                 <div

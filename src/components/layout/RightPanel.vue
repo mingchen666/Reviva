@@ -47,7 +47,7 @@ function close() {
       <div v-if="closable" class="flex items-center justify-end px-2 py-1.5 shrink-0">
         <button
           class="h-7 w-7 rounded-md flex items-center justify-center transition-colors"
-          :class="isDark ? 'text-wt-aux hover:text-wt-sub hover:bg-white/5' : 'text-lt-aux hover:text-lt-sub hover:bg-l4'"
+          :class="isDark ? 'text-wt-sub hover:text-wt-main hover:bg-white/5' : 'text-lt-sub hover:text-lt-main hover:bg-l4'"
           @click="close"
         >
           <i class="ri-side-bar-line text-[14px]" />

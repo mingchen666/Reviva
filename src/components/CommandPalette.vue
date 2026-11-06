@@ -53,7 +53,7 @@ const SETTINGS_ITEMS = [
   { id: 'set-memory', label: '记忆管理', icon: 'ri-brain-line', path: '/settings/memory', group: '设置' },
   { id: 'set-usage', label: '用量统计', icon: 'ri-bar-chart-line', path: '/settings/usage', group: '设置' },
   { id: 'set-theme', label: '主题', icon: 'ri-palette-line', path: '/settings/theme', group: '设置' },
-  { id: 'set-preference', label: '偏好配置', icon: 'ri-equalizer-line', path: '/settings/preference', group: '设置' },
+  { id: 'set-preference', label: '偏好配置', icon: 'ri-user-settings-line', path: '/settings/preference', group: '设置' },
   { id: 'set-shortcuts', label: '快捷键', icon: 'ri-keyboard-line', path: '/settings/shortcuts', group: '设置' },
   {
     id: 'set-notifications',

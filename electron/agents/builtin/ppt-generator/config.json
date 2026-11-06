@@ -26,11 +26,17 @@
     "media_read",
     "vision_analyze",
     "kb_search",
-    "wiki_tool"
+    "wiki_tool",
+    "office_read",
+    "office_write"
   ],
   "skills": [
     "ppt-creation",
-    "ai-animation-skill"
+    "ai-animation-skill",
+    "html-ppt-skill",
+    "guizang-ppt-skill",
+    "pptx-deck-skill",
+    "officecli-skills"
   ],
   "sub_agents": [
     "content-planner",

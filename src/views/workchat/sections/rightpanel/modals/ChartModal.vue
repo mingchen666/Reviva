@@ -112,7 +112,7 @@ function handleSubmit() {
           <i class="ri-bar-chart-box-line text-[14px] text-sky-500" />
         </div>
         <div>
-          <div class="text-[13px] font-bold" :class="isDark ? 'text-wt-main' : 'text-lt-main'">生成图表</div>
+          <div class="fs-body font-bold" :class="isDark ? 'text-wt-main' : 'text-lt-main'">生成图表</div>
           <div class="text-[10px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">生成 SVG 信息图、知识卡片和常见数据图表</div>
         </div>
       </div>
@@ -150,7 +150,7 @@ function handleSubmit() {
             <button @click="adjustCount(-1)"
               class="h-10 w-10 flex items-center justify-center transition-colors disabled:opacity-40"
               :disabled="count <= 1"
-              :class="isDark ? 'text-wt-aux hover:text-wt-sub hover:bg-white/5' : 'text-lt-aux hover:text-lt-sub hover:bg-l4'">
+              :class="isDark ? 'text-wt-sub hover:text-wt-main hover:bg-white/5' : 'text-lt-sub hover:text-lt-main hover:bg-l4'">
               <i class="ri-subtract-line text-[13px]" />
             </button>
             <div class="w-12 text-center text-[16px] font-mono font-bold tabular-nums"
@@ -158,7 +158,7 @@ function handleSubmit() {
             <button @click="adjustCount(1)"
               class="h-10 w-10 flex items-center justify-center transition-colors disabled:opacity-40"
               :disabled="count >= 6"
-              :class="isDark ? 'text-wt-aux hover:text-wt-sub hover:bg-white/5' : 'text-lt-aux hover:text-lt-sub hover:bg-l4'">
+              :class="isDark ? 'text-wt-sub hover:text-wt-main hover:bg-white/5' : 'text-lt-sub hover:text-lt-main hover:bg-l4'">
               <i class="ri-add-line text-[13px]" />
             </button>
           </div>
@@ -238,7 +238,7 @@ function handleSubmit() {
         </span>
         <button @click="close()"
           class="h-8 px-4 rounded-lg text-[11px] font-medium transition-colors"
-          :class="isDark ? 'text-wt-aux hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub'">
+          :class="isDark ? 'text-wt-sub hover:text-wt-main' : 'text-lt-sub hover:text-lt-main'">
           取消
         </button>
         <button

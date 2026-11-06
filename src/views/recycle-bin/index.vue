@@ -37,6 +37,8 @@ const categoryMeta = {
   note:        { icon: 'ri-booklet-line', color: '#34D399', label: '笔记' },
   note_folder: { icon: 'ri-folder-3-line', color: '#34D399', label: '笔记文件夹' },
   artifact: { icon: 'ri-sparkling-line', color: '#68F399', label: '创作产物' },
+  task:      { icon: 'ri-task-line', color: '#60A5FA', label: '任务记录' },
+  conv_group:{ icon: 'ri-group-line', color: '#A78BFA', label: '对话分组' },
   other:       { icon: 'ri-file-line', color: '#78788a', label: '其他' },
 }
 
@@ -56,6 +58,8 @@ function formatItemSize(item) {
   if (!item) return '--'
   const t = item.item_type
   if (t === 'conversation') return `${item.size || 0} 条消息`
+  if (t === 'conv_group') return `${item.size || 0} 个对话`
+  if (t === 'task') return item.file_type || '任务'
   if (t === 'note') return `${item.size || 0} 字`
   if (t === 'note_folder') return '文件夹'
   return formatSize(item.size)

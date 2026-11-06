@@ -130,7 +130,7 @@ function fileIcon(item) {
         <div class="w-7 h-7 rounded-lg flex items-center justify-center" :style="{ background: toolColor + '14' }">
           <i :class="toolIcon + ' text-[14px]'" :style="{ color: toolColor }" />
         </div>
-        <span class="text-[13px] font-bold" :class="isDark ? 'text-wt-main' : 'text-lt-main'">{{ toolName }} 配置</span>
+        <span class="fs-body font-bold" :class="isDark ? 'text-wt-main' : 'text-lt-main'">{{ toolName }} 配置</span>
       </div>
     </template>
 
@@ -214,7 +214,7 @@ function fileIcon(item) {
       <div class="flex items-center gap-2">
         <button @click="close()"
           class="h-8 px-4 rounded-lg text-[11px] font-medium transition-colors"
-          :class="isDark ? 'text-wt-aux hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub'">
+          :class="isDark ? 'text-wt-sub hover:text-wt-main' : 'text-lt-sub hover:text-lt-main'">
           取消
         </button>
         <button

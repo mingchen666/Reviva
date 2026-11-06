@@ -107,6 +107,16 @@
           "id": "edit",
           "name": "Edit Office copy",
           "description": "Copy an existing workspace Office file to the current agent output directory and apply structured edits."
+        },
+        {
+          "id": "import_data",
+          "name": "Import CSV/TSV to Excel",
+          "description": "Import a CSV/TSV file from the workspace into a sheet of an existing xlsx copy. Supports header, delimiter, decimal mark, and start cell options."
+        },
+        {
+          "id": "refresh",
+          "name": "Recalculate docx fields",
+          "description": "Recalculate TOC page numbers, PAGE/NUMPAGES, and cross-references in a docx copy. Windows + Word required for accurate repagination."
         }
       ]
     }

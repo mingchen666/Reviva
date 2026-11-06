@@ -132,6 +132,39 @@ export function compileRemove(filePath, action, actionIndex) {
   return args
 }
 
+export function compileMove(filePath, action, actionIndex) {
+  const elementPath = assertPath(action.path || action.targetPath, '', actionIndex)
+  const args = ['move', filePath, elementPath]
+  const positionFlags = [
+    action.to !== undefined ? 'to' : '',
+    action.after !== undefined ? 'after' : '',
+    action.before !== undefined ? 'before' : '',
+    action.index !== undefined ? 'index' : '',
+  ].filter(Boolean)
+  if (positionFlags.length > 1) {
+    fail('OFFICE_ACTION_INVALID_POSITION', 'move 操作的 to、after、before、index 只能选择一个。', actionIndex)
+  }
+  if (action.to !== undefined) args.push('--to', assertPath(action.to, '', actionIndex))
+  if (action.after !== undefined) args.push('--after', assertPath(action.after, '', actionIndex))
+  if (action.before !== undefined) args.push('--before', assertPath(action.before, '', actionIndex))
+  if (action.index !== undefined) {
+    const index = Number(action.index)
+    if (!Number.isInteger(index) || index < 0) fail('OFFICE_ACTION_INVALID_INDEX', 'move 操作 index 必须是非负整数。', actionIndex)
+    args.push('--index', String(index))
+  }
+  appendProps(args, action.props || {}, actionIndex)
+  if (action.json === true) args.push('--json')
+  return args
+}
+
+export function compileSwap(filePath, action, actionIndex) {
+  const path1 = assertPath(action.path || action.path1 || action.targetPath, '', actionIndex)
+  const path2 = assertPath(action.path2 || action.with || action.targetPath2, '', actionIndex)
+  const args = ['swap', filePath, path1, path2]
+  if (action.json === true) args.push('--json')
+  return args
+}
+
 export function compileReplaceText(filePath, action, actionIndex) {
   const find = String(action.find || '')
   if (!find) fail('OFFICE_ACTION_MISSING_FIND', 'replace_text 缺少 find。', actionIndex)
@@ -232,6 +265,15 @@ export function argsToBatchEntry(args) {
     return entry
   }
   if (command === 'remove') return { command: 'remove', path: args[2] }
+  if (command === 'move') {
+    const entry = { command: 'move', path: args[2] }
+    if (readFlagValue(args, '--to')) entry.to = readFlagValue(args, '--to')
+    if (readFlagValue(args, '--after')) entry.after = readFlagValue(args, '--after')
+    if (readFlagValue(args, '--before')) entry.before = readFlagValue(args, '--before')
+    if (readFlagValue(args, '--index') !== undefined) entry.index = Number(readFlagValue(args, '--index'))
+    return entry
+  }
+  if (command === 'swap') return { command: 'swap', path: args[2], path2: args[3] }
   if (command === 'get') {
     const entry = { command: 'get', path: args[2] }
     if (readFlagValue(args, '--depth') !== undefined) entry.depth = Number(readFlagValue(args, '--depth'))
@@ -261,6 +303,10 @@ export function compileCommonAction(filePath, action, actionIndex, command) {
       return compileSet(filePath, action, actionIndex)
     case 'remove':
       return compileRemove(filePath, action, actionIndex)
+    case 'move':
+      return compileMove(filePath, action, actionIndex)
+    case 'swap':
+      return compileSwap(filePath, action, actionIndex)
     case 'replace_text':
       return compileReplaceText(filePath, action, actionIndex)
     case 'get':

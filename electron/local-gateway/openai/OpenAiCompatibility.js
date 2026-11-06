@@ -1,12 +1,8 @@
 import crypto from 'node:crypto'
 import { GatewayError, GATEWAY_ERROR_CODES } from '../core/GatewayErrors.js'
+import { CREATION_CENTER_AGENT_NAMES } from './constants.js'
 
 const now = () => Math.floor(Date.now() / 1000)
-const CREATION_CENTER_ENGLISH_NAMES = new Set([
-  'quiz-generator', 'ppt-generator', 'mindmap-generator', 'graph-generator',
-  'flashcard-generator', 'chart-generator', 'deep-researcher', 'lab-report-assistant',
-  'studycard-generator',
-])
 
 function textContent(content) {
   if (typeof content === 'string') return content
@@ -22,7 +18,7 @@ function normalizeContent(content) {
     if (part?.type === 'image_url') {
       const url = typeof part.image_url === 'string' ? part.image_url : part.image_url?.url
       if (!url || (!url.startsWith('data:image/') && !url.startsWith('https://'))) throw new GatewayError(GATEWAY_ERROR_CODES.INVALID_REQUEST, 'image_url must be a data image or HTTPS URL', { status: 400 })
-      if (url.length > 14 * 1024 * 1024) throw new GatewayError(GATEWAY_ERROR_CODES.INVALID_REQUEST, 'image content exceeds 10MB', { status: 400 })
+      if (url.length > 10 * 1024 * 1024) throw new GatewayError(GATEWAY_ERROR_CODES.INVALID_REQUEST, 'image content exceeds 10MB', { status: 400 })
       return { type: 'image_url', image_url: { url } }
     }
     throw new GatewayError(GATEWAY_ERROR_CODES.INVALID_REQUEST, 'unsupported message content type', { status: 400 })
@@ -62,13 +58,13 @@ export function registerOpenAiCompatibility({ server, registry, dbService, agent
   registry.registerAction({ id: 'openai.chat.completions', version: '1.0', description: 'Invoke an Agent through OpenAI Chat Completions', executionMode: 'stream', riskLevel: 'high' })
 
   server.register('GET', '/v1/models', ({ response }) => {
-    const data = adapters.agents.list().filter(agent => !CREATION_CENTER_ENGLISH_NAMES.has(String(agent.englishName || agent.english_name || '').toLowerCase())).map(agent => ({ id: agent.id, object: 'model', created: 0, owned_by: 'reviva', name: agent.name || agent.id }))
+    const data = adapters.agents.list().filter(agent => !CREATION_CENTER_AGENT_NAMES.has(String(agent.englishName || agent.english_name || '').toLowerCase())).map(agent => ({ id: agent.id, object: 'model', created: 0, owned_by: 'reviva', name: agent.name || agent.id }))
     sendJson(response, 200, { object: 'list', data })
   })
   server.register('GET', '/v1/models/:id', ({ response, params }) => {
     const agent = adapters.agents.get(params.id)
     if (!agent) throw new GatewayError(GATEWAY_ERROR_CODES.NOT_FOUND, 'The requested model does not exist', { status: 404 })
-    if (CREATION_CENTER_ENGLISH_NAMES.has(String(agent.englishName || agent.english_name || '').toLowerCase())) throw new GatewayError(GATEWAY_ERROR_CODES.NOT_FOUND, 'The requested model is not available through OpenAI Chat Completions', { status: 404 })
+    if (CREATION_CENTER_AGENT_NAMES.has(String(agent.englishName || agent.english_name || '').toLowerCase())) throw new GatewayError(GATEWAY_ERROR_CODES.NOT_FOUND, 'The requested model is not available through OpenAI Chat Completions', { status: 404 })
     sendJson(response, 200, { id: agent.id, object: 'model', created: 0, owned_by: 'reviva', name: agent.name || agent.id })
   })
 

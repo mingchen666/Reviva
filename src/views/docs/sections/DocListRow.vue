@@ -133,7 +133,7 @@ function formatDate(isoStr) {
       </button>
       <button @click.stop="emit('rename', item)"
         class="h-7 w-7 rounded-lg flex items-center justify-center transition-colors"
-        :class="isDark ? 'text-wt-dim hover:text-wt-sub hover:bg-d4' : 'text-lt-aux hover:text-lt-sub hover:bg-l4'"
+        :class="isDark ? 'text-wt-dim hover:text-wt-sub hover:bg-d4' : 'text-lt-sub hover:text-lt-main hover:bg-l4'"
         title="重命名">
         <i class="ri-edit-line text-[12px]" />
       </button>

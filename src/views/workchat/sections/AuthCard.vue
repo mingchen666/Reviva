@@ -127,7 +127,7 @@ function formatParams(params) {
         <!-- Collapse toggle -->
         <button v-if="isLiveMode" @click="isCollapsed = !isCollapsed"
           class="ml-auto h-5 px-1.5 rounded flex items-center transition-colors"
-          :class="isDark ? 'text-wt-dim hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub'">
+          :class="isDark ? 'text-wt-dim hover:text-wt-sub' : 'text-lt-sub hover:text-lt-main'">
           <i :class="isCollapsed ? 'ri-arrow-down-s-line' : 'ri-arrow-up-s-line'" class="text-[12px]" />
         </button>
       </div>
@@ -142,7 +142,7 @@ function formatParams(params) {
             <div v-if="authRequest.params" class="mt-2">
               <button @click="showParams = !showParams"
                 class="flex items-center gap-1 text-[11px] font-medium transition-colors"
-                :class="isDark ? 'text-wt-dim hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub'">
+                :class="isDark ? 'text-wt-dim hover:text-wt-sub' : 'text-lt-sub hover:text-lt-main'">
                 <i :class="showParams ? 'ri-arrow-down-s-line' : 'ri-arrow-right-s-line'" class="text-[11px]" />
                 查看参数详情
               </button>
@@ -191,7 +191,7 @@ function formatParams(params) {
           <div v-if="authRequest.params" class="mt-1.5">
             <button @click="showParams = !showParams"
               class="flex items-center gap-1 text-[11px] font-medium transition-colors"
-              :class="isDark ? 'text-wt-dim hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub'">
+              :class="isDark ? 'text-wt-dim hover:text-wt-sub' : 'text-lt-sub hover:text-lt-main'">
               <i :class="showParams ? 'ri-arrow-down-s-line' : 'ri-arrow-right-s-line'" class="text-[11px]" />
               查看参数详情
             </button>

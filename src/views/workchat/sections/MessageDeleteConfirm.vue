@@ -84,7 +84,7 @@ function confirm() {
         <button
           @click="cancel"
           class="h-6 px-3 rounded-md text-[11px] font-medium transition-colors"
-          :class="isDark ? 'text-wt-dim hover:text-wt-sub hover:bg-white/5' : 'text-lt-aux hover:text-lt-sub hover:bg-l4'"
+          :class="isDark ? 'text-wt-dim hover:text-wt-sub hover:bg-white/5' : 'text-lt-sub hover:text-lt-main hover:bg-l4'"
         >
           取消
         </button>

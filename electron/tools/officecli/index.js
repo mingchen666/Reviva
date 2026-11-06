@@ -13,6 +13,8 @@ const officeActionSchema = z.object({
     'raw_set',
     'raw-set',
     'replace_text',
+    'move',
+    'swap',
     'add_paragraph',
     'add_heading',
     'add_table',
@@ -63,6 +65,8 @@ const officeActionSchema = z.object({
   title: z.string().optional().describe('幻灯片、图表等标题。'),
   chartType: z.string().optional().describe('图表类型，例如 column、line、bar、pie。'),
   confirm: z.boolean().optional().describe('remove/raw_set 操作必须显式传 true。'),
+  to: z.string().optional().describe('move 动作的目标父路径。move 专用，与 after/before/index 互斥。'),
+  path2: z.string().optional().describe('swap 动作的第二元素路径，例如 /body/p[5]。'),
 })
 
 export function createOfficeWriteTool(workDirService, allowedOperations = [], options = {}) {
@@ -81,10 +85,12 @@ export function createOfficeWriteTool(workDirService, allowedOperations = [], op
         '使用 batch 或 raw_set 时，工具会强制执行后置 issues/validate 检查，即使 runChecks=false 也不会跳过。',
         '编辑现有 Office 文件时默认输出副本，不覆盖源文件；输出写入 /agents/{agent}/outputs/YYYY-MM-DD/。',
         '不确定元素类型或属性名时，先调用 operation=help 查询 OfficeCLI schema，再执行 create/edit。',
+       'operation=import_data 仅用于 xlsx：把 CSV/TSV 文件导入到指定工作表，支持 header/delimiter/decimal/startCell 等选项；源文件必须在授权工作区内。',
+       'operation=refresh 用于 docx：重算 TOC 页码、PAGE/NUMPAGES、交叉引用（Windows + Word 环境）。编辑含目录的长文档后建议调用。',
       ].join('\n'),
       schema: z.object({
-        operation: z.enum(['help', 'create', 'edit']).describe('要执行的 Office 子操作。help 查询 OfficeCLI schema；create 创建新文件；edit 编辑现有文件副本。'),
-        path: z.string().optional().describe('edit 操作的输入 Office 文件路径，必须在授权工作区内。create/help 不需要。'),
+       operation: z.enum(['help', 'create', 'edit', 'import_data', 'refresh']).describe('要执行的 Office 子操作。help 查询 schema；create 创建新文件；edit 编辑副本；import_data 仅 xlsx 导入 CSV/TSV；refresh 重算 docx 目录/页码。'),
+       path: z.string().optional().describe('edit/import_data/refresh 操作的输入 Office 文件路径，必须在授权工作区内。create/help 不需要。'),
         filename: z.string().optional().describe('输出文件名，不接受目录。create 可用 report.docx；edit 可用 edited-report.docx。未传时自动生成。'),
         format: z.enum(['docx', 'pptx', 'xlsx']).optional().describe('create/help 的目标格式。create 可从 filename 扩展名推断。'),
         element: z.string().optional().describe('help 操作的元素类型，例如 paragraph、shape、cell、chart。'),
@@ -94,6 +100,15 @@ export function createOfficeWriteTool(workDirService, allowedOperations = [], op
         useBatch: z.boolean().optional().describe('是否使用 officecli batch 一次性执行 actions。默认 false；大量稳定动作可设为 true 节省时间。'),
         allowRawXml: z.boolean().optional().describe('是否允许 raw_set。默认 false；使用 raw_set 时每个 action 仍必须 confirm=true。'),
         runChecks: z.boolean().optional().describe('create/edit 后是否运行 view issues 和 validate 轻量检查，默认 true。useBatch 或 allowRawXml 为 true 时会强制检查。'),
+       importOptions: z.object({
+         sourcePath: z.string().describe('CSV/TSV 源文件路径，必须在授权工作区内。'),
+         parent: z.string().optional().describe('目标工作表路径，例如 /Sheet1。未传时从 path 推断。'),
+         format: z.enum(['csv', 'tsv']).optional().describe('数据格式，默认从扩展名推断。'),
+         delimiter: z.string().optional().describe('字段分隔符，单字符或 \\t/tab。'),
+         decimal: z.enum(['.', ',']).optional().describe('源文件小数点标记。声明 "," 时 "." 视为千分位。'),
+         header: z.boolean().optional().describe('首行是否为表头：设置 AutoFilter 和冻结窗格。'),
+         startCell: z.string().optional().describe('起始单元格，默认 A1。'),
+       }).optional().describe('仅 operation=import_data 使用。'),
       }),
     },
   )

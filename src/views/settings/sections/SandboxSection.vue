@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useAppStore } from '@/stores/app'
 import { useSettingsStore } from '@/stores/settings'
 
@@ -11,6 +11,42 @@ function saveNum(key) { ss.savePreference(key, ss[key]) }
 
 function toggleAllowFileDelete() { ss.savePreference('allowFileDelete', !ss.allowFileDelete) }
 function saveDeleteScope() { ss.savePreference('deleteScope', ss.deleteScope) }
+
+// 删除范围：自定义下拉（弃用原生 select，避免 option 列表不可控的默认样式）
+const scopeRef = ref(null)
+const scopeOpen = ref(false)
+const scopeOptions = [
+  { value: 'outputs-only', label: '仅任意层级 outputs/' },
+  { value: 'workspace', label: '整个工作区' },
+]
+const scopeLabel = computed(() => scopeOptions.find(o => o.value === ss.deleteScope)?.label || '')
+function toggleScope() { scopeOpen.value = !scopeOpen.value }
+function chooseScope(v) {
+  ss.deleteScope = v
+  saveDeleteScope()
+  scopeOpen.value = false
+}
+function onScopeOutside(e) {
+  if (scopeRef.value && !scopeRef.value.contains(e.target)) scopeOpen.value = false
+}
+function onScopeKeydown(e) {
+  if (e.key === 'Escape') scopeOpen.value = false
+}
+watch(scopeOpen, (v) => {
+  if (typeof document === 'undefined') return
+  if (v) {
+    document.addEventListener('pointerdown', onScopeOutside)
+    document.addEventListener('keydown', onScopeKeydown)
+  } else {
+    document.removeEventListener('pointerdown', onScopeOutside)
+    document.removeEventListener('keydown', onScopeKeydown)
+  }
+})
+onBeforeUnmount(() => {
+  if (typeof document === 'undefined') return
+  document.removeEventListener('pointerdown', onScopeOutside)
+  document.removeEventListener('keydown', onScopeKeydown)
+})
 
 function toggleAllowExecCommand() { ss.savePreference('allowExecCommand', !ss.allowExecCommand) }
 
@@ -32,6 +68,8 @@ function saveWikiWebHardLimit() {
 
 const blInput = ref('')
 
+// 默认黑名单只列破坏性命令前缀，不写死 powershell/cmd/reg 等 shell/工具名；
+// 破坏性子命令（含经 powershell/cmd 转义的）由后端 isDestructiveCommand 正则兜底拦截。
 const DEFAULT_COMMAND_BLACKLIST = [
   'rm -rf',
   'rm -r',
@@ -44,10 +82,7 @@ const DEFAULT_COMMAND_BLACKLIST = [
   'dd',
   'shutdown',
   'reboot',
-  'reg',
   'regedit',
-  'powershell',
-  'cmd',
 ]
 
 function addBlacklist() {
@@ -261,12 +296,25 @@ function applyPreset(type) {
             </div>
             <div class="text-[11px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">Agent 可删除文件的目录范围，outputs 可位于任意授权子目录</div>
           </div>
-          <select v-model="ss.deleteScope" @change="saveDeleteScope"
-            class="h-8 px-2 rounded-md text-[12px] outline-none cursor-pointer"
-            :class="isDark ? 'bg-d0 border border-d4 text-wt-sub' : 'bg-l2 border border-bdrF text-lt-sub'">
-            <option value="outputs-only">仅任意层级 outputs/</option>
-            <option value="workspace">整个工作区</option>
-          </select>
+            <div ref="scopeRef" class="relative inline-flex shrink-0">
+              <button type="button" @click="toggleScope"
+                class="relative h-8 min-w-[160px] text-left pl-2.5 pr-7 rounded-md text-[12px] outline-none cursor-pointer transition-colors"
+                :class="isDark ? 'bg-d0 border border-d4 text-wt-sub hover:border-d3' : 'bg-l2 border border-bdrF text-lt-sub hover:border-lt-aux/30'">
+                {{ scopeLabel }}
+                <i class="ri-arrow-down-s-line absolute right-1.5 top-1/2 -translate-y-1/2 text-[14px] transition-transform" :class="[scopeOpen ? 'rotate-180' : '', isDark ? 'text-wt-dim' : 'text-lt-aux']" />
+              </button>
+              <div v-if="scopeOpen"
+                class="absolute right-0 top-[calc(100%+4px)] z-50 rounded-lg border p-1 shadow-xl min-w-full"
+                :class="isDark ? 'bg-d1 border-d4 shadow-black/25' : 'bg-white border-bdrF shadow-black/10'">
+                <button v-for="opt in scopeOptions" :key="opt.value" type="button" @click="chooseScope(opt.value)"
+                  class="w-full text-left px-2.5 py-1.5 rounded-md text-[12px] transition-colors whitespace-nowrap"
+                  :class="opt.value === ss.deleteScope
+                    ? (isDark ? 'bg-amber-400/12 text-amber-400' : 'bg-amber-50 text-amber-600')
+                    : (isDark ? 'text-wt-sub hover:bg-d2' : 'text-lt-sub hover:bg-l2')">
+                  {{ opt.label }}
+                </button>
+              </div>
+            </div>
         </div>
         <!-- Protected Paths Info -->
         <div class="flex items-start gap-3 py-2 px-2 rounded-lg" :class="isDark ? 'hover:bg-white/2' : 'hover:bg-l4/50'">
@@ -311,6 +359,7 @@ function applyPreset(type) {
             <span class="text-[12px] font-medium" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">黑名单</span>
             <span class="text-[11px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">始终禁止的命令前缀</span>
           </div>
+          <div class="text-[10.5px] leading-relaxed mb-2" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">仅拦截破坏性命令前缀；powershell/cmd 等普通命令默认放行，其破坏性子命令由后端正则兜底拦截。</div>
           <div class="flex flex-wrap gap-1.5 mb-2">
             <span v-for="(cmd, idx) in ss.commandBlacklist" :key="idx"
               class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[12px] font-mono cursor-pointer transition-colors"

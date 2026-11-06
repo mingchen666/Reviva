@@ -72,7 +72,7 @@ function handleSubmit() {
           <i class="ri-questionnaire-line text-[14px] text-emerald-500" />
         </div>
         <div>
-          <div class="text-[13px] font-bold" :class="isDark ? 'text-wt-main' : 'text-lt-main'">生成测验</div>
+          <div class="fs-body font-bold" :class="isDark ? 'text-wt-main' : 'text-lt-main'">生成测验</div>
           <div class="text-[10px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">将主题或资料转换为可作答练习题</div>
         </div>
       </div>
@@ -146,7 +146,7 @@ function handleSubmit() {
         </span>
         <button @click="close()"
           class="h-8 px-4 rounded-lg text-[11px] font-medium transition-colors"
-          :class="isDark ? 'text-wt-aux hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub'">
+          :class="isDark ? 'text-wt-sub hover:text-wt-main' : 'text-lt-sub hover:text-lt-main'">
           取消
         </button>
         <button

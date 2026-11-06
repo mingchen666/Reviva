@@ -109,7 +109,7 @@ watch(spaceId, ensureLoaded)
           </span>
           <span
             v-if="isSystemSpace"
-            class="inline-flex mt-1 px-2 py-0.5 rounded-md text-[10px] border"
+            class="inline-flex mt-1 px-2 py-0.5 rounded-md text-[11px] border"
             :class="
               isDark
                 ? 'text-brand-300 bg-brand-400/8 border-brand-400/20'
@@ -183,7 +183,7 @@ watch(spaceId, ensureLoaded)
           <div class="flex items-center gap-1">
             <button
               v-if="!isSystemSpace"
-              class="text-[10px]"
+              class="text-[11px]"
               :class="isDark ? 'text-wt-dim hover:text-red-400' : 'text-lt-aux hover:text-red-400'"
               @click="deleteDoc(doc.id)">
               删除

@@ -51,6 +51,11 @@
   ·
   <a href="#支持作者">支持作者</a>
 </p>
+
+<p align="center">
+  <img src="docs/images/banner.jpg" alt="Reviva AI 学习工作台" width="960" />
+</p>
+
 </div>
 
 > 📣 **微信群已迁移至 QQ 群（群号：`1131466242`），欢迎扫码加入！** [查看群二维码 ↓](#联系与交流)

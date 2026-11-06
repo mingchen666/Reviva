@@ -243,6 +243,54 @@ export class VersionedMigrationManager extends BaseRepository {
           new ImageProviderRepository({ db }).migrateLegacyImageProviders(legacy?.value)
         },
       },
+      {
+        version: 13,
+        name: 'create_wechat_bot_reminders',
+        up: db => {
+          // 建表 + 索引：微信 Bot 自定义提醒专属表（拆离 KV）
+          db.exec("CREATE TABLE IF NOT EXISTS wechat_bot_reminders (id TEXT PRIMARY KEY, name TEXT NOT NULL DEFAULT '', content TEXT NOT NULL DEFAULT '', time TEXT NOT NULL, type TEXT NOT NULL DEFAULT 'daily', weekday INTEGER DEFAULT NULL, enabled INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL DEFAULT (datetime('now')), updated_at TEXT NOT NULL DEFAULT (datetime('now'))); CREATE INDEX IF NOT EXISTS idx_wxbot_reminders_time ON wechat_bot_reminders(time);")
+          // 一次性迁移旧 KV wechatBridgeReminders（JSON 数组）入表后删除该 KV
+          const legacy = db.prepare("SELECT value FROM settings WHERE key = 'wechatBridgeReminders'").get()
+          if (legacy && legacy.value != null) {
+            const arr = parseJSON(legacy.value)
+            if (Array.isArray(arr) && arr.length) {
+              const insert = db.prepare("INSERT OR IGNORE INTO wechat_bot_reminders (id, name, content, time, type, weekday, enabled) VALUES (?, ?, ?, ?, ?, ?, ?)")
+              for (const item of arr) {
+                if (!item || !item.id) continue
+                const weekday = item.weekday != null && item.weekday !== '' ? Number(item.weekday) : null
+                const enabled = item.enabled === false ? 0 : 1
+                insert.run(
+                  String(item.id),
+                  String(item.name || '提醒'),
+                  String(item.content || ''),
+                  String(item.time || '20:00'),
+                  item.type === 'weekly' ? 'weekly' : 'daily',
+                  Number.isFinite(weekday) ? weekday : null,
+                  enabled,
+                )
+              }
+            }
+            db.prepare("DELETE FROM settings WHERE key = 'wechatBridgeReminders'").run()
+          }
+        },
+      },
+      {
+        version: 14,
+        name: 'add_wechat_bot_reminder_date_done',
+        up: db => {
+          // 一次性提醒需要 date（YYYY-MM-DD）与 done（触发后标记完成）两列
+          try { db.exec("ALTER TABLE wechat_bot_reminders ADD COLUMN date TEXT DEFAULT NULL") } catch (e) {}
+          try { db.exec("ALTER TABLE wechat_bot_reminders ADD COLUMN done INTEGER NOT NULL DEFAULT 0") } catch (e) {}
+        },
+      },
+      {
+        version: 15,
+        name: 'create_wechat_bot_reminder_log',
+        up: db => {
+          // 提醒推送历史：每次到点推送（成功/失败/跳过）落一条，供前端"推送记录"查看
+          db.exec("CREATE TABLE IF NOT EXISTS wechat_bot_reminder_log (id TEXT PRIMARY KEY, reminder_id TEXT, reminder_name TEXT NOT NULL DEFAULT '', content TEXT NOT NULL DEFAULT '', target_user_id TEXT NOT NULL DEFAULT '', status TEXT NOT NULL DEFAULT 'pending', error TEXT, fired_at TEXT NOT NULL DEFAULT (datetime('now'))); CREATE INDEX IF NOT EXISTS idx_wxbot_reminder_log_fired_at ON wechat_bot_reminder_log(fired_at DESC);")
+        },
+      },
     ]
   }
 

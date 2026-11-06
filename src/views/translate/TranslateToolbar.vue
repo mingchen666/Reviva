@@ -41,7 +41,7 @@ const modelOptionsWithLogo = computed(() => {
     <!-- History toggle -->
     <button @click="store.showHistoryDrawer = true"
       class="h-8 px-2.5 rounded-lg flex items-center gap-1.5 transition-all"
-      :class="isDark ? 'bg-d3 text-wt-aux hover:text-wt-sub' : 'bg-l3 text-lt-aux'">
+      :class="isDark ? 'bg-d3 text-wt-sub hover:text-wt-main' : 'bg-l3 text-lt-aux'">
       <i class="ri-history-line text-[15px]" />
       <span class="text-[14px]">历史</span>
     </button>
@@ -54,7 +54,7 @@ const modelOptionsWithLogo = computed(() => {
     <!-- Settings -->
     <button @click="store.showSettingsModal = true"
       class="w-8 h-8 rounded-lg flex items-center justify-center transition-all"
-      :class="isDark ? 'bg-d3 text-wt-aux hover:text-wt-sub border border-bdr hover:border-brand-400/20' : 'bg-l3 text-lt-aux hover:text-lt-sub border border-bdrF hover:border-brand-400/30'">
+      :class="isDark ? 'bg-d3 text-wt-sub hover:text-wt-main border border-bdr hover:border-brand-400/20' : 'bg-l3 text-lt-sub hover:text-lt-main border border-bdrF hover:border-brand-400/30'">
       <i class="ri-settings-3-line text-[15px]" />
     </button>
   </div>

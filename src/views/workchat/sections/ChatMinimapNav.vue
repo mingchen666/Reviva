@@ -379,7 +379,7 @@ function itemAriaLabel(item) {
   align-items: center;
   gap: 4px;
   color: var(--minimap-active);
-  font-size: 9px;
+  font-size: 10.5px;
   font-weight: 650;
   line-height: 1.2;
 }

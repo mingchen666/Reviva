@@ -55,7 +55,6 @@ const activeCategoryLabel = computed(() => {
 
 const builtinCount = computed(() => agentsStore.builtinTools.length)
 const customCount = computed(() => agentsStore.customTools.length)
-const enabledCount = computed(() => agentsStore.enabledTools.length)
 
 function getCatInfo(tool) {
   return agentsStore.TOOL_CATEGORIES.find(c => c.key === tool.cat) || { key: 'custom', label: '自定义', icon: 'ri-tools-line', color: '#FACC15' }
@@ -66,7 +65,7 @@ function isToolConfigured(tool) {
 }
 
 function getStatus(tool) {
-  if (!tool.enabled) return { text: '已禁用', tone: 'muted' }
+  if (tool.runtimeDisabled) return { text: '暂未支持', tone: 'muted' }
   if (tool.needsConfig && !isToolConfigured(tool)) return { text: '需配置', tone: 'warning' }
   return { text: '可用', tone: 'ok' }
 }
@@ -78,15 +77,6 @@ function selectTool(tool) {
 function setFilterCat(cat) {
   filterCat.value = cat
   selectedTool.value = null
-}
-
-function toggleToolEnabled(tool) {
-  if (tool.runtimeDisabled) return
-  if (tool.builtin) {
-    agentsStore.toggleBuiltinTool(tool.id)
-  } else {
-    agentsStore.updateTool(tool.id, { enabled: tool.enabled ? 0 : 1 })
-  }
 }
 
 function startCreate() {
@@ -153,11 +143,11 @@ function deleteTool() {
   <div class="flex flex-col h-full overflow-hidden">
     <div class="h-9 flex items-center px-4 shrink-0 gap-4" :class="isDark ? 'border-b border-d4' : 'border-b border-bdrL'">
       <button @click="activeTab = 'tools'" class="text-[14px] font-semibold transition-colors flex items-center gap-1.5"
-        :class="activeTab === 'tools' ? (isDark ? 'text-wt-main' : 'text-lt-main') : (isDark ? 'text-wt-aux hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub')">
+        :class="activeTab === 'tools' ? (isDark ? 'text-wt-main' : 'text-lt-main') : (isDark ? 'text-wt-sub hover:text-wt-main' : 'text-lt-sub hover:text-lt-main')">
         <i class="ri-tools-line text-[14px]" /> 工具
       </button>
       <button @click="activeTab = 'mcp'" class="text-[14px] font-semibold transition-colors flex items-center gap-1.5"
-        :class="activeTab === 'mcp' ? (isDark ? 'text-wt-main' : 'text-lt-main') : (isDark ? 'text-wt-aux hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub')">
+        :class="activeTab === 'mcp' ? (isDark ? 'text-wt-main' : 'text-lt-main') : (isDark ? 'text-wt-sub hover:text-wt-main' : 'text-lt-sub hover:text-lt-main')">
         <svg-icon icon-class="mcp" size="14"/> MCP 服务器
       </button>
     </div>
@@ -168,7 +158,7 @@ function deleteTool() {
       <LeftPanel :width="272" :resizable="false">
         <div class="h-10 flex items-center px-4 shrink-0" :class="isDark ? 'border-b border-d4' : 'border-b border-bdrL'">
           <span class="text-[13px] font-semibold" :class="isDark ? 'text-wt-main' : 'text-lt-main'">工具</span>
-          <span class="ml-auto text-[10px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">{{ enabledCount }}/{{ agentsStore.toolList.length }} 已启用</span>
+          <span class="ml-auto text-[10px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">{{ agentsStore.toolList.length }} 个工具</span>
         </div>
 
         <div class="px-3 py-2">
@@ -181,7 +171,7 @@ function deleteTool() {
 
         <div class="px-3 pb-2 flex gap-1 overflow-x-auto">
           <button v-for="f in catFilters" :key="f.key" @click="setFilterCat(f.key)" class="ctx-pill cursor-pointer whitespace-nowrap"
-            :class="filterCat === f.key ? (isDark ? 'text-wt-main bg-white/6' : 'text-lt-main bg-l3') : (isDark ? 'text-wt-aux hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub')">
+            :class="filterCat === f.key ? (isDark ? 'text-wt-main bg-white/6' : 'text-lt-main bg-l3') : (isDark ? 'text-wt-sub hover:text-wt-main' : 'text-lt-sub hover:text-lt-main')">
             {{ f.label }}
           </button>
         </div>
@@ -192,7 +182,7 @@ function deleteTool() {
 
         <div class="flex-1 overflow-y-auto px-2 pb-2 space-y-0.5">
           <div v-for="tool in filteredTools" :key="tool.id" @click="selectTool(tool)">
-            <ToolList :tool="tool" :selected="selectedTool?.id === tool.id" :is-dark="isDark" @toggle="toggleToolEnabled(tool)" />
+            <ToolList :tool="tool" :selected="selectedTool?.id === tool.id" :is-dark="isDark" />
           </div>
         </div>
 
@@ -212,7 +202,6 @@ function deleteTool() {
           @edit="startEditTool"
           @config="startConfigTool"
           @delete="deleteTool"
-          @toggle="toggleToolEnabled(selectedTool)"
         />
 
         <div v-else class="flex-1 flex flex-col overflow-hidden">
@@ -264,7 +253,6 @@ function deleteTool() {
                         <div class="text-[10px] font-mono truncate mt-0.5" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">{{ tool.id }}</div>
                       </div>
                     </div>
-                    <div class="toggle shrink-0" :class="[tool.runtimeDisabled ? (isDark ? 'off' : 'light-off') : (tool.enabled ? 'on' : (isDark ? 'off' : 'light-off')), tool.runtimeDisabled ? 'opacity-60 cursor-not-allowed' : '']" @click.stop="toggleToolEnabled(tool)" />
                   </div>
 
                   <p class="text-[11px] leading-relaxed line-clamp-2 min-h-[34px]" :class="isDark ? 'text-wt-aux' : 'text-lt-aux'" :title="tool.desc || tool.description">{{ tool.desc || tool.description }}</p>

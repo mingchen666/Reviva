@@ -58,7 +58,7 @@ watch(() => props.targetId, (id) => {
           </div>
           <button
             class="w-7 h-7 rounded-lg flex items-center justify-center"
-            :class="isDark ? 'text-wt-aux hover:text-wt-sub hover:bg-white/5' : 'text-lt-aux hover:text-lt-sub hover:bg-l4'"
+            :class="isDark ? 'text-wt-sub hover:text-wt-main hover:bg-white/5' : 'text-lt-sub hover:text-lt-main hover:bg-l4'"
             @click="emit('close')">
             <i class="ri-close-line text-[15px]" />
           </button>
@@ -69,7 +69,7 @@ watch(() => props.targetId, (id) => {
             <span class="text-[11px] font-medium" :class="isDark ? 'text-wt-aux' : 'text-lt-aux'">目标知识库</span>
             <select
               v-model="selectedKbId"
-              class="mt-1.5 w-full h-9 rounded-lg px-3 text-[12.5px] outline-none transition-colors"
+              class="mt-1.5 w-full h-9 rounded-lg px-3 text-[12px] outline-none transition-colors"
               :class="isDark ? 'bg-d0 border border-d4 text-wt-main focus:border-brand-400/45' : 'bg-l3 border border-bdrF text-lt-main focus:border-brand-400'">
               <option v-for="kb in targetOptions" :key="kb.id" :value="kb.id">
                 {{ kb.name }}
@@ -87,7 +87,7 @@ watch(() => props.targetId, (id) => {
               :class="isDark ? 'bg-d1' : 'bg-l2'">
               <i class="ri-upload-cloud-line text-[26px]" :class="isDark ? 'text-brand-300' : 'text-brand-500'" />
             </div>
-            <p class="text-[12.5px] font-medium" :class="isDark ? 'text-wt-main' : 'text-lt-main'">
+            <p class="text-[12px] font-medium" :class="isDark ? 'text-wt-main' : 'text-lt-main'">
               {{ files.length ? `已选择 ${files.length} 个文件` : '选择要上传的文件' }}
             </p>
             <p class="mt-1 text-[11px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">
@@ -103,20 +103,20 @@ watch(() => props.targetId, (id) => {
               :class="isDark ? 'border-d4' : 'border-bdrF'">
               <i class="ri-file-line text-[13px]" :class="isDark ? 'text-wt-aux' : 'text-lt-aux'" />
               <span class="flex-1 min-w-0 truncate text-[12px]" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">{{ file.name }}</span>
-              <span class="text-[10.5px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">{{ fmtBytes(file.size) }}</span>
+              <span class="text-[11px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">{{ fmtBytes(file.size) }}</span>
             </div>
           </div>
 
           <div
             v-if="targetOptions.length === 0"
-            class="rounded-lg border px-3 py-2 text-[11.5px]"
+            class="rounded-lg border px-3 py-2 text-[11px]"
             :class="isDark ? 'text-wt-aux bg-d1 border-d4' : 'text-lt-aux bg-l3 border-bdrF'">
             当前没有可写的用户知识库。系统知识库为只读，不能上传文档。
           </div>
 
           <div
             v-else-if="selectedKb"
-            class="rounded-lg border px-3 py-2 text-[11.5px] flex items-center gap-2"
+            class="rounded-lg border px-3 py-2 text-[11px] flex items-center gap-2"
             :class="isDark ? 'text-wt-aux bg-d1 border-d4' : 'text-lt-aux bg-l3 border-bdrF'">
             <i :class="[selectedKb.icon || 'ri-folder-3-line', 'text-[13px]']" :style="`color:${selectedKb.color || '#6C8AFF'}`" />
             上传到 {{ selectedKb.name }}
@@ -126,7 +126,7 @@ watch(() => props.targetId, (id) => {
         <div class="px-5 py-4 border-t flex items-center justify-end gap-2" :class="isDark ? 'border-d4 bg-d1/60' : 'border-bdrF bg-l3/50'">
           <button
             class="h-8 px-3 rounded-lg text-[12px] font-medium"
-            :class="isDark ? 'text-wt-aux hover:text-wt-sub hover:bg-white/5' : 'text-lt-aux hover:text-lt-sub hover:bg-l4'"
+            :class="isDark ? 'text-wt-sub hover:text-wt-main hover:bg-white/5' : 'text-lt-sub hover:text-lt-main hover:bg-l4'"
             @click="emit('close')">
             取消
           </button>

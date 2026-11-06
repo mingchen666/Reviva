@@ -305,7 +305,7 @@ function toggleSubAgentEnabled() {
             <i class="ri-sparkling-2-line text-agent-400 text-[14px]" />
             <span class="text-[13px] font-bold" :class="isDark ? 'text-wt-main' : 'text-lt-main'">{{ editAgent.name ? '编辑 · ' + editAgent.name : '新建智能体' }}</span>
           </div>
-          <button @click="emit('cancel')" :class="isDark ? 'text-wt-aux hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub'">
+          <button @click="emit('cancel')" :class="isDark ? 'text-wt-sub hover:text-wt-main' : 'text-lt-sub hover:text-lt-main'">
             <i class="ri-close-line text-[20px]" />
           </button>
         </div>
@@ -604,7 +604,7 @@ function toggleSubAgentEnabled() {
               <div class="relative mb-2">
                 <i class="ri-search-line absolute left-2.5 top-1/2 -translate-y-1/2 text-[12px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'" />
                 <input v-model="toolSearch" type="text" placeholder="搜索工具名称、说明、分类或 MCP 服务器" class="w-full h-8 pl-8 pr-7 rounded-lg text-[11px] outline-none transition-colors" :class="isDark ? 'bg-d0 border border-d4 text-wt-sub placeholder-wt-dim focus:border-emerald-400/35' : 'bg-l2 border border-bdrF text-lt-sub placeholder-lt-aux focus:border-emerald-300'">
-                <button v-if="toolSearch" @click="toolSearch = ''" class="absolute right-2 top-1/2 -translate-y-1/2" :class="isDark ? 'text-wt-dim hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub'">
+                <button v-if="toolSearch" @click="toolSearch = ''" class="absolute right-2 top-1/2 -translate-y-1/2" :class="isDark ? 'text-wt-dim hover:text-wt-sub' : 'text-lt-sub hover:text-lt-main'">
                   <i class="ri-close-circle-line text-[12px]" />
                 </button>
               </div>
@@ -640,7 +640,7 @@ function toggleSubAgentEnabled() {
               <div class="relative mb-2">
                 <i class="ri-search-line absolute left-2.5 top-1/2 -translate-y-1/2 text-[12px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'" />
                 <input v-model="skillSearch" type="text" placeholder="搜索 Skill 名称、说明或 ID" class="w-full h-8 pl-8 pr-7 rounded-lg text-[11px] outline-none transition-colors" :class="isDark ? 'bg-d0 border border-d4 text-wt-sub placeholder-wt-dim focus:border-brand-400/35' : 'bg-l2 border border-bdrF text-lt-sub placeholder-lt-aux focus:border-brand-300'">
-                <button v-if="skillSearch" @click="skillSearch = ''" class="absolute right-2 top-1/2 -translate-y-1/2" :class="isDark ? 'text-wt-dim hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub'">
+                <button v-if="skillSearch" @click="skillSearch = ''" class="absolute right-2 top-1/2 -translate-y-1/2" :class="isDark ? 'text-wt-dim hover:text-wt-sub' : 'text-lt-sub hover:text-lt-main'">
                   <i class="ri-close-circle-line text-[12px]" />
                 </button>
               </div>
@@ -690,7 +690,7 @@ function toggleSubAgentEnabled() {
         <!-- Footer -->
         <div class="px-5 py-3 flex justify-end gap-2 shrink-0"
           :class="isDark ? 'border-t border-d4 bg-d4/30' : 'border-t border-bdrL bg-l4/30'">
-          <button @click="emit('cancel')" class="px-4 py-2 rounded-lg text-[12px] font-medium transition-colors" :class="isDark ? 'text-wt-aux hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub'">取消</button>
+          <button @click="emit('cancel')" class="px-4 py-2 rounded-lg text-[12px] font-medium transition-colors" :class="isDark ? 'text-wt-sub hover:text-wt-main' : 'text-lt-sub hover:text-lt-main'">取消</button>
           <button @click="emit('save')" class="px-4 py-2 rounded-lg text-[12px] font-semibold flex items-center gap-1 transition-colors" :class="isDark ? 'bg-agent-400 text-d0 hover:bg-agent-500' : 'bg-agent-500 text-white hover:bg-agent-600'"><i class="ri-check-line text-[12px]" /> 保存</button>
         </div>
       </div>

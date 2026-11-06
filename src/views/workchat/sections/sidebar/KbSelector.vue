@@ -54,13 +54,13 @@ const activeSourceIcon = computed(() => {
   const p = activeSource.value?.preset
   if (t === 'mcp') return ''
   if (t === 'preset' || t === 'http') {
-    if (p === 'dify' || p === 'fastgpt') return p
+    if (p === 'dify' || p === 'fastgpt' || p === 'ima') return p
     return ''
   }
   return ''
 })
 
-// True when the source has a branded SVG icon (dify/fastgpt/mcp)
+// True when the source has a branded SVG icon (dify/fastgpt/ima/mcp)
 const hasSvgIcon = computed(() => !!activeSourceIcon.value)
 // First character of the source name, for generic sources without a brand SVG
 const sourceInitial = computed(() => (activeSource.value?.name || '?').charAt(0).toUpperCase())
@@ -73,6 +73,7 @@ const activeSourceColor = computed(() => {
   if (t === 'mcp') return { dark: '#A78BFA', light: '#7C3AED' }
   if (p === 'dify') return { dark: '#60A5FA', light: '#2563EB' }
   if (p === 'fastgpt') return { dark: '#34D399', light: '#059669' }
+  if (p === 'ima') return { dark: '#22D3EE', light: '#0891B2' }
   return { dark: '#818CF8', light: '#6366F1' }
 })
 
@@ -82,6 +83,7 @@ const activeSourceTypeLabel = computed(() => {
   if (t === 'mcp') return 'MCP'
   if (p === 'dify') return 'Dify'
   if (p === 'fastgpt') return 'FastGPT'
+  if (p === 'ima') return 'IMA'
   if (t === 'http') return 'HTTP'
   return '外部'
 })
@@ -240,7 +242,7 @@ onMounted(() => {
       </div>
       <button @click="refresh"
         class="h-8 w-8 rounded-lg flex items-center justify-center transition-all duration-200 shrink-0"
-        :class="isDark ? 'text-wt-aux hover:text-wt-sub hover:bg-white/5 active:bg-white/10' : 'text-lt-aux hover:text-lt-sub hover:bg-l4 active:bg-l3'"
+        :class="isDark ? 'text-wt-sub hover:text-wt-main hover:bg-white/5 active:bg-white/10' : 'text-lt-sub hover:text-lt-main hover:bg-l4 active:bg-l3'"
         title="刷新">
         <i class="ri-refresh-line text-[15px]" :class="spacesStore.kbsLoading ? 'animate-spin' : ''" />
     </button>
@@ -248,8 +250,8 @@ onMounted(() => {
 
     <!-- Sub-tab toggle -->
     <div class="flex items-center gap-0.5 px-2.5 pt-0 pb-1.5 shrink-0">
-      <button @click="kbSubTab = 'cloud'" class="flex-1 h-7 rounded-lg text-[12px] transition-colors" :class="kbSubTab === 'cloud' ? (isDark ? 'bg-brand-400/15 text-wt-main font-bold' : 'bg-brand-50 text-lt-main font-bold') : (isDark ? 'text-wt-dim hover:text-wt-sub font-medium' : 'text-lt-aux hover:text-lt-sub font-medium')">云端知识库</button>
-      <button @click="kbSubTab = 'external'" class="flex-1 h-7 rounded-lg text-[12px] transition-colors" :class="kbSubTab === 'external' ? (isDark ? 'bg-brand-400/15 text-wt-main font-bold' : 'bg-brand-50 text-lt-main font-bold') : (isDark ? 'text-wt-dim hover:text-wt-sub font-medium' : 'text-lt-aux hover:text-lt-sub font-medium')">外部知识源</button>
+      <button @click="kbSubTab = 'cloud'" class="flex-1 h-7 rounded-lg text-[12px] transition-colors" :class="kbSubTab === 'cloud' ? (isDark ? 'bg-brand-400/15 text-wt-main font-bold' : 'bg-brand-50 text-lt-main font-bold') : (isDark ? 'text-wt-dim hover:text-wt-sub font-medium' : 'text-lt-sub hover:text-lt-main font-medium')">云端知识库</button>
+      <button @click="kbSubTab = 'external'" class="flex-1 h-7 rounded-lg text-[12px] transition-colors" :class="kbSubTab === 'external' ? (isDark ? 'bg-brand-400/15 text-wt-main font-bold' : 'bg-brand-50 text-lt-main font-bold') : (isDark ? 'text-wt-dim hover:text-wt-sub font-medium' : 'text-lt-sub hover:text-lt-main font-medium')">外部知识源</button>
     </div>
 
     <div v-show="kbSubTab === 'cloud'" class="flex-1 flex flex-col min-h-0">
@@ -317,7 +319,7 @@ onMounted(() => {
           <!-- Expand Arrow -->
           <button @click.stop="toggleExpand(kb)" 
             class="w-4 h-4 flex items-center justify-center rounded shrink-0 transition-colors"
-            :class="isDark ? 'text-wt-dim hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub'">
+            :class="isDark ? 'text-wt-dim hover:text-wt-sub' : 'text-lt-sub hover:text-lt-main'">
             <i class="ri-arrow-right-s-line text-[14px] transition-transform duration-200 ease-out"
                :style="{ transform: expandedKbs.has(kb.id) ? 'rotate(90deg)' : 'rotate(0deg)' }" />
           </button>

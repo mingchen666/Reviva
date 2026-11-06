@@ -1,5 +1,5 @@
 <script setup>
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAppStore } from '@/stores/app'
 import { useTasksStore } from '@/stores/tasks'
@@ -13,7 +13,40 @@ const router = useRouter()
 const ROUTE_STUDY = '/workchat'
 const ROUTE_SPACES = '/docs-manage'
 
+function openExternal(url) {
+  if (!url) return
+  if (window.electronAPI?.openExternal) {
+    window.electronAPI.openExternal(url).catch(console.error)
+  } else {
+    window.open(url, '_blank', 'noopener,noreferrer')
+  }
+}
+
 const isDark = computed(() => appStore.isDark)
+// 作者可在此替换为自己的赞赏 / 爱发电页面链接
+const GITHUB_URL = 'https://github.com/mingchen666/Reviva'
+const WEBSITE_URL = 'https://www.reviva.cn'
+const SPONSOR_URL = 'https://www.reviva.cn'
+const QQ_GROUP_URL =
+  'https://qun.qq.com/universal-share/share?ac=1&authKey=Xc02LYUkVIYM2c3M2rZMZoZfMCWAN1gUoWsIIkW7wnvRWa9TW8vsmm1f0m7EHCsN&busi_data=eyJncm91cENvZGUiOiIxMTMxNDY2MjQyIiwidG9rZW4iOiJxOVhhRFVvelozTU8xeTdFYjBjR0JIT2UrL2JEbVdPTVVFQ2JBWlljMFozL3FOZnFUNERPcUNzTE50enZSMFpPIiwidWluIjoiMzA5MDc5Nzg2MSJ9&data=DYeYI4Up27h5UGp0bZ_gp8_ebh9Xgbem1TkZZM1qjioukBWtwYKdfBW6IygtMMzHPL48U6HL-1yza5NzYW-z7g&svctype=4&tempid=h5_group_info'
+const QQ_GROUP_ID = '1131466242'
+
+// 复制推荐链接的反馈状态：'idle' | 'copied'
+const shareToast = ref('idle')
+
+async function copyShareLink() {
+  const text = `Reviva —— 以 Agent 为核心的本地 AI 学习工作台：${WEBSITE_URL}`
+  try {
+    await navigator.clipboard.writeText(text)
+  } catch {
+    openExternal(WEBSITE_URL)
+    return
+  }
+  shareToast.value = 'copied'
+  setTimeout(() => {
+    shareToast.value = 'idle'
+  }, 1800)
+}
 
 const prefersReducedMotion =
   typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
@@ -64,8 +97,8 @@ const vReveal = {
 const workflowSteps = [
   { icon: 'ri-folder-2-line', label: '导入', desc: '文档、音视频、网页，统一进来' },
   { icon: 'ri-message-ai-3-line', label: 'Agent 对话', desc: '选择 Agent 与上下文，围绕资料提问' },
-  { icon: 'ri-quill-pen-ai-line', label: '生成成果', desc: '测验、闪卡、导图、播客、研究报告' },
-  { icon: 'ri-bookmark-3-line', label: '沉淀复用', desc: '存进笔记与 Wiki，下次接着学' },
+  { icon: 'ri-quill-pen-ai-line', label: '生成成果', desc: '测验、闪卡、导图、PPT、研究报告等' },
+  { icon: 'ri-bookmark-3-line', label: '沉淀复用', desc: '存进笔记与 Wiki，持续学习' },
 ]
 
 const recentTasks = computed(() =>
@@ -176,7 +209,28 @@ function formatTime(value) {
           <p class="welcome-title">
             {{ greeting }}，<span class="welcome-date">{{ todayLabel }}</span>
           </p>
-          <p class="welcome-note">你的本地 Agent 学习工作空间。</p>
+          <p class="welcome-note">
+            你的本地 Agent 学习工作空间。<button
+              class="welcome-note__link"
+              type="button"
+              :title="`遇到问题或想交流？加交流群（群号 ${QQ_GROUP_ID}）`"
+              @click="openExternal(QQ_GROUP_URL)">遇到问题可以加群交流<i class="ri-arrow-right-line" aria-hidden="true" /></button>
+          </p>
+        </div>
+        <div class="welcome-actions">
+          <button class="icon-action" type="button" title="在 GitHub 上点个 Star" @click="openExternal(GITHUB_URL)">
+            <i class="ri-github-line text-20px" aria-hidden="true" />
+          </button>
+          <button
+            class="icon-action"
+            type="button"
+            :title="shareToast === 'copied' ? '已复制链接，去发给朋友吧' : '推荐给朋友'"
+            @click="copyShareLink">
+            <i :class="shareToast === 'copied' ? 'ri-check-line text-20px' : 'ri-share-forward-line text-20px'" aria-hidden="true" />
+          </button>
+          <button class="icon-action icon-action--heart" type="button" title="支持作者" @click="openExternal(SPONSOR_URL)">
+            <i class="ri-heart-3-line text-20px" aria-hidden="true" />
+          </button>
         </div>
       </header>
 
@@ -195,6 +249,11 @@ function formatTime(value) {
             <button class="hero-cta" type="button" @click="router.push(ROUTE_SPACES)">
               <i class="ri-upload-cloud-2-line" aria-hidden="true" />
               导入资料
+            </button>
+            <button class="hero-cta hero-cta--tutorial" type="button" @click="openExternal('https://www.reviva.cn/tutorial')">
+              <i class="ri-graduation-cap-line" aria-hidden="true" />
+              新手教程
+              <i class="ri-arrow-right-up-line hero-cta__ext" aria-hidden="true" />
             </button>
           </div>
         </div>
@@ -322,6 +381,7 @@ function formatTime(value) {
           </section>
         </div>
       </section>
+
     </main>
   </div>
 </template>
@@ -363,7 +423,7 @@ function formatTime(value) {
   --home-space-6: 1.5rem;
   --home-space-8: 2rem;
   --home-space-10: 2.5rem;
-  --home-space-12: 3rem;
+  --home-space-12: 1rem;
   --home-space-16: 4rem;
   --home-text-xs: 0.6875rem;
   --home-text-sm: 0.75rem;
@@ -467,6 +527,50 @@ function formatTime(value) {
   font-size: var(--home-text-sm);
 }
 
+.welcome-note__link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.125rem;
+  margin-left: var(--home-space-1);
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--home-accent);
+  font: inherit;
+  font-size: var(--home-text-sm);
+  font-weight: 600;
+  line-height: inherit;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: opacity var(--home-duration) var(--home-ease-out);
+}
+
+.welcome-note__link::before {
+  content: '·';
+  margin-right: var(--home-space-1);
+  color: var(--home-text-dim);
+  font-weight: 400;
+}
+
+.welcome-note__link i {
+  font-size: 0.875rem;
+  transition: transform var(--home-duration) var(--home-ease-out);
+}
+
+.welcome-note__link:hover {
+  opacity: 0.75;
+}
+
+.welcome-note__link:hover i {
+  transform: translateX(2px);
+}
+
+.welcome-note__link:focus-visible {
+  outline: 2px solid var(--home-focus);
+  outline-offset: 2px;
+  border-radius: var(--home-radius-small);
+}
+
 /* ---------- Hero ---------- */
 .hero-section {
   display: grid;
@@ -552,6 +656,27 @@ function formatTime(value) {
 
 .hero-cta:active {
   transform: translateY(0);
+}
+
+.hero-cta--tutorial {
+  border-style: dashed;
+  border-color: color-mix(in srgb, var(--home-accent) 35%, var(--home-rule-card));
+  color: var(--home-accent);
+  background: color-mix(in srgb, var(--home-accent) 6%, var(--home-surface));
+}
+.hero-cta--tutorial:hover {
+  border-style: solid;
+  filter: brightness(1.05);
+  box-shadow: 0 10px 24px -12px color-mix(in srgb, var(--home-accent) 55%, transparent);
+}
+.hero-cta__ext {
+  font-size: .8125rem;
+  opacity: .55;
+  transition: transform var(--home-duration) var(--home-ease-out), opacity var(--home-duration) var(--home-ease-out);
+}
+.hero-cta--tutorial:hover .hero-cta__ext {
+  transform: translate(2px, -2px);
+  opacity: 1;
 }
 
 .hero-cta--primary {
@@ -976,9 +1101,7 @@ function formatTime(value) {
   height: 3.5rem;
   margin-bottom: var(--home-space-4);
   border-radius: 50%;
-  background: color-mix(in srgb, var(--home-text-dim) 8%, transparent);
-  color: var(--home-text-dim);
-  font-size: var(--home-text-xl);
+  font-size: 2rem;
   animation: home-breathe 3.4s ease-in-out infinite;
 }
 
@@ -1006,6 +1129,53 @@ function formatTime(value) {
   color: var(--home-text-aux);
   font-size: var(--home-text-sm);
   line-height: 1.65;
+}
+
+/* ---------- 顶栏操作按钮 ---------- */
+.welcome-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--home-space-1);
+  flex-shrink: 0;
+}
+
+.icon-action {
+  display: inline-grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border: 1px solid transparent;
+  border-radius: var(--home-radius-control);
+  background: transparent;
+  color: var(--home-text-aux);
+  font-size: 1.0625rem;
+  cursor: pointer;
+  transition:
+    color var(--home-duration) var(--home-ease-out),
+    background-color var(--home-duration) var(--home-ease-out),
+    border-color var(--home-duration) var(--home-ease-out),
+    transform var(--home-duration) var(--home-ease-out);
+}
+
+.icon-action:hover {
+  color: var(--home-accent);
+  border-color: var(--home-accent-rule);
+  background: color-mix(in srgb, var(--home-accent) 8%, transparent);
+}
+
+.icon-action:active {
+  transform: scale(0.94);
+}
+
+.icon-action:focus-visible {
+  outline: 2px solid var(--home-focus);
+  outline-offset: 2px;
+}
+
+.icon-action--heart:hover {
+  color: var(--home-warning);
+  border-color: color-mix(in srgb, var(--home-warning) 30%, transparent);
+  background: color-mix(in srgb, var(--home-warning) 10%, transparent);
 }
 
 @media (max-width: 65rem) {

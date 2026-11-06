@@ -147,7 +147,7 @@ function handleSubmit() {
           <i :class="config.icon + ' text-[14px]'" />
         </div>
         <div>
-          <div class="text-[13px] font-bold" :class="isDark ? 'text-wt-main' : 'text-lt-main'">生成{{ config.name }}</div>
+          <div class="fs-body font-bold" :class="isDark ? 'text-wt-main' : 'text-lt-main'">生成{{ config.name }}</div>
           <div class="text-[10px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">{{ config.desc }}</div>
         </div>
       </div>
@@ -247,7 +247,7 @@ function handleSubmit() {
         <span v-if="hint" class="text-[10px] mr-auto" :class="isDark ? 'text-amber-400' : 'text-amber-500'">
           <i class="ri-information-line" /> {{ hint }}
         </span>
-        <button @click="close()" class="h-8 px-4 rounded-lg text-[11px] font-medium transition-colors" :class="isDark ? 'text-wt-aux hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub'">取消</button>
+        <button @click="close()" class="h-8 px-4 rounded-lg text-[11px] font-medium transition-colors" :class="isDark ? 'text-wt-sub hover:text-wt-main' : 'text-lt-sub hover:text-lt-main'">取消</button>
         <button :disabled="!canSubmit" @click="handleSubmit" class="h-8 px-5 rounded-lg text-[11px] font-semibold flex items-center gap-1.5 transition-all text-white"
           :class="canSubmit ? theme.button : (isDark ? 'bg-d4 text-wt-dim cursor-not-allowed shadow-none' : 'bg-l4 text-lt-aux cursor-not-allowed shadow-none')">
           开始生成 <i class="ri-arrow-right-line text-[12px]" />

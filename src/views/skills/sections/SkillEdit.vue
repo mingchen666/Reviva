@@ -31,7 +31,7 @@ const categoryOptions = ['学习', '编程', '写作', '研究', '效率', '其�
             <i class="ri-flashlight-line text-brand-400 text-[14px]" />
             <span class="text-[13px] font-bold" :class="isDark ? 'text-wt-main' : 'text-lt-main'">{{ editSkill.name ? '编辑 · ' + editSkill.name : '新建 Skill' }}</span>
           </div>
-          <button @click="emit('cancel')" :class="isDark ? 'text-wt-aux hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub'"><i class="ri-close-line text-[20px]" /></button>
+          <button @click="emit('cancel')" :class="isDark ? 'text-wt-sub hover:text-wt-main' : 'text-lt-sub hover:text-lt-main'"><i class="ri-close-line text-[20px]" /></button>
         </div>
 
         <!-- Body -->
@@ -100,7 +100,7 @@ const categoryOptions = ['学习', '编程', '写作', '研究', '效率', '其�
         <!-- Footer -->
         <div class="px-5 py-3 flex justify-end gap-2 shrink-0"
           :class="isDark ? 'border-t border-d4 bg-d4/30' : 'border-t border-bdrL bg-l4/30'">
-          <button @click="emit('cancel')" class="px-4 py-2 rounded-lg text-[12px] font-medium transition-colors" :class="isDark ? 'text-wt-aux hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub'">取消</button>
+          <button @click="emit('cancel')" class="px-4 py-2 rounded-lg text-[12px] font-medium transition-colors" :class="isDark ? 'text-wt-sub hover:text-wt-main' : 'text-lt-sub hover:text-lt-main'">取消</button>
           <button @click="emit('save')" class="px-4 py-2 rounded-lg text-[12px] font-semibold flex items-center gap-1 transition-colors" :class="isDark ? 'bg-brand-400 text-d0 hover:bg-brand-500' : 'bg-brand-500 text-white hover:bg-brand-600'"><i class="ri-check-line text-[14px]" /> 保存</button>
         </div>
       </div>

@@ -105,15 +105,15 @@ function closePreview() {
           <span>打开预览</span>
         </button>
         <button @click="openExternally" class="h-5 w-5 rounded flex items-center justify-center transition-colors"
-          :class="isDark ? 'text-wt-aux hover:text-wt-sub hover:bg-white/5' : 'text-lt-aux hover:text-lt-sub hover:bg-l4'" title="用系统应用打开">
+          :class="isDark ? 'text-wt-sub hover:text-wt-main hover:bg-white/5' : 'text-lt-sub hover:text-lt-main hover:bg-l4'" title="用系统应用打开">
           <i class="ri-external-link-line text-[11px]" />
         </button>
         <button @click="copyPath" class="h-5 w-5 rounded flex items-center justify-center transition-colors"
-          :class="isDark ? 'text-wt-aux hover:text-wt-sub hover:bg-white/5' : 'text-lt-aux hover:text-lt-sub hover:bg-l4'" title="复制路径">
+          :class="isDark ? 'text-wt-sub hover:text-wt-main hover:bg-white/5' : 'text-lt-sub hover:text-lt-main hover:bg-l4'" title="复制路径">
           <i class="ri-clipboard-line text-[11px]" />
         </button>
         <button @click="showInFolder" class="h-5 w-5 rounded flex items-center justify-center transition-colors"
-          :class="isDark ? 'text-wt-aux hover:text-wt-sub hover:bg-white/5' : 'text-lt-aux hover:text-lt-sub hover:bg-l4'" title="在文件夹中显示">
+          :class="isDark ? 'text-wt-sub hover:text-wt-main hover:bg-white/5' : 'text-lt-sub hover:text-lt-main hover:bg-l4'" title="在文件夹中显示">
           <i class="ri-folder-open-line text-[11px]" />
         </button>
         <div class="w-px h-3 mx-0.5" :class="isDark ? 'bg-d4' : 'bg-bdrL'" />

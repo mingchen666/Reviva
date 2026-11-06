@@ -40,8 +40,8 @@ const sectionMeta = {
         <!-- Hero -->
         <div class="flex items-start gap-4 mb-8">
           <div class="w-14 h-14 rounded-2xl flex items-center justify-center shrink-0"
-               :class="isDark ? 'bg-gradient-to-br from-agent-400/20 to-brand-400/10 border border-agent-400/20' : 'bg-gradient-to-br from-agent-50 to-brand-50 border border-agent-100'">
-            <i :class="sectionMeta[subNav].icon + ' text-[26px]'" :style="'color:' + sectionMeta[subNav].color" />
+              >
+            <i :class="sectionMeta[subNav].icon + ' text-[36px]'" :style="'color:' + sectionMeta[subNav].color" />
           </div>
           <div class="flex-1 min-w-0">
             <h1 class="text-[20px] font-bold mb-1" :class="isDark ? 'text-wt-main' : 'text-lt-main'">

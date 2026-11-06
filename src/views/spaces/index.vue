@@ -357,12 +357,12 @@ watch(activeTab, (tab) => {
    <div class="flex items-center gap-1 px-4 h-11 border-b shrink-0" :class="isDark ? 'border-bdr' : 'border-bdrF'">
       <div class="flex items-center gap-0.5 p-0.5 rounded-lg" :class="isDark ? 'bg-d3' : 'bg-l3'">
        <button class="px-3 h-7 rounded-md text-[12px] transition-all"
-         :class="[activeTab === 'cloud' ? (isDark ? 'bg-brand-400 text-d0 shadow-sm' : 'bg-brand-500 text-white shadow-sm') : (isDark ? 'text-wt-dim hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub'), activeTab === 'cloud' ? 'font-bold' : 'font-medium']"
+         :class="[activeTab === 'cloud' ? (isDark ? 'bg-brand-400 text-d0 shadow-sm' : 'bg-brand-500 text-white shadow-sm') : (isDark ? 'text-wt-dim hover:text-wt-sub' : 'text-lt-sub hover:text-lt-main'), activeTab === 'cloud' ? 'font-bold' : 'font-medium']"
          @click="activeTab = 'cloud'">
          <i class="ri-cloud-line text-[12px] mr-1" />内置云端知识库
        </button>
        <button class="px-3 h-7 rounded-md text-[12px] transition-all"
-         :class="[activeTab === 'external' ? (isDark ? 'bg-brand-400 text-d0 shadow-sm' : 'bg-brand-500 text-white shadow-sm') : (isDark ? 'text-wt-dim hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub'), activeTab === 'external' ? 'font-bold' : 'font-medium']"
+         :class="[activeTab === 'external' ? (isDark ? 'bg-brand-400 text-d0 shadow-sm' : 'bg-brand-500 text-white shadow-sm') : (isDark ? 'text-wt-dim hover:text-wt-sub' : 'text-lt-sub hover:text-lt-main'), activeTab === 'external' ? 'font-bold' : 'font-medium']"
          @click="activeTab = 'external'">
          <i class="ri-rocket-line text-[12px] mr-1" />外部知识源
        </button>
@@ -386,9 +386,9 @@ watch(activeTab, (tab) => {
             class="rounded-xl border px-6 py-8 text-center"
             :class="isDark ? 'border-white/[0.08] bg-[#0C101B]' : 'border-slate-200 bg-white shadow-sm'">
             <div
-              class="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4"
-              :class="isDark ? 'bg-d1 border border-bdr' : 'bg-l3 border border-bdrF'">
-              <i class="ri-book-shelf-line text-[30px]" :class="isDark ? 'text-wt-aux' : 'text-lt-aux'" />
+              class="w-16 h-16 flex items-center justify-center mx-auto mb-1"
+              >
+              <i class="ri-book-shelf-line text-[36px]" :class="isDark ? 'text-wt-aux' : 'text-lt-aux'" />
             </div>
             <h2 class="text-[18px] font-bold" :class="isDark ? 'text-wt-main' : 'text-lt-main'">内置云端知识库即将支持</h2>
             <p class="mt-2 text-[13px] leading-relaxed" :class="isDark ? 'text-wt-aux' : 'text-lt-aux'">

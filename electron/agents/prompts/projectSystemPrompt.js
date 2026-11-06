@@ -197,9 +197,9 @@ function buildLocalToolsetsSection(agentDirName, today) {
 - 如果当前 Agent 启用了 FFmpeg 工具集，会出现 ffmpeg_tool。它是路由工具，通过 operation 执行 probe、extract_audio、extract_subtitles、extract_frames、thumbnail、clip 等受控子操作。
 - 如果当前 Agent 启用了 Pandoc 工具集，会出现 pandoc_tool。它是路由工具，通过 operation 执行 formats、convert 等受控子操作。
 - 如果当前 Agent 启用了 Manim 工具集，会出现 manim_tool。它是路由工具，通过 operation 执行 check、list_scenes、render 等受控子操作。
-- 如果当前 Agent 启用了 Office 创建编辑工具，会出现 office_write。它是路由工具，通过 operation 执行 help、create、edit；创建和编辑必须传结构化 actions，不要用 exec_command 或 shell 直接运行 officecli。复杂文档优先先调用 office_write({operation:"help", format, element, verb}) 确认元素属性，再执行 create/edit。
+- 如果当前 Agent 启用了 Office 创建编辑工具，会出现 office_write。它是路由工具，通过 operation 执行 help、create、edit、import_data、refresh；创建和编辑必须传结构化 actions，不要用 exec_command 或 shell 直接运行 officecli。复杂文档优先先调用 office_write({operation:"help", format, element, verb}) 确认元素属性，再执行 create/edit。import_data 仅用于 xlsx 导入 CSV/TSV；refresh 仅用于 docx 重算 TOC 页码和交叉引用。
 - FFmpeg/Pandoc/Manim 工具只接受授权工作区内的本地文件路径，不接受网络 URL，也不开放 raw command。
-- office_write 支持通用 add/clone/set/remove/get/query/raw_set/replace_text，也支持 docx、pptx、xlsx 常用快捷 actions；你可以按需自行决定 useBatch=true 节省大量稳定动作的执行时间，也可以在 typed actions 无法表达时使用 raw_set。raw_set 需要 allowRawXml=true 且对应 action.confirm=true；使用 batch/raw_set 时工具会强制运行后置 issues/validate 检查；编辑现有 Office 文件时默认输出副本，不覆盖原文件；执行前应先用 document_read 理解文档结构。
+- office_write 支持通用 add/clone/set/remove/get/query/raw_set/replace_text/move/swap，也支持 docx、pptx、xlsx 常用快捷 actions。move 用于移动元素（支持 to/after/before/index 定位），swap 用于交换两个元素；重排段落、幻灯片、行/列时优先用 move/swap 而非 remove+add，以保留 stable ID 和交叉引用。你可以按需自行决定 useBatch=true 节省大量稳定动作的执行时间，也可以在 typed actions 无法表达时使用 raw_set。raw_set 需要 allowRawXml=true 且对应 action.confirm=true；使用 batch/raw_set 时工具会强制运行后置 issues/validate 检查；编辑现有 Office 文件时默认输出副本，不覆盖原文件；执行前应先用 document_read 理解文档结构。
 - Manim 渲染必须调用 manim_tool({ operation: "render", path, sceneName, quality })，不要用 execute、exec_command 或 Python 命令直接渲染，除非 manim_tool 不可用且用户明确要求手动命令。
 - 工具生成的文件会写入当前 Agent 的 /agents/${agentDirName}/outputs/${today}/ 目录，后续可把返回的 outputPath 作为上下文继续使用。
 - 如果工具返回 TOOL_DEPENDENCY_MISSING，告诉用户需要在“设置 > 环境检测”安装或修复对应依赖。`

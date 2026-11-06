@@ -70,9 +70,70 @@ export function registerRecycleBinIpc(ipcMain, deps) {
       const folder = payload.folder
       if (!folder) throw new Error('Folder payload missing')
       if (folder.parent_id && !dbService.getNoteFolder(folder.parent_id)) folder.parent_id = ''
+      const originalFolderId = folder.id
       if (dbService.getNoteFolder(folder.id)) folder.id = 'nf_' + Date.now()
       dbService.createNoteFolder(folder)
-      return { restoredId: folder.id }
+      const newFolderId = folder.id
+
+      // Cascade-restore children trashed alongside this folder.
+      // Folders first (recursive), then notes — parent exists before children.
+      const childFolderTrashIds = payload.childFolderTrashIds || []
+      const childNoteTrashIds = payload.childNoteTrashIds || []
+      for (const childId of childFolderTrashIds) {
+        const childRecord = dbService.getTrashItem(childId)
+        if (!childRecord) continue
+        if (newFolderId !== originalFolderId) {
+          const childPayload = childRecord.payload_json ? JSON.parse(childRecord.payload_json) : {}
+          if (childPayload.folder) childPayload.folder.parent_id = newFolderId
+          childRecord.payload_json = JSON.stringify(childPayload)
+        }
+        try {
+          await _restoreDbItem(childRecord)
+          dbService.deleteTrashItem(childId)
+        } catch (e) {
+          console.error(`[RecycleBin] Cascade-restore child folder ${childId} failed:`, e.message)
+        }
+      }
+      for (const childId of childNoteTrashIds) {
+        const childRecord = dbService.getTrashItem(childId)
+        if (!childRecord) continue
+        if (newFolderId !== originalFolderId) {
+          const childPayload = childRecord.payload_json ? JSON.parse(childRecord.payload_json) : {}
+          if (childPayload.note) childPayload.note.folder_id = newFolderId
+          childRecord.payload_json = JSON.stringify(childPayload)
+        }
+        try {
+          if (noteFileService) await noteFileService.restoreNote(childRecord)
+          else await _restoreDbItem(childRecord)
+          dbService.deleteTrashItem(childId)
+        } catch (e) {
+          console.error(`[RecycleBin] Cascade-restore child note ${childId} failed:`, e.message)
+        }
+      }
+      return { restoredId: newFolderId }
+    }
+    if (record.item_type === 'task') {
+      const task = payload.task
+      if (!task) throw new Error('Task payload missing')
+      if (task.group_id && task.group_id !== 'default') {
+        const groupExists = dbService.listConvGroups().some(g => g.id === task.group_id)
+        if (!groupExists) task.group_id = 'default'
+      }
+      if (dbService.getTask(task.id)) task.id = 'task_' + Date.now()
+      dbService.createTask(task)
+      return { restoredId: task.id }
+    }
+    if (record.item_type === 'conv_group') {
+      const group = payload.group
+      const convIds = payload.convIds || []
+      if (!group) throw new Error('Conv group payload missing')
+      if (dbService.listConvGroups().some(g => g.id === group.id)) group.id = 'grp_' + Date.now()
+      dbService.createConvGroup({ id: group.id, name: group.name, sort_order: group.sortOrder ?? 0 })
+      const restoredGroupId = group.id
+      for (const convId of convIds) {
+        if (dbService.getConv(convId)) dbService.updateConv(convId, { group_id: restoredGroupId })
+      }
+      return { restoredId: restoredGroupId }
     }
     if (record.item_type === 'artifact') {
       const artifact = payload.artifact
@@ -366,20 +427,31 @@ export function registerRecycleBinIpc(ipcMain, deps) {
         if (!folder) return
         const childNotes = dbService.listNotes(fid)
         const childFolders = dbService.listNoteFolders(fid)
-        for (const sub of childFolders) await trashRecursive(sub.id)
+        const childFolderTrashIds = []
+        const childNoteTrashIds = []
+        for (const sub of childFolders) {
+          const beforeLen = records.length
+          await trashRecursive(sub.id)
+          childFolderTrashIds.push(...records.slice(beforeLen).map(r => r.id))
+        }
         for (const n of childNotes) {
           if (noteFileService) {
             const result = await noteFileService.trashNote(n.id)
-            if (result?.data) records.push(result.data)
+            if (result?.data) {
+              records.push(result.data)
+              childNoteTrashIds.push(result.data.id)
+            }
           } else {
-            records.push(dbService.createTrashItem({
+            const rec = dbService.createTrashItem({
               original_path: '', trash_path: '',
               original_name: n.title || '未命名笔记',
               is_directory: 0, size: (n.content || '').length, file_type: 'note',
               category: 'note',
               item_type: 'note', item_id: n.id,
               payload_json: JSON.stringify({ note: n }),
-            }))
+            })
+            records.push(rec)
+            childNoteTrashIds.push(rec.id)
             dbService.deleteNote(n.id)
           }
         }
@@ -389,13 +461,63 @@ export function registerRecycleBinIpc(ipcMain, deps) {
           is_directory: 1, size: 0, file_type: 'folder',
           category: 'note',
           item_type: 'note_folder', item_id: fid,
-          payload_json: JSON.stringify({ folder }),
+          payload_json: JSON.stringify({ folder, childFolderTrashIds, childNoteTrashIds }),
         }))
         dbService.deleteNoteFolder(fid)
       }
       await trashRecursive(folderId)
       return { success: true, data: records, count: records.length }
     } catch (err) {
+      return { success: false, error: err.message }
+    }
+  })
+
+  ipcMain.handle('recycleBin:trashTask', async (event, taskId) => {
+    try {
+      const task = dbService.getTask(taskId)
+      if (!task) return { success: false, error: 'Task not found' }
+      const record = dbService.createTrashItem({
+        original_path: '', trash_path: '',
+        original_name: task.name || '未命名任务',
+        is_directory: 0, size: 0, file_type: task.type || 'task',
+        category: 'task',
+        item_type: 'task', item_id: taskId,
+        payload_json: JSON.stringify({ task }),
+      })
+      dbService.deleteTask(taskId)
+      console.log(`[RecycleBin] Trashed task ${taskId} -> ${record.id}`)
+      return { success: true, data: record }
+    } catch (err) {
+      console.error('[RecycleBin] trashTask failed:', err)
+      return { success: false, error: err.message }
+    }
+  })
+
+  ipcMain.handle('recycleBin:trashConvGroup', async (event, groupId) => {
+    try {
+      if (groupId === 'default') return { success: false, error: 'Cannot trash default group' }
+      const group = dbService.listConvGroups().find(g => g.id === groupId)
+      if (!group) return { success: false, error: 'Conversation group not found' }
+      // Collect conversation IDs so they can be re-assigned to the group on restore
+      const allConvs = dbService.listConvs()
+      const convIds = allConvs.filter(c => (c.groupId || c.group_id) === groupId).map(c => c.id)
+      const record = dbService.createTrashItem({
+        original_path: '', trash_path: '',
+        original_name: group.name || '未命名分组',
+        is_directory: 0, size: convIds.length, file_type: 'conv_group',
+        category: 'chat',
+        item_type: 'conv_group', item_id: groupId,
+        payload_json: JSON.stringify({ group, convIds }),
+      })
+      // Migrate conversations to default so they stay visible while group is trashed
+      for (const convId of convIds) {
+        dbService.updateConv(convId, { group_id: 'default' })
+      }
+      dbService.deleteConvGroup(groupId)
+      console.log(`[RecycleBin] Trashed conv group ${groupId} -> ${record.id} (${convIds.length} convs migrated to default)`)
+      return { success: true, data: record }
+    } catch (err) {
+      console.error('[RecycleBin] trashConvGroup failed:', err)
       return { success: false, error: err.message }
     }
   })

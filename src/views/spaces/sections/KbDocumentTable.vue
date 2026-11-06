@@ -40,7 +40,7 @@ const emit = defineEmits(['delete', 'refresh', 'page-change'])
     <div v-else class="flex-1 min-h-0 overflow-auto custom-scrollbar">
       <table class="w-full table-fixed border-collapse text-left">
         <thead
-          class="sticky top-0 z-10 border-b text-[10.5px] font-semibold uppercase tracking-wider"
+          class="sticky top-0 z-10 border-b text-[11px] font-semibold uppercase tracking-wider"
           :class="isDark ? 'bg-d1/95 border-d4 text-wt-dim' : 'bg-l3/95 border-bdrF text-lt-aux'">
           <tr>
             <th class="w-[44%] py-2.5 pl-4 pr-2">文件名</th>
@@ -77,13 +77,13 @@ const emit = defineEmits(['delete', 'refresh', 'page-change'])
                 <i :class="[fileIcon(doc.type), fileIconClass(doc.type), 'text-[18px] shrink-0']" />
                 <div class="min-w-0">
                   <div
-                    class="text-[12.5px] font-medium truncate transition-colors"
+                    class="text-[12px] font-medium truncate transition-colors"
                     :class="isDark ? 'text-wt-main group-hover:text-brand-300' : 'text-lt-main group-hover:text-blue-600'">
                     {{ doc.name }}
                   </div>
                   <div
                     v-if="doc.summary"
-                    class="mt-0.5 text-[10.5px] truncate"
+                    class="mt-0.5 text-[11px] truncate"
                     :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">
                     {{ doc.summary }}
                   </div>
@@ -93,18 +93,18 @@ const emit = defineEmits(['delete', 'refresh', 'page-change'])
 
             <td class="py-2.5 px-2">
               <span
-                class="inline-flex items-center gap-1.5 text-[11.5px] font-medium"
+                class="inline-flex items-center gap-1.5 text-[11px] font-medium"
                 :class="docStatusTextClass(doc.status, isDark)">
                 <span class="w-1.5 h-1.5 rounded-full" :class="docStatusDotClass(doc.status)" />
                 {{ docStatusMeta(doc.status).label }}
               </span>
             </td>
 
-            <td class="py-2.5 px-2 text-right text-[11.5px] tabular-nums font-mono" :class="isDark ? 'text-wt-aux' : 'text-lt-aux'">
+            <td class="py-2.5 px-2 text-right text-[11px] tabular-nums font-mono" :class="isDark ? 'text-wt-aux' : 'text-lt-aux'">
               {{ fmtBytes(doc.size) }}
             </td>
 
-            <td class="py-2.5 px-2 text-right text-[11.5px]" :class="isDark ? 'text-wt-aux' : 'text-lt-aux'">
+            <td class="py-2.5 px-2 text-right text-[11px]" :class="isDark ? 'text-wt-aux' : 'text-lt-aux'">
               {{ fmtDate(doc.updatedAt || doc.createdAt) }}
             </td>
 
@@ -117,7 +117,7 @@ const emit = defineEmits(['delete', 'refresh', 'page-change'])
                 @click="emit('delete', doc)">
                 <i class="ri-delete-bin-line text-[14px]" />
               </button>
-              <span v-else class="text-[10.5px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">只读</span>
+              <span v-else class="text-[11px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">只读</span>
             </td>
           </tr>
         </tbody>
@@ -133,7 +133,7 @@ const emit = defineEmits(['delete', 'refresh', 'page-change'])
             :class="isDark ? 'bg-d1' : 'bg-l3'">
             <i class="ri-file-list-3-line text-[28px]" />
           </div>
-          <p class="text-[12.5px] font-medium" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">{{ emptyText }}</p>
+          <p class="text-[12px] font-medium" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">{{ emptyText }}</p>
         </div>
       </div>
     </div>

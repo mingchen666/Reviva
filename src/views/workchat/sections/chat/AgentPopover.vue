@@ -39,14 +39,14 @@ const filteredBuiltin = computed(() => {
       <div class="flex items-center justify-between mb-2">
         <span class="text-[12px] font-semibold" :class="isDark ? 'text-wt-main' : 'text-lt-main'">选择 Agent</span>
         <button @click="emit('close')" class="h-5 w-5 rounded flex items-center justify-center transition-colors"
-          :class="isDark ? 'text-wt-dim hover:text-wt-sub hover:bg-white/5' : 'text-lt-aux hover:text-lt-sub hover:bg-l4'">
+          :class="isDark ? 'text-wt-dim hover:text-wt-sub hover:bg-white/5' : 'text-lt-sub hover:text-lt-main hover:bg-l4'">
           <i class="ri-close-line text-[16px]" />
         </button>
       </div>
       <div class="relative">
-        <i class="ri-search-line absolute left-2.5 top-[9px] text-[11px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'" />
+        <i class="ri-search-line absolute left-2.5 top-1/2 -translate-y-1/2 text-[11px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'" />
         <input v-model="searchQuery" type="text" placeholder="搜索 Agent..."
-          class="w-full h-[30px] rounded-lg pl-7 pr-3 text-[12px] outline-none transition-colors"
+          class="w-full h-[30px] rounded-md pl-7 pr-3 text-[12px] outline-none transition-colors"
           :class="isDark ? 'bg-d0 text-wt-sub placeholder-wt-dim border border-d4 focus:border-brand-400/30' : 'bg-l3 text-lt-sub placeholder-lt-aux border border-bdrF focus:border-brand-400'" />
       </div>
     </div>
@@ -95,8 +95,8 @@ const filteredBuiltin = computed(() => {
       </div>
       <!-- Empty -->
       <div v-if="!filteredCustom.length && !filteredBuiltin.length" class="py-6 text-center">
-        <i class="ri-search-line text-[20px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'" />
-        <p class="text-[12px] mt-1" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">没有找到匹配的 Agent</p>
+        <i class="ri-search-line text-[20px] block leading-none" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'" />
+        <p class="text-[12px] mt-1.5 m-0" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">没有找到匹配的 Agent</p>
       </div>
     </div>
   </div>

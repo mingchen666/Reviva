@@ -8,6 +8,9 @@ const EXEC_COMMAND_STDOUT_LIMIT = 10000
 const EXEC_COMMAND_STDERR_LIMIT = 5000
 const SHELL_SCRIPT_EXTS = new Set(['.sh', '.bash'])
 const SCRIPT_SHELL_COMMANDS = new Set(['bash', 'sh'])
+// 默认黑名单只列破坏性命令前缀；不写死 powershell/cmd/reg 等 shell/工具名，
+// 否则会把无害的 `powershell -Command "Get-Date"`、`reg query` 一并拦死。
+// 经 powershell/cmd 转义的破坏性子命令由 isDestructiveCommand 正则兜底。
 const DEFAULT_COMMAND_BLACKLIST = [
   'rm -rf',
   'rm -r',
@@ -20,10 +23,7 @@ const DEFAULT_COMMAND_BLACKLIST = [
   'dd',
   'shutdown',
   'reboot',
-  'reg',
   'regedit',
-  'powershell',
-  'cmd',
 ]
 const DESTRUCTIVE_COMMAND_PATTERNS = [
   /\brm\s+(-[a-z]*r[a-z]*|-[a-z]*f[a-z]*)/i,  // rm -rf, rm -r, rm -f (bulk/force delete)
@@ -38,12 +38,49 @@ const DESTRUCTIVE_COMMAND_PATTERNS = [
   /\bgit\s+clean\s+.*-[a-z]*[fd]/i,           // git clean -fd (removes untracked)
   /\bnpm\s+publish\b/i,                       // irreversible package publish
   /\bpnpm\s+publish\b/i,                      // irreversible package publish
+  // Windows / PowerShell 破坏性命令；正则跨引号匹配整条命令文本，
+  // 因此经 `powershell -c "Remove-Item -Recurse ..."`、`cmd /c "del /s ..."` 转义也能命中。
+  /\breg\s+(delete|add|import|load|restore|copy)\b/i,  // 注册表写/删（reg query 只读，放行）
+  /\bregini\b/i,                                        // 注册表强制写入工具
+  /\bremove-item\b.*(-recurse|-force)/i,                // PowerShell 递归/强制删除
+  /\bformat-volume\b/i,                                  // PowerShell 格式化卷
+  /\bclear-disk\b/i,                                    // PowerShell 清空磁盘
+  /\bstop-computer\b/i,                                 // PowerShell 关机
+  /\brestart-computer\b/i,                              // PowerShell 重启
+  /\bdiskpart\b/i,                                       // 磁盘分区工具
 ]
 
 export function isDestructiveCommand(commandStr) {
   const cmd = String(commandStr || '').trim()
   if (!cmd) return false
   return DESTRUCTIVE_COMMAND_PATTERNS.some(p => p.test(cmd))
+}
+
+// auto 模式硬拦的物理破坏命令子集。与 DESTRUCTIVE_COMMAND_PATTERNS 的区别：
+// 不含 git push --force、git reset --hard、git clean、npm/pnpm publish 等发布/版本控制类，
+// 这类命令保留 auto 模式原静默执行行为、sensitive 模式走审批。
+const HARD_BLOCK_PATTERNS = [
+  /\brm\s+(-[a-z]*r[a-z]*|-[a-z]*f[a-z]*)/i,
+  /\brmdir\s+\/?s/i,
+  /\bdel\s+\/?[sq]/i,
+  /\bformat\b/i,
+  /\bmkfs\b/i,
+  /\bshutdown\b/i,
+  /\breboot\b/i,
+  /\breg\s+(delete|add|import|load|restore|copy)\b/i,
+  /\bregini\b/i,
+  /\bremove-item\b.*(-recurse|-force)/i,
+  /\bformat-volume\b/i,
+  /\bclear-disk\b/i,
+  /\bstop-computer\b/i,
+  /\brestart-computer\b/i,
+  /\bdiskpart\b/i,
+]
+
+export function isHardBlockCommand(commandStr) {
+  const cmd = String(commandStr || '').trim()
+  if (!cmd) return false
+  return HARD_BLOCK_PATTERNS.some(p => p.test(cmd))
 }
 
 export const SAFE_COMMAND_TOOL_DESCRIPTION = [
@@ -246,6 +283,13 @@ export function prepareSafeCommand(command, {
     }
   }
 
+  // 物理破坏命令兜底：对整条命令文本（含经 powershell/cmd/bash 转义的子命令）做正则检测。
+  // auto 模式硬拦；sensitive 模式交由 AgentService 审批层处理，此处放行以保留"审批后可执行"语义。
+  const hitlMode = dbService.getSetting?.('hitlMode') ?? 'auto'
+  if (hitlMode === 'auto' && isHardBlockCommand(commandText)) {
+    return { error: `安全限制：检测到破坏性命令，默认自动模式下已拦截。如需执行请在偏好设置中切换为"询问审批"模式。` }
+  }
+
   if (isScriptShellCommand(baseCmd, cmdName)) {
     if (nestedShell) {
       return { error: '不允许在 bash/sh -c 内部再次调用 bash/sh，避免嵌套 shell 绕过命令策略。' }
@@ -301,6 +345,12 @@ export function prepareSafeStructuredCommand(input = {}, {
     if (commandText.startsWith(commandRuleText(pattern))) {
       return { error: `安全限制：命令匹配黑名单规则 "${pattern}"，已被拒绝执行。如需允许请在设置中移除该黑名单规则。` }
     }
+  }
+
+  // 物理破坏命令兜底：同 prepareSafeCommand，auto 模式硬拦、sensitive 模式交审批层。
+  const hitlMode = dbService.getSetting?.('hitlMode') ?? 'auto'
+  if (hitlMode === 'auto' && isHardBlockCommand(commandText)) {
+    return { error: `安全限制：检测到破坏性命令，默认自动模式下已拦截。如需执行请在偏好设置中切换为"询问审批"模式。` }
   }
 
   if (!vfsResolver?.resolveExecCommand) {

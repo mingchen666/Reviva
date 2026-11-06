@@ -304,7 +304,12 @@ export const useConversationsStore = defineStore('conversations', () => {
 
   async function deleteGroup(id) {
     if (id === 'default') return
-    if (window.electronAPI?.db) {
+    // Route through recycle bin so the group can be restored later
+    if (window.electronAPI?.recycleBin) {
+      const { useRecycleBinStore } = await import('./recycleBin')
+      await useRecycleBinStore().trashConvGroup(id)
+      await loadFromDb()
+    } else if (window.electronAPI?.db) {
       await dbConvGroups().delete(id)
       await loadFromDb()
     }

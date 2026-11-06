@@ -38,7 +38,7 @@ const builtinTools = computed(() => resolveCreationTools(settingsStore.creationT
         </div>
         <span
           class="text-[11.5px] font-medium"
-          :class="isDark ? 'text-wt-aux group-hover:text-wt-sub' : 'text-lt-aux group-hover:text-lt-sub'">
+          :class="isDark ? 'text-wt-sub group-hover:text-wt-main' : 'text-lt-sub group-hover:text-lt-main'">
           {{ t.name }}
         </span>
         <!-- 内置 badge — absolute top-right -->

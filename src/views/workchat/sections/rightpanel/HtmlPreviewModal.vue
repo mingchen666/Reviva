@@ -64,19 +64,19 @@ function handleFrameLoad() {
         </div>
         <button @click="emit('open-file')"
           class="h-7 w-7 rounded-lg flex items-center justify-center transition-colors"
-          :class="isDark ? 'text-wt-aux hover:text-wt-sub hover:bg-white/5' : 'text-lt-aux hover:text-lt-sub hover:bg-l4'"
+          :class="isDark ? 'text-wt-sub hover:text-wt-main hover:bg-white/5' : 'text-lt-sub hover:text-lt-main hover:bg-l4'"
           title="用系统应用打开">
           <i class="ri-external-link-line text-[14px]" />
         </button>
         <button @click="emit('show-in-folder')"
           class="h-7 w-7 rounded-lg flex items-center justify-center transition-colors"
-          :class="isDark ? 'text-wt-aux hover:text-wt-sub hover:bg-white/5' : 'text-lt-aux hover:text-lt-sub hover:bg-l4'"
+          :class="isDark ? 'text-wt-sub hover:text-wt-main hover:bg-white/5' : 'text-lt-sub hover:text-lt-main hover:bg-l4'"
           title="在文件夹中显示">
           <i class="ri-folder-open-line text-[14px]" />
         </button>
         <button @click="close"
           class="h-7 w-7 rounded-lg flex items-center justify-center transition-colors"
-          :class="isDark ? 'text-wt-aux hover:text-wt-sub hover:bg-white/5' : 'text-lt-aux hover:text-lt-sub hover:bg-l4'"
+          :class="isDark ? 'text-wt-sub hover:text-wt-main hover:bg-white/5' : 'text-lt-sub hover:text-lt-main hover:bg-l4'"
           title="关闭预览">
           <i class="ri-close-line text-[16px]" />
         </button>

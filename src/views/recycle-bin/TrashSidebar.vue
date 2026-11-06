@@ -68,14 +68,14 @@ const filteredCategoryGroups = computed(() => {
         class="flex-1 h-7 flex items-center justify-center gap-1 text-[12px] font-medium transition-colors"
         :class="groupMode === 'date'
           ? (isDark ? 'bg-brand-400/12 text-brand-400' : 'bg-brand-50 text-brand-500')
-          : (isDark ? 'text-wt-dim hover:text-wt-aux' : 'text-lt-aux hover:text-lt-sub')">
+          : (isDark ? 'text-wt-dim hover:text-wt-aux' : 'text-lt-sub hover:text-lt-main')">
         <i class="ri-calendar-line text-[13px]" />按日期
       </button>
       <button @click="emit('update:groupMode', 'category')"
         class="flex-1 h-7 flex items-center justify-center gap-1 text-[12px] font-medium transition-colors"
         :class="groupMode === 'category'
           ? (isDark ? 'bg-brand-400/12 text-brand-400' : 'bg-brand-50 text-brand-500')
-          : (isDark ? 'text-wt-dim hover:text-wt-aux' : 'text-lt-aux hover:text-lt-sub')">
+          : (isDark ? 'text-wt-dim hover:text-wt-aux' : 'text-lt-sub hover:text-lt-main')">
         <i class="ri-folder-line text-[13px]" />按分类
       </button>
     </div>

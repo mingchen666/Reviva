@@ -159,7 +159,18 @@ export class KnowledgeSourceService {
     const source = this._registry.getSource(id)
     if (!source) return { success: false, error: 'Knowledge source not found' }
     try {
-      const result = await this._registry.search(id, { query: 'test', top_k: 1 })
+      // Prefer listKnowledgeBases for testing — it doesn't require a KB ID,
+      // so credentials can be validated before the user selects a knowledge base.
+      const hasListEndpoint = source.config?.endpoints?.list
+      let result
+      if (hasListEndpoint) {
+        const listResult = await this._registry.listKnowledgeBases(id)
+        result = listResult?.success
+          ? { status: 'ok', result: [] }
+          : { status: 'error', message: listResult?.error || 'List failed' }
+      } else {
+        result = await this._registry.search(id, { query: 'test', top_k: 1 })
+      }
       const ok = result.status === 'ok'
       // Update last_status and last_synced_at
       const now = new Date().toISOString().replace('T', ' ').substring(0, 19)
@@ -248,13 +259,17 @@ export class KnowledgeSourceService {
         found.add(name)
       }
     }
-    // Also check {{USER_TOKEN}} style
+    // Collect auth placeholders from both auth config and default_headers
+    // so presets like IMA (which puts credentials in default_headers) are
+    // correctly flagged as auth fields.
     const authFields = this._extractAuthFields(template.auth)
-    for (const f of authFields) found.add(f)
+    const headerFields = this._extractAuthFields(template.default_headers)
+    const allAuthFields = [...new Set([...authFields, ...headerFields])]
+    for (const f of allAuthFields) found.add(f)
     return [...found].map(name => ({
       name,
       label: name.split('_').map(w => w.charAt(0) + w.slice(1).toLowerCase()).join(' '),
-      isAuth: authFields.includes(name),
+      isAuth: allAuthFields.includes(name),
     }))
   }
 
@@ -406,6 +421,10 @@ export class KnowledgeSourceService {
         return { success: false, error: 'HTTP ' + resp.status + ': ' + errText.substring(0, 200) }
       }
       const data = await resp.json()
+      // Check for API-level error codes (e.g. IMA returns { code, msg, data })
+      if (data && typeof data.code !== 'undefined' && Number(data.code) !== 0) {
+        return { success: false, error: data.msg || data.message || 'API error code: ' + data.code }
+      }
       const items = _getByPath(data, listEp.response?.items_path || 'data')
       if (!Array.isArray(items)) return { success: false, error: '无法解析知识库列表' }
 

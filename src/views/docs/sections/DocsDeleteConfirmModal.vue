@@ -31,7 +31,7 @@ function confirm(item, close) {
     </p>
 
     <template #footer="{ close }">
-      <button @click="close()" class="px-4 py-2 rounded-lg text-[11px] font-medium transition-colors" :class="isDark ? 'text-wt-aux hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub'">取消</button>
+      <button @click="close()" class="px-4 py-2 rounded-lg text-[11px] font-medium transition-colors" :class="isDark ? 'text-wt-sub hover:text-wt-main' : 'text-lt-sub hover:text-lt-main'">取消</button>
       <button @click="confirm(item, close)" class="px-4 py-2 rounded-lg text-[11px] font-medium bg-red-500 text-white hover:bg-red-600">移入回收站</button>
     </template>
   </MsModal>

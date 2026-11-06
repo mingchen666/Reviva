@@ -105,7 +105,7 @@ function colorClass(tool) {
         <i v-if="saving" class="ri-loader-4-line animate-spin text-[13px]" :class="isDark ? 'text-brand-300' : 'text-brand-500'" />
         <i class="ri-arrow-down-s-line text-[14px] transition-transform duration-200 ml-0.5" :class="[toolsExpanded ? '' : '-rotate-90', isDark ? 'text-wt-dim' : 'text-lt-aux']" />
       </button>
-      <button @click="resetDefaults" :disabled="saving" class="ml-auto h-7 px-2.5 rounded-lg text-[11px] font-medium border transition-colors disabled:opacity-50 shrink-0" :class="isDark ? 'border-d4 text-wt-aux hover:text-wt-sub hover:bg-white/5' : 'border-bdrF text-lt-aux hover:text-lt-sub hover:bg-l4'">
+      <button @click="resetDefaults" :disabled="saving" class="ml-auto h-7 px-2.5 rounded-lg text-[11px] font-medium border transition-colors disabled:opacity-50 shrink-0" :class="isDark ? 'border-d4 text-wt-sub hover:text-wt-main hover:bg-white/5' : 'border-bdrF text-lt-sub hover:text-lt-main hover:bg-l4'">
         <i class="ri-refresh-line" /> 恢复默认
       </button>
     </div>
@@ -122,7 +122,7 @@ function colorClass(tool) {
                 ? (isDark ? 'bg-d2/50 border-d4 opacity-65' : 'bg-l2/60 border-bdrF opacity-70')
                 : (isDark ? 'bg-d2 border-d4 hover:border-brand-400/25' : 'bg-white border-bdrF hover:border-brand-200 shadow-sm')
             ]">
-            <button class="w-6 h-7 rounded-md flex items-center justify-center cursor-grab active:cursor-grabbing" :class="isDark ? 'text-wt-dim hover:text-wt-aux hover:bg-white/5' : 'text-lt-aux hover:text-lt-sub hover:bg-l4'" title="拖动排序">
+            <button class="w-6 h-7 rounded-md flex items-center justify-center cursor-grab active:cursor-grabbing" :class="isDark ? 'text-wt-dim hover:text-wt-aux hover:bg-white/5' : 'text-lt-sub hover:text-lt-main hover:bg-l4'" title="拖动排序">
               <i class="ri-draggable text-[15px]" />
             </button>
             <div class="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" :class="colorClass(tool)"><i :class="tool.icon + ' text-[16px]'" /></div>

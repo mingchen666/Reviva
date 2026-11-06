@@ -238,7 +238,7 @@ const leftTab = ref('conv') // 'conv' | 'docs' | 'kb'
 function tabClass(tabId) {
   const active = leftTab.value === tabId
   if (active) return isDark.value ? 'text-wt-main font-bold' : 'text-lt-main font-bold'
-  return isDark.value ? 'text-wt-aux hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub'
+  return isDark.value ? 'text-wt-sub hover:text-wt-main' : 'text-lt-sub hover:text-lt-main'
 }
 const renderedLeftPanels = reactive({ docs: false, kb: false })
 const activeExternalKb = ref(null) // { sourceId, kbId, sourceName, kbName, sourceType }
@@ -653,7 +653,7 @@ function onGroupRename(data) {
 function onGroupCreate(data) { convStore.createGroup(data) }
 async function onGroupDelete(gid) {
   await convStore.deleteGroup(gid)
-  msg.success('分组已删除')
+ msg.success('分组已移入回收站')
 }
 
 // Agent selection
@@ -1134,7 +1134,7 @@ watch(() => currentMessages.value.map(m => m.id).join('|'), () => {
                   class="tab-item h-[34px] w-[152px] sm:w-[172px] px-3 flex items-center gap-1.5 text-[13px] shrink-0 relative cursor-pointer rounded-t-lg transition-colors"
                   :class="activeTabId === tab.id
                     ? (isDark ? 'bg-d2 text-wt-main' : 'bg-l2 text-lt-main')
-                    : (isDark ? 'text-wt-aux hover:text-wt-sub hover:bg-white/4' : 'text-lt-aux hover:text-lt-sub hover:bg-l4')">
+                    : (isDark ? 'text-wt-sub hover:text-wt-main hover:bg-white/4' : 'text-lt-sub hover:text-lt-main hover:bg-l4')">
                   <span v-if="isTabConversationSwitching(tab.id)"
                     class="tab-switch-spinner shrink-0"
                     :class="isDark ? 'border-white/20 border-t-brand-400' : 'border-black/10 border-t-brand-500'" />

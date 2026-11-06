@@ -4,6 +4,7 @@ import path from 'node:path'
 
 const DEFAULT_TRAY_MENU = [
   { id: 'show-window', type: 'builtin', action: 'showWindow', label: '显示主窗口', enabled: true },
+  { id: 'workchat', type: 'route', path: '/workchat', label: '打开学习工作台', enabled: true },
   { id: 'separator-default', type: 'separator', enabled: true },
   { id: 'settings', type: 'route', path: '/settings/notifications', label: '设置', enabled: true },
   { id: 'quit', type: 'builtin', action: 'quit', label: '退出', enabled: true },
@@ -141,10 +142,11 @@ export function registerTrayIpc(ipcMain, deps) {
     createTray, destroyTray, rebuildTrayMenu,
     normalizeTrayMenuConfig,
     loadTrayConfig: (dbService) => {
-      trayMenuConfig = normalizeTrayMenuConfig(dbService?.getSetting?.('trayMenuItems'))
+      // 固定托盘菜单，不再读取用户自定义配置
+      trayMenuConfig = DEFAULT_TRAY_MENU.map(item => ({ ...item }))
     },
     createTrayFromConfig: (dbService) => {
-      trayMenuConfig = normalizeTrayMenuConfig(dbService?.getSetting?.('trayMenuItems'))
+      trayMenuConfig = DEFAULT_TRAY_MENU.map(item => ({ ...item }))
       return createTray()
     },
   }

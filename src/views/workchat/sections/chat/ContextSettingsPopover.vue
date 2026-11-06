@@ -26,7 +26,7 @@ function clickCompressContext() {
         @click="emit('close')"
         class="h-5 w-5 rounded flex items-center justify-center transition-colors"
         :class="
-          isDark ? 'text-wt-dim hover:text-wt-sub hover:bg-white/5' : 'text-lt-aux hover:text-lt-sub hover:bg-l4'
+          isDark ? 'text-wt-dim hover:text-wt-sub hover:bg-white/5' : 'text-lt-sub hover:text-lt-main hover:bg-l4'
         ">
         <i class="ri-close-line text-[16px]" />
       </button>

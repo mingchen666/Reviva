@@ -54,6 +54,7 @@ export const useRecycleBinStore = defineStore('recycleBin', () => {
       { key: 'chat', label: '对话', icon: 'ri-chat-3-line', color: '#A78BFA' },
       { key: 'note', label: '笔记', icon: 'ri-sticky-note-line', color: '#34D399' },
       { key: 'artifact', label: '生成结果', icon: 'ri-magic-line', color: '#38BDF8' },
+     { key: 'task', label: '任务记录', icon: 'ri-task-line', color: '#60A5FA' },
       { key: 'other', label: '其他', icon: 'ri-file-line', color: '#78788a' },
     ]
     const result = []
@@ -121,6 +122,24 @@ export const useRecycleBinStore = defineStore('recycleBin', () => {
     return result
   }
 
+  async function trashTask(taskId) {
+    if (!rbApi()) return { success: false, error: 'API not available' }
+    const result = await rbApi().trashTask(taskId)
+    if (result.success && result.data) {
+      items.value.unshift(result.data)
+    }
+    return result
+  }
+
+  async function trashConvGroup(groupId) {
+    if (!rbApi()) return { success: false, error: 'API not available' }
+    const result = await rbApi().trashConvGroup(groupId)
+    if (result.success && result.data) {
+      items.value.unshift(result.data)
+    }
+    return result
+  }
+
   // Lazy refresh affected stores after restoring DB-typed items.
   // Avoids import cycles by importing stores at call time.
   async function _refreshAffectedStores(itemTypes) {
@@ -135,6 +154,14 @@ export const useRecycleBinStore = defineStore('recycleBin', () => {
     }
     if (itemTypes.has('artifact')) {
       window.dispatchEvent(new CustomEvent('reviva:artifacts-updated', { detail: { source: 'recycleBin' } }))
+    }
+    if (itemTypes.has('task')) {
+      const { useTasksStore } = await import('@/stores/tasks')
+      await useTasksStore().loadFromDb()
+    }
+    if (itemTypes.has('conv_group')) {
+      const { useConversationsStore } = await import('@/stores/conversations')
+      await useConversationsStore().loadFromDb()
     }
   }
 
@@ -202,6 +229,7 @@ export const useRecycleBinStore = defineStore('recycleBin', () => {
     dateGroups, categoryGroups,
     loadFromDb, moveToTrash,
     trashConversation, trashNote, trashNoteFolder, trashArtifact,
+   trashTask, trashConvGroup,
     restoreItem, restoreBatch,
     deletePermanently, deleteBatchPermanently, emptyTrash,
   }

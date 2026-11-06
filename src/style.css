@@ -5,6 +5,7 @@
   font-family: var(--ui-font-family, Inter, -apple-system, "SF Pro Text", "Segoe UI", sans-serif);
   line-height: var(--ui-line-height, 1.6);
   font-weight: 400;
+  font-size: calc(16px * var(--ui-font-scale, 1));
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -56,6 +57,14 @@ textarea{
 .no-drag {
   -webkit-app-region: no-drag;
 }
+
+/* Semantic font-size utilities — driven by user preferences (see PreferenceSection) */
+.fs-title { font-size: var(--ui-size-title, 14px); }
+.fs-body { font-size: var(--ui-size-body, 13px); }
+.fs-caption { font-size: var(--ui-size-caption, 11px); }
+.fs-label { font-size: var(--ui-size-label, 12px); }
+.fs-dialog { font-size: var(--ui-size-dialog, 16px); }
+.fs-content { font-size: var(--ui-size-content, 14px); }
 
 /* Naive UI theme overrides for dark mode */
 .theme-dark .n-input {
@@ -348,7 +357,7 @@ textarea{
 
 /* Section nav */
 .section-title {
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -427,3 +436,8 @@ textarea{
 .theme-light .md-content pre { background: #f5f4f3; }
 .theme-dark .md-content th, .theme-dark .md-content td { border-color: #353542; }
 .theme-light .md-content th, .theme-light .md-content td { border-color: #e2e1de; }
+
+/* Hide number input spinner for font size controls */
+.fs-num-input::-webkit-inner-spin-button,
+.fs-num-input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+.fs-num-input { -moz-appearance: textfield; }

@@ -18,6 +18,8 @@ import { PdfRepository } from './db/repositories/PdfRepository.js'
 import { WebImportRepository } from './db/repositories/WebImportRepository.js'
 import { QuickInputRepository } from './db/repositories/QuickInputRepository.js'
 import { LearningRunResultRepository } from './db/repositories/LearningRunResultRepository.js'
+import { WechatBotReminderRepository } from './db/repositories/WechatBotReminderRepository.js'
+import { WechatBotReminderLogRepository } from './db/repositories/WechatBotReminderLogRepository.js'
 import { MediaRepository } from './media/persistence/MediaRepository.js'
 import { MediaLocationRepository } from './media/persistence/MediaLocationRepository.js'
 import { MediaRunRepository } from './media/persistence/MediaRunRepository.js'
@@ -71,6 +73,8 @@ export class DatabaseService {
     this._webImportRepository = new WebImportRepository(this._context)
     this._quickInputRepository = new QuickInputRepository(this._context)
     this._learningRunResultRepository = new LearningRunResultRepository(this._context)
+    this._wechatBotReminderRepository = new WechatBotReminderRepository(this._context)
+    this._wechatBotReminderLogRepository = new WechatBotReminderLogRepository(this._context)
     this._mediaRepository = new MediaRepository(this._context)
     this._mediaLocationRepository = new MediaLocationRepository(this._context)
     this._mediaRunRepository = new MediaRunRepository(this._context)
@@ -388,6 +392,23 @@ export class DatabaseService {
   setSetting(key, value) { return this._settingsRepository.setSetting(key, value) }
   getAllSettings() { return this._settingsRepository.getAllSettings() }
   importSettings(settings) { return this._settingsRepository.importSettings(settings) }
+
+  // ─── WeChat Bot Reminders ───
+
+  listWxReminders() { return this._wechatBotReminderRepository.listReminders() }
+  listEnabledWxReminders() { return this._wechatBotReminderRepository.listEnabledReminders() }
+  getWxReminder(id) { return this._wechatBotReminderRepository.getReminder(id) }
+  addWxReminder(data) { return this._wechatBotReminderRepository.addReminder(data) }
+  updateWxReminder(id, data) { return this._wechatBotReminderRepository.updateReminder(id, data) }
+  deleteWxReminder(id) { return this._wechatBotReminderRepository.deleteReminder(id) }
+  markWxReminderDone(id) { return this._wechatBotReminderRepository.markDone(id) }
+
+  // ─── WeChat Bot Reminder Logs（推送历史）───
+
+  addWxReminderLog(data) { return this._wechatBotReminderLogRepository.addLog(data) }
+  listWxReminderLogs(opts) { return this._wechatBotReminderLogRepository.listLogs(opts) }
+  countWxReminderLogs() { return this._wechatBotReminderLogRepository.countLogs() }
+  clearWxReminderLogs() { return this._wechatBotReminderLogRepository.clearLogs() }
 
   // ─── Memories ───
 

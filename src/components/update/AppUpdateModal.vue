@@ -193,7 +193,7 @@ function openFallback() {
         <button
           @click="setShow(false)"
           class="h-8 px-4 rounded-lg text-[12px] font-medium transition-colors"
-          :class="isDark ? 'text-wt-aux hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub'">
+          :class="isDark ? 'text-wt-sub hover:text-wt-main' : 'text-lt-sub hover:text-lt-main'">
           稍后再说
         </button>
         <button

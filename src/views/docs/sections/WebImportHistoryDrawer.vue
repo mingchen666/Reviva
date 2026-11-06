@@ -92,7 +92,7 @@ function formatTime(value) {
           <div v-if="loading" class="h-10 flex items-center justify-center gap-2 text-[12px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">
             <i class="ri-loader-4-line animate-spin text-[13px]" />正在加载更多记录
           </div>
-          <button v-else-if="hasMore" class="w-full h-10 rounded-lg text-[12px] transition-colors" :class="isDark ? 'text-wt-dim hover:text-wt-sub hover:bg-white/4' : 'text-lt-aux hover:text-lt-sub hover:bg-l3'" @click="emit('load-more')">继续加载</button>
+          <button v-else-if="hasMore" class="w-full h-10 rounded-lg text-[12px] transition-colors" :class="isDark ? 'text-wt-dim hover:text-wt-sub hover:bg-white/4' : 'text-lt-sub hover:text-lt-main hover:bg-l3'" @click="emit('load-more')">继续加载</button>
           <div v-else-if="jobs.length" class="h-9 flex items-center justify-center text-[12px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">已加载全部记录</div>
 
           <div v-if="!jobs.length && !loading" class="h-full min-h-[280px] flex flex-col items-center justify-center gap-3 text-center">

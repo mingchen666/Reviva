@@ -135,7 +135,7 @@ function formatSize(bytes) {
       </button>
       <button @click.stop="emit('chat', item)"
         class="h-6 px-2 rounded-md text-[14px] font-medium flex items-center gap-1 transition-colors"
-        :class="isDark ? 'bg-d0 text-wt-aux hover:text-wt-sub' : 'bg-white text-lt-aux hover:text-lt-sub'">
+        :class="isDark ? 'bg-d0 text-wt-sub hover:text-wt-main' : 'bg-white text-lt-sub hover:text-lt-main'">
         <i class="ri-chat-ai-4-line text-[14px]" />
       </button>
     </div>
@@ -185,7 +185,7 @@ function formatSize(bytes) {
       </button>
       <button @click.stop="emit('chat', item)"
         class="h-6 px-2 rounded-md text-[14px] font-medium flex items-center gap-1 transition-colors"
-        :class="isDark ? 'bg-d0 text-wt-aux hover:text-wt-sub' : 'bg-white text-lt-aux hover:text-lt-sub'">
+        :class="isDark ? 'bg-d0 text-wt-sub hover:text-wt-main' : 'bg-white text-lt-sub hover:text-lt-main'">
         <i class="ri-chat-ai-4-line text-[14px]" />
       </button>
     </div>

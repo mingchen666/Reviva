@@ -33,8 +33,8 @@ Office work is a Skill + Tool pairing:
 
 Expected tool pairing:
 
-- `office_read`: bottom-level precise reader for `.docx`, `.pptx`, `.xlsx`; general document reading should go through `document_read` when available.
-- `office_write`: create and edit `.docx`, `.pptx`, `.xlsx`; write capability and should be explicitly enabled.
+- `office_read`: bottom-level precise reader for `.docx`, `.pptx`, `.xlsx`. Modes: `overview` (stats+outline), `text` (paginated body), `outline`, `stats`, `issues`, `annotated` (text with inline format annotations like font/size/style), `html` (static HTML snapshot, good for archival/diff but avoid for large docs), `images` (list or export embedded pictures). General document reading should still prefer `document_read`; use `office_read` only for Office-specific modes, precise diagnosis, or image export.
+- `office_write`: create and edit `.docx`, `.pptx`, `.xlsx`. Operations: `help` (schema query), `create` (new file), `edit` (copy + structured actions), `import_data` (xlsx only — import CSV/TSV into a sheet with header/delimiter/decimal/startCell options), `refresh` (docx only — recalculate TOC page numbers / PAGE / cross-references; run after editing long docs with a TOC). Write capability should be explicitly enabled.
 
 If `office_write` is unavailable, plan the work and explain what would be changed, but do not claim the file was created or edited.
 
@@ -68,10 +68,10 @@ Reverse routing rules:
 1. Identify the file format from extension.
 2. Load only the necessary references.
 3. Read the file first with `office_read(mode="overview")`; do not edit blind.
-4. Read relevant text, outline, stats, issues, or images as needed.
+4. Read relevant text, outline, stats, issues, annotated, or images as needed. Use `annotated` when you need to see both content and formatting in one pass; use `html` only for one-shot snapshots, not iterative editing.
 5. Plan the edits as structured actions.
 6. Execute through `office_write` only when write access is available.
-7. Re-read or inspect the result enough to summarize what changed.
+7. Re-read or inspect the result enough to summarize what changed. If the docx has a TOC or PAGE fields, call `office_write(operation="refresh")` after edits to recalculate page numbers.
 
 ### New Files
 
@@ -98,10 +98,16 @@ Reverse routing rules:
 Prefer these layers in order:
 
 1. High-level structured actions: `add_heading`, `add_table`, `add_picture`, `add_chart`, `set_cell`, `set_range`, `add_slide`, `replace_text`.
-2. Typed OfficeCLI primitives: `add`, `clone`, `set`, `remove`, `query`, `get`.
+2. Typed OfficeCLI primitives: `add`, `clone`, `set`, `remove`, `query`, `get`, `move`, `swap`.
 3. Dotted properties inside typed primitives, such as `font.color`, `pbdr.bottom`, `calc.fullCalcOnLoad`.
 4. `batch` through `office_write(useBatch=true)` for many stable actions.
 5. `raw_set` through explicit `allowRawXml=true` and per-action `confirm=true` when typed actions cannot express the required OpenXML change.
+
+Structural reordering uses `move` (relocate one element) and `swap` (exchange two elements). Both compile to native officecli verbs and are batch-safe — prefer them over remove+add when reordering paragraphs, slides, rows, or columns, because stable IDs and cross-references are preserved.
+
+Cross-source data ingestion uses `office_write(operation="import_data")` (xlsx only): pass `importOptions.sourcePath` (CSV/TSV in the workspace), `importOptions.parent` (target sheet path), and optional `header`/`delimiter`/`decimal`/`startCell`. For CSVs from de-DE/ru-RU locales, set `delimiter=';'` and `decimal=','` together.
+
+After editing a docx that contains a TOC or PAGE/NUMPAGES fields, call `office_write(operation="refresh")` once to recalculate page numbers and cross-references. This requires Windows + Word; on other platforms it is a no-op that still returns success.
 
 Inside Reviva, `office_write` exposes common actions plus format shortcuts:
 
@@ -140,3 +146,4 @@ The long-form rules live under `references/`:
 - `references/word-form.md`
 
 Read only what the task requires.
+- `office_read` modes: `overview` (stats+outline), `text` (paginated body), `outline`, `stats`, `issues`, `annotated` (text with inline format annotations), `html` (static HTML snapshot, good for archival/diff), `screenshot` (render to PNG in `/context/office-screenshots/...`; supports `page`, `grid`, `render`), `svg` (pptx only — vector XML for one slide, supports `page`), `forms` (docx only — protection status + form-field list), `images` (list or export embedded pictures). General document reading should still prefer `document_read`; use `office_read` only for Office-specific modes, precise diagnosis, or image export.

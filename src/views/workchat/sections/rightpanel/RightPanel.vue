@@ -84,30 +84,30 @@ async function deleteArtifact(a) {
       <div class="flex items-center gap-1">
         <button
           @click="activeTab = 'workspace'"
-          class="px-3 py-1.5 rounded-md text-[13px] font-semibold transition-all duration-150"
+          class="px-3 py-1.5 rounded-md fs-body font-semibold transition-all duration-150"
           :class="
             activeTab === 'workspace'
               ? isDark
                 ? 'text-brand-400 bg-brand-400/10 shadow-[0_1px_2px_rgba(108,138,255,0.08)]'
                 : 'text-brand-500 bg-brand-50 shadow-sm'
               : isDark
-                ? 'text-wt-aux hover:text-wt-sub hover:bg-white/4'
-                : 'text-lt-aux hover:text-lt-sub hover:bg-l4'
+                ? 'text-wt-sub hover:text-wt-main hover:bg-white/4'
+                : 'text-lt-sub hover:text-lt-main hover:bg-l4'
           ">
           <svg-icon icon-class="wand-magic-sparkles" size="13" class="mr-0.5"/>
           工作台
         </button>
         <button
           @click="activeTab = 'preview'"
-          class="px-3 py-1.5 rounded-md text-[13px] font-semibold transition-all duration-150"
+          class="px-3 py-1.5 rounded-md fs-body font-semibold transition-all duration-150"
           :class="
             activeTab === 'preview'
               ? isDark
                 ? 'text-brand-400 bg-brand-400/10 shadow-[0_1px_2px_rgba(108,138,255,0.08)]'
                 : 'text-brand-500 bg-brand-50 shadow-sm'
               : isDark
-                ? 'text-wt-aux hover:text-wt-sub hover:bg-white/4'
-                : 'text-lt-aux hover:text-lt-sub hover:bg-l4'
+                ? 'text-wt-sub hover:text-wt-main hover:bg-white/4'
+                : 'text-lt-sub hover:text-lt-main hover:bg-l4'
           ">
           <i class="ri-eye-line text-[13px] mr-0.5" />
           预览
@@ -118,7 +118,7 @@ async function deleteArtifact(a) {
         title="关闭侧边栏"
         class="h-6 w-6 rounded flex items-center justify-center transition-colors"
         :class="
-          isDark ? 'text-wt-aux hover:text-wt-sub hover:bg-white/5' : 'text-lt-aux hover:text-lt-sub hover:bg-l4'
+          isDark ? 'text-wt-sub hover:text-wt-main hover:bg-white/5' : 'text-lt-sub hover:text-lt-main hover:bg-l4'
         ">
         <i class="ri-close-line text-[18px]" />
       </button>

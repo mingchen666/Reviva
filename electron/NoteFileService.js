@@ -500,15 +500,25 @@ export class NoteFileService {
     const trashRecursive = async (id) => {
       const folder = this._db.getNoteFolder(id)
       if (!folder) return
-      for (const child of this._db.listNoteFolders(id)) await trashRecursive(child.id)
+      const childFolderTrashIds = []
+      const childNoteTrashIds = []
+      for (const child of this._db.listNoteFolders(id)) {
+        const beforeLen = records.length
+        await trashRecursive(child.id)
+        childFolderTrashIds.push(...records.slice(beforeLen).map(r => r.id))
+      }
       for (const note of this._db.listNotes(id)) {
         const result = await this.trashNote(note.id)
-        if (result?.data) records.push(result.data)
+        if (result?.data) {
+          records.push(result.data)
+          childNoteTrashIds.push(result.data.id)
+        }
       }
       records.push(this._db.createTrashItem({
         original_path: '', trash_path: '', original_name: folder.name,
         is_directory: 1, size: 0, file_type: 'folder', category: 'note',
-        item_type: 'note_folder', item_id: id, payload_json: JSON.stringify({ folder }),
+        item_type: 'note_folder', item_id: id,
+        payload_json: JSON.stringify({ folder, childFolderTrashIds, childNoteTrashIds }),
       }))
       this._db.deleteNoteFolder(id)
     }

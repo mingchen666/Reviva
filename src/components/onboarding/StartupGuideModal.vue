@@ -34,6 +34,15 @@ function go(path) {
   router.push(path)
 }
 
+function openExternal(url) {
+  if (!url) return
+  if (window.electronAPI?.openExternal) {
+    window.electronAPI.openExternal(url).catch(console.error)
+  } else {
+    window.open(url, '_blank', 'noopener,noreferrer')
+  }
+}
+
 function providerReady(provider) {
   if (!provider?.enabled) return false
   if (!settingsStore.providerConfigured(provider)) return false
@@ -299,7 +308,11 @@ function statusClass(step) {
         :class="isDark ? 'bg-d0 border border-d4 text-wt-aux' : 'bg-l2 border border-bdrL text-lt-aux'">
         <i class="ri-lightbulb-line text-amber-400 text-[14px] mt-[1px] shrink-0" />
         <div class="text-[10.5px] leading-relaxed">
-          内置 Agent 配好模型后即可使用；需要更贴合自己流程时，可以在 Agent 页面编辑工具权限、提示词、模型和执行限制。
+          内置 Agent 配好模型后即可使用；需要更贴合自己流程时，可以在 Agent 页面编辑工具权限、提示词、模型和执行限制。<a class="inline-flex items-center gap-1 ml-1 px-2 py-0.5 rounded-md text-[10px] font-medium cursor-pointer transition-all"
+          :class="isDark ? 'bg-brand-400/12 text-brand-300 hover:bg-brand-400/20 border border-brand-400/20' : 'bg-brand-50 text-brand-600 hover:bg-brand-100 border border-brand-100'"
+          @click="openExternal('https://www.reviva.cn/tutorial')">
+          <i class="ri-graduation-cap-line text-[10px]" />新手教程<i class="ri-arrow-right-up-line text-[8px] opacity-60" />
+        </a>
         </div>
       </div>
     </div>
@@ -307,7 +320,7 @@ function statusClass(step) {
     <template #footer>
       <button
         class="h-8 px-4 rounded-lg text-[11px] font-medium transition-colors"
-        :class="isDark ? 'text-wt-aux hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub'"
+        :class="isDark ? 'text-wt-sub hover:text-wt-main' : 'text-lt-sub hover:text-lt-main'"
         @click="close">
         稍后再说
       </button>

@@ -117,7 +117,7 @@ const faqs = [
     q: '对话无响应或报错',
     a: '先到「模型服务」确认服务商已启用、API Key 有效、模型已勾选。再去【默认模型【页面配置好默认对话模型。若用国外模型，检查网络代理是否配置正确；模型上下文超长也会报错，尝试缩短资料或换用长上下文模型。',
     path: '/settings/models',
-    icon: 'ai-generate-3d-line',
+    icon: 'ri-ai-generate-3d-line',
   },
   {
     q: '文档导入失败或解析乱码',
@@ -284,7 +284,7 @@ function btnClass(step) {
         <div v-for="faq in faqs" :key="faq.q" class="rounded-xl p-3.5 cursor-pointer transition-colors" :class="isDark ? 'bg-d3 border border-bdr hover:border-amber-400/30' : 'bg-l3 border border-bdrF hover:border-amber-200'" @click="go(faq.path)">
           <div class="flex items-start gap-2.5">
             <div class="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" :class="toneClass('amber')">
-              <i :class="[faq.icon, 'text-[14px]']" />
+              <i :class="[faq.icon, 'text-[16px]']" />
             </div>
             <div class="min-w-0 flex-1">
               <h4 class="text-[12px] font-bold mb-1" :class="isDark ? 'text-wt-main' : 'text-lt-main'">{{ faq.q }}</h4>

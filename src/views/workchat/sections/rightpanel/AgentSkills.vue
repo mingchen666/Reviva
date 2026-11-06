@@ -82,7 +82,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocumentClick, tru
           <span v-if="s.icon && !isRemixIcon(s.icon)" class="text-[15px]">{{ s.icon }}</span>
           <i v-else :class="s.icon || 'ri-magic-line'" :style="s.color ? { color: s.color } : {}" />
         </div>
-        <span class="text-[11.5px] font-medium truncate max-w-[64px]" :class="isDark ? 'text-wt-aux group-hover:text-wt-sub' : 'text-lt-aux group-hover:text-lt-sub'">{{ s.name }}</span>
+        <span class="text-[11.5px] font-medium truncate max-w-[64px]" :class="isDark ? 'text-wt-sub group-hover:text-wt-main' : 'text-lt-sub group-hover:text-lt-main'">{{ s.name }}</span>
       </button>
 
       <button v-if="hasOverflow"
@@ -95,7 +95,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocumentClick, tru
           :class="isDark ? 'bg-agent-400/8 text-agent-400' : 'bg-agent-50 text-agent-500'">
           <i class="ri-more-line" />
         </div>
-        <span class="text-[12px] font-medium truncate max-w-[64px]" :class="isDark ? 'text-wt-aux group-hover:text-wt-sub' : 'text-lt-aux group-hover:text-lt-sub'">
+        <span class="text-[12px] font-medium truncate max-w-[64px]" :class="isDark ? 'text-wt-sub group-hover:text-wt-main' : 'text-lt-sub group-hover:text-lt-main'">
           更多({{ hiddenSkillCount }})
         </span>
       </button>
@@ -110,10 +110,10 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocumentClick, tru
       class="absolute left-2 right-2 top-[calc(100%-6px)] z-30 rounded-xl p-2 shadow-xl"
       :class="isDark ? 'bg-d2 border border-d4 shadow-black/40' : 'bg-white border border-bdrF shadow-black/12'">
       <div class="flex items-center justify-between px-1 pb-2">
-        <span class="text-[13px] font-semibold" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">全部 Skills</span>
+        <span class="fs-body font-semibold" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">全部 Skills</span>
         <button @click="closeMore"
           class="h-5 w-5 rounded flex items-center justify-center transition-colors"
-          :class="isDark ? 'text-wt-dim hover:text-wt-sub hover:bg-white/5' : 'text-lt-aux hover:text-lt-sub hover:bg-l4'">
+          :class="isDark ? 'text-wt-dim hover:text-wt-sub hover:bg-white/5' : 'text-lt-sub hover:text-lt-main hover:bg-l4'">
           <i class="ri-close-line text-[18px]" />
         </button>
       </div>
@@ -129,7 +129,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocumentClick, tru
           </div>
           <div class="min-w-0 flex-1">
             <div class="flex items-center gap-1.5 min-w-0">
-              <span class="text-[13px] font-semibold truncate" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">{{ s.name }}</span>
+              <span class="fs-body font-semibold truncate" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">{{ s.name }}</span>
               <span v-if="s.category" class="ctx-pill text-[10px] shrink-0"
                 :class="isDark ? 'bg-d0 text-wt-dim border border-bdr' : 'bg-l3 text-lt-aux border border-bdrF'">
                 {{ s.category }}

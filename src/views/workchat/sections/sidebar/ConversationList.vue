@@ -200,11 +200,12 @@ onBeforeUnmount(closeDropdown)
             class="group h-full flex items-center gap-1 px-1 cursor-pointer"
             @click="toggleGroup(item.row.group.id)">
             <i :class="[item.row.expanded ? 'ri-arrow-down-s-line' : 'ri-arrow-right-s-line', 'text-[16px] transition-transform', isDark ? 'text-wt-dim' : 'text-lt-aux']" />
+            <i v-if="item.row.group.id === 'wxbot'" class="ri-wechat-line text-[14px] text-green-500 shrink-0" />
             <span class="text-[13px] font-semibold truncate" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">{{ item.row.group.name }}</span>
             <span class="text-[12px] px-1 py-0.5 rounded" :class="isDark ? 'bg-d4 text-wt-dim' : 'bg-l4 text-lt-aux'">{{ item.row.count }}</span>
             <button @click.stop="openMore('group', item.row.group.id, item.row.group.name, $event)"
               class="opacity-0 group-hover:opacity-100 ml-auto h-5 w-5 rounded flex items-center justify-center transition-all duration-150"
-              :class="isDark ? 'text-wt-dim hover:text-wt-sub hover:bg-white/5' : 'text-lt-aux hover:text-lt-sub hover:bg-l4'">
+              :class="isDark ? 'text-wt-dim hover:text-wt-sub hover:bg-white/5' : 'text-lt-sub hover:text-lt-main hover:bg-l4'">
               <i class="ri-more-2-fill text-[16px]" />
             </button>
           </div>
@@ -223,7 +224,7 @@ onBeforeUnmount(closeDropdown)
             <span class="truncate flex-1">{{ convStore.titleTypewriterMap[item.row.conversation.id] || item.row.conversation.title }}</span>
             <button @click.stop="openMore('conv', item.row.conversation.id, item.row.conversation.title, $event)"
               class="opacity-0 group-hover:opacity-100 shrink-0 h-5 w-5 rounded flex items-center justify-center transition-all duration-150"
-              :class="isDark ? 'text-wt-dim hover:text-wt-sub hover:bg-white/5' : 'text-lt-aux hover:text-lt-sub hover:bg-l4'">
+              :class="isDark ? 'text-wt-dim hover:text-wt-sub hover:bg-white/5' : 'text-lt-sub hover:text-lt-main hover:bg-l4'">
               <i class="ri-more-2-fill text-[12px]" />
             </button>
           </div>

@@ -231,7 +231,7 @@ watch(
           :class="isDark ? 'bg-white/5 text-wt-sub hover:bg-white/9' : 'bg-l3 text-lt-sub hover:bg-l4'">仅 AI</button>
         <button type="button" @click="clearSelection"
           class="h-7 px-2.5 rounded-md text-[11px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400/35"
-          :class="isDark ? 'text-wt-dim hover:text-wt-sub hover:bg-white/5' : 'text-lt-aux hover:text-lt-sub hover:bg-l3'">清空</button>
+          :class="isDark ? 'text-wt-dim hover:text-wt-sub hover:bg-white/5' : 'text-lt-sub hover:text-lt-main hover:bg-l3'">清空</button>
         <span class="ml-auto text-[11px] font-medium tabular-nums" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">已选择 {{ selectedCount }} / {{ selectableMessages.length }}</span>
       </div>
 

@@ -42,7 +42,7 @@ function close() {
     <!-- Brand -->
     <div class="flex items-center gap-2 p-2">
       <img class="h-6 w-6" :src="isDark ? './logo-dark.png' : './logo-light.png'" alt="Reviva" />
-      <span class="text-[14px] font-semibold tracking-wide" :class="isDark ? 'text-wt-main' : 'text-lt-main'">
+      <span class="fs-title font-semibold tracking-wide" :class="isDark ? 'text-wt-main' : 'text-lt-main'">
         Reviva
       </span>
     </div>

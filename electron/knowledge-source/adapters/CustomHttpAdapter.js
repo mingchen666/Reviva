@@ -1,4 +1,4 @@
-/**
+﻿/**
  * CustomHttpAdapter — 自定义 HTTP 知识源适配器
  *
  * 按 config 中的 endpoint 定义组装 HTTP 请求，注入认证信息，
@@ -54,7 +54,8 @@ function smartReplace(str, params) {
   if (exact) {
     const val = params[exact[1]]
     if (val !== undefined && val !== null) return val
-    return ''
+    // Keep unrecognized {PLACEHOLDER} as-is instead of destroying it to empty string
+    return str
   }
   return replacePlaceholders(str, params)
 }
@@ -235,6 +236,16 @@ async search(config = {}, params = {}) {
     if (params.extra_body && typeof params.extra_body === 'object' && !Array.isArray(params.extra_body)) {
       body = { ...body, ...params.extra_body }
     }
+    // Direct injection: if kbId is provided, ensure it reaches the body
+    // regardless of placeholder naming or stored config structure.
+    if (params.kbId && typeof body === 'object' && !Array.isArray(body)) {
+      if (!body.knowledge_base_id || body.knowledge_base_id === '' || /^\{.*\}$/.test(String(body.knowledge_base_id))) {
+        body.knowledge_base_id = params.kbId
+      }
+      if (!body.datasetId || body.datasetId === '') {
+        body.datasetId = params.kbId
+      }
+    }
     fetchOpts.body = JSON.stringify(body)
   }
 
@@ -246,7 +257,10 @@ async search(config = {}, params = {}) {
        signal: AbortSignal.timeout(endpoint.timeout_ms || DEFAULT_TIMEOUT_MS),
      })
    } catch (e) {
-     return { status: 'error', message: e?.message || 'Network error' }
+     // Expose the real cause: DNS, timeout, certificate, etc.
+     const cause = e?.cause?.message || e?.cause?.code || ''
+     const detail = cause ? (e?.message + ' (' + cause + ')') : (e?.message || 'Network error')
+     return { status: 'error', message: detail, url }
    }
 
    if (!resp.ok) {
@@ -265,6 +279,10 @@ async search(config = {}, params = {}) {
      return { status: 'error', message: 'Response is not valid JSON: ' + (e?.message || '') }
    }
 
+   // Check for API-level error codes (e.g. IMA returns { code, msg, data })
+   if (data && typeof data.code !== 'undefined' && Number(data.code) !== 0) {
+     return { status: 'error', message: data.msg || data.message || 'API error code: ' + data.code }
+   }
    // Extract result array
    const responseConfig = endpoint.response || {}
    const itemsPath = responseConfig.items_path || 'data'
@@ -304,55 +322,58 @@ async search(config = {}, params = {}) {
       return { success: false, error: '此知识源不支持获取知识库列表' }
     }
 
-    const callParams = {}
-    const queryParams = endpoint.query_params ? deepReplace(endpoint.query_params, callParams) : undefined
-    const url = buildUrl(config.base_url, endpoint.path, queryParams)
-
-    const headers = {
-      'Content-Type': 'application/json',
-      ...(config.default_headers || {}),
-      ...buildAuthHeaders(config.auth),
-    }
-
-    const fetchOpts = { method: endpoint.method || 'GET', headers }
-   if (endpoint.method !== 'GET' && endpoint.body) {
-      fetchOpts.body = JSON.stringify(deepCoerceJsonStrings(deepReplace(endpoint.body, callParams)))
-   }
-
-    let resp
-    try {
-      resp = await fetch(url, { ...fetchOpts, signal: AbortSignal.timeout(DEFAULT_TIMEOUT_MS) })
-    } catch (e) {
-      return { success: false, error: e?.message || 'Network error' }
-    }
-
-    if (!resp.ok) {
-      const errText = await resp.text().catch(() => '')
-      return { success: false, error: 'HTTP ' + resp.status + ': ' + errText.substring(0, 200) }
-    }
-
-    let data
-    try {
-      data = await resp.json()
-    } catch (e) {
-      return { success: false, error: 'Response is not valid JSON: ' + (e?.message || '') }
-    }
-
     const itemsPath = endpoint.response?.items_path || 'data'
-    const items = getByPath(data, itemsPath)
-    if (!Array.isArray(items)) {
-      return { success: false, error: '无法解析知识库列表' }
-    }
-
     const idField = endpoint.response?.field_mapping?.id || 'id'
     const nameField = endpoint.response?.field_mapping?.name || 'name'
-    const list = items.map(item => ({
-      id: String(getByPath(item, idField) || ''),
-      name: String(getByPath(item, nameField) || '(未命名)'),
-    })).filter(item => item.id)
+    const allItems = []
+    let cursor = ''
+    const maxPages = 10
 
-    return { success: true, list }
-  }
+    for (let page = 0; page < maxPages; page++) {
+      const callParams = { cursor }
+      const queryParams = endpoint.query_params ? deepReplace(endpoint.query_params, callParams) : undefined
+      const pageUrl = buildUrl(config.base_url, endpoint.path, queryParams)
+      const pageHeaders = { 'Content-Type': 'application/json', ...(config.default_headers || {}), ...buildAuthHeaders(config.auth) }
+      const pageOpts = { method: endpoint.method || 'GET', headers: pageHeaders }
+      if (endpoint.method !== 'GET' && endpoint.body) {
+        pageOpts.body = JSON.stringify(deepCoerceJsonStrings(deepReplace(endpoint.body, callParams)))
+      }
+
+      let resp
+      try {
+        resp = await fetch(pageUrl, { ...pageOpts, signal: AbortSignal.timeout(DEFAULT_TIMEOUT_MS) })
+      } catch (e) {
+        return { success: false, error: e?.message || 'Network error' }
+      }
+      if (!resp.ok) {
+        const errText = await resp.text().catch(() => '')
+        return { success: false, error: 'HTTP ' + resp.status + ': ' + errText.substring(0, 200) }
+      }
+      let data
+      try { data = await resp.json() } catch (e) {
+        return { success: false, error: 'Response is not valid JSON: ' + (e?.message || '') }
+      }
+      if (data && typeof data.code !== 'undefined' && Number(data.code) !== 0) {
+        return { success: false, error: data.msg || data.message || 'API error code: ' + data.code }
+      }
+      const items = getByPath(data, itemsPath)
+      if (!Array.isArray(items)) {
+        return { success: false, error: '无法解析知识库列表' }
+      }
+      for (const item of items) {
+        const id = String(getByPath(item, idField) || '')
+        const name = String(getByPath(item, nameField) || '(未命名)')
+        if (id) allItems.push({ id, name })
+      }
+      // Check pagination: IMA uses data.is_end + data.next_cursor
+      const isEnd = getByPath(data, 'data.is_end')
+      const nextCursor = getByPath(data, 'data.next_cursor')
+      if (isEnd === true || !nextCursor) break
+      cursor = String(nextCursor)
+    }
+
+    return { success: true, list: allItems }
+ }
 }
 
 export const customHttpAdapter = new CustomHttpAdapter()

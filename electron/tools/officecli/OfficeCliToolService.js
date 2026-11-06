@@ -94,6 +94,10 @@ export class OfficeCliToolService {
           return await this._create(input)
         case 'edit':
           return await this._edit(input)
+        case 'import_data':
+          return await this._importData(input)
+        case 'refresh':
+          return await this._refresh(input)
         default:
           return jsonError('TOOL_UNSUPPORTED_OPERATION', `不支持的 Office operation：${operation}`)
       }
@@ -286,5 +290,85 @@ export class OfficeCliToolService {
       warnings.push({ type: 'validate_failed', content: clipText(validate.stderr || validate.stdout, 3000) })
     }
     return warnings
+  }
+
+  async _importData({ path: inputPath, filename, importOptions = {} }) {
+    const sourcePath = this._paths.resolveInput(inputPath, { allowedExts: OFFICE_EXTS, maxBytes: MAX_INPUT_BYTES })
+    const ext = path.extname(sourcePath).slice(1).toLowerCase()
+    if (ext !== 'xlsx') {
+      return jsonError('OFFICE_UNSUPPORTED_FORMAT', 'import_data 仅支持 .xlsx 文件。')
+    }
+    const outputPath = buildOutputPath(this._paths, filename || path.basename(sourcePath), { format: ext, suffix: 'imported' })
+    fs.copyFileSync(sourcePath, outputPath)
+
+    const csvSource = importOptions.sourcePath
+      ? this._paths.resolveInput(importOptions.sourcePath, { allowedExts: new Set(['.csv', '.tsv', '.txt']), maxBytes: MAX_INPUT_BYTES })
+      : ''
+    if (!csvSource) {
+      return jsonError('OFFICE_IMPORT_MISSING_SOURCE', 'import_data 需要 importOptions.sourcePath 指向 CSV/TSV 源文件。')
+    }
+
+    const parent = String(importOptions.parent || importOptions.sheet || '').trim() || ''
+    if (!parent) {
+      return jsonError('OFFICE_IMPORT_MISSING_PARENT', 'import_data 需要 importOptions.parent 指定目标工作表路径，例如 /Sheet1。')
+    }
+
+    const args = ['import', outputPath, parent, csvSource]
+    if (importOptions.format) args.push('--format', importOptions.format)
+    if (importOptions.delimiter) args.push('--delimiter', importOptions.delimiter)
+    if (importOptions.decimal) args.push('--decimal', importOptions.decimal)
+    if (importOptions.header === true) args.push('--header')
+    if (importOptions.startCell) args.push('--start-cell', importOptions.startCell)
+    args.push('--json')
+
+    const result = await runOfficeCli(args, {
+      timeoutMs: 120000,
+      maxBuffer: 4 * 1024 * 1024,
+      cwd: path.dirname(outputPath),
+    })
+    if (result.code !== 0) {
+      return jsonError(result.code === 124 ? 'OFFICECLI_TIMEOUT' : 'OFFICE_IMPORT_FAILED', 'CSV/TSV 导入失败。', summarizeResult(result, 3000))
+    }
+
+    const checks = await this._runChecks(outputPath)
+    return JSON.stringify({
+      success: true,
+      operation: 'import_data',
+      inputPath: this._paths.toVirtualPath(sourcePath),
+      outputPath: this._paths.toVirtualPath(outputPath),
+      csvPath: this._paths.toVirtualPath(csvSource),
+      parent,
+      format: ext,
+      warnings: checks,
+      import: summarizeResult(result, 3000),
+    })
+  }
+
+  async _refresh({ path: inputPath, filename }) {
+    const sourcePath = this._paths.resolveInput(inputPath, { allowedExts: OFFICE_EXTS, maxBytes: MAX_INPUT_BYTES })
+    const ext = path.extname(sourcePath).slice(1).toLowerCase()
+    if (ext !== 'docx') {
+      return jsonError('OFFICE_UNSUPPORTED_FORMAT', 'refresh 仅支持 .docx 文件。')
+    }
+    const outputPath = buildOutputPath(this._paths, filename || path.basename(sourcePath), { format: ext, suffix: 'refreshed' })
+    fs.copyFileSync(sourcePath, outputPath)
+
+    const result = await runOfficeCli(['refresh', outputPath, '--json'], {
+      timeoutMs: 120000,
+      maxBuffer: 4 * 1024 * 1024,
+      cwd: path.dirname(outputPath),
+    })
+    if (result.code !== 0) {
+      return jsonError(result.code === 124 ? 'OFFICECLI_TIMEOUT' : 'OFFICE_REFRESH_FAILED', 'TOC/页码重算失败。', summarizeResult(result, 3000))
+    }
+    return JSON.stringify({
+      success: true,
+      operation: 'refresh',
+      inputPath: this._paths.toVirtualPath(sourcePath),
+      outputPath: this._paths.toVirtualPath(outputPath),
+      format: ext,
+      refresh: summarizeResult(result, 3000),
+      note: '已重算 TOC 页码与 PAGE/NUMPAGES 交叉引用。',
+    })
   }
 }

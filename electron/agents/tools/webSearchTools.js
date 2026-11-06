@@ -29,7 +29,7 @@ export const webSearchTavily = tool(
       const resp = await fetch(`${baseUrl}/search`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        signal: AbortSignal.timeout(15000),
+        signal: AbortSignal.timeout(60000),
         body: JSON.stringify({
           api_key: apiKey,
           query,
@@ -87,7 +87,7 @@ export const webSearchSearxng = tool(
       const headers = { 'Accept': 'application/json' }
       if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`
       const resp = await fetch(`${baseUrl}/search?${params}`, {
-        signal: AbortSignal.timeout(15000),
+        signal: AbortSignal.timeout(60000),
         headers,
       })
       const data = await resp.json()
@@ -197,7 +197,7 @@ export const webSearchBing = tool(
       const resp = await fetch(
         'https://cn.bing.com/search?' + params,
         {
-          signal: AbortSignal.timeout(15000),
+          signal: AbortSignal.timeout(60000),
           redirect: 'follow',
           headers: {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',

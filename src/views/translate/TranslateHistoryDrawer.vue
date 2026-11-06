@@ -130,7 +130,7 @@ function confirmClearAll() {
     <p class="text-[12px]" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">确定删除这条翻译记录吗？此操作不可撤销。</p>
     <template #footer="{ close }">
       <button @click="store.pendingDeleteId = null; close()" class="h-8 px-4 rounded-lg text-[11px] font-medium transition-colors"
-        :class="isDark ? 'text-wt-aux hover:text-wt-sub bg-d3' : 'text-lt-aux hover:text-lt-sub bg-l3'">取消</button>
+        :class="isDark ? 'text-wt-sub hover:text-wt-main bg-d3' : 'text-lt-sub hover:text-lt-main bg-l3'">取消</button>
       <button @click="confirmDelete(); close()" class="h-8 px-4 rounded-lg text-[11px] font-medium bg-red-500 text-white hover:bg-red-600 transition-colors">确认删除</button>
     </template>
   </MsModal>
@@ -148,7 +148,7 @@ function confirmClearAll() {
     <p class="text-[12px]" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">确定清空所有 <span class="font-semibold" :class="isDark ? 'text-wt-main' : 'text-lt-main'">{{ store.history.length }}</span> 条翻译记录吗？此操作不可撤销。</p>
     <template #footer="{ close }">
       <button @click="showClearConfirm = false; close()" class="h-8 px-4 rounded-lg text-[11px] font-medium transition-colors"
-        :class="isDark ? 'text-wt-aux hover:text-wt-sub bg-d3' : 'text-lt-aux hover:text-lt-sub bg-l3'">取消</button>
+        :class="isDark ? 'text-wt-sub hover:text-wt-main bg-d3' : 'text-lt-sub hover:text-lt-main bg-l3'">取消</button>
       <button @click="confirmClearAll(); close()" class="h-8 px-4 rounded-lg text-[11px] font-medium bg-red-500 text-white hover:bg-red-600 transition-colors">确认清空</button>
     </template>
   </MsModal>

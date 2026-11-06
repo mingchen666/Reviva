@@ -260,7 +260,7 @@ function formatResult(result) {
     </div>
     <!-- expand toggle -->
     <button @click="showDetails = !showDetails" class="shrink-0 mt-0.5 h-5 w-5 rounded flex items-center justify-center"
-      :class="isDark ? 'text-wt-dim hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub'">
+      :class="isDark ? 'text-wt-dim hover:text-wt-sub' : 'text-lt-sub hover:text-lt-main'">
       <i :class="showDetails ? 'ri-arrow-down-s-line' : 'ri-arrow-right-s-line'" class="text-[14px]" />
     </button>
   </div>

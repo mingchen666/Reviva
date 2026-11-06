@@ -189,7 +189,7 @@ function agentTotalFiles(agent) {
               class="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-md text-[12px] font-medium transition-all"
               :class="viewMode === 'agent'
                 ? (isDark ? 'bg-d0 text-wt-main shadow-sm' : 'bg-white text-lt-main shadow-sm')
-                : (isDark ? 'rgb(85 100 104) hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub')"
+                : (isDark ? 'rgb(85 100 104) hover:text-wt-sub' : 'text-lt-sub hover:text-lt-main')"
               @click="viewMode = 'agent'">
               <i class="ri-sparkling-line text-[13px]" />Agent
             </button>
@@ -197,7 +197,7 @@ function agentTotalFiles(agent) {
               class="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-md text-[12px] font-medium transition-all"
               :class="viewMode === 'date'
                 ? (isDark ? 'bg-d0 text-wt-main shadow-sm' : 'bg-white text-lt-main shadow-sm')
-                : (isDark ? 'text-wt-dim hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub')"
+                : (isDark ? 'text-wt-dim hover:text-wt-sub' : 'text-lt-sub hover:text-lt-main')"
               @click="viewMode = 'date'">
               <i class="ri-calendar-line text-[13px]" />日期
             </button>
@@ -211,13 +211,13 @@ function agentTotalFiles(agent) {
           <span class="text-[12px] font-medium" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">{{ totalFileCount }} 个输出</span>
           <div class="flex items-center gap-2">
             <button v-if="viewMode === 'agent'" class="text-[11px] font-medium cursor-pointer flex items-center gap-1"
-              :class="isDark ? 'text-wt-dim hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub'"
+              :class="isDark ? 'text-wt-dim hover:text-wt-sub' : 'text-lt-sub hover:text-lt-main'"
               @click="expandedAgents.size ? collapseAll() : expandAllAgents()">
               <i :class="expandedAgents.size ? 'ri-arrow-right-s-line' : 'ri-arrow-down-s-line'" class="text-[14px]" />
               {{ expandedAgents.size ? '折叠' : '展开' }}
             </button>
             <button class="text-[11px] font-medium cursor-pointer"
-              :class="isDark ? 'text-wt-dim hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub'"
+              :class="isDark ? 'text-wt-dim hover:text-wt-sub' : 'text-lt-sub hover:text-lt-main'"
               @click="loadPage">
               <i class="ri-refresh-line text-[12px]" />
             </button>

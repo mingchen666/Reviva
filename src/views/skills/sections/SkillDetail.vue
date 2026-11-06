@@ -151,7 +151,7 @@ watch(() => props.skill?.id, () => { fileTree.value = []; selectedPath.value = '
             <span class="text-[11px] font-mono" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">{{ skill.id }}/{{ selectedPath }}</span>
             <div v-if="canEditFile" class="flex items-center gap-1">
               <template v-if="fileEditing">
-                <button class="ctx-pill cursor-pointer" :class="isDark ? 'text-wt-aux hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub'" @click="fileEditing = false; fileDraft = fileContent">取消</button>
+                <button class="ctx-pill cursor-pointer" :class="isDark ? 'text-wt-sub hover:text-wt-main' : 'text-lt-sub hover:text-lt-main'" @click="fileEditing = false; fileDraft = fileContent">取消</button>
                 <button class="ctx-pill cursor-pointer" :class="isDark ? 'text-brand-400 bg-brand-400/8' : 'text-brand-500 bg-brand-50'" @click="saveFile"><i :class="fileSaving ? 'ri-loader-4-line animate-spin' : 'ri-save-line'" /> 保存</button>
               </template>
               <button v-else class="ctx-pill cursor-pointer" :class="isDark ? 'text-wt-aux hover:text-brand-400' : 'text-lt-aux hover:text-brand-500'" @click="fileEditing = true; fileDraft = fileContent"><i class="ri-edit-line" /> 编辑文件</button>
@@ -204,6 +204,7 @@ watch(() => props.skill?.id, () => { fileTree.value = []; selectedPath.value = '
             <TreeItem v-for="item in fileTree" :key="item.path"
               :item="item" :is-dark="isDark" :depth="0"
               :expanded="isExpanded(item.path)"
+              :is-expanded-dir="isExpanded"
               :selected-path="selectedPath"
               @toggle-dir="toggleDir"
               @select-file="selectFile" />

@@ -1,0 +1,21 @@
+export function registerWeChatBridgeIpcHandlers(ipcMain, bridge) {
+  if (!ipcMain || !bridge) return
+  ipcMain.handle('wechat-bridge:start', () => bridge.start())
+  ipcMain.handle('wechat-bridge:stop', () => bridge.stop())
+  ipcMain.handle('wechat-bridge:login', () => bridge.login())
+  ipcMain.handle('wechat-bridge:get-status', () => bridge.getStatus())
+  ipcMain.handle('wechat-bridge:get-config', () => bridge.getConfig())
+  ipcMain.handle('wechat-bridge:set-config', async (_event, patch) => bridge.setConfig(patch || {}))
+  ipcMain.handle('wechat-bridge:get-agents', () => bridge.getAgents())
+  ipcMain.handle('wechat-bridge:list-files', () => bridge.listFiles())
+  ipcMain.handle('wechat-bridge:clear-pending-images', () => bridge.clearPendingImages())
+  ipcMain.handle('wechat-bridge:list-images', () => bridge.listImages())
+  ipcMain.handle('wechat-bridge:delete-image', (_e, name) => bridge.deleteImage(name))
+  ipcMain.handle('wechat-bridge:list-reminders', () => bridge.listReminders())
+  ipcMain.handle('wechat-bridge:add-reminder', (_e, r) => bridge.addReminder(r))
+  ipcMain.handle('wechat-bridge:delete-reminder', (_e, id) => bridge.deleteReminder(id))
+  ipcMain.handle('wechat-bridge:update-reminder', (_e, id, data) => bridge.updateReminder(id, data))
+  ipcMain.handle('wechat-bridge:list-reminder-logs', (_e, opts) => bridge.listReminderLogs(opts))
+  ipcMain.handle('wechat-bridge:clear-reminder-logs', () => bridge.clearReminderLogs())
+  ipcMain.handle('wechat-bridge:logout', () => bridge.logout())
+}

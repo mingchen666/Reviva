@@ -64,6 +64,7 @@ const mcpAdding = ref(false)
 const presetMeta = {
   dify: { svgIcon: 'dify', desc: '开源 LLM 应用开发平台，支持知识库检索', fieldLabels: { USER_TOKEN: 'API Key' }, steps: ['登录 Dify 控制台，进入「知识库」', '点击目标知识库，在「API」页面获取 API Key'] },
   fastgpt: { svgIcon: 'fastgpt', desc: '开源知识库问答系统，支持知识库检索', fieldLabels: { USER_TOKEN: 'API Key' }, steps: ['登录 FastGPT 管理后台', '进入「账号」→「API 密钥」创建或查看密钥'] },
+  ima: { svgIcon: 'ima', desc: '腾讯 IMA 知识库，支持知识检索', fieldLabels: { CLIENT_ID: 'Client ID', API_KEY: 'API Key' }, steps: [{ text: '访问 ima.qq.com/agent-interface 获取接口权限', link: 'https://ima.qq.com/agent-interface' }, '创建应用后获取 Client ID 和 API Key'] },
 }
 
 const cloudActive = computed(() => {
@@ -110,6 +111,8 @@ const currentAiProvider = computed(() => aiProviders.value.find(p => p.id === ai
 const currentAiModels = computed(() => currentAiProvider.value?.models || [])
 
 function getFieldLabel(presetName, fieldName) { return presetMeta[presetName]?.fieldLabels?.[fieldName] || fieldName }
+
+function openExternal(url) { window.electronAPI?.openExternal?.(url) || window.open(url, '_blank') }
 
 // Auto-discover the most likely search tool from an MCP server's tool list
 function autoDiscoverSearchTool(tools) {
@@ -168,16 +171,11 @@ async function loadData() {
   try {
     const [list, activeId, presetList] = await Promise.all([kbApi.listSources(), kbApi.getActiveSourceId(), kbApi.getPresets()])
    sources.value = list || []
-   // One-time cleanup: delete orphaned IMA preset sources (preset removed)
-   for (const s of sources.value) {
-     if (s.preset === 'ima') { try { await kbApi.deleteSource(s.id) } catch {} }
-   }
-   if (sources.value.some(s => s.preset === 'ima')) sources.value = sources.value.filter(s => s.preset !== 'ima')
   activeSourceId.value = activeId || ''
    // Sync kbMode from the active source type
    const activeSrc = (list || []).find(s => s.id === activeId)
    kbMode.value = activeSrc?.type === 'builtin' ? 'cloud' : 'external'
-   presets.value = (presetList || []).filter(p => p.preset !== 'notion')
+   presets.value = presetList || []
     await loadMcpServers()
   } catch (e) { msg.error(e?.message || '加载失败') } finally { if (!loadData._silent) loading.value = false }
 }
@@ -201,7 +199,9 @@ function addNewPreset(presetName) {
   selectedKey.value = 'new:preset:' + presetName
   showAddMenu.value = false
   formName.value = presets.value.find(p => p.preset === presetName)?.name || presetName
+  const p = presets.value.find(p => p.preset === presetName)
   formFields.value = {}
+  if (p?.userFields) for (const f of p.userFields) if (f.isAuth) formFields.value[f.name] = ''
  formUrl.value = presets.value.find(p => p.preset === presetName)?.base_url || ''
 }
 
@@ -282,8 +282,13 @@ async function handleMcpSave() {
   const config = { ...mcpForm.value }
  saving.value = true
  try {
-   if (currentSource.value) { await kbApi.updateSource(currentSource.value.id, { name: mcpName.value.trim(), config }); msg.success('已保存') }
-   else { await kbApi.addSource({ name: mcpName.value.trim(), type: 'mcp', preset: '', config }); msg.success('已添加') }
+   if (currentSource.value) {
+     await kbApi.updateSource(currentSource.value.id, { name: mcpName.value.trim(), config }); msg.success('已保存')
+   } else {
+     const created = await kbApi.addSource({ name: mcpName.value.trim(), type: 'mcp', preset: '', config })
+     msg.success('已添加')
+     if (created?.id) selectedKey.value = 'source:' + created.id
+   }
     await refreshData()
    populateForm()
  } catch (e) { msg.error(e?.message || '保存失败') } finally { saving.value = false }
@@ -313,7 +318,11 @@ function populateForm() {
  } else if (item.presetKey) {
    formName.value = item.source.name
    formUrl.value = item.source.config?.base_url || ''
-   formFields.value = { USER_TOKEN: item.source.config?._form?.USER_TOKEN || '' }
+   const savedForm = item.source.config?._form || {}
+   const fields = currentPresetObj.value?.userFields || [{ name: 'USER_TOKEN' }]
+   const restored = {}
+   for (const f of fields) restored[f.name] = savedForm[f.name] || ''
+   formFields.value = restored
  } else {
     customName.value = item.source.name
     aiResult.value = item.source.config
@@ -330,7 +339,10 @@ async function handlePresetSave() {
   const presetName = currentPresetName.value
   if (!presetName) return
   if (!formName.value.trim()) { msg.warning('请填写名称'); return }
-  if (!formFields.value['USER_TOKEN']?.trim()) { msg.warning('请填写 API Key'); return }
+  const fields = currentPresetObj.value?.userFields || [{ name: 'USER_TOKEN', label: 'API Key', isAuth: true }]
+  for (const f of fields) {
+    if (f.isAuth && !formFields.value[f.name]?.trim()) { msg.warning('请填写 ' + f.label); return }
+  }
   const vals = { ...formFields.value }
   let config
   try { config = await kbApi.getPresetConfig(presetName, vals) }
@@ -339,8 +351,13 @@ async function handlePresetSave() {
   config._form = { ...formFields.value }
  saving.value = true
  try {
-   if (currentSource.value) { await kbApi.updateSource(currentSource.value.id, { name: formName.value.trim(), config }); msg.success('已保存') }
-   else { await kbApi.addSource({ name: formName.value.trim(), type: 'preset', preset: presetName, config }); msg.success('已配置') }
+   if (currentSource.value) {
+     await kbApi.updateSource(currentSource.value.id, { name: formName.value.trim(), config }); msg.success('已保存')
+   } else {
+     const created = await kbApi.addSource({ name: formName.value.trim(), type: 'preset', preset: presetName, config })
+     msg.success('已配置')
+     if (created?.id) selectedKey.value = 'source:' + created.id
+   }
     await refreshData()
    populateForm()
  } catch (e) { msg.error(e?.message || '保存失败') } finally { saving.value = false }
@@ -370,8 +387,13 @@ async function handleCustomSave() {
   }
  saving.value = true
  try {
-   if (currentSource.value) { await kbApi.updateSource(currentSource.value.id, { name: customName.value.trim(), config: parsedConfig }); msg.success('已保存') }
-   else { await kbApi.addSource({ name: customName.value.trim(), type: 'http', preset: '', config: parsedConfig }); msg.success('已添加') }
+   if (currentSource.value) {
+     await kbApi.updateSource(currentSource.value.id, { name: customName.value.trim(), config: parsedConfig }); msg.success('已保存')
+   } else {
+     const created = await kbApi.addSource({ name: customName.value.trim(), type: 'http', preset: '', config: parsedConfig })
+     msg.success('已添加')
+     if (created?.id) selectedKey.value = 'source:' + created.id
+   }
     await refreshData()
    populateForm()
  } catch (e) { msg.error(e?.message || '保存失败') } finally { saving.value = false }
@@ -472,7 +494,7 @@ defineExpose({ refresh: loadData })
             <div class="text-[12px] font-bold uppercase tracking-[0.1em] px-2.5 pt-1 pb-1.5" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">知识源列表</div>
             <div v-if="!sidebarItems.length" class="px-2.5 py-4 text-center">
               <p class="text-[11px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">暂无外部知识源</p>
-              <p class="text-[10px] mt-1" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">点击下方按钮添加</p>
+              <p class="text-[11px] mt-1" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">点击下方按钮添加</p>
             </div>
             <button v-for="item in sidebarItems" :key="item.key" class="w-full flex items-center gap-2.5 px-2.5 py-[7px] rounded-md relative transition-colors text-left" :class="selectedKey === item.key ? (isDark ? 'bg-white/6 text-wt-main' : 'bg-l3 text-lt-main') : (isDark ? 'text-wt-sub hover:bg-white/4' : 'text-lt-sub hover:bg-l4')" @click="selectItem(item.key)">
               <span v-show="selectedKey === item.key" class="absolute left-0 top-2 bottom-2 w-[2.5px] rounded-r" :class="isDark ? 'bg-brand-400' : 'bg-brand-500'" />
@@ -516,7 +538,7 @@ defineExpose({ refresh: loadData })
         <!-- Empty -->
         <div v-if="rightMode === 'empty'" class="h-full flex items-center justify-center">
           <div class="text-center">
-            <div class="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-3" :class="isDark ? 'bg-d4' : 'bg-l4'"><i class="ri-database-2-line text-[26px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'" /></div>
+            <div class="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-3"><i class="ri-database-2-line text-[36px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'" /></div>
             <p class="text-[13px] font-medium" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">选择知识源或添加新源</p>
             <p class="mt-1 text-[11px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">支持 Dify、FastGPT 及自定义知识库</p>
             <p class="text-[11px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">也支持通过 MCP 协议接入</p>
@@ -528,7 +550,7 @@ defineExpose({ refresh: loadData })
             <div class="flex items-center gap-3">
               <div class="w-10 h-10 rounded-lg flex items-center justify-center shrink-0" :class="isDark ? 'bg-d1' : 'bg-l1'"><SvgIcon v-if="currentPresetMeta?.svgIcon" :icon-class="currentPresetMeta.svgIcon" :size="24" /></div>
               <div class="min-w-0 flex-1"><span class="text-[16px] font-semibold" :class="isDark ? 'text-wt-main' : 'text-lt-main'">{{ formName }}</span><p class="text-[11px] mt-0.5" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">{{ currentPresetMeta?.desc || '' }}</p></div>
-              <span v-if="isConfigured" class="text-[10px] px-2 py-0.5 rounded font-medium shrink-0" :class="isActive ? 'bg-emerald-400/15 text-emerald-400' : (isDark ? 'bg-d4 text-wt-dim' : 'bg-l4 text-lt-aux')">{{ isActive ? '已启用' : '已配置' }}</span>
+              <span v-if="isConfigured" class="text-[11px] px-2 py-0.5 rounded font-medium shrink-0" :class="isActive ? 'bg-emerald-400/15 text-emerald-400' : (isDark ? 'bg-d4 text-wt-dim' : 'bg-l4 text-lt-aux')">{{ isActive ? '已启用' : '已配置' }}</span>
             </div>
           </div>
           <div class="space-y-4 mb-5">
@@ -536,27 +558,33 @@ defineExpose({ refresh: loadData })
               <label class="block text-[12px] font-medium mb-1.5" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">名称</label>
               <input v-model="formName" class="w-full h-8 px-3 rounded-lg text-[14px] outline-none transition-colors" :class="isDark ? 'bg-d2 border border-bdr text-wt-main focus:border-brand-400' : 'bg-l2 border border-bdrF text-lt-main focus:border-brand-500'" />
             </div>
-             <div>
-               <label class="block text-[14px] font-medium mb-1.5" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">API Key<span class="ml-1 text-[10px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">(密钥)</span></label>
+            <div v-for="field in (currentPresetObj?.userFields || [{ name: 'USER_TOKEN', label: 'API Key', isAuth: true }]).filter(f => f.isAuth)" :key="field.name">
+              <label class="block text-[12px] font-medium mb-1.5" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">{{ field.label }}<span v-if="field.isAuth" class="ml-1 text-[11px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">(密钥)</span></label>
                 <div class="relative">
-                  <input v-model="formFields['USER_TOKEN']" :type="showPresetKey ? 'text' : 'password'" class="w-full h-8 px-3 pr-9 rounded-lg text-[14px] outline-none transition-colors" :class="isDark ? 'bg-d2 border border-bdr text-wt-main focus:border-brand-400' : 'bg-l2 border border-bdrF text-lt-main focus:border-brand-500'" placeholder="粘贴 API Key" />
-                  <button type="button" class="absolute right-2.5 top-1/2 -translate-y-1/2 text-[15px]" :class="isDark ? 'text-wt-dim hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub'" @click="showPresetKey = !showPresetKey"><i :class="showPresetKey ? 'ri-eye-off-line' : 'ri-eye-line'" /></button>
+                  <input v-model="formFields[field.name]" :type="showPresetKey ? 'text' : 'password'" class="w-full h-8 px-3 pr-9 rounded-lg text-[14px] outline-none transition-colors" :class="isDark ? 'bg-d2 border border-bdr text-wt-main focus:border-brand-400' : 'bg-l2 border border-bdrF text-lt-main focus:border-brand-500'" :placeholder="'填写 ' + field.label" />
+                  <button v-if="field.isAuth" type="button" class="absolute right-2.5 top-1/2 -translate-y-1/2 text-[13px]" :class="isDark ? 'text-wt-dim hover:text-wt-sub' : 'text-lt-sub hover:text-lt-main'" @click="showPresetKey = !showPresetKey"><i :class="showPresetKey ? 'ri-eye-off-line' : 'ri-eye-line'" /></button>
                 </div>
             </div>
              <div>
                <label class="block text-[12px] font-medium mb-1.5" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">服务地址</label>
               <input v-model="formUrl" class="w-full h-8 px-3 rounded-lg text-[14px] font-mono outline-none transition-colors" :class="isDark ? 'bg-d2 border border-bdr text-wt-main focus:border-brand-400' : 'bg-l2 border border-bdrF text-lt-main focus:border-brand-500'" placeholder="https://..." />
-             <p class="mt-1 text-[10px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">自托管部署可修改，默认 {{ currentPresetObj?.base_url || '' }}</p>
+             <p class="mt-1 text-[11px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">自托管部署可修改，默认 {{ currentPresetObj?.base_url || '' }}</p>
           </div>
         </div>
           <!-- Help steps -->
           <div class="rounded-lg px-4 py-3 mb-5" :class="isDark ? 'bg-d1 border border-d4' : 'bg-l1 border border-bdrL'">
-             <div class="flex items-center gap-1.5 mb-2"><i class="ri-book-open-line text-[12px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'" /><span class="text-[10px] font-semibold" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">获取方式</span></div>
-              <p class="text-[10px] mb-2" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">填写 API Key 即可保存，知识库可在对话侧边栏中选择。</p>
+             <div class="flex items-center gap-1.5 mb-2"><i class="ri-book-open-line text-[12px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'" /><span class="text-[11px] font-semibold" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">获取方式</span></div>
+              <p class="text-[11px] mb-2" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">填写 API Key 即可保存，知识库可在对话侧边栏中选择。</p>
              <div class="space-y-1.5">
               <div v-for="(step, idx) in (currentPresetMeta?.steps || [])" :key="idx" class="flex items-start gap-2">
-                <span class="w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold shrink-0 mt-0.5" :class="isDark ? 'bg-d4 text-wt-dim' : 'bg-l4 text-lt-aux'">{{ idx + 1 }}</span>
-                <span class="text-[10px] leading-relaxed" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">{{ step }}</span>
+                <span class="w-4 h-4 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0 mt-0.5" :class="isDark ? 'bg-d4 text-wt-dim' : 'bg-l4 text-lt-aux'">{{ idx + 1 }}</span>
+                <div class="text-[11px] leading-[20px] pt-px" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">
+                  <template v-if="typeof step === 'object'">
+                    {{ step.text }}
+                    <a v-if="step.link" :href="step.link" target="_blank" rel="noopener" class="underline hover:text-brand-400" @click.prevent="openExternal(step.link)">{{ step.link.replace(/^https?:\/\//, '') }}</a>
+                  </template>
+                  <template v-else>{{ step }}</template>
+                </div>
               </div>
             </div>
           </div>
@@ -574,7 +602,7 @@ defineExpose({ refresh: loadData })
             <div class="flex items-center gap-3">
               <div class="w-10 h-10 rounded-lg flex items-center justify-center shrink-0" :class="isDark ? 'bg-d1' : 'bg-l1'"><span class="text-[18px] font-bold" :class="isDark ? 'text-brand-400' : 'text-brand-500'">{{ (rightMode === 'custom-existing' ? selectedItem.name : customName).charAt(0).toUpperCase() }}</span></div>
               <div class="min-w-0 flex-1"><span class="text-[16px] font-semibold" :class="isDark ? 'text-wt-main' : 'text-lt-main'">{{ rightMode === 'custom-existing' ? selectedItem.name : '自定义知识源' }}</span><p class="text-[11px] mt-0.5" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">{{ rightMode === 'custom-existing' ? '自定义知识库 知识源' : '通过 AI 解析 API 示例自动生成协议配置' }}</p></div>
-              <span v-if="isConfigured" class="text-[10px] px-2 py-0.5 rounded font-medium shrink-0" :class="isActive ? 'bg-emerald-400/15 text-emerald-400' : (isDark ? 'bg-d4 text-wt-dim' : 'bg-l4 text-lt-aux')">{{ isActive ? '已启用' : '已配置' }}</span>
+              <span v-if="isConfigured" class="text-[11px] px-2 py-0.5 rounded font-medium shrink-0" :class="isActive ? 'bg-emerald-400/15 text-emerald-400' : (isDark ? 'bg-d4 text-wt-dim' : 'bg-l4 text-lt-aux')">{{ isActive ? '已启用' : '已配置' }}</span>
             </div>
           </div>
           <div class="mb-5">
@@ -588,36 +616,36 @@ defineExpose({ refresh: loadData })
             <p class="text-[11px] mb-4 leading-relaxed" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">支持 curl 命令、HTTP 请求文本、JSON 响应示例，或 API 接口文档片段。建议同时提供请求和响应示例，解析更准确。</p>
             <div v-if="aiProviders.length" class="flex items-center gap-2 mb-3">
              <div class="relative w-[200px] shrink-0">
-              <button type="button" data-ai-provider-trigger @click="aiProviderOpen = !aiProviderOpen" class="w-full h-8 pl-2.5 pr-7 rounded-lg text-[15px] outline-none cursor-pointer transition-colors flex items-center" :class="[isDark ? 'bg-d2 border border-bdr text-wt-main' : 'bg-l2 border border-bdrF text-lt-main', aiProviderOpen ? (isDark ? 'border-brand-400/40' : 'border-brand-400') : '']">
+              <button type="button" data-ai-provider-trigger @click="aiProviderOpen = !aiProviderOpen" class="w-full h-8 pl-2.5 pr-7 rounded-lg text-[13px] outline-none cursor-pointer transition-colors flex items-center" :class="[isDark ? 'bg-d2 border border-bdr text-wt-main' : 'bg-l2 border border-bdrF text-lt-main', aiProviderOpen ? (isDark ? 'border-brand-400/40' : 'border-brand-400') : '']">
                 <span class="truncate text-left">{{ currentAiProvider?.name || '选择服务商' }}</span>
                 <i class="ri-arrow-down-s-line text-[16px] absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'" />
                 </button>
                 <div v-if="aiProviderOpen" id="ai-provider-menu" class="absolute left-0 top-[34px] w-full rounded-lg overflow-hidden z-30 shadow-lg" :class="isDark ? 'bg-d3 shadow-black/40 border border-d4' : 'bg-l2 shadow-xl border border-bdrF'">
-                  <button v-for="p in aiProviders" :key="p.id" type="button" @click="aiProviderId = p.id; aiProviderOpen = false" class="w-full flex items-center gap-2 px-3 py-2 text-[15px] transition-colors" :class="aiProviderId === p.id ? (isDark ? 'bg-brand-400/10 text-brand-400' : 'bg-brand-50 text-brand-500') : (isDark ? 'text-wt-main hover:bg-white/5' : 'text-lt-main hover:bg-l4')">
+                  <button v-for="p in aiProviders" :key="p.id" type="button" @click="aiProviderId = p.id; aiProviderOpen = false" class="w-full flex items-center gap-2 px-3 py-2 text-[13px] transition-colors" :class="aiProviderId === p.id ? (isDark ? 'bg-brand-400/10 text-brand-400' : 'bg-brand-50 text-brand-500') : (isDark ? 'text-wt-main hover:bg-white/5' : 'text-lt-main hover:bg-l4')">
                     <span class="truncate flex-1 text-left">{{ p.name }}</span>
-                    <i v-if="aiProviderId === p.id" class="ri-check-line text-[15px]" />
+                    <i v-if="aiProviderId === p.id" class="ri-check-line text-[13px]" />
                   </button>
                 </div>
               </div>
               <div v-if="currentAiModels.length" class="relative flex-1 min-w-0">
-                <button type="button" data-ai-model-trigger @click="aiModelOpen = !aiModelOpen" class="w-full h-8 pl-2.5 pr-7 rounded-lg text-[15px] outline-none cursor-pointer transition-colors flex items-center" :class="[isDark ? 'bg-d2 border border-bdr text-wt-main' : 'bg-l2 border border-bdrF text-lt-main', aiModelOpen ? (isDark ? 'border-brand-400/40' : 'border-brand-400') : '']">
+                <button type="button" data-ai-model-trigger @click="aiModelOpen = !aiModelOpen" class="w-full h-8 pl-2.5 pr-7 rounded-lg text-[13px] outline-none cursor-pointer transition-colors flex items-center" :class="[isDark ? 'bg-d2 border border-bdr text-wt-main' : 'bg-l2 border border-bdrF text-lt-main', aiModelOpen ? (isDark ? 'border-brand-400/40' : 'border-brand-400') : '']">
                   <span class="truncate">{{ currentAiModels.find(m => (m.id || m) === aiModel)?.name || currentAiModels.find(m => (m.id || m) === aiModel)?.id || '选择模型' }}</span>
                   <i class="ri-arrow-down-s-line text-[16px] absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'" />
                 </button>
                 <div v-if="aiModelOpen" id="ai-model-menu" class="absolute left-0 top-[34px] w-full rounded-lg overflow-hidden z-30 shadow-lg max-h-[200px] overflow-y-auto thin-scroll" :class="isDark ? 'bg-d3 shadow-black/40 border border-d4' : 'bg-l2 shadow-xl border border-bdrF'">
-                  <button v-for="m in currentAiModels" :key="m.id || m" type="button" @click="aiModel = m.id || m; aiModelOpen = false" class="w-full flex items-center gap-2 px-3 py-2 text-[15px] transition-colors" :class="aiModel === (m.id || m) ? (isDark ? 'bg-brand-400/10 text-brand-400' : 'bg-brand-50 text-brand-500') : (isDark ? 'text-wt-main hover:bg-white/5' : 'text-lt-main hover:bg-l4')">
+                  <button v-for="m in currentAiModels" :key="m.id || m" type="button" @click="aiModel = m.id || m; aiModelOpen = false" class="w-full flex items-center gap-2 px-3 py-2 text-[13px] transition-colors" :class="aiModel === (m.id || m) ? (isDark ? 'bg-brand-400/10 text-brand-400' : 'bg-brand-50 text-brand-500') : (isDark ? 'text-wt-main hover:bg-white/5' : 'text-lt-main hover:bg-l4')">
                     <span class="truncate flex-1 text-left">{{ m.name || m.id || m }}</span>
-                    <i v-if="aiModel === (m.id || m)" class="ri-check-line text-[15px]" />
+                    <i v-if="aiModel === (m.id || m)" class="ri-check-line text-[13px]" />
                   </button>
                 </div>
               </div>
             </div>
-            <div v-else class="rounded-lg px-3 py-2.5 flex items-center gap-2 mb-3" :class="isDark ? 'bg-d3 border border-d4' : 'bg-l3 border border-bdrF'"><i class="ri-error-warning-line text-[13px] shrink-0" :class="isDark ? 'text-amber-400' : 'text-amber-500'" /><p class="text-[10px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">请先在设置 → 模型服务中配置 AI 模型</p></div>
+            <div v-else class="rounded-lg px-3 py-2.5 flex items-center gap-2 mb-3" :class="isDark ? 'bg-d3 border border-d4' : 'bg-l3 border border-bdrF'"><i class="ri-error-warning-line text-[13px] shrink-0" :class="isDark ? 'text-amber-400' : 'text-amber-500'" /><p class="text-[11px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">请先在设置 → 模型服务中配置 AI 模型</p></div>
              <div class="mb-3"><label class="block text-[12px] font-medium mb-1" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">API 地址（可选）</label><input v-model="aiBaseUrl" class="w-full h-8 px-3 rounded-lg text-[14px] font-mono outline-none transition-colors" :class="isDark ? 'bg-d2 border border-bdr text-wt-main focus:border-brand-400' : 'bg-l2 border border-bdrF text-lt-main focus:border-brand-500'" placeholder="https://api.example.com" /></div>
               <div class="text-[12px] font-medium mb-2" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">检索接口</div>
               <div class="mb-3">
                 <label class="block text-[11px] font-medium mb-1" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">请求与响应示例</label>
-                <p class="text-[10px] mb-1.5 leading-relaxed" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">粘贴 curl 命令、HTTP 请求/响应文本或 API 文档片段，AI 会自动识别请求和响应</p>
+                <p class="text-[11px] mb-1.5 leading-relaxed" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">粘贴 curl 命令、HTTP 请求/响应文本或 API 文档片段，AI 会自动识别请求和响应</p>
                 <textarea v-model="aiRequest" rows="8" class="w-full px-2.5 py-2 rounded-lg text-[11px] font-mono outline-none transition-colors resize-none thin-scroll" :class="isDark ? 'bg-d2 border border-bdr text-wt-main focus:border-brand-400' : 'bg-l2 border border-bdrF text-lt-main focus:border-brand-500'" spellcheck="false" placeholder="curl -X POST https://api.example.com/search &#10; -H 'Authorization: Bearer xxx' &#10; -d '{&quot;query&quot;:&quot;test&quot;}' &#10;&#10; {&quot;results&quot;:[{&quot;content&quot;:&quot;...&quot;,&quot;title&quot;:&quot;...&quot;}]}" />
               </div>
               <button class="text-[11px] inline-flex items-center gap-1 transition-colors mb-2" :class="isDark ? 'text-brand-400 hover:text-brand-300' : 'text-brand-500 hover:text-brand-600'" @click="aiHasListApi = !aiHasListApi">
@@ -627,7 +655,7 @@ defineExpose({ refresh: loadData })
                 <div class="text-[12px] font-medium mb-2" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">列表接口（获取知识库列表）</div>
                 <div>
                   <label class="block text-[11px] font-medium mb-1" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">请求与响应示例</label>
-                  <p class="text-[10px] mb-1.5 leading-relaxed" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">粘贴列表接口的请求/响应或文档片段</p>
+                  <p class="text-[11px] mb-1.5 leading-relaxed" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">粘贴列表接口的请求/响应或文档片段</p>
                   <textarea v-model="aiListRequest" rows="8" class="w-full px-2.5 py-2 rounded-lg text-[11px] font-mono outline-none transition-colors resize-none thin-scroll" :class="isDark ? 'bg-d2 border border-bdr text-wt-main focus:border-brand-400' : 'bg-l2 border border-bdrF text-lt-main focus:border-brand-500'" spellcheck="false" placeholder="curl -X GET https://api.example.com/datasets &#10; -H 'Authorization: Bearer xxx' &#10;&#10; {&quot;data&quot;:[{&quot;id&quot;:&quot;1&quot;,&quot;name&quot;:&quot;KB1&quot;}]}" />
                 </div>
               </div>
@@ -637,9 +665,9 @@ defineExpose({ refresh: loadData })
               <p class="text-[11px] leading-tight" :class="isDark ? 'text-red-400' : 'text-red-500'">{{ aiResultError }}</p>
             </div>
             <div v-if="aiResult" class="mt-3">
-              <div class="flex items-center justify-between mb-1.5"><span class="text-[11px] font-medium" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">配置（可编辑确认后保存）</span><button class="text-[11px] inline-flex items-center gap-1" :class="isDark ? 'text-wt-dim hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub'" @click="aiResult = null; aiResultText = ''; aiResultError = ''"><i class="ri-refresh-line text-[11px]" />重新解析</button></div>
+              <div class="flex items-center justify-between mb-1.5"><span class="text-[11px] font-medium" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">配置（可编辑确认后保存）</span><button class="text-[11px] inline-flex items-center gap-1" :class="isDark ? 'text-wt-dim hover:text-wt-sub' : 'text-lt-sub hover:text-lt-main'" @click="aiResult = null; aiResultText = ''; aiResultError = ''"><i class="ri-refresh-line text-[11px]" />重新解析</button></div>
               <textarea v-model="aiResultText" rows="9" class="w-full px-2.5 py-2 rounded-lg text-[11px] font-mono outline-none resize-none thin-scroll" :class="[aiResultError ? (isDark ? 'bg-d2 border border-red-400/50 text-wt-main' : 'bg-l2 border border-red-400/50 text-lt-main') : (isDark ? 'bg-d2 border border-bdr text-wt-main focus:border-brand-400' : 'bg-l2 border border-bdrF text-lt-main focus:border-brand-500')]" spellcheck="false" />
-              <p v-if="aiResultError" class="text-[10px] mt-1" :class="isDark ? 'text-red-400' : 'text-red-500'">{{ aiResultError }}</p>
+              <p v-if="aiResultError" class="text-[11px] mt-1" :class="isDark ? 'text-red-400' : 'text-red-500'">{{ aiResultError }}</p>
             </div>
          </div>
           <!-- Edit existing: API key + config -->
@@ -649,10 +677,10 @@ defineExpose({ refresh: loadData })
               <input v-model="customBaseUrl" class="w-full h-8 px-3 rounded-lg text-[14px] font-mono outline-none transition-colors" :class="isDark ? 'bg-d2 border border-bdr text-wt-main focus:border-brand-400' : 'bg-l2 border border-bdrF text-lt-main focus:border-brand-500'" placeholder="https://api.example.com" />
             </div>
             <div>
-             <label class="block text-[12px] font-medium mb-1.5" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">API Key <span class="text-[10px] font-normal" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">（可选）</span></label>
+             <label class="block text-[12px] font-medium mb-1.5" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">API Key <span class="text-[11px] font-normal" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">（可选）</span></label>
               <div class="relative">
                 <input v-model="customApiKey" :type="showCustomKey ? 'text' : 'password'" class="w-full h-8 px-3 pr-9 rounded-lg text-[14px] font-mono outline-none transition-colors" :class="isDark ? 'bg-d2 border border-bdr text-wt-main focus:border-brand-400' : 'bg-l2 border border-bdrF text-lt-main focus:border-brand-500'" placeholder="粘贴 API Key" />
-                <button type="button" class="absolute right-2.5 top-1/2 -translate-y-1/2 text-[15px]" :class="isDark ? 'text-wt-dim hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub'" @click="showCustomKey = !showCustomKey"><i :class="showCustomKey ? 'ri-eye-off-line' : 'ri-eye-line'" /></button>
+                <button type="button" class="absolute right-2.5 top-1/2 -translate-y-1/2 text-[13px]" :class="isDark ? 'text-wt-dim hover:text-wt-sub' : 'text-lt-sub hover:text-lt-main'" @click="showCustomKey = !showCustomKey"><i :class="showCustomKey ? 'ri-eye-off-line' : 'ri-eye-line'" /></button>
               </div>
            </div>
             <div>
@@ -689,7 +717,7 @@ defineExpose({ refresh: loadData })
             <div class="rounded-xl p-3 mb-4" :class="isDark ? 'bg-d1 border border-d4' : 'bg-l1 border border-bdrL'">
               <div class="flex items-center justify-between mb-1.5">
                 <label class="text-[12px] font-medium" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">MCP 服务器</label>
-                <button class="text-[11px] inline-flex items-center gap-1 transition-colors" :class="isDark ? 'text-wt-dim hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub'" @click="router.push('/tools')">
+                <button class="text-[11px] inline-flex items-center gap-1 transition-colors" :class="isDark ? 'text-wt-dim hover:text-wt-sub' : 'text-lt-sub hover:text-lt-main'" @click="router.push('/tools')">
                   <i class="ri-settings-3-line text-[12px]" />工具 / MCP管理
                 </button>
               </div>
@@ -699,13 +727,13 @@ defineExpose({ refresh: loadData })
                   <i class="ri-arrow-down-s-line text-[16px] absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'" />
                 </button>
                 <div v-if="mcpServerOpen" id="mcp-server-menu" class="absolute left-0 right-0 top-[34px] rounded-lg overflow-hidden z-30 shadow-lg" :class="isDark ? 'bg-d3 shadow-black/40 border border-d4' : 'bg-l2 shadow-xl border border-bdrF'">
-                  <button type="button" @click="mcpForm.serverId = ''; mcpServerOpen = false; onMcpServerChange()" class="w-full flex items-center gap-2 px-3 py-2 text-[15px] transition-colors" :class="!mcpForm.serverId ? (isDark ? 'bg-brand-400/10 text-brand-400' : 'bg-brand-50 text-brand-500') : (isDark ? 'text-wt-sub hover:bg-white/5' : 'text-lt-sub hover:bg-l4')">
+                  <button type="button" @click="mcpForm.serverId = ''; mcpServerOpen = false; onMcpServerChange()" class="w-full flex items-center gap-2 px-3 py-2 text-[13px] transition-colors" :class="!mcpForm.serverId ? (isDark ? 'bg-brand-400/10 text-brand-400' : 'bg-brand-50 text-brand-500') : (isDark ? 'text-wt-sub hover:bg-white/5' : 'text-lt-sub hover:bg-l4')">
                     <span class="flex-1 text-left">请选择 MCP 服务器</span>
-                    <i v-if="!mcpForm.serverId" class="ri-check-line text-[15px]" />
+                    <i v-if="!mcpForm.serverId" class="ri-check-line text-[13px]" />
                   </button>
-                  <button v-for="s in mcpServers" :key="s.id" type="button" @click="mcpForm.serverId = s.id; mcpServerOpen = false; onMcpServerChange()" class="w-full flex items-center gap-2 px-3 py-2 text-[15px] transition-colors" :class="mcpForm.serverId === s.id ? (isDark ? 'bg-brand-400/10 text-brand-400' : 'bg-brand-50 text-brand-500') : (isDark ? 'text-wt-main hover:bg-white/5' : 'text-lt-main hover:bg-l4')">
+                  <button v-for="s in mcpServers" :key="s.id" type="button" @click="mcpForm.serverId = s.id; mcpServerOpen = false; onMcpServerChange()" class="w-full flex items-center gap-2 px-3 py-2 text-[13px] transition-colors" :class="mcpForm.serverId === s.id ? (isDark ? 'bg-brand-400/10 text-brand-400' : 'bg-brand-50 text-brand-500') : (isDark ? 'text-wt-main hover:bg-white/5' : 'text-lt-main hover:bg-l4')">
                     <span class="truncate flex-1 text-left">{{ s.name }}</span>
-                    <i v-if="mcpForm.serverId === s.id" class="ri-check-line text-[15px]" />
+                    <i v-if="mcpForm.serverId === s.id" class="ri-check-line text-[13px]" />
                   </button>
                 </div>
               </div>
@@ -726,20 +754,20 @@ defineExpose({ refresh: loadData })
                     <i :class="[mcpSyncing ? 'ri-loader-4-line animate-spin' : 'ri-search-line', 'text-[12px]', isDark ? 'text-wt-dim' : 'text-lt-aux']" />
                     <span class="text-[11px] font-semibold" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">检索工具</span>
                 </div>
-                <div v-if="mcpSyncing" class="text-[10px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">正在发现工具...</div>
+                <div v-if="mcpSyncing" class="text-[11px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">正在发现工具...</div>
                 <div v-else-if="mcpForm.searchTool" class="flex items-center gap-2">
                   <span class="text-[12px] font-mono px-2 py-0.5 rounded" :class="isDark ? 'bg-d3 text-wt-main' : 'bg-l3 text-lt-main'">{{ mcpForm.searchTool }}</span>
-                  <span class="text-[10px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">已自动选择（共 {{ mcpTools.length }} 个工具）</span>
+                  <span class="text-[11px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">已自动选择（共 {{ mcpTools.length }} 个工具）</span>
                 </div>
-                <div v-else class="text-[10px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">未发现可用工具，将使用默认 kb_search</div>
+                <div v-else class="text-[11px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">未发现可用工具，将使用默认 kb_search</div>
              </div>
           </div>
           <div class="rounded-lg px-4 py-3 mb-5" :class="isDark ? 'bg-d1 border border-d4' : 'bg-l1 border border-bdrL'">
-            <div class="flex items-center gap-1.5 mb-2"><i class="ri-book-open-line text-[12px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'" /><span class="text-[10px] font-semibold" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">使用说明</span></div>
+            <div class="flex items-center gap-1.5 mb-2"><i class="ri-book-open-line text-[12px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'" /><span class="text-[11px] font-semibold" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">使用说明</span></div>
              <div class="space-y-1.5">
-               <div class="flex items-start gap-2"><span class="w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold shrink-0 mt-0.5" :class="isDark ? 'bg-d4 text-wt-dim' : 'bg-l4 text-lt-aux'">1</span><span class="text-[10px] leading-relaxed" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">选择已有 MCP 服务器，或点击「添加新服务器」通过 JSON 配置添加</span></div>
-                <div class="flex items-start gap-2"><span class="w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold shrink-0 mt-0.5" :class="isDark ? 'bg-d4 text-wt-dim' : 'bg-l4 text-lt-aux'">2</span><span class="text-[10px] leading-relaxed" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">系统自动发现并选择检索工具，无需手动配置</span></div>
-                <div class="flex items-start gap-2"><span class="w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold shrink-0 mt-0.5" :class="isDark ? 'bg-d4 text-wt-dim' : 'bg-l4 text-lt-aux'">3</span><span class="text-[10px] leading-relaxed" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">Agent 对话时会自动调用该工具进行知识库检索</span></div>
+               <div class="flex items-start gap-2"><span class="w-4 h-4 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0 mt-0.5" :class="isDark ? 'bg-d4 text-wt-dim' : 'bg-l4 text-lt-aux'">1</span><span class="text-[11px] leading-relaxed" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">选择已有 MCP 服务器，或点击「添加新服务器」通过 JSON 配置添加</span></div>
+                <div class="flex items-start gap-2"><span class="w-4 h-4 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0 mt-0.5" :class="isDark ? 'bg-d4 text-wt-dim' : 'bg-l4 text-lt-aux'">2</span><span class="text-[11px] leading-relaxed" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">系统自动发现并选择检索工具，无需手动配置</span></div>
+                <div class="flex items-start gap-2"><span class="w-4 h-4 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0 mt-0.5" :class="isDark ? 'bg-d4 text-wt-dim' : 'bg-l4 text-lt-aux'">3</span><span class="text-[11px] leading-relaxed" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">Agent 对话时会自动调用该工具进行知识库检索</span></div>
             </div>
           </div>
           <div class="flex items-center gap-2">

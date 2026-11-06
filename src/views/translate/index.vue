@@ -192,7 +192,7 @@ onBeforeUnmount(() => {
           <div class="flex-1" />
           <button v-if="store.sourceText" @click="copySource()"
             class="h-6 px-2 rounded-md flex items-center gap-1 text-[13px] transition-all"
-            :class="isDark ? 'text-wt-dim hover:text-wt-sub hover:bg-d3' : 'text-lt-aux hover:text-lt-sub hover:bg-l3'">
+            :class="isDark ? 'text-wt-dim hover:text-wt-sub hover:bg-d3' : 'text-lt-sub hover:text-lt-main hover:bg-l3'">
             <i class="ri-file-copy-line text-[13px]" />复制
           </button>
         </div>
@@ -217,12 +217,12 @@ onBeforeUnmount(() => {
             class="h-6 px-2 rounded-md flex items-center gap-1 text-[13px] transition-all"
             :class="store.mdPreview
               ? (isDark ? 'text-brand-400 bg-brand-400/8' : 'text-brand-600 bg-brand-50')
-              : (isDark ? 'text-wt-dim hover:text-wt-sub hover:bg-d3' : 'text-lt-aux hover:text-lt-sub hover:bg-l3')">
+              : (isDark ? 'text-wt-dim hover:text-wt-sub hover:bg-d3' : 'text-lt-sub hover:text-lt-main hover:bg-l3')">
             <i class="ri-markdown-line text-[14px]" />MD预览
           </button>
           <button v-if="store.translatedText && !store.isTranslating && !isErrorResult" @click="copyResult()"
             class="h-6 px-2 rounded-md flex items-center gap-1 text-[13px] transition-all"
-            :class="isDark ? 'text-wt-dim hover:text-wt-sub hover:bg-d3' : 'text-lt-aux hover:text-lt-sub hover:bg-l3'">
+            :class="isDark ? 'text-wt-dim hover:text-wt-sub hover:bg-d3' : 'text-lt-sub hover:text-lt-main hover:bg-l3'">
             <i class="ri-file-copy-line text-[13px]" />复制
           </button>
         </div>

@@ -243,13 +243,13 @@ onMounted(() => { checkAll() })
         <div class="flex items-center gap-1.5">
           <div class="w-2 h-2 rounded-full bg-emerald-400" />
           <span class="text-[12px] font-medium" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">已安装</span>
-          <span class="text-[14px] font-bold" :class="isDark ? 'text-emerald-400' : 'text-emerald-600'">{{ summary.installed }}</span>
+          <span class="fs-title font-bold" :class="isDark ? 'text-emerald-400' : 'text-emerald-600'">{{ summary.installed }}</span>
         </div>
         <div class="w-px h-4" :class="isDark ? 'bg-d4' : 'bg-bdrF'" />
         <div class="flex items-center gap-1.5">
           <div class="w-2 h-2 rounded-full bg-red-400" />
           <span class="text-[12px] font-medium" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">未安装</span>
-          <span class="text-[14px] font-bold" :class="isDark ? 'text-red-400' : 'text-red-500'">{{ summary.missing }}</span>
+          <span class="fs-title font-bold" :class="isDark ? 'text-red-400' : 'text-red-500'">{{ summary.missing }}</span>
         </div>
         <div class="w-px h-4" :class="isDark ? 'bg-d4' : 'bg-bdrF'" />
         <div class="flex items-center gap-1.5">
@@ -323,7 +323,7 @@ onMounted(() => { checkAll() })
                 检测中
               </span>
             </div>
-            <div class="text-[10.5px] leading-relaxed" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">{{ item.desc }}</div>
+            <div class="fs-caption leading-relaxed" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">{{ item.desc }}</div>
             <div v-if="item.installHint" class="mt-1 text-[9.5px] leading-relaxed" :class="isDark ? 'text-wt-dim/80' : 'text-lt-aux/90'">
               {{ item.installHint }}
             </div>

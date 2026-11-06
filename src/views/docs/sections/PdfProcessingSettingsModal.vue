@@ -83,7 +83,7 @@ function saveCurrent(close) {
                 : 'bg-white text-brand-500 shadow-sm'
               : isDark
                 ? 'text-wt-dim hover:text-wt-sub'
-                : 'text-lt-aux hover:text-lt-sub'
+                : 'text-lt-sub hover:text-lt-main'
           "
         >
           <i class="ri-file-pdf-2-line text-[12px]" />
@@ -99,7 +99,7 @@ function saveCurrent(close) {
                 : 'bg-white text-brand-500 shadow-sm'
               : isDark
                 ? 'text-wt-dim hover:text-wt-sub'
-                : 'text-lt-aux hover:text-lt-sub'
+                : 'text-lt-sub hover:text-lt-main'
           "
         >
           <i class="ri-global-line text-[12px]" />
@@ -115,7 +115,7 @@ function saveCurrent(close) {
                 : 'bg-white text-brand-500 shadow-sm'
               : isDark
                 ? 'text-wt-dim hover:text-wt-sub'
-                : 'text-lt-aux hover:text-lt-sub'
+                : 'text-lt-sub hover:text-lt-main'
           "
         >
           <i class="ri-movie-2-ai-line text-[12px]" />
@@ -165,7 +165,7 @@ function saveCurrent(close) {
       <button
         @click="close()"
         class="px-4 py-2 rounded-lg text-[11px] font-medium transition-colors"
-        :class="isDark ? 'text-wt-aux hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub'"
+        :class="isDark ? 'text-wt-sub hover:text-wt-main' : 'text-lt-sub hover:text-lt-main'"
       >
         取消
       </button>

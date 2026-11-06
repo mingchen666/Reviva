@@ -8,7 +8,7 @@ const props = defineProps({
   isDark: Boolean,
 })
 
-const emit = defineEmits(['edit', 'config', 'delete', 'toggle'])
+const emit = defineEmits(['edit', 'config', 'delete'])
 const agentsStore = useAgentsStore()
 const settingsStore = useSettingsStore()
 
@@ -39,7 +39,6 @@ const providerLabel = computed(() => {
 
 const statusStyle = computed(() => {
   if (props.tool.runtimeDisabled) return { text: '暂未支持', style: { color: props.isDark ? '#8a8a94' : '#8b8b94', background: props.isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)', border: props.isDark ? '1px solid #353542' : '1px solid #dddcd9' } }
-  if (!props.tool.enabled) return { text: '已禁用', style: { color: props.isDark ? '#8a8a94' : '#8b8b94', background: props.isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)', border: props.isDark ? '1px solid #353542' : '1px solid #dddcd9' } }
   if (props.tool.needsConfig && !isConfigured.value) return { text: '需配置', style: { color: '#fbbf24', background: props.isDark ? 'rgba(251,191,36,0.08)' : 'rgba(251,191,36,0.05)', border: props.isDark ? '1px solid rgba(251,191,36,0.2)' : '1px solid rgba(251,191,36,0.15)' } }
   return { text: '可用', style: { color: accentHex.value, background: props.isDark ? `rgba(${accentRgb.value},0.08)` : `rgba(${accentRgb.value},0.05)`, border: props.isDark ? `1px solid rgba(${accentRgb.value},0.2)` : `1px solid rgba(${accentRgb.value},0.15)` } }
 })
@@ -57,9 +56,6 @@ const usedByAgents = computed(() => agentsStore.agents.filter(a => a.tools?.incl
         <span class="ctx-pill" :style="statusStyle.style">{{ statusStyle.text }}</span>
       </div>
       <div class="flex items-center gap-1.5">
-        <div v-if="tool.runtimeDisabled" class="toggle opacity-60 cursor-not-allowed" :class="isDark ? 'off' : 'light-off'" title="暂未支持" />
-        <div v-else-if="tool.needsConfig && !isConfigured && !tool.enabled" class="toggle" :class="isDark ? 'off' : 'light-off'" @click="emit('config')" title="请先配置服务商后再启用" />
-        <div v-else class="toggle" :class="tool.enabled ? 'on' : (isDark ? 'off' : 'light-off')" @click="emit('toggle')" />
         <button v-if="tool.builtin && hasProviderConfig" @click="emit('config')" class="ctx-pill cursor-pointer" :style="{ color: accentHex, background: isDark ? `rgba(${accentRgb},0.08)` : `rgba(${accentRgb},0.05)`, borderColor: isDark ? `rgba(${accentRgb},0.2)` : `rgba(${accentRgb},0.15)` }"><i class="ri-settings-3-line text-[10px]" /> 配置</button>
         <button v-if="!tool.builtin" @click="emit('edit')" class="ctx-pill cursor-pointer" :style="{ color: accentHex, background: isDark ? `rgba(${accentRgb},0.08)` : `rgba(${accentRgb},0.05)`, borderColor: isDark ? `rgba(${accentRgb},0.2)` : `rgba(${accentRgb},0.15)` }"><i class="ri-edit-line text-[10px]" /> 编辑</button>
         <button v-if="!tool.builtin" @click="emit('delete')" class="ctx-pill cursor-pointer" :class="isDark ? 'text-red-400 bg-red-400/8 border border-red-400/20' : 'text-red-500 bg-red-50 border border-red-100'"><i class="ri-delete-bin-line text-[10px]" /> 删除</button>

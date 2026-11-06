@@ -51,6 +51,12 @@ export const useSettingsStore = defineStore('settings', () => {
   const customCssSecondsRemaining = ref(0)
   const customAccentHex = ref('#4A6CFF')
   const fontSize = ref('medium')
+  const fontPxTitle = ref(14)
+  const fontPxBody = ref(13)
+  const fontPxCaption = ref(11)
+  const fontPxLabel = ref(12)
+  const fontPxDialog = ref(16)
+  const fontPxContent = ref(14)
   const langPref = ref('zh')
   const animations = ref(true)
   const reducedMotion = ref(false)
@@ -85,7 +91,7 @@ export const useSettingsStore = defineStore('settings', () => {
   // ─── Sandbox ───
   const maxIter = ref(100)
   const maxTaskMin = ref(30)
-  const searchLimit = ref(10)
+  const searchLimit = ref(30)
   const fileOpLimit = ref(30)
   const toolCallLimit = ref(0)
   const modelCallLimit = ref(0)
@@ -97,7 +103,10 @@ export const useSettingsStore = defineStore('settings', () => {
   const allowExecCommand = ref(true)
   const allowRevivaManage = ref(false)
   const hitlMode = ref('auto') // 'auto' = no popups; 'sensitive' = destructive-only
-  const defaultCommandBlacklist = ['rm -rf', 'rm -r', 'format', 'del /s', 'del /q', 'rmdir /s', 'rmdir /q', 'mkfs', 'dd', 'shutdown', 'reboot', 'reg', 'regedit', 'powershell', 'cmd']
+  // 默认只拦截破坏性命令前缀；powershell/cmd/reg 等 shell/工具名不在黑名单，
+  // 否则会把 `powershell -Command "Get-Date"`、`reg query` 等正常命令一并拦死。
+  // 破坏性子命令（含经 powershell/cmd 转义的）由后端 isDestructiveCommand 正则兜底。
+  const defaultCommandBlacklist = ['rm -rf', 'rm -r', 'format', 'del /s', 'del /q', 'rmdir /s', 'rmdir /q', 'mkfs', 'dd', 'shutdown', 'reboot', 'regedit']
   const commandBlacklist = ref([...defaultCommandBlacklist])
 
   // ─── Notifications ───
@@ -111,6 +120,7 @@ export const useSettingsStore = defineStore('settings', () => {
   const trayIcon = ref(true)
   const trayMenuItems = ref([
     { id: 'show-window', type: 'builtin', action: 'showWindow', label: '显示主窗口', enabled: true },
+    { id: 'workchat', type: 'route', path: '/workchat', label: '打开学习工作台', enabled: true },
     { id: 'separator-default', type: 'separator', enabled: true },
     { id: 'settings', type: 'route', path: '/settings/notifications', label: '设置', enabled: true },
     { id: 'quit', type: 'builtin', action: 'quit', label: '退出', enabled: true },
@@ -416,6 +426,7 @@ export const useSettingsStore = defineStore('settings', () => {
     appStore.applyTheme(target.id)
     applyAccentColor()
     applyThemeMode()
+    applyFontSize()
     return { success: true, theme: target }
   }
 
@@ -476,10 +487,25 @@ export const useSettingsStore = defineStore('settings', () => {
     }
   }
 
+  // --- Apply Font Size ---
+  function applyFontSize() {
+    const root = document.documentElement
+    const scaleMap = { small: 0.92, medium: 1, large: 1.08 }
+    const scale = scaleMap[fontSize.value] || 1
+    root.style.setProperty('--ui-font-scale', String(scale))
+    root.style.setProperty('--ui-size-title', (Number(fontPxTitle.value) || 14) + 'px')
+    root.style.setProperty('--ui-size-body', (Number(fontPxBody.value) || 13) + 'px')
+    root.style.setProperty('--ui-size-caption', (Number(fontPxCaption.value) || 11) + 'px')
+    root.style.setProperty('--ui-size-label', (Number(fontPxLabel.value) || 12) + 'px')
+    root.style.setProperty('--ui-size-dialog', (Number(fontPxDialog.value) || 16) + 'px')
+    root.style.setProperty('--ui-size-content', (Number(fontPxContent.value) || 14) + 'px')
+  }
+
+
   // ─── Save Preferences ───
   async function savePreference(key, value) {
     const refsMap = {
-      themeId, themeMode, accentColor, customAccentHex, fontSize,
+      themeId, themeMode, accentColor, customAccentHex, fontSize, fontPxTitle, fontPxBody, fontPxCaption, fontPxLabel, fontPxDialog, fontPxContent,
       langPref, animations, reducedMotion, answerStyle, conflictStrategy, quickInputEnabled, creationToolPreferences, agentSkillsPanelEnabled, chatNavigationEnabled, chatNavigationStyle,
       kbMode,
       chatToolbarAttach, chatToolbarWiki, chatToolbarContext, chatToolbarVoice, chatToolbarTokenCounter,
@@ -518,6 +544,7 @@ export const useSettingsStore = defineStore('settings', () => {
     // Apply effects
     if (key === 'accentColor' || key === 'customAccentHex') applyAccentColor()
     if (key === 'themeMode') applyThemeMode()
+    if (['fontSize', 'fontPxTitle', 'fontPxBody', 'fontPxCaption', 'fontPxLabel', 'fontPxDialog', 'fontPxContent'].includes(key)) applyFontSize()
     // Sync startup/tray/notification settings to main process
     const syncMap = {
       autoStart: window.electronAPI?.setStartup,
@@ -567,6 +594,12 @@ export const useSettingsStore = defineStore('settings', () => {
       accentColor.value = all.accentColor ?? 'theme'
       customAccentHex.value = all.customAccentHex ?? '#4A6CFF'
       fontSize.value = all.fontSize ?? 'medium'
+      fontPxTitle.value = Number(all.fontPxTitle) || 14
+      fontPxBody.value = Number(all.fontPxBody) || 13
+      fontPxCaption.value = Number(all.fontPxCaption) || 11
+      fontPxLabel.value = Number(all.fontPxLabel) || 12
+      fontPxDialog.value = Number(all.fontPxDialog) || 16
+      fontPxContent.value = Number(all.fontPxContent) || 14
       langPref.value = all.langPref ?? 'zh'
       animations.value = all.animations ?? true
       reducedMotion.value = all.reducedMotion ?? false
@@ -601,7 +634,7 @@ export const useSettingsStore = defineStore('settings', () => {
       toolCallLimit.value = all.toolCallLimit ?? 0
       modelCallLimit.value = all.modelCallLimit ?? 0
       maxTaskMin.value = all.maxTaskMin ?? 5
-      searchLimit.value = all.searchLimit ?? 10
+      searchLimit.value = all.searchLimit ?? 30
       fileOpLimit.value = all.fileOpLimit ?? 30
       loopGuard.value = all.loopGuard ?? true
       auditDays.value = all.auditDays ?? 30
@@ -611,7 +644,15 @@ export const useSettingsStore = defineStore('settings', () => {
       allowExecCommand.value = all.allowExecCommand ?? true
       allowRevivaManage.value = all.allowRevivaManage ?? false
       hitlMode.value = all.hitlMode ?? 'auto'
-      commandBlacklist.value = all.commandBlacklist ?? [...defaultCommandBlacklist]
+      // 一次性迁移：旧默认把 powershell/cmd/reg 写死进黑名单，会误杀正常命令。
+      // 过滤掉这几个非破坏性 shell/工具前缀；破坏性子命令由后端 isDestructiveCommand 兜底。
+      const LEGACY_OVER_BLOCKED = ['powershell', 'cmd', 'reg']
+      const loadedBlacklist = Array.isArray(all.commandBlacklist) ? all.commandBlacklist : [...defaultCommandBlacklist]
+      const migratedBlacklist = loadedBlacklist.filter(c => !LEGACY_OVER_BLOCKED.includes(String(c).trim().toLowerCase()))
+      commandBlacklist.value = migratedBlacklist.length ? migratedBlacklist : [...defaultCommandBlacklist]
+      if (migratedBlacklist.length !== loadedBlacklist.length) {
+        try { await window.electronAPI.db.settings.set('commandBlacklist', JSON.stringify(commandBlacklist.value)) } catch (e) { console.error('migrate commandBlacklist error:', e) }
+      }
 
       // Notifications
       notifyTaskDone.value = all.notifyTaskDone ?? false
@@ -622,6 +663,8 @@ export const useSettingsStore = defineStore('settings', () => {
       autoStart.value = all.autoStart ?? false
       minimizeToTray.value = all.minimizeToTray ?? true
       trayIcon.value = all.trayIcon ?? true
+      // 合并开关：trayIcon 与 minimizeToTray 保持同步
+      trayIcon.value = minimizeToTray.value
       if (Array.isArray(all.trayMenuItems)) trayMenuItems.value = all.trayMenuItems
       singleInstance.value = all.singleInstance ?? true
 
@@ -821,8 +864,44 @@ export const useSettingsStore = defineStore('settings', () => {
     if (!p) return
     for (const model of models) {
       if (p.models.find(m => m.id === model.id)) continue
-      p.models.push(normalizeFetchedModel(model, null, { enabled: false, addedBy: 'fetch' }))
+      p.models.push(normalizeFetchedModel(model, null, { enabled: true, addedBy: 'fetch' }))
     }
+  }
+
+  function addCustomProvider({ name, apiFormat } = {}) {
+    const trimmedName = String(name || '').trim()
+    if (!trimmedName) return null
+    const id = 'custom-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6)
+    const palette = ['#4A6CFF', '#7C3AED', '#10B981', '#F43F5E', '#F59E0B', '#0EA5E9', '#14B8A6', '#F97316', '#EC4899']
+    const logoBg = palette[trimmedName.charCodeAt(0) % palette.length]
+    const provider = {
+      id,
+      name: trimmedName,
+      desc: '自定义服务商',
+      region: '自定义',
+      logoChar: trimmedName.charAt(0).toUpperCase(),
+      logoBg,
+      builtin: false,
+      official: false,
+      custom: true,
+      apiFormat: normalizeProviderApiFormat(apiFormat || 'openai', id),
+      apiKey: '',
+      apiKeyId: '',
+      baseUrl: '',
+      enabled: true,
+      configured: false,
+      models: [],
+    }
+    providers.value.push(provider)
+    return id
+  }
+
+  function removeCustomProvider(providerId) {
+    const idx = providers.value.findIndex(p => p.id === providerId)
+    if (idx < 0) return false
+    if (providers.value[idx].builtin || providers.value[idx].official) return false
+    providers.value.splice(idx, 1)
+    return true
   }
 
   function syncFetchedModels(providerId, models, options = {}) {
@@ -918,7 +997,7 @@ export const useSettingsStore = defineStore('settings', () => {
     cancelWorkspaceSwitch, renameWorkspace, removeWorkspace, migrateWorkspace,
     cleanupFailedWorkspaceMigration,
     // Preferences
-    themeId, themeMode, accentColor, customAccentHex, fontSize, langPref,
+    themeId, themeMode, accentColor, customAccentHex, fontSize, fontPxTitle, fontPxBody, fontPxCaption, fontPxLabel, fontPxDialog, fontPxContent, langPref,
     userThemes, themeLoadErrors, themesLoading, availableThemes,
     customCss, pendingCustomCss, customCssPreviewing, customCssBusy, customCssSecondsRemaining,
     animations, reducedMotion, answerStyle, conflictStrategy, quickInputEnabled, creationToolPreferences, agentSkillsPanelEnabled, chatNavigationEnabled, chatNavigationStyle,
@@ -939,12 +1018,12 @@ export const useSettingsStore = defineStore('settings', () => {
     enabledProviders, availableModels,
     chatModelOptions, visionModelOptions, embeddingModelOptions, modelCapabilitiesMap, getModelName,
     // Model management
-    addModelToProvider, removeModelFromProvider, updateModelInProvider, updateModelCapabilities, addFetchedModels, syncFetchedModels, getProviderDefaultBaseUrl, resetProviderBaseUrl, guessTier, providerConfigured, normalizeProviderApiFormat,
+    addModelToProvider, removeModelFromProvider, updateModelInProvider, updateModelCapabilities, addFetchedModels, addCustomProvider, removeCustomProvider, syncFetchedModels, getProviderDefaultBaseUrl, resetProviderBaseUrl, guessTier, providerConfigured, normalizeProviderApiFormat,
     // Computed
     currentTheme, currentAccentHex, currentAccentHover, currentAccentRgb, currentAccentScale,
     // Methods
     savePreference, saveTrayMenu, saveProviders, saveDefaultModels,
-    applyAccentColor, loadThemes, applyTheme, importTheme, reloadThemes, removeTheme, openThemeDirectory, applyThemeMode,
+    applyAccentColor, loadThemes, applyTheme, importTheme, reloadThemes, removeTheme, openThemeDirectory, applyThemeMode, applyFontSize,
     loadCustomCss, previewCustomCss, commitCustomCss, rollbackCustomCss, resetCustomCss,
   }
 }, {

@@ -98,7 +98,7 @@ function selectToolType(option) {
             <i v-else class="ri-tools-line text-emerald-400 text-[14px]" />
             <span class="text-[13px] font-bold" :class="isDark ? 'text-wt-main' : 'text-lt-main'">{{ isBuiltinConfig ? '配置 · ' + editTool.name : (editTool.id ? '编辑 · ' + editTool.name : '新建自定义工具') }}</span>
           </div>
-          <button @click="emit('cancel')" :class="isDark ? 'text-wt-aux hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub'"><i class="ri-close-line text-[14px]" /></button>
+          <button @click="emit('cancel')" :class="isDark ? 'text-wt-sub hover:text-wt-main' : 'text-lt-sub hover:text-lt-main'"><i class="ri-close-line text-[24px]" /></button>
         </div>
 
         <!-- Body -->
@@ -312,7 +312,7 @@ function selectToolType(option) {
         <!-- Footer -->
         <div class="px-5 py-3 flex justify-end gap-2 shrink-0"
           :class="isDark ? 'border-t border-d4 bg-d4/30' : 'border-t border-bdrL bg-l4/30'">
-          <button @click="emit('cancel')" class="px-4 py-2 rounded-lg text-[11px] font-medium transition-colors" :class="isDark ? 'text-wt-aux hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub'">取消</button>
+          <button @click="emit('cancel')" class="px-4 py-2 rounded-lg text-[11px] font-medium transition-colors" :class="isDark ? 'text-wt-sub hover:text-wt-main' : 'text-lt-sub hover:text-lt-main'">取消</button>
           <button @click="emit('save')" class="px-4 py-2 rounded-lg text-[11px] font-semibold flex items-center gap-1 transition-colors" :class="isDark ? 'bg-emerald-400 text-d0 hover:bg-emerald-500' : 'bg-emerald-500 text-white hover:bg-emerald-600'"><i class="ri-check-line text-[12px]" /> 保存</button>
         </div>
       </div>

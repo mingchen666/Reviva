@@ -203,19 +203,19 @@ function showInFolder() {
         <div class="w-px h-4 mx-1" :class="isDark ? 'bg-d4' : 'bg-bdrL'" />
         <button @click="openExternally"
           class="h-7 w-7 rounded-lg flex items-center justify-center transition-colors"
-          :class="isDark ? 'text-wt-aux hover:text-wt-sub hover:bg-white/5' : 'text-lt-aux hover:text-lt-sub hover:bg-l4'"
+          :class="isDark ? 'text-wt-sub hover:text-wt-main hover:bg-white/5' : 'text-lt-sub hover:text-lt-main hover:bg-l4'"
           title="用系统应用打开">
           <i class="ri-external-link-line text-[16px]" />
         </button>
         <button @click="copyPath"
           class="h-7 w-7 rounded-lg flex items-center justify-center transition-colors"
-          :class="isDark ? 'text-wt-aux hover:text-wt-sub hover:bg-white/5' : 'text-lt-aux hover:text-lt-sub hover:bg-l4'"
+          :class="isDark ? 'text-wt-sub hover:text-wt-main hover:bg-white/5' : 'text-lt-sub hover:text-lt-main hover:bg-l4'"
           title="复制路径">
           <i class="ri-clipboard-line text-[16px]" />
         </button>
         <button @click="showInFolder"
           class="h-7 w-7 rounded-lg flex items-center justify-center transition-colors"
-          :class="isDark ? 'text-wt-aux hover:text-wt-sub hover:bg-white/5' : 'text-lt-aux hover:text-lt-sub hover:bg-l4'"
+          :class="isDark ? 'text-wt-sub hover:text-wt-main hover:bg-white/5' : 'text-lt-sub hover:text-lt-main hover:bg-l4'"
           title="在资源管理器中显示">
           <i class="ri-folder-open-line text-[16px]" />
         </button>

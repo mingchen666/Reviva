@@ -50,13 +50,13 @@ const groups = [
     <div class="flex items-center">
       <button @click="emit('undo')" :disabled="!canUndo" title="撤销"
         class="tb-btn group"
-        :class="isDark ? 'text-wt-aux hover:text-wt-sub hover:bg-white/8 disabled:text-wt-dim disabled:hover:bg-transparent' : 'text-lt-aux hover:text-lt-sub hover:bg-black/6 disabled:text-lt-aux/40 disabled:hover:bg-transparent'">
+        :class="isDark ? 'text-wt-sub hover:text-wt-main hover:bg-white/8 disabled:text-wt-dim disabled:hover:bg-transparent' : 'text-lt-sub hover:text-lt-main hover:bg-black/6 disabled:text-lt-aux/40 disabled:hover:bg-transparent'">
         <i class="ri-arrow-go-back-line text-[14px]" />
         <span class="tb-tip" :class="isDark ? 'bg-d3 text-wt-main' : 'bg-l3 text-lt-main shadow-sm'">撤销 ⌃Z</span>
       </button>
       <button @click="emit('redo')" :disabled="!canRedo" title="重做"
         class="tb-btn group"
-        :class="isDark ? 'text-wt-aux hover:text-wt-sub hover:bg-white/8 disabled:text-wt-dim disabled:hover:bg-transparent' : 'text-lt-aux hover:text-lt-sub hover:bg-black/6 disabled:text-lt-aux/40 disabled:hover:bg-transparent'">
+        :class="isDark ? 'text-wt-sub hover:text-wt-main hover:bg-white/8 disabled:text-wt-dim disabled:hover:bg-transparent' : 'text-lt-sub hover:text-lt-main hover:bg-black/6 disabled:text-lt-aux/40 disabled:hover:bg-transparent'">
         <i class="ri-arrow-go-forward-line text-[14px]" />
         <span class="tb-tip" :class="isDark ? 'bg-d3 text-wt-main' : 'bg-l3 text-lt-main shadow-sm'">重做 ⌃⇧Z</span>
       </button>
@@ -67,7 +67,7 @@ const groups = [
     <div class="flex items-center">
       <template v-for="(group, gi) in groups" :key="gi">
         <button v-for="item in group" :key="item.type" @click="emit('insert', item.type)" :title="item.tip" class="tb-btn group"
-          :class="isDark ? 'text-wt-aux hover:text-wt-sub hover:bg-white/8' : 'text-lt-aux hover:text-lt-sub hover:bg-black/6'">
+          :class="isDark ? 'text-wt-sub hover:text-wt-main hover:bg-white/8' : 'text-lt-sub hover:text-lt-main hover:bg-black/6'">
           <i :class="[item.icon, 'text-[15px]']" />
           <span class="tb-tip" :class="isDark ? 'bg-d3 text-wt-main' : 'bg-l3 text-lt-main shadow-sm'">{{ item.tip }}</span>
         </button>

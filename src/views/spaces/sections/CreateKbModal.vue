@@ -57,7 +57,7 @@ watch(() => props.show, (show) => {
           </div>
           <button
             class="w-7 h-7 rounded-lg flex items-center justify-center"
-            :class="isDark ? 'text-wt-aux hover:text-wt-sub hover:bg-white/5' : 'text-lt-aux hover:text-lt-sub hover:bg-l4'"
+            :class="isDark ? 'text-wt-sub hover:text-wt-main hover:bg-white/5' : 'text-lt-sub hover:text-lt-main hover:bg-l4'"
             @click="emit('close')">
             <i class="ri-close-line text-[15px]" />
           </button>
@@ -68,7 +68,7 @@ watch(() => props.show, (show) => {
             <span class="text-[11px] font-medium" :class="isDark ? 'text-wt-aux' : 'text-lt-aux'">名称</span>
             <input
               v-model="form.title"
-              class="mt-1.5 w-full h-9 rounded-lg px-3 text-[12.5px] outline-none transition-colors"
+              class="mt-1.5 w-full h-9 rounded-lg px-3 text-[12px] outline-none transition-colors"
               :class="isDark ? 'bg-d0 border border-d4 text-wt-main placeholder-wt-dim focus:border-brand-400/45' : 'bg-l3 border border-bdrF text-lt-main placeholder-lt-aux focus:border-brand-400'"
               placeholder="例如：课程资料、项目文档"
               @keydown.enter.prevent="submit" />
@@ -79,7 +79,7 @@ watch(() => props.show, (show) => {
             <textarea
               v-model="form.description"
               rows="3"
-              class="mt-1.5 w-full rounded-lg px-3 py-2 text-[12.5px] outline-none resize-none transition-colors"
+              class="mt-1.5 w-full rounded-lg px-3 py-2 text-[12px] outline-none resize-none transition-colors"
               :class="isDark ? 'bg-d0 border border-d4 text-wt-main placeholder-wt-dim focus:border-brand-400/45' : 'bg-l3 border border-bdrF text-lt-main placeholder-lt-aux focus:border-brand-400'"
               placeholder="补充这组资料的用途" />
           </label>
@@ -106,7 +106,7 @@ watch(() => props.show, (show) => {
         <div class="px-5 py-4 border-t flex items-center justify-end gap-2" :class="isDark ? 'border-d4 bg-d1/60' : 'border-bdrF bg-l3/50'">
           <button
             class="h-8 px-3 rounded-lg text-[12px] font-medium"
-            :class="isDark ? 'text-wt-aux hover:text-wt-sub hover:bg-white/5' : 'text-lt-aux hover:text-lt-sub hover:bg-l4'"
+            :class="isDark ? 'text-wt-sub hover:text-wt-main hover:bg-white/5' : 'text-lt-sub hover:text-lt-main hover:bg-l4'"
             @click="emit('close')">
             取消
           </button>

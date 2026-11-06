@@ -220,9 +220,22 @@ function copyAiResult() {
 }
 
 // ─── Sync note ───
-watch(() => notesStore.currentNoteId, () => {
-  if (saveTimer.value) { clearTimeout(saveTimer.value); saveTimer.value = null }
-  isSaving.value = false
+watch(() => notesStore.currentNoteId, (_newId, oldId) => {
+  // Flush pending save for the old note before switching — capture values
+  // synchronously so the save is correct even though it runs async.
+  if (saveTimer.value && oldId) {
+    const saveTitle = localTitle.value
+    const saveContent = localContent.value
+    clearTimeout(saveTimer.value)
+    saveTimer.value = null
+    isSaving.value = false
+    notesStore.updateNote(oldId, { title: saveTitle, content: saveContent })
+      .then(() => { lastSavedAt.value = new Date() })
+      .catch(() => {})
+  } else {
+    if (saveTimer.value) { clearTimeout(saveTimer.value); saveTimer.value = null }
+    isSaving.value = false
+  }
   if (aiResultShow.value) { aiAbortController.value?.abort(); dismissAiResult() }
   if (currentNote.value) {
     localTitle.value = currentNote.value.title
@@ -764,7 +777,17 @@ function onSplitResizeReset() {
 }
 
 onBeforeUnmount(() => {
-  if (saveTimer.value) clearTimeout(saveTimer.value)
+  // Flush pending save before unmounting so edits are not lost on route change
+  if (saveTimer.value && currentNote.value) {
+    const id = currentNote.value.id
+    const saveTitle = localTitle.value
+    const saveContent = localContent.value
+    clearTimeout(saveTimer.value)
+    saveTimer.value = null
+    notesStore.updateNote(id, { title: saveTitle, content: saveContent }).catch(() => {})
+  } else if (saveTimer.value) {
+    clearTimeout(saveTimer.value)
+  }
   window.removeEventListener('resize', updateAiResultPosition)
   window.removeEventListener('scroll', updateAiResultPosition, true)
   window.removeEventListener('mousemove', onSplitResizeMove)
@@ -825,7 +848,7 @@ onBeforeUnmount(() => {
           class="h-6 px-2 border-0 flex items-center justify-center rounded transition-all duration-150 cursor-pointer"
           :class="editMode === m.k
             ? (isDark ? 'bg-d1 text-brand-400 shadow-[0_1px_2px_rgba(0,0,0,0.25)]' : 'bg-white text-brand-500 shadow-sm')
-            : (isDark ? 'text-wt-dim hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub')">
+            : (isDark ? 'text-wt-dim hover:text-wt-sub' : 'text-lt-sub hover:text-lt-main')">
           <i :class="`${m.i} text-[13px]`" />
         </button>
       </div>
@@ -961,7 +984,7 @@ onBeforeUnmount(() => {
     </div>
     <template #footer="{ close }">
       <button @click="close()" class="px-4 py-2 rounded-lg text-[11px] font-medium transition-colors"
-        :class="isDark ? 'text-wt-aux hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub'">取消</button>
+        :class="isDark ? 'text-wt-sub hover:text-wt-main' : 'text-lt-sub hover:text-lt-main'">取消</button>
       <button @click="deleteCurrentNote(); close()" class="px-4 py-2 rounded-lg text-[11px] font-medium bg-red-500 text-white hover:bg-red-600">确认删除</button>
     </template>
   </MsModal>

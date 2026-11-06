@@ -26,7 +26,7 @@
     {
       "from": "electron/builtin-assets",
       "to": "builtin-assets",
-      "filter": ["**/*", "!bin/officecli/officecli-win-*.exe*"]
+      "filter": ["**/*", "!bin/officecli/officecli-*"]
     },
     {
       "from": "electron/agents/builtin",
@@ -68,6 +68,6 @@
     "target": [
       "AppImage"
     ],
-    "artifactName": "${productName}-Linux-${version}.${ext}"
+    "artifactName": "${productName}-Linux-${version}-${arch}.${ext}"
   }
 }

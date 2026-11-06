@@ -43,21 +43,21 @@ defineEmits([
         <input
           :type="showApiKey ? 'text' : 'password'"
           :value="provider.apiKey"
-          class="flex-1 h-9 rounded-lg px-3 text-[14px] font-mono outline-none transition-colors"
+          class="flex-1 h-8 rounded-lg px-3 text-[14px] font-mono outline-none transition-colors"
           :class="isDark ? 'bg-d0 border border-bdr text-wt-sub placeholder-wt-dim focus:border-brand-400/40' : 'bg-l1 border border-bdrF text-lt-sub placeholder-lt-aux focus:border-brand-400'"
           :placeholder="provider.local ? '本地服务可填写任意值，例如 ollama' : '输入 API Key...'"
           @input="$emit('api-key-input', $event.target.value)"
         />
         <button
-          class="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 transition-colors"
-          :class="isDark ? 'bg-d0 border border-bdr text-wt-aux hover:text-wt-sub hover:bg-d3' : 'bg-l1 border border-bdrF text-lt-aux hover:text-lt-sub hover:bg-l3'"
+          class="w-9 h-8 rounded-lg flex items-center justify-center shrink-0 transition-colors"
+          :class="isDark ? 'bg-d0 border border-bdr text-wt-sub hover:text-wt-main hover:bg-d3' : 'bg-l1 border border-bdrF text-lt-sub hover:text-lt-main hover:bg-l3'"
           @click="$emit('toggle-api-key')"
         >
           <i :class="showApiKey ? 'ri-eye-off-line' : 'ri-eye-line'" class="text-[14px]" />
         </button>
         <button
-          class="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 transition-colors"
-          :class="isDark ? 'bg-d0 border border-bdr text-wt-aux hover:text-wt-sub hover:bg-d3' : 'bg-l1 border border-bdrF text-lt-aux hover:text-lt-sub hover:bg-l3'"
+          class="w-9 h-8 rounded-lg flex items-center justify-center shrink-0 transition-colors"
+          :class="isDark ? 'bg-d0 border border-bdr text-wt-sub hover:text-wt-main hover:bg-d3' : 'bg-l1 border border-bdrF text-lt-sub hover:text-lt-main hover:bg-l3'"
           @click="$emit('copy-api-key')"
         >
           <i class="ri-file-copy-line text-[14px]" />
@@ -88,7 +88,7 @@ defineEmits([
       <input
         :value="provider.baseUrl"
         :readonly="!canEditBaseUrl"
-        class="w-full h-9 rounded-lg px-3 text-[14px] font-mono outline-none transition-colors"
+        class="w-full h-8 rounded-lg px-3 text-[14px] font-mono outline-none transition-colors"
         :class="isDark ? 'bg-d0 border border-bdr text-wt-sub focus:border-brand-400/40' : 'bg-l1 border border-bdrF text-lt-sub focus:border-brand-400'"
         @input="canEditBaseUrl && $emit('base-url-input', $event.target.value)"
       />

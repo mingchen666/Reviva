@@ -12,6 +12,12 @@ const msg = useMessage()
 const mbox = useMessageBox()
 const isDark = computed(() => appStore.isDark)
 
+/* --- Font Display --- */
+const FONT_PX_DEFAULTS = { fontPxDialog: 16, fontPxTitle: 14, fontPxContent: 14, fontPxBody: 13, fontPxLabel: 12, fontPxCaption: 11 }
+const fontSizePref = computed(() => ss.fontSize || 'medium')
+function pxValue(key) { return ss[key] ?? FONT_PX_DEFAULTS[key] ?? 0 }
+function clampPx(v, min, max) { return Math.max(min, Math.min(max, v || min)) }
+
 /* ── 主题选择器 ── */
 const themeDropdownOpen = ref(false)
 const themeDropdownRef = ref(null)
@@ -444,6 +450,95 @@ onBeforeUnmount(() => {
       </div>
     </section>
 
+    <!-- ═══════════ 字体显示 ═══════════ -->
+    <section>
+      <div class="flex items-center gap-2.5 mb-5">
+        <div class="w-1 h-4.5 rounded-full bg-sky-400" />
+        <h2 class="text-15px font-700" :class="isDark ? 'text-wt-main' : 'text-lt-main'">字体显示</h2>
+        <span class="text-11px" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">全局缩放与关键文字字号（px）</span>
+      </div>
+
+      <div class="rounded-xl overflow-hidden border" :class="isDark ? 'border-d4 bg-d3' : 'border-bdrF bg-l3'">
+        <!-- 全局缩放 -->
+        <div class="flex items-center gap-3 px-4 py-3 border-b" :class="isDark ? 'border-d4' : 'border-bdrF'">
+          <label class="w-20 shrink-0 text-13px font-600" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">全局缩放</label>
+          <div class="flex-1 text-11px leading-relaxed" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">影响继承字号与正文内容的整体大小</div>
+          <div class="flex items-center gap-1 shrink-0">
+            <button
+              v-for="opt in [{ k: 'small', l: '紧凑' }, { k: 'medium', l: '标准' }, { k: 'large', l: '舒适' }]"
+              :key="opt.k"
+              type="button"
+              class="h-7 px-3 rounded-md text-12px font-500 transition-all"
+              :class="fontSizePref === opt.k ? (isDark ? 'bg-brand-400/14 text-brand-300 border border-brand-400/30' : 'bg-brand-50 text-brand-600 border border-brand-200') : (isDark ? 'border border-transparent hover:border-d4 hover:bg-white/2 text-wt-dim' : 'border border-transparent hover:border-bdrF hover:bg-l4/50 text-lt-aux')"
+              @click="ss.savePreference('fontSize', opt.k)"
+            >{{ opt.l }}</button>
+          </div>
+        </div>
+
+        <!-- 关键字号 -->
+        <div class="px-4 py-3 space-y-2.5">
+          <div
+            v-for="item in [
+              { key: 'fontPxDialog', label: '弹窗标题', desc: '模态弹窗与页面大标题（如「生成 PPT」「导入」）', def: 16, min: 14, max: 22 },
+              { key: 'fontPxTitle', label: '区块标题', desc: '设置页各区块标题（如「外观」「字体显示」）', def: 14, min: 12, max: 20 },
+              { key: 'fontPxContent', label: '对话内容', desc: '聊天消息与 Markdown 渲染正文', def: 14, min: 12, max: 20 },
+              { key: 'fontPxBody', label: '正文', desc: '卡片名称、选项标签等主要文字', def: 13, min: 11, max: 18 },
+              { key: 'fontPxLabel', label: '标签/按钮', desc: '表单标签、按钮文字、下拉选项', def: 12, min: 10, max: 16 },
+              { key: 'fontPxCaption', label: '说明', desc: '辅助提示、描述性说明文字', def: 11, min: 9, max: 16 },
+            ]"
+            :key="item.key"
+            class="flex items-center gap-3"
+          >
+            <label class="w-20 shrink-0 text-13px font-600" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">{{ item.label }}</label>
+            <div class="flex-1 flex items-center gap-2.5">
+              <input
+                type="range"
+                :value="pxValue(item.key)"
+                :min="item.min"
+                :max="item.max"
+                step="1"
+                class="flex-1 accent-brand-500 cursor-pointer"
+                @input="ss.savePreference(item.key, Number($event.target.value))"
+              />
+              <div class="flex items-center shrink-0">
+                <input
+                  type="number"
+                  :value="pxValue(item.key)"
+                  :min="item.min"
+                  :max="item.max"
+                  class="fs-num-input w-11 h-7 px-2 rounded-md text-center text-14px font-500 outline-none transition-colors"
+                  :class="isDark ? 'bg-d0 border border-d4 text-wt-sub focus:border-brand-400/50' : 'bg-white border border-bdrF text-lt-sub focus:border-brand-300'"
+                  @change="ss.savePreference(item.key, clampPx(Number($event.target.value), item.min, item.max))"
+                />
+                <span class="text-12.5px ml-0.5 shrink-0" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">px</span>
+              </div>
+              <button
+                type="button"
+                class="text-12px w-7 h-7 rounded-md flex items-center justify-center transition-colors shrink-0"
+                :class="isDark ? 'text-wt-dim hover:text-wt-sub hover:bg-white/2' : 'text-lt-aux hover:text-lt-sub hover:bg-l4/50'"
+                title="重置为默认"
+                @click="ss.savePreference(item.key, item.def)"
+              ><i class="ri-refresh-line" /></button>
+            </div>
+          </div>
+
+          <!-- 实时预览 -->
+          <div class="mt-1 pt-2.5 border-t" :class="isDark ? 'border-d4' : 'border-bdrF'">
+            <div class="inline-flex items-center gap-1 mb-2.5 px-2 py-0.5 rounded-full text-11px font-600" :class="isDark ? 'bg-brand-400/10 text-brand-300' : 'bg-brand-500/10 text-brand-600'">
+              <i class="ri-eye-line text-12px" />实时预览效果
+            </div>
+            <div class="space-y-1">
+              <div class="fs-dialog font-bold" :class="isDark ? 'text-wt-main' : 'text-lt-main'">弹窗标题示例文字</div>
+              <div class="fs-title font-bold" :class="isDark ? 'text-wt-main' : 'text-lt-main'">区块标题示例文字</div>
+              <div class="fs-content" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">这是对话内容，Markdown 渲染的正文示例。</div>
+              <div class="fs-body" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">这是正文内容，用于展示主要文字的字号效果。</div>
+              <div class="fs-label font-medium" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">标签 · 按钮文字示例</div>
+              <div class="fs-caption" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">这是说明提示文字，用于展示辅助描述的字号效果。</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
     <!-- ═══════════ 自定义 CSS ═══════════ -->
     <section>
       <div class="flex items-center gap-2.5 mb-5">
@@ -525,7 +620,7 @@ onBeforeUnmount(() => {
                   class="h-7.5 px-3 rounded-md text-11px font-500 flex items-center gap-1.5 transition-all"
                   :class="refTab === tab.key
                     ? 'bg-emerald-500 text-white shadow-sm'
-                    : (isDark ? 'text-wt-aux hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub')"
+                    : (isDark ? 'text-wt-sub hover:text-wt-main' : 'text-lt-sub hover:text-lt-main')"
                   @click="refTab = tab.key"
                 >
                   <i :class="tab.icon" class="text-13px" />{{ tab.label }}

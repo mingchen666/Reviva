@@ -1,0 +1,14 @@
+{
+  "id": "guizang-ppt-skill",
+  "name": "归藏 PPT 技能",
+  "description": "生成横向翻页网页 PPT（单 HTML 文件），提供电子杂志风和瑞士国际主义两种视觉系统，含 WebGL 背景、演讲者模式、观众屏同步、讲稿备注、多平台封面。适合分享、演讲、发布会风格的演示。",
+  "icon": "ri-file-ppt-2-line",
+  "color": "#E94560",
+  "category": "创作",
+  "source": "platform",
+  "allowedTools": ["file_read", "file_write", "vision_analyze"],
+  "outputTypes": ["HTML", "PNG"],
+  "version": "1.0",
+  "author": "op7418",
+  "license": "MIT"
+}

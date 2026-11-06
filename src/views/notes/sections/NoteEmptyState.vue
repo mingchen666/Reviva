@@ -30,9 +30,9 @@ const features = [
       <div class="max-w-4xl mx-auto px-8 py-10 fade-up">
         <!-- Hero -->
         <div class="flex items-start gap-4 mb-8">
-          <div class="w-14 h-14 rounded-2xl flex items-center justify-center shrink-0"
-            :class="isDark ? 'bg-gradient-to-br from-brand-400/20 to-emerald-400/10 border border-brand-400/20' : 'bg-gradient-to-br from-brand-50 to-emerald-50 border border-brand-100'">
-            <i class="ri-booklet-line text-[26px] text-brand-400" />
+          <div class="w-14 h-14 flex items-center justify-center shrink-0"
+            >
+            <i class="ri-booklet-line text-[36px] text-brand-400" />
           </div>
           <div class="flex-1 min-w-0">
             <h1 class="text-[20px] font-bold mb-1" :class="isDark ? 'text-wt-main' : 'text-lt-main'">Markdown 笔记</h1>

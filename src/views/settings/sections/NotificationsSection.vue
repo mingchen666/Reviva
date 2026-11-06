@@ -2,7 +2,6 @@
 import { computed } from 'vue'
 import { useAppStore } from '@/stores/app'
 import { useSettingsStore } from '@/stores/settings'
-import TrayMenuSettings from './TrayMenuSettings.vue'
 
 const appStore = useAppStore()
 const ss = useSettingsStore()
@@ -25,12 +24,16 @@ const notificationItems = [
 
 const startupItems = [
   { key: 'autoStart', label: '开机自启动', desc: '系统启动时自动运行 Reviva', icon: 'ri-rocket-line', color: 'brand' },
-  { key: 'minimizeToTray', label: '关闭时最小化到托盘', desc: '关闭窗口时保持后台运行', icon: 'ri-arrow-down-s-line', color: 'agent' },
-  { key: 'trayIcon', label: '显示托盘图标', desc: '在系统托盘区显示 Reviva 图标', icon: 'ri-layout-bottom-line', color: 'emerald' },
+  { key: 'minimizeToTray', label: '关闭时最小化到托盘', desc: '关闭窗口时保持后台运行并在系统托盘显示图标', icon: 'ri-arrow-down-s-line', color: 'agent' },
   { key: 'singleInstance', label: '单实例运行', desc: '禁止同时运行多个 Reviva 进程', icon: 'ri-shield-check-line', color: 'amber' },
 ]
 
-function toggle(key) { ss.savePreference(key, !ss[key]) }
+function toggle(key) {
+  const newValue = !ss[key]
+  ss.savePreference(key, newValue)
+  // 合并开关：minimizeToTray 和 trayIcon 同步
+  if (key === 'minimizeToTray') ss.savePreference('trayIcon', newValue)
+}
 
 function previewSound() {
   if (ss.notifyDND || !ss.notifySound) return
@@ -129,7 +132,7 @@ function getIconColor(item, isDarkMode) {
           </div>
           <button
             class="w-5 h-5 rounded-md flex items-center justify-center transition-all"
-            :class="isDark ? 'hover:bg-d4 text-wt-dim hover:text-wt-sub' : 'hover:bg-l4 text-lt-aux hover:text-lt-sub'"
+            :class="isDark ? 'hover:bg-d4 text-wt-dim hover:text-wt-sub' : 'hover:bg-l4 text-lt-sub hover:text-lt-main'"
             @click="previewSound"
             title="试听"
           >
@@ -172,7 +175,6 @@ function getIconColor(item, isDarkMode) {
       </div>
     </section>
 
-    <TrayMenuSettings />
   </div>
 </template>
 

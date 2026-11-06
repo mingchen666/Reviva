@@ -5,9 +5,16 @@ import { fileURLToPath } from 'node:url'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 export function getOfficeCliBinaryName({ platform = process.platform, arch = process.arch } = {}) {
-  if (platform !== 'win32') return ''
-  if (arch === 'arm64') return 'officecli-win-arm64.exe'
-  if (arch === 'x64') return 'officecli-win-x64.exe'
+  if (platform === 'win32') {
+    if (arch === 'arm64') return 'officecli-win-arm64.exe'
+    if (arch === 'x64') return 'officecli-win-x64.exe'
+  } else if (platform === 'darwin') {
+    if (arch === 'arm64') return 'officecli-mac-arm64'
+    if (arch === 'x64') return 'officecli-mac-x64'
+  } else if (platform === 'linux') {
+    if (arch === 'arm64') return 'officecli-linux-arm64'
+    if (arch === 'x64') return 'officecli-linux-x64'
+  }
   return ''
 }
 

@@ -430,7 +430,7 @@ watch(() => pdf.showPdfUploadPrompt.value, (visible) => { if (visible) { loadPro
             @click="openCreateFolderModal()"
             class="h-6 w-6 rounded-md flex items-center justify-center transition-colors"
             :class="
-              isDark ? 'text-wt-aux hover:text-wt-sub hover:bg-white/5' : 'text-lt-aux hover:text-lt-sub hover:bg-l4'
+              isDark ? 'text-wt-sub hover:text-wt-main hover:bg-white/5' : 'text-lt-sub hover:text-lt-main hover:bg-l4'
             "
             title="新建文件夹">
             <i class="ri-folder-add-line text-[14px]" />
@@ -439,7 +439,7 @@ watch(() => pdf.showPdfUploadPrompt.value, (visible) => { if (visible) { loadPro
             @click="showUploadModal = true"
             class="h-6 w-6 rounded-md flex items-center justify-center transition-colors"
             :class="
-              isDark ? 'text-wt-aux hover:text-wt-sub hover:bg-white/5' : 'text-lt-aux hover:text-lt-sub hover:bg-l4'
+              isDark ? 'text-wt-sub hover:text-wt-main hover:bg-white/5' : 'text-lt-sub hover:text-lt-main hover:bg-l4'
             "
             title="上传文件">
             <i class="ri-upload-2-line text-[14px]" />
@@ -448,7 +448,7 @@ watch(() => pdf.showPdfUploadPrompt.value, (visible) => { if (visible) { loadPro
             @click="showProcessingSettingsModal = true"
             class="h-6 w-6 rounded-md flex items-center justify-center transition-colors"
             :class="
-              isDark ? 'text-wt-aux hover:text-wt-sub hover:bg-white/5' : 'text-lt-aux hover:text-lt-sub hover:bg-l4'
+              isDark ? 'text-wt-sub hover:text-wt-main hover:bg-white/5' : 'text-lt-sub hover:text-lt-main hover:bg-l4'
             "
             title="解析设置">
             <i class="ri-settings-3-line text-[14px]" />
@@ -459,7 +459,7 @@ watch(() => pdf.showPdfUploadPrompt.value, (visible) => { if (visible) { loadPro
             "
             class="h-6 w-6 rounded-md flex items-center justify-center transition-colors"
             :class="
-              isDark ? 'text-wt-dim hover:text-wt-aux hover:bg-white/5' : 'text-lt-aux hover:text-lt-sub hover:bg-l4'
+              isDark ? 'text-wt-dim hover:text-wt-aux hover:bg-white/5' : 'text-lt-sub hover:text-lt-main hover:bg-l4'
             "
             title="刷新">
             <i class="ri-refresh-line text-[14px]" />
@@ -644,7 +644,7 @@ watch(() => pdf.showPdfUploadPrompt.value, (visible) => { if (visible) { loadPro
                         : 'bg-brand-50 text-brand-500'
                       : isDark
                         ? 'text-wt-dim hover:text-wt-aux'
-                        : 'text-lt-aux hover:text-lt-sub'
+                        : 'text-lt-sub hover:text-lt-main'
                   ">
                   <i class="ri-grid-line text-[16px]" />
                 </button>
@@ -658,7 +658,7 @@ watch(() => pdf.showPdfUploadPrompt.value, (visible) => { if (visible) { loadPro
                         : 'bg-brand-50 text-brand-500'
                       : isDark
                         ? 'text-wt-dim hover:text-wt-aux'
-                        : 'text-lt-aux hover:text-lt-sub'
+                        : 'text-lt-sub hover:text-lt-main'
                   ">
                   <i class="ri-list-unordered text-[16px]" />
                 </button>
@@ -910,7 +910,7 @@ watch(() => pdf.showPdfUploadPrompt.value, (visible) => { if (visible) { loadPro
         <button
           @click="closePdfUploadPrompt(); close()"
           class="px-4 py-2 rounded-lg text-[11px] font-medium transition-colors"
-          :class="isDark ? 'text-wt-aux hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub'">
+          :class="isDark ? 'text-wt-sub hover:text-wt-main' : 'text-lt-sub hover:text-lt-main'">
           稍后
         </button>
         <button

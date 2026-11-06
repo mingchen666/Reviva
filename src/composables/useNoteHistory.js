@@ -78,7 +78,10 @@ export function useNoteHistory(opts = {}) {
 
   /** Pop the most recent snapshot. Pushes current state to future stack first. */
   function undo(current) {
-    if (pendingTimer) { clearTimeout(pendingTimer); pendingTimer = null; _commit(_snapshot(current)) }
+    // Clear any pending throttled commit — undo itself manages the stacks,
+    // so we don't need to force-commit here. The current state is pushed to
+    // the future stack below, which is the correct undo semantics.
+    if (pendingTimer) { clearTimeout(pendingTimer); pendingTimer = null }
     if (!past.value.length) return null
     // If lastSnapshot equals current, drop the duplicate from past
     const top = past.value[past.value.length - 1]

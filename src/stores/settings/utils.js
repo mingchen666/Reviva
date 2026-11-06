@@ -108,6 +108,17 @@ export function _mergeBuiltinProviders(current) {
     merged.apiFormat = normalizeProviderApiFormat(merged.apiFormat, merged.id)
     result.push(merged)
   }
+  // Preserve custom (non-builtin) providers so they survive reloads
+  const builtinIds = new Set(DEFAULT_PROVIDERS.map(p => p.id))
+  for (const p of current) {
+    if (p && !builtinIds.has(p.id)) {
+      result.push({
+        ...p,
+        apiFormat: normalizeProviderApiFormat(p.apiFormat, p.id),
+        configured: providerConfigured(p),
+      })
+    }
+  }
   return result
 }
 

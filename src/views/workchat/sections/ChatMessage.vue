@@ -344,7 +344,7 @@ function onMarkdownLinkClick({ href }) {
             <div v-if="block.type === 'thinking'" class="px-4 pt-2.5">
               <button @click="toggleProcessBlock('thinking-' + bi)"
                 class="flex items-center gap-1.5 text-[11px] font-medium leading-none transition-colors py-1.5 px-2 -ml-2 rounded-md"
-                :class="isDark ? 'text-wt-dim hover:text-wt-sub hover:bg-white/4' : 'text-lt-aux hover:text-lt-sub hover:bg-l4'">
+                :class="isDark ? 'text-wt-dim hover:text-wt-sub hover:bg-white/4' : 'text-lt-sub hover:text-lt-main hover:bg-l4'">
                 <i :class="processBlockOpen['thinking-' + bi] ? 'ri-arrow-down-s-line' : 'ri-arrow-right-s-line'" class="text-[14px] leading-none transition-transform" />
                 <i class="ri-brain-line text-[12px] leading-none" :class="isDark ? 'text-agent-400' : 'text-agent-500'" />
                 <span class="leading-none" v-if="isStreaming && block.stepIndex === displaySteps.length - 1">思考中...</span>
@@ -364,7 +364,7 @@ function onMarkdownLinkClick({ href }) {
             <div v-else-if="block.type === 'tools'" class="px-4 py-1.5">
               <button @click="toggleProcessBlock('tools-' + bi)"
                 class="flex items-center gap-1.5 text-[11px] font-medium transition-colors py-0.5 w-full"
-                :class="isDark ? 'text-wt-dim hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub'">
+                :class="isDark ? 'text-wt-dim hover:text-wt-sub' : 'text-lt-sub hover:text-lt-main'">
                 <i :class="processBlockOpen['tools-' + bi] ? 'ri-arrow-down-s-line' : 'ri-arrow-right-s-line'" class="text-[14px]" />
                 <i class="ri-tools-line text-[12px]" :class="isDark ? 'text-sky-400' : 'text-sky-500'" />
                 <span>工具调用 ({{ block.toolCalls.length }})</span>
@@ -434,7 +434,7 @@ function onMarkdownLinkClick({ href }) {
           <div v-if="showThinking" class="px-4 pt-3">
             <button @click="toggleThinking"
               class="flex items-center gap-1.5 text-[11px] font-medium leading-none transition-colors py-1.5 px-2 -ml-2 rounded-md"
-              :class="isDark ? 'text-wt-dim hover:text-wt-sub hover:bg-white/4' : 'text-lt-aux hover:text-lt-sub hover:bg-l4'">
+              :class="isDark ? 'text-wt-dim hover:text-wt-sub hover:bg-white/4' : 'text-lt-sub hover:text-lt-main hover:bg-l4'">
               <i :class="thinkingOpen ? 'ri-arrow-down-s-line' : 'ri-arrow-right-s-line'" class="text-[12px] leading-none transition-transform" />
               <i class="ri-brain-line text-[12px] leading-none" :class="isDark ? 'text-agent-400' : 'text-agent-500'" />
               <span class="leading-none" v-if="isStreaming">思考中...</span>

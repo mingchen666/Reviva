@@ -61,7 +61,7 @@ const boundSkills = computed(() => {
       </div>
       <div v-if="isCustom" class="flex items-center gap-1.5">
         <button @click="emit('edit')" class="px-2 py-1 rounded-md text-[11px] font-medium flex items-center gap-1 transition-colors"
-          :class="isDark ? 'text-wt-aux hover:text-wt-sub hover:bg-white/6' : 'text-lt-aux hover:text-lt-sub hover:bg-l4'"><i class="ri-edit-line text-[12px]" /> 编辑</button>
+          :class="isDark ? 'text-wt-sub hover:text-wt-main hover:bg-white/6' : 'text-lt-sub hover:text-lt-main hover:bg-l4'"><i class="ri-edit-line text-[12px]" /> 编辑</button>
         <button @click="emit('delete')" class="px-2 py-1 rounded-md text-[11px] font-medium flex items-center gap-1 transition-colors"
           :class="isDark ? 'text-red-400/70 hover:text-red-400 hover:bg-red-400/8' : 'text-red-400 hover:text-red-500 hover:bg-red-50'"><i class="ri-delete-bin-line text-[12px]" /> 删除</button>
       </div>

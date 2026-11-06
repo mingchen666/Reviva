@@ -255,7 +255,7 @@ function openItem(item) {
                 <button
                   v-else
                   class="open-hint"
-                  :class="isDark ? 'text-wt-dim hover:text-wt-sub hover:bg-white/5' : 'text-lt-aux hover:text-lt-sub hover:bg-l3'"
+                  :class="isDark ? 'text-wt-dim hover:text-wt-sub hover:bg-white/5' : 'text-lt-sub hover:text-lt-main hover:bg-l3'"
                   @click.stop="openItem(item)">
                   <i class="ri-folder-open-line text-[12px]" />打开
                 </button>

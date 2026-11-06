@@ -185,6 +185,8 @@ const api = {
     trashNote: (noteId) => ipcRenderer.invoke('recycleBin:trashNote', noteId),
     trashNoteFolder: (folderId) => ipcRenderer.invoke('recycleBin:trashNoteFolder', folderId),
     trashArtifact: (artifactId, options) => ipcRenderer.invoke('recycleBin:trashArtifact', artifactId, options),
+    trashTask: (taskId) => ipcRenderer.invoke('recycleBin:trashTask', taskId),
+    trashConvGroup: (groupId) => ipcRenderer.invoke('recycleBin:trashConvGroup', groupId),
     restore: (trashId) => ipcRenderer.invoke('recycleBin:restore', trashId),
     restoreBatch: (trashIds) => ipcRenderer.invoke('recycleBin:restoreBatch', trashIds),
     deletePermanently: (trashId) => ipcRenderer.invoke('recycleBin:deletePermanently', trashId),
@@ -625,6 +627,46 @@ const api = {
     getKey: () => ipcRenderer.invoke('localGateway:getKey'),
     updateConfig: (patch) => ipcRenderer.invoke('localGateway:updateConfig', patch),
     restart: () => ipcRenderer.invoke('localGateway:restart'),
+  },
+  wechatBridge: {
+    start: () => ipcRenderer.invoke('wechat-bridge:start'),
+    stop: () => ipcRenderer.invoke('wechat-bridge:stop'),
+    login: () => ipcRenderer.invoke('wechat-bridge:login'),
+    logout: () => ipcRenderer.invoke('wechat-bridge:logout'),
+    getStatus: () => ipcRenderer.invoke('wechat-bridge:get-status'),
+    getConfig: () => ipcRenderer.invoke('wechat-bridge:get-config'),
+    setConfig: (patch) => ipcRenderer.invoke('wechat-bridge:set-config', patch),
+    getAgents: () => ipcRenderer.invoke('wechat-bridge:get-agents'),
+    listFiles: () => ipcRenderer.invoke('wechat-bridge:list-files'),
+    clearPendingImages: () => ipcRenderer.invoke('wechat-bridge:clear-pending-images'),
+    listImages: () => ipcRenderer.invoke('wechat-bridge:list-images'),
+    deleteImage: (name) => ipcRenderer.invoke('wechat-bridge:delete-image', name),
+    listReminders: () => ipcRenderer.invoke('wechat-bridge:list-reminders'),
+    addReminder: (r) => ipcRenderer.invoke('wechat-bridge:add-reminder', r),
+    deleteReminder: (id) => ipcRenderer.invoke('wechat-bridge:delete-reminder', id),
+    updateReminder: (id, data) => ipcRenderer.invoke('wechat-bridge:update-reminder', id, data),
+    listReminderLogs: (opts) => ipcRenderer.invoke('wechat-bridge:list-reminder-logs', opts),
+    clearReminderLogs: () => ipcRenderer.invoke('wechat-bridge:clear-reminder-logs'),
+    onQrUrl: (cb) => { const h = (_, d) => cb(d); ipcRenderer.on('wechat-bridge:qr-url', h); return h },
+    onScanned: (cb) => { const h = (_, d) => cb(d); ipcRenderer.on('wechat-bridge:scanned', h); return h },
+    onExpired: (cb) => { const h = (_, d) => cb(d); ipcRenderer.on('wechat-bridge:expired', h); return h },
+    onConnected: (cb) => { const h = (_, d) => cb(d); ipcRenderer.on('wechat-bridge:connected', h); return h },
+    onDisconnected: (cb) => { const h = (_, d) => cb(d); ipcRenderer.on('wechat-bridge:disconnected', h); return h },
+    onError: (cb) => { const h = (_, d) => cb(d); ipcRenderer.on('wechat-bridge:error', h); return h },
+    onMessage: (cb) => { const h = (_, d) => cb(d); ipcRenderer.on('wechat-bridge:message', h); return h },
+    onConvChanged: (cb) => { const h = (_, d) => cb(d); ipcRenderer.on('wechat-bridge:conv-changed', h); return h },
+    onPendingImages: (cb) => { const h = (_, d) => cb(d); ipcRenderer.on('wechat-bridge:pending-images', h); return h },
+    removeListeners: () => {
+      ipcRenderer.removeAllListeners('wechat-bridge:qr-url')
+      ipcRenderer.removeAllListeners('wechat-bridge:scanned')
+      ipcRenderer.removeAllListeners('wechat-bridge:expired')
+      ipcRenderer.removeAllListeners('wechat-bridge:connected')
+      ipcRenderer.removeAllListeners('wechat-bridge:disconnected')
+      ipcRenderer.removeAllListeners('wechat-bridge:error')
+      ipcRenderer.removeAllListeners('wechat-bridge:message')
+      ipcRenderer.removeAllListeners('wechat-bridge:conv-changed')
+      ipcRenderer.removeAllListeners('wechat-bridge:pending-images')
+    },
   },
   update: {
     check: () => ipcRenderer.invoke('update:check'),

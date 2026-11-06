@@ -149,7 +149,6 @@ async function applyImportedRuntimeSettings(importedKeys = []) {
   if (keys.has('autoStart') && api?.setStartup) enqueue(() => api.setStartup(ss.autoStart))
   if (keys.has('minimizeToTray') && api?.setMinimizeToTray) enqueue(() => api.setMinimizeToTray(ss.minimizeToTray))
   if (keys.has('trayIcon') && api?.setTrayIcon) enqueue(() => api.setTrayIcon(ss.trayIcon))
-  if (keys.has('trayMenuItems') && api?.setTrayMenu) enqueue(() => api.setTrayMenu(ss.trayMenuItems))
   if (keys.has('singleInstance') && api?.setSingleInstance) enqueue(() => api.setSingleInstance(ss.singleInstance))
   if (keys.has('shortcutBindings') && api?.db?.settings && api?.shortcuts?.register) {
     enqueue(async () => {
@@ -275,7 +274,7 @@ async function resetSettings() {
     answerStyle: 'default', conflictStrategy: 'ask', chatNavigationEnabled: true, chatNavigationStyle: 'directory',
     proxyMode: 'system', proxyType: 'http', proxyHost: '127.0.0.1', proxyPort: '7890',
     proxyAuth: false, proxyUser: '', proxyPass: '',
-    maxIter: 100, maxTaskMin: 5, searchLimit: 10, fileOpLimit: 30,
+    maxIter: 100, maxTaskMin: 5, searchLimit: 30, fileOpLimit: 30,
     toolCallLimit: 0, modelCallLimit: 0,
     loopGuard: true, auditDays: 30, pathRedact: true,
     notifyTaskDone: false, notifyTaskFailed: false, notifySound: false, notifySoundType: 'complete', notifyDND: false,
@@ -481,11 +480,11 @@ onMounted(async () => {
         <div class="px-5 py-4">
           <div class="flex items-center gap-2 mb-2">
             <i class="ri-alarm-warning-line text-red-400 text-[16px]" />
-            <span class="text-[14px] font-bold" :class="isDark ? 'text-wt-main' : 'text-lt-main'">确认重置所有设置？</span>
+            <span class="fs-title font-bold" :class="isDark ? 'text-wt-main' : 'text-lt-main'">确认重置所有设置？</span>
           </div>
           <p class="text-[12px] mb-4" :class="isDark ? 'text-wt-aux' : 'text-lt-aux'">偏好、代理、沙箱、通知等设置将恢复为默认值。知识库和对话不受影响。</p>
           <div class="flex justify-end gap-2">
-            <button @click="resetConfirm = false" class="px-4 py-2 rounded-lg text-[11px] font-medium" :class="isDark ? 'text-wt-aux hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub'">取消</button>
+            <button @click="resetConfirm = false" class="px-4 py-2 rounded-lg text-[11px] font-medium" :class="isDark ? 'text-wt-sub hover:text-wt-main' : 'text-lt-sub hover:text-lt-main'">取消</button>
             <button @click="resetSettings" class="px-4 py-2 rounded-lg text-[11px] font-semibold bg-red-500 text-white hover:bg-red-600">确认重置</button>
           </div>
         </div>
@@ -502,11 +501,11 @@ onMounted(async () => {
         <div class="px-5 py-4">
           <div class="flex items-center gap-2 mb-2">
             <i class="ri-delete-bin-line text-amber-400 text-[16px]" />
-            <span class="text-[14px] font-bold" :class="isDark ? 'text-wt-main' : 'text-lt-main'">确认清理 系统缓存？</span>
+            <span class="fs-title font-bold" :class="isDark ? 'text-wt-main' : 'text-lt-main'">确认清理 系统缓存？</span>
           </div>
           <p class="text-[12px] mb-4" :class="isDark ? 'text-wt-aux' : 'text-lt-aux'">将清理网页请求产生的 HTTP 缓存，不会影响登录状态、知识库与对话记录。</p>
           <div class="flex justify-end gap-2">
-            <button @click="cacheClearConfirm = false" class="px-4 py-2 rounded-lg text-[11px] font-medium" :class="isDark ? 'text-wt-aux hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub'">取消</button>
+            <button @click="cacheClearConfirm = false" class="px-4 py-2 rounded-lg text-[11px] font-medium" :class="isDark ? 'text-wt-sub hover:text-wt-main' : 'text-lt-sub hover:text-lt-main'">取消</button>
             <button @click="clearCache" :disabled="cacheClearLoading" class="px-4 py-2 rounded-lg text-[11px] font-semibold bg-amber-500 text-white hover:bg-amber-600 disabled:opacity-50">确认清理</button>
           </div>
         </div>
@@ -523,11 +522,11 @@ onMounted(async () => {
         <div class="px-5 py-4">
           <div class="flex items-center gap-2 mb-2">
             <i class="ri-folder-reduce-line text-cyan-400 text-[16px]" />
-            <span class="text-[14px] font-bold" :class="isDark ? 'text-wt-main' : 'text-lt-main'">确认清理临时文件？</span>
+            <span class="fs-title font-bold" :class="isDark ? 'text-wt-main' : 'text-lt-main'">确认清理临时文件？</span>
           </div>
           <p class="text-[12px] mb-4" :class="isDark ? 'text-wt-aux' : 'text-lt-aux'">将清空工作区 /tmp。正在执行任务的中间文件可能丢失，知识库、对话、解析缓存与正式文件不受影响。</p>
           <div class="flex justify-end gap-2">
-            <button @click="tempClearConfirm = false" class="px-4 py-2 rounded-lg text-[11px] font-medium" :class="isDark ? 'text-wt-aux hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub'">取消</button>
+            <button @click="tempClearConfirm = false" class="px-4 py-2 rounded-lg text-[11px] font-medium" :class="isDark ? 'text-wt-sub hover:text-wt-main' : 'text-lt-sub hover:text-lt-main'">取消</button>
             <button @click="clearTempFiles" :disabled="tempClearLoading" class="px-4 py-2 rounded-lg text-[11px] font-semibold bg-cyan-500 text-white hover:bg-cyan-600 disabled:opacity-50">确认清理</button>
           </div>
         </div>

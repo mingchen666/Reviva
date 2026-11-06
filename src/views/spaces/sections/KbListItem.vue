@@ -81,14 +81,14 @@ onBeforeUnmount(() => {
     <div class="flex-1 min-w-0">
       <div class="flex items-center gap-1.5 min-w-0">
         <span
-          class="text-[12.5px] font-medium truncate"
+          class="text-[12px] font-medium truncate"
           :class="isDark ? 'text-wt-main' : 'text-lt-main'"
           :title="kb.name">
           {{ kb.name }}
         </span>
         <span
           v-if="kb.isSystem"
-          class="shrink-0 px-1 py-px rounded text-[9px] font-bold leading-none uppercase border"
+          class="shrink-0 px-1 py-px rounded text-[11px] font-bold leading-none uppercase border"
           :class="isDark ? 'text-wt-aux bg-white/5 border-white/8' : 'text-slate-600 bg-slate-100 border-slate-200'">
           Sys
         </span>
@@ -103,13 +103,13 @@ onBeforeUnmount(() => {
       <div class="w-[46px] flex justify-end">
         <button
           v-if="showSystemAction"
-          class="h-6 px-2 rounded-md text-[10.5px] font-medium transition-colors"
+          class="h-6 px-2 rounded-md text-[11px] font-medium transition-colors"
           :disabled="busy"
           :class="
             kb.isJoined
               ? isDark
                 ? 'text-wt-dim hover:text-wt-sub disabled:opacity-60'
-                : 'text-lt-aux hover:text-lt-sub disabled:opacity-60'
+                : 'text-lt-sub hover:text-lt-main disabled:opacity-60'
               : isDark
                 ? 'text-brand-300 bg-brand-400/10 hover:bg-brand-400/16 disabled:opacity-60'
                 : 'text-blue-700 bg-blue-50 hover:bg-blue-100 disabled:opacity-60'

@@ -357,8 +357,8 @@ async function deleteSub(sub) {
                 ? 'text-wt-main bg-white/6'
                 : 'text-lt-main bg-l3'
               : isDark
-                ? 'text-wt-aux hover:text-wt-sub'
-                : 'text-lt-aux hover:text-lt-sub'
+                ? 'text-wt-sub hover:text-wt-main'
+                : 'text-lt-sub hover:text-lt-main'
           ">
           {{ f.label }}
         </button>
@@ -468,7 +468,7 @@ async function deleteSub(sub) {
             <button
               @click="showHealthResults = false"
               class="h-7 px-3 rounded-lg text-[11px] font-medium transition-colors"
-              :class="isDark ? 'text-wt-aux hover:text-wt-sub bg-d3' : 'text-lt-aux hover:text-lt-sub bg-l3'">
+              :class="isDark ? 'text-wt-sub hover:text-wt-main bg-d3' : 'text-lt-sub hover:text-lt-main bg-l3'">
               关闭
             </button>
           </div>

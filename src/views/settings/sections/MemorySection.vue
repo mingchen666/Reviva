@@ -204,7 +204,7 @@ onMounted(loadMemories)
             v-if="memSearch" 
             @click="memSearch = ''" 
             class="shrink-0 flex items-center justify-center w-4 h-4 rounded-full transition-colors"
-            :class="isDark ? 'text-wt-dim hover:text-wt-sub hover:bg-d4' : 'text-lt-aux hover:text-lt-sub hover:bg-l4'">
+            :class="isDark ? 'text-wt-dim hover:text-wt-sub hover:bg-d4' : 'text-lt-sub hover:text-lt-main hover:bg-l4'">
             <i class="ri-close-line text-[12px]" />
           </button>
         </div>
@@ -245,7 +245,7 @@ onMounted(loadMemories)
                   :class="isDark ? 'bg-agent-400/15 text-agent-400 hover:bg-agent-400/25' : 'bg-agent-50 text-agent-600 hover:bg-agent-100'"
                   @click="saveEditMem"><i class="ri-check-line text-[12px]" /> 保存</button>
                 <button class="flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium"
-                  :class="isDark ? 'bg-d3 text-wt-aux hover:text-wt-sub' : 'bg-l4 text-lt-aux hover:text-lt-sub'"
+                  :class="isDark ? 'bg-d3 text-wt-sub hover:text-wt-main' : 'bg-l4 text-lt-sub hover:text-lt-main'"
                   @click="cancelEditMem"><i class="ri-close-line text-[12px]" /> 取消</button>
               </div>
             </div>
@@ -253,7 +253,7 @@ onMounted(loadMemories)
           </div>
           <div v-if="memEditId !== mem.id" class="item-actions flex items-center gap-1 shrink-0">
             <button class="w-7 h-7 rounded-md flex items-center justify-center transition-colors"
-              :class="isDark ? 'hover:bg-d4 text-wt-dim hover:text-wt-aux' : 'hover:bg-l4 text-lt-aux hover:text-lt-sub'"
+              :class="isDark ? 'hover:bg-d4 text-wt-dim hover:text-wt-aux' : 'hover:bg-l4 text-lt-sub hover:text-lt-main'"
               title="编辑" @click="startEditMem(mem)"><i class="ri-edit-line text-[13px]" /></button>
             <button class="w-7 h-7 rounded-md flex items-center justify-center transition-colors"
               :class="isDark ? 'hover:bg-red-400/10 text-wt-dim hover:text-red-400' : 'hover:bg-red-50 text-lt-aux hover:text-red-500'"
@@ -263,8 +263,7 @@ onMounted(loadMemories)
       </div>
 
       <div v-if="filteredMemories.length === 0 && !loading"
-        class="rounded-xl p-8 flex flex-col items-center justify-center"
-        :class="isDark ? 'bg-d3 border border-bdr' : 'bg-l3 border border-bdrF'">
+        class="rounded-xl p-8 flex flex-col items-center justify-center">
         <i class="ri-inbox-line text-[28px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'" />
         <span class="text-[12px] mt-2" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">没有匹配的记忆</span>
         <span class="text-[10px] mt-1" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">Agent 在对话中会自动积累记忆</span>
@@ -283,10 +282,10 @@ onMounted(loadMemories)
         <div class="px-5 py-3 flex justify-between items-center shrink-0"
           :class="isDark ? 'border-b border-d4 bg-d4/30' : 'border-b border-bdrL bg-l4/30'">
           <div class="flex items-center gap-2">
-            <i class="ri-brain-line text-agent-400 text-[14px]" />
+            <i class="ri-brain-line text-agent-400 text-[16px]" />
             <span class="text-[13px] font-bold" :class="isDark ? 'text-wt-main' : 'text-lt-main'">手动添加记忆</span>
           </div>
-          <button @click="showModal = false" :class="isDark ? 'text-wt-aux hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub'"><i class="ri-close-line text-[14px]" /></button>
+          <button @click="showModal = false" :class="isDark ? 'text-wt-sub hover:text-wt-main' : 'text-lt-sub hover:text-lt-main'"><i class="ri-close-line text-[14px]" /></button>
         </div>
 
         <!-- Body -->
@@ -328,7 +327,7 @@ onMounted(loadMemories)
           :class="isDark ? 'border-t border-d4 bg-d4/30' : 'border-t border-bdrL bg-l4/30'">
           <button @click="showModal = false"
             class="px-4 py-2 rounded-lg text-[11px] font-medium transition-colors"
-            :class="isDark ? 'text-wt-aux hover:text-wt-sub' : 'text-lt-aux hover:text-lt-sub'">取消</button>
+            :class="isDark ? 'text-wt-sub hover:text-wt-main' : 'text-lt-sub hover:text-lt-main'">取消</button>
           <button :disabled="!memNewDraft.trim() || memNewDraft.length > 500" @click="addMem"
             class="px-4 py-2 rounded-lg text-[11px] font-semibold flex items-center gap-1 transition-colors disabled:opacity-50"
             :class="isDark ? 'bg-agent-400 text-d0 hover:bg-agent-500' : 'bg-agent-500 text-white hover:bg-agent-600'">

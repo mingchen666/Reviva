@@ -285,7 +285,7 @@ function handleMarkdownClick(event) {
           </div>
           <div class="flex-1 min-w-0">
             <h1 class="text-[19px] font-bold mb-1" :class="isDark ? 'text-wt-main' : 'text-lt-main'">
-              {{ wiki ? wiki.name : '准备建立本地 Wiki' }}
+              {{ wiki ? wiki.name : '准备建立本地 Wiki知识库' }}
             </h1>
             <p class="text-[13px] leading-relaxed" :class="isDark ? 'text-wt-aux' : 'text-lt-aux'">
               从文档列表或笔记列表选择来源，Wiki 会记录引用，并让 WikiAgent 维护可阅读的 Markdown 知识页。
