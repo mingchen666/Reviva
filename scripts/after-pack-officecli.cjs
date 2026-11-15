@@ -74,5 +74,33 @@ module.exports = async function afterPackOfficeCli(context) {
     fs.chmodSync(target, 0o755)
   }
 
+  // ── Clean up non-target Python runtime dirs ──
+  // builtin-assets/bin/python/ has per-arch dirs (windows-x64, windows-arm64, macos-arm64, etc.).
+  // Only keep the one matching the current build target; remove the rest to avoid bloating the installer.
+  const PLATFORM_ARCH_KEY = {
+    win32: { x64: 'windows-x64', arm64: 'windows-arm64', ia32: 'windows-ia32' },
+    darwin: { x64: 'macos-x64', arm64: 'macos-arm64', armv7l: 'macos-armv7l', universal: null },
+    linux: { x64: 'linux-x64', arm64: 'linux-arm64', armv7l: 'linux-armv7l', ia32: 'linux-ia32' },
+  }
+  const pyArchKey = PLATFORM_ARCH_KEY[platform]?.[arch]
+  const pythonBinDir = path.join(resourcesDirFor(context), 'builtin-assets', 'bin', 'python')
+  if (fs.existsSync(pythonBinDir)) {
+    for (const name of fs.readdirSync(pythonBinDir)) {
+      const dirPath = path.join(pythonBinDir, name)
+      if (!fs.statSync(dirPath).isDirectory()) continue
+      if (pyArchKey && name === pyArchKey) continue
+      fs.rmSync(dirPath, { recursive: true, force: true })
+      console.log(`[afterPack] Removed non-target Python dir: ${name}`)
+    }
+    if (pyArchKey) {
+      const kept = path.join(pythonBinDir, pyArchKey)
+      if (fs.existsSync(kept)) {
+        console.log(`[afterPack] Kept Python runtime: ${pyArchKey}`)
+      } else {
+        console.warn(`[afterPack] Expected Python dir ${pyArchKey} not found in package — builtin Python will be unavailable.`)
+      }
+    }
+  }
+
   console.log(`[afterPack] Bundled ${binaryName} for ${platform}/${arch}.`)
 }

@@ -1,0 +1,5 @@
+{
+  "title": "直角三角形斜边中线：求CD的长",
+  "output_name": "斜边中线_Median_to_Hypotenuse",
+  "pop_scenes": ["key", "solve"]
+}

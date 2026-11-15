@@ -44,7 +44,8 @@
     "note-skill",
     "learning-visualization-skill",
     "concept-visualization-generator",
-    "edu-chem-reaction"
+    "edu-chem-reaction",
+    "edu-chem-video"
   ],
   "sub_agents": [],
   "permissions": {

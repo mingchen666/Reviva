@@ -19,7 +19,7 @@ const accentHex = computed(() => settingsStore.currentAccentHex)
 
 const navGroups = [
   { label: '模型', keys: ['default-models', 'models', 'speech-models', 'image-models', 'ocr'] },
-  { label: '工作台', keys: ['directory', 'environment', 'sandbox', 'creation-tools'] },
+  { label: '工作台', keys: ['directory', 'environment', 'python-env', 'sandbox', 'creation-tools'] },
   { label: '记录与统计', keys: ['memory', 'learning-memory', 'usage'] },
   { label: '界面与桌面', keys: ['theme', 'preference', 'shortcuts', 'quick-inputs', 'notifications'] },
   { label: '数据与系统', keys: ['guide', 'local-gateway', 'data', 'about', 'author'] },//['network', 'data', 'about']
@@ -33,6 +33,7 @@ const sectionMap = {
   // network: { name: '网络与代理', icon: 'ri-global-line', color: 'blue', hint: '代理设置 · 中国用户访问国外 API 必备' },
   directory: { name: '目录与权限', icon: 'ri-folder-shield-line', color: 'emerald', hint: '设置 Agent 可访问的目录与权限范围' },
   environment: { name: '环境管理', icon: 'ri-tools-line', color: 'emerald', hint: '检测 Python / Node / FFmpeg / Pandoc 等系统依赖' },
+  'python-env': { name: '虚拟环境管理', icon: 'ri-terminal-window-line', color: 'brand', hint: '管理 Python 虚拟环境：初始化、解释器来源与包管理' },
   ocr: { name: 'OCR 模型配置', icon: 'ri-character-recognition-line', color: 'emerald', hint: '配置 PaddleOCR、MinerU等服务商' },
   sandbox: { name: '沙箱与限流', icon: 'ri-shield-check-line', color: 'amber', hint: 'Agent 沙箱执行环境的全局配置' },
   'creation-tools': { name: '创作工具', icon: 'ri-quill-pen-ai-line', color: 'brand', hint: '控制创作中心工具的显示与顺序' },

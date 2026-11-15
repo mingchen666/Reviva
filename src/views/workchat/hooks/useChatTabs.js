@@ -167,7 +167,7 @@ function closeTab(tabId) {
 async function createChat(groupId) {
   const conv = await convStore.createConv({
     title: '新对话',
-    groupId: groupId || convStore.currentGroupId || 'default',
+    groupId: groupId || convStore.currentConv?.groupId || 'default',
   })
   addTab(conv)
 }

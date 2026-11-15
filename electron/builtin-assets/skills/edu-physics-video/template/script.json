@@ -1,0 +1,32 @@
+[
+  {"scene": "intro", "lines": [
+    {"zh": "来看这道斜面题：倾角 37° 的粗糙斜面，足够长。", "tts": "来看这道斜面题：倾角三十七度的粗糙斜面，足够长[cháng]。", "en": "Here's the problem: a rough incline at 37°, long enough."},
+    {"zh": "质量 2 kg 的物块，以 10 m/s 从底端冲上斜面。", "tts": "质量两千克的物块，以十米每秒的速度，从底端冲上斜面。", "en": "A 2 kg block shoots up the slope from the bottom at 10 m/s."},
+    {"zh": "动摩擦因数 μ = 0.5，g 取 10 m/s^2。", "tts": "动摩擦因数是零点五，g取十米每二次方秒。", "en": "The coefficient of friction is μ = 0.5; take g = 10 m/s^2."},
+    {"zh": "求上滑的加速度、最大距离，以及能否滑回、滑回时的速度。", "tts": "求上滑的加速度、最大距离，以及能否滑回，滑回时的速度。", "en": "Find the acceleration going up, the maximum distance, and whether and how fast it slides back."}
+  ]},
+  {"scene": "force", "lines": [
+    {"zh": "研究对象是物块。先画重力 mg = 20 N，竖直向下。", "tts": "研究对象是物块。先画重力，大小二十牛，竖直向下。", "en": "Our object is the block. First gravity: mg = 20 N, straight down."},
+    {"zh": "把重力沿斜面、垂直斜面分解：12 N 和 16 N。", "tts": "把重力沿斜面、垂直斜面分解，分别是十二牛和十六牛。", "en": "Split gravity along and across the slope: 12 N and 16 N."},
+    {"zh": "支持力 N 与垂直分量平衡，所以 N = 16 N。", "tts": "支持力N，和垂直分量平衡，所以N等于十六牛。", "en": "The normal force N balances the perpendicular part, so N = 16 N."},
+    {"zh": "物块向上滑，滑动摩擦力沿斜面向下：f = μN = 8 N。", "tts": "物块向上滑，滑动摩擦力就沿斜面向下，f等于动摩擦因数乘N，等于八牛。", "en": "The block slides up, so kinetic friction points down the slope: f = μN = 8 N."}
+  ]},
+  {"scene": "up", "lines": [
+    {"zh": "沿斜面方向，重力分量和摩擦力都向下，合力 20 N。", "tts": "沿斜面方向，重力分量和摩擦力都向下，合力二十牛。", "en": "Along the slope, both the gravity component and friction point down: net force 20 N."},
+    {"zh": "牛顿第二定律：a_1 = F/m = 10 m/s^2，沿斜面向下。", "tts": "由牛顿第二定律，a一等于十米每二次方秒，方向沿斜面向下。", "en": "Newton's second law: a_1 = F/m = 10 m/s^2, down the slope."},
+    {"zh": "匀减速到零：x = v_0^2 / 2a_1 = 5 m，用时 1 s。", "tts": "匀减速到速度为零，最大距离x，等于v零的平方除以二a一，等于五米，用时一秒。", "en": "It slows uniformly to rest: x = v_0^2 / 2a_1 = 5 m, taking 1 s."}
+  ]},
+  {"scene": "back", "lines": [
+    {"zh": "停下后会滑回吗？比较重力分量 12 N 和最大静摩擦力 8 N。", "tts": "停下以后，会滑回来吗？比较重力分量十二牛，和最大静摩擦力八牛。", "en": "Will it slide back? Compare the 12 N pull with the 8 N max static friction."},
+    {"zh": "12 N > 8 N，物块会下滑，摩擦力反向，变成沿斜面向上。", "tts": "十二牛大于八牛，物块会下滑，摩擦力反向，变成沿斜面向上。", "en": "12 N > 8 N, so it slides down, and friction flips to point up the slope."},
+    {"zh": "下滑时合力 12 − 8 = 4 N，a_2 = 2 m/s^2。", "tts": "下滑时，合力是十二减八，等于四牛，a二等于二米每二次方秒。", "en": "Going down, the net force is 12 − 8 = 4 N, so a_2 = 2 m/s^2."}
+  ]},
+  {"scene": "down", "lines": [
+    {"zh": "从 5 m 处由静止加速下滑：v^2 = 2a_2 x = 20。", "tts": "从五米处，由静止加速下滑，v的平方等于二a二x，等于二十。", "en": "From 5 m up it speeds up from rest: v^2 = 2a_2 x = 20."},
+    {"zh": "回到底端时 v = 2√5 m/s ≈ 4.5 m/s，比出发时小很多。", "tts": "回到底端时，v等于二倍根号五米每秒，约四点五米每秒，比出发时小很多。", "en": "Back at the bottom, v = 2√5 m/s ≈ 4.5 m/s, much slower than at the start."}
+  ]},
+  {"scene": "outro", "lines": [
+    {"zh": "回顾：选对象，画受力，按运动方向定摩擦，牛顿第二定律求加速度。", "tts": "回顾：选对象，画受力，按运动方向定摩擦，用牛顿第二定律求加速度。", "en": "Recap: pick the object, draw the forces, set friction by the motion, then F = ma."},
+    {"zh": "答案：10 m/s^2，5 m，能滑回，速度 2√5 m/s。下道题见！", "tts": "答案：十米每二次方秒，五米，能滑回，速度二倍根号五米每秒。下道题见！", "en": "Answers: 10 m/s^2, 5 m, yes, 2√5 m/s. See you next problem!"}
+  ]}
+]

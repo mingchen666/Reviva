@@ -20,6 +20,7 @@
 
   "tools": ["file_list", "file_read", "file_write", "document_read", "vision_analyze", "office_write", "kb_search", "web_search_bing", "exec_command"],
   "skills": ["lesson-plan-skill", "worksheet-skill", "classroom-activity-skill", "teaching-assessment-skill", "teaching-document-writing-skill", "teaching-resource-research-skill", "research-brief-skill", "classroom-management-differentiation-skill", "knowledge-organize", "concept-explainer", "learning-visualization-skill", "edu-solid-geometry", "edu-analytic-geometry", "edu-chem-reaction", "network-protocol-viz", "practice-quiz", "pptx-deck-skill", "html-ppt-skill", "ai-animation-skill", "officecli-skills"],
+  "skills": ["lesson-plan-skill", "worksheet-skill", "classroom-activity-skill", "teaching-assessment-skill", "teaching-document-writing-skill", "teaching-resource-research-skill", "research-brief-skill", "classroom-management-differentiation-skill", "knowledge-organize", "concept-explainer", "learning-visualization-skill", "edu-solid-geometry", "edu-analytic-geometry", "edu-chem-reaction", "network-protocol-viz", "practice-quiz", "pptx-deck-skill", "html-ppt-skill", "ai-animation-skill", "officecli-skills", "edu-chem-video", "edu-math-video", "edu-physics-video"],
   "sub_agents": [],
   "permissions": {
     "fileRead": true,

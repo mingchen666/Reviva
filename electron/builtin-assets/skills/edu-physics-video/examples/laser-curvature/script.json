@@ -1,0 +1,35 @@
+[
+ {"scene": "problem", "lines": [
+  {"zh": "这道竞赛题：用一束激光，测出手机电池鼓包的弯曲程度。", "tts": "这道竞赛题：用一束激光，测出手机电池鼓包的弯曲程度。", "en": "A contest problem: measure how much a swollen phone battery bends, with one laser."},
+  {"zh": "交线 AB 近似为圆弧；激光水平掠过最高点 P，打到屏幕 O 点。", "tts": "交线AB，近似为圆弧；激光水平掠过最高点P，打到屏幕的O点。", "en": "Arc AB is nearly circular; a level laser skims its top P and hits the screen at O."},
+  {"zh": "玻璃块两面平行，相距 s；空气、玻璃折射率为 n_1、n_2。", "tts": "玻璃块两面平行，相距s；空气和玻璃的折射率，分别是n一和n二。", "en": "The glass faces are parallel, s apart; the indices are n_1 (air) and n_2 (glass)."},
+  {"zh": "贴在 A 点，光斑偏 d_A，与竖直成 θ_A；贴在 B 点是 d_B、θ_B。", "tts": "玻璃块贴在A点，光斑偏离dA，与竖直方向成西塔A；贴在B点，是dB和西塔B。", "en": "At A the spot moves d_A at θ_A from vertical; at B, d_B at θ_B."},
+  {"zh": "已知弧长 l。求偏转角、入射角、圆心角和曲率半径。", "tts": "已知弧长l。求偏转角、入射角、圆心角，和曲率半径。", "en": "Arc length l is known. Find the deflection, incidence angle, central angle and radius."}
+ ]},
+ {"scene": "intro", "lines": [
+  {"zh": "激光水平掠过拱柱最高点 P，垂直打在屏幕中央的 O 点。", "tts": "激光水平掠过拱柱的最高点P，垂直打在屏幕中央的O点。", "en": "A level laser skims the arch's top point P and hits the screen's center O."},
+  {"zh": "玻璃块贴在 A 点，光斑偏到左上；挪到 B 点，又偏到右下。", "tts": "玻璃块贴在A点，光斑偏到左上方；挪到B点，又偏到了右下方。", "en": "Block at A: the spot jumps up-left. Move it to B: down-right."}
+ ]},
+ {"scene": "slab", "lines": [
+  {"zh": "平行玻璃块：光进去偏折一次，出来再折回，方向不变，只平移。", "tts": "先看平行玻璃块：光进去偏折一次，出来再折回，方向不变，只是平移。", "en": "A parallel slab bends light in, then back out: same direction, just shifted."},
+  {"zh": "设进入时偏转了 δ，玻璃里大约走了 s，侧移约等于 s·δ。", "tts": "设进入时偏转了德尔塔，光在玻璃里大约走了s，侧移量就约等于s乘德尔塔。", "en": "If it turns by δ and travels about s inside, the shift is about s·δ."},
+  {"zh": "屏上光斑的偏移就是这段侧移，所以 δ_A = d_A / s。", "tts": "屏幕上光斑的偏移，就是这段侧移，所以德尔塔A，等于dA除以s。", "en": "The spot's offset is that shift, so δ_A = d_A / s."}
+ ]},
+ {"scene": "snell", "lines": [
+  {"zh": "折射定律：n_1 sin i = n_2 sin r，小角度时 n_1 i = n_2 r。", "tts": "再用折射定律：n一乘正弦i，等于n二乘正弦r。角度很小时，就是n一乘i，等于n二乘r。", "en": "Snell's law: n_1 sin i = n_2 sin r; for small angles, n_1 i = n_2 r."},
+  {"zh": "偏转角 δ = i − r，消去 r，得到 i = n_2 δ / (n_2 − n_1)。", "tts": "偏转角德尔塔，等于i减r。消去r，得到i等于n二德尔塔，除以n二减n一。", "en": "The deflection is δ = i − r. Eliminate r: i = n_2 δ / (n_2 − n_1)."},
+  {"zh": "所以入射角 i_A = n_2 d_A / [(n_2 − n_1) s]。", "tts": "所以入射角iA，等于n二乘dA，除以n二减n一的差，再乘s。", "en": "So the incidence angle is i_A = n_2 d_A / [(n_2 − n_1) s]."}
+ ]},
+ {"scene": "arc", "lines": [
+  {"zh": "光斑为什么斜着偏？因为法线既向上倾，又向纸外偏。", "tts": "光斑为什么斜着偏？因为玻璃块入射面的法线，既向上倾，又向纸外偏。", "en": "Why diagonal? The entry-face normal tilts up and also out of the page."},
+  {"zh": "只有竖直分量，才反映拱柱切线的倾角。", "tts": "光斑偏移的方向就是法线倾斜的方向；只有竖直分量，才反映切线的倾角。", "en": "Only the vertical part reflects the tilt of the arch's tangent."},
+  {"zh": "所以 α_A = i_A cos θ_A，同理 α_B = i_B cos θ_B。", "tts": "所以A点切线的倾角，阿尔法A，等于iA乘余弦西塔A；同理，阿尔法B等于iB乘余弦西塔B。", "en": "So α_A = i_A cos θ_A; likewise α_B = i_B cos θ_B."},
+  {"zh": "切线垂直于半径，两切线的夹角就是圆心角：φ = α_A + α_B。", "tts": "切线垂直于半径，所以两条切线的夹角，就是圆心角：菲等于阿尔法A加阿尔法B。", "en": "Tangents are perpendicular to radii, so the central angle is φ = α_A + α_B."},
+  {"zh": "代入得 φ = n_2 (d_A cos θ_A + d_B cos θ_B) / [(n_2 − n_1) s]。", "tts": "代入得到，菲等于n二，乘上dA余弦西塔A，加dB余弦西塔B，再除以n二减n一的差，乘s。", "en": "Substituting: φ = n_2 (d_A cos θ_A + d_B cos θ_B) / [(n_2 − n_1) s]."},
+  {"zh": "最后，弧长除以圆心角就是曲率半径：R = l / φ。", "tts": "最后，弧长除以圆心角，就是曲率半径：R等于l除以菲。", "en": "Finally, arc length over central angle is the radius: R = l / φ."}
+ ]},
+ {"scene": "outro", "lines": [
+  {"zh": "回顾：侧移得偏转角，折射定律得入射角，竖直分量相加得圆心角。", "tts": "回顾：侧移给出偏转角，折射定律给出入射角，竖直分量相加，就是圆心角。", "en": "Recap: shift → deflection, Snell → incidence, vertical parts add up to φ."},
+  {"zh": "一束激光，把微小的弯曲放大成看得见的光斑移动。下次见！", "tts": "一束激光加一块玻璃，就把微小的弯曲，放大成了看得见的光斑移动。我们下次见！", "en": "One laser turns a tiny bend into a spot you can see move. See you next time!"}
+ ]}
+]

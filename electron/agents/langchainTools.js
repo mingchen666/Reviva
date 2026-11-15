@@ -42,7 +42,7 @@ export {
   setMcpService, setMediaQueryService, setNoteFileService, setSkillService,
   setThemeService, setLearningMemoryService, setMainWindowRef, setVisionAnalyzeHandler,
   setToolRunContext, setCloudContext, setKnowledgeSourceRegistry, getKnowledgeSourceRegistry,
-  resetTaskCounters, setExecCommandConfig,
+  resetTaskCounters, setExecCommandConfig, setPythonEnvService,
 } from './tools/toolContext.js'
 
 // Import state variables needed by remaining tools in this file
@@ -66,6 +66,7 @@ import { officeRead, invokeOfficeRead } from './tools/officeReadTools.js'
 import { mcpResourceRead, mcpPromptGet } from './tools/mcpTools.js'
 import { skillInstall } from './tools/skillInstallTool.js'
 import { getUserDefinedLangchainTools } from './tools/customUserTools.js'
+import { pythonEnv } from './tools/pythonEnvTools.js'
 
 // Re-export tools that were previously exported from this file
 export { execCommand, invokeCommandCompatibilityTool, hiddenCommandCompatibilityTools }
@@ -74,6 +75,7 @@ export { kbSearch, createKbSearchExternal }
 export { officeRead }
 export { mcpResourceRead, mcpPromptGet }
 export { skillInstall }
+export { pythonEnv }
 export { getUserDefinedLangchainTools }
 
 const _toolsetRegistry = new ToolsetRegistry()
@@ -445,7 +447,7 @@ function _buildRevivaManageTool() {
   })
 }
 
-const CUSTOM_TOOLS = [execCommand, webSearchTavily, webSearchSearxng, webSearchBing, kbSearch, wikiTool, noteTool, calculator, deleteFile, documentRead, mediaRead, officeRead, pdfRead, visionAnalyze, pptxExportLocal, mcpResourceRead, mcpPromptGet, skillInstall, _buildRevivaManageTool()]
+const CUSTOM_TOOLS = [execCommand, webSearchTavily, webSearchSearxng, webSearchBing, kbSearch, wikiTool, noteTool, calculator, deleteFile, documentRead, mediaRead, officeRead, pdfRead, visionAnalyze, pptxExportLocal, mcpResourceRead, mcpPromptGet, skillInstall, pythonEnv, _buildRevivaManageTool()]
 const TOOL_ID_ALIASES = {
   file_delete: 'delete_file',
 }
@@ -501,8 +503,11 @@ export function getLangchainTools(toolIds) {
   if (!toolIds?.length) return bindRunScopedTools(effectiveTools)
   const toolsetTools = _createToolsetTools(toolIds)
   const idSet = _normalizeToolIds(toolIds)
+  // python_env is auto-included when the Agent has exec_command,
+  // so the Agent can check venv readiness before running Python scripts.
+  const includePythonEnv = idSet.has("exec_command")
   return bindRunScopedTools([
-    ...effectiveTools.filter(t => idSet.has(t.name)),
+    ...effectiveTools.filter(t => idSet.has(t.name) || (includePythonEnv && t === pythonEnv)),
     ...toolsetTools,
   ])
 }

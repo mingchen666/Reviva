@@ -1,5 +1,6 @@
 <script setup>
 import { computed, onBeforeUnmount, ref } from 'vue'
+import MoveToGroupModal from './MoveToGroupModal.vue'
 import { useVirtualizer } from '@tanstack/vue-virtual'
 import { useMessage } from '@/components/MsMessage/useMessage'
 import { useMessageBox } from '@/components/MsMessageBox/useMessageBox'
@@ -12,7 +13,7 @@ const props = defineProps({
   isDark: Boolean,
 })
 
-const emit = defineEmits(['select', 'create', 'rename', 'export', 'delete', 'group-create', 'group-rename', 'group-delete', 'add-conv-to-group'])
+const emit = defineEmits(['select', 'create', 'rename', 'export', 'delete', 'group-create', 'group-rename', 'group-delete', 'add-conv-to-group', 'move-conv'])
 
 const convStore = useConversationsStore()
 const msg = useMessage()
@@ -20,6 +21,7 @@ const mbox = useMessageBox()
 const scrollRef = ref(null)
 const expandedGroups = ref({ default: true })
 const dropdown = ref(null)
+const moveTarget = ref(null)
 
 const conversationsByGroup = computed(() => {
   const map = new Map(props.groups.map(group => [group.id, []]))
@@ -171,6 +173,21 @@ function handleAddConversation() {
   closeDropdown()
   emit('add-conv-to-group', target.id)
 }
+function openMovePanel() {
+  const target = dropdown.value
+  if (!target || target.type !== 'conv') return
+  const conv = conversationById.value.get(target.id)
+  closeDropdown()
+  moveTarget.value = { id: target.id, currentGroupId: conv?.groupId || 'default' }
+}
+
+function confirmMoveConv(groupId) {
+  if (!moveTarget.value) return
+  const { id, currentGroupId } = moveTarget.value
+  if (groupId !== currentGroupId) emit('move-conv', { id, groupId })
+  moveTarget.value = null
+}
+
 
 function branchSourceLabel(conversation) {
   if (!conversation?.parentConversationId) return ''
@@ -199,14 +216,14 @@ onBeforeUnmount(closeDropdown)
           <div v-if="item.row.type === 'group'"
             class="group h-full flex items-center gap-1 px-1 cursor-pointer"
             @click="toggleGroup(item.row.group.id)">
-            <i :class="[item.row.expanded ? 'ri-arrow-down-s-line' : 'ri-arrow-right-s-line', 'text-[16px] transition-transform', isDark ? 'text-wt-dim' : 'text-lt-aux']" />
-            <i v-if="item.row.group.id === 'wxbot'" class="ri-wechat-line text-[14px] text-green-500 shrink-0" />
+            <i :class="[item.row.expanded ? 'ri-arrow-down-s-line' : 'ri-arrow-right-s-line', 'text-[18px] transition-transform', isDark ? 'text-wt-dim' : 'text-lt-aux']" />
+            <i v-if="item.row.group.id === 'wxbot'" class="ri-wechat-line text-[16px] text-green-500 shrink-0" />
             <span class="text-[13px] font-semibold truncate" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">{{ item.row.group.name }}</span>
             <span class="text-[12px] px-1 py-0.5 rounded" :class="isDark ? 'bg-d4 text-wt-dim' : 'bg-l4 text-lt-aux'">{{ item.row.count }}</span>
             <button @click.stop="openMore('group', item.row.group.id, item.row.group.name, $event)"
               class="opacity-0 group-hover:opacity-100 ml-auto h-5 w-5 rounded flex items-center justify-center transition-all duration-150"
               :class="isDark ? 'text-wt-dim hover:text-wt-sub hover:bg-white/5' : 'text-lt-sub hover:text-lt-main hover:bg-l4'">
-              <i class="ri-more-2-fill text-[16px]" />
+              <i class="ri-more-2-fill text-[18px]" />
             </button>
           </div>
 
@@ -225,7 +242,7 @@ onBeforeUnmount(closeDropdown)
             <button @click.stop="openMore('conv', item.row.conversation.id, item.row.conversation.title, $event)"
               class="opacity-0 group-hover:opacity-100 shrink-0 h-5 w-5 rounded flex items-center justify-center transition-all duration-150"
               :class="isDark ? 'text-wt-dim hover:text-wt-sub hover:bg-white/5' : 'text-lt-sub hover:text-lt-main hover:bg-l4'">
-              <i class="ri-more-2-fill text-[12px]" />
+              <i class="ri-more-2-fill text-[18px]" />
             </button>
           </div>
         </div>
@@ -264,6 +281,12 @@ onBeforeUnmount(closeDropdown)
         <i class="ri-markdown-line text-[13px]" />
         <span>导出 Markdown</span>
       </button>
+      <button v-if="dropdown.type === 'conv'" @click.stop="openMovePanel"
+        class="w-full flex items-center gap-2.5 px-3 py-2 text-[13px] font-medium transition-colors"
+        :class="isDark ? 'text-wt-sub hover:bg-white/5' : 'text-lt-sub hover:bg-l4'">
+        <i class="ri-folder-transfer-line text-[13px]" />
+        <span>移动到分组</span>
+      </button>
       <div v-if="dropdown.type === 'conv'" class="h-px my-1" :class="isDark ? 'bg-d4' : 'bg-bdrL'" />
       <button v-if="!(dropdown.type === 'group' && dropdown.id === 'default')" @click="handleDelete"
         class="w-full flex items-center gap-2.5 px-3 py-2 text-[13px] font-medium transition-colors"
@@ -273,6 +296,13 @@ onBeforeUnmount(closeDropdown)
       </button>
     </div>
   </Teleport>
+  <MoveToGroupModal
+    :show="!!moveTarget"
+    :groups="groups"
+    :current-group-id="moveTarget?.currentGroupId || ''"
+    :is-dark="isDark"
+    @select="confirmMoveConv"
+    @close="moveTarget = null" />
 </template>
 
 <style lang="scss" scoped>

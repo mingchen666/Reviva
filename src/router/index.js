@@ -179,6 +179,12 @@ const router = createRouter({
           meta: { title: '环境管理' },
         },
         {
+          path: 'python-env',
+          name: 'SettingsPythonEnv',
+          component: () => import('@/views/settings/sections/PythonEnvSection.vue'),
+          meta: { title: '虚拟环境管理' },
+        },
+        {
           path: 'ocr',
           name: 'SettingsOcr',
           component: () => import('@/views/settings/sections/OcrSection.vue'),

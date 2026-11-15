@@ -89,6 +89,10 @@ const PDF_PYTHON_CANDIDATES = [
 ]
 
 const PDF_OCR_FALLBACK_CODES = new Set(['PDF_READ_FAILED', 'PDF_READ_TIMEOUT'])
+
+// Module-level reference to PythonEnvService for venv-aware PDF reading.
+let _pythonEnvService = null
+export function setPythonEnvService(svc) { _pythonEnvService = svc }
 const PDF_MIN_DOCUMENT_TEXT_CHARS = 40
 const PDF_TEXT_PAGE_MIN_CHARS = 25
 const PDF_MIXED_OCR_PAGE_RATIO = 0.35
@@ -237,7 +241,9 @@ async function runOfficeCliWithRetry(args, options = {}, retries = 1) {
 async function runPdfPython(payload) {
   let lastMissing = null
   let lastNotFound = null
-  for (const candidate of PDF_PYTHON_CANDIDATES) {
+  const venvPy = _pythonEnvService?.getVenvPythonCommand?.()
+  const candidates = venvPy ? [{ command: venvPy, args: [], label: 'reviva-venv' }, ...PDF_PYTHON_CANDIDATES] : PDF_PYTHON_CANDIDATES
+  for (const candidate of candidates) {
     const result = await spawnBuffered(candidate.command, [...candidate.args, '-c', PDF_PYTHON_SCRIPT], {
       input: JSON.stringify(payload),
       shell: false,

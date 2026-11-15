@@ -1,0 +1,5 @@
+{
+  "title": "斜面上滑与返回：受力分析 + 牛顿第二定律",
+  "output_name": "斜面往返_Block_on_an_Incline",
+  "pop_scenes": ["up", "back"]
+}

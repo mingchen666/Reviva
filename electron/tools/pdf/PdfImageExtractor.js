@@ -6,6 +6,10 @@ import { getSystemEnv } from '../../systemEnv.js'
 
 const MAX_BUFFER = 4 * 1024 * 1024
 
+// Module-level reference to PythonEnvService for venv-aware PDF image extraction.
+let _pythonEnvService = null
+export function setPythonEnvService(svc) { _pythonEnvService = svc }
+
 const PDF_IMAGE_SCRIPT = String.raw`
 import json
 import os
@@ -237,7 +241,9 @@ export class PdfImageExtractor {
     let lastMissing = null
     let lastNotFound = null
     let lastFailure = null
-    for (const candidate of PDF_PYTHON_CANDIDATES) {
+    const venvPy = _pythonEnvService?.getVenvPythonCommand?.()
+    const candidates = venvPy ? [{ command: venvPy, args: [], label: 'reviva-venv' }, ...PDF_PYTHON_CANDIDATES] : PDF_PYTHON_CANDIDATES
+    for (const candidate of candidates) {
       const result = await spawnBuffered(candidate.command, [...candidate.args, '-c', PDF_IMAGE_SCRIPT], {
         input: JSON.stringify({ path: doc.realPath, outputDir, startPage, maxPages, maxImages }),
         env,

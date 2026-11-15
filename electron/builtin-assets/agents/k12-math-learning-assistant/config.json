@@ -46,7 +46,8 @@
     "math-explainer",
     "edu-solid-geometry",
     "edu-analytic-geometry",
-    "geometry-assistant"
+    "geometry-assistant",
+    "edu-math-video"
   ],
   "sub_agents": [],
   "permissions": {

@@ -7,7 +7,7 @@ import { createSettingsTransfer, parseSettingsTransfer } from '../SettingsTransf
 const require = createRequire(import.meta.url)
 
 export function registerEnvIpc(ipcMain, deps) {
-  const { getWin, dbService, backupService } = deps
+  const { getWin, dbService, backupService, pythonEnvService } = deps
 
   function execVersion(cmd, args, parser, timeoutMs = 8000, options = {}) {
     return new Promise((resolve) => {
@@ -74,7 +74,7 @@ export function registerEnvIpc(ipcMain, deps) {
     })
   }
 
-  const ALIYUN_PYPI_SIMPLE_URL = 'https://mirrors.aliyun.com/pypi/simple/'
+  // PyPI mirror is now read from pythonEnvService.getPypiMirror()
   const PYTHON_PDF_PACKAGES = ['pymupdf']
   const PYTHON_PDF_IMPORT_MODULES = ['fitz']
   const PYTHON_OFFICE_PACKAGES = ['python-docx', 'openpyxl', 'python-pptx', 'pandas', 'xlrd', 'pymupdf']
@@ -119,37 +119,57 @@ export function registerEnvIpc(ipcMain, deps) {
   }
 
   function pythonOfficeImportAttempts() {
-    return PYTHON_CANDIDATES.map(candidate => ({
-      cmd: candidate.cmd,
-      args: pythonCandidateArgs(candidate, ['-c', PYTHON_OFFICE_IMPORT_SCRIPT]),
-      shell: false,
-      timeoutMs: 12000,
-      label: `${candidate.label} -c office-libs-check`,
-    }))
+    return [
+      ...venvPythonLibAttempts(PYTHON_OFFICE_IMPORT_SCRIPT, 12000, "office-libs-check"),
+      ...PYTHON_CANDIDATES.map(candidate => ({
+        cmd: candidate.cmd,
+        args: pythonCandidateArgs(candidate, ['-c', PYTHON_OFFICE_IMPORT_SCRIPT]),
+        shell: false,
+        timeoutMs: 12000,
+        label: `${candidate.label} -c office-libs-check`,
+      })),
+    ]
+  }
+
+  function venvPythonLibAttempts(script, timeoutMs, label) {
+    const attempts = []
+    if (pythonEnvService) {
+      const venvPy = pythonEnvService.getVenvInterpreter?.()
+      if (venvPy && pythonEnvService.isVenvReadySync?.()) {
+        attempts.push({ cmd: venvPy, args: ['-c', script], shell: false, timeoutMs, label: 'reviva-venv ' + label })
+      }
+    }
+    return attempts
   }
 
   function pythonPdfImportAttempts() {
-    return PYTHON_CANDIDATES.map(candidate => ({
-      cmd: candidate.cmd,
-      args: pythonCandidateArgs(candidate, ['-c', PYTHON_PDF_IMPORT_SCRIPT]),
-      shell: false,
-      timeoutMs: 12000,
-      label: `${candidate.label} -c pdf-libs-check`,
-    }))
+    return [
+      ...venvPythonLibAttempts(PYTHON_PDF_IMPORT_SCRIPT, 12000, "pdf-libs-check"),
+      ...PYTHON_CANDIDATES.map(candidate => ({
+        cmd: candidate.cmd,
+        args: pythonCandidateArgs(candidate, ['-c', PYTHON_PDF_IMPORT_SCRIPT]),
+        shell: false,
+        timeoutMs: 12000,
+        label: `${candidate.label} -c pdf-libs-check`,
+      })),
+    ]
   }
 
   function pythonMathVizImportAttempts() {
-    return PYTHON_CANDIDATES.map(candidate => ({
-      cmd: candidate.cmd,
-      args: pythonCandidateArgs(candidate, ['-c', PYTHON_MATH_VIZ_IMPORT_SCRIPT]),
-      shell: false,
-      timeoutMs: 20000,
-      label: `${candidate.label} -c math-viz-libs-check`,
-    }))
+    return [
+      ...venvPythonLibAttempts(PYTHON_MATH_VIZ_IMPORT_SCRIPT, 20000, "math-viz-libs-check"),
+      ...PYTHON_CANDIDATES.map(candidate => ({
+        cmd: candidate.cmd,
+        args: pythonCandidateArgs(candidate, ['-c', PYTHON_MATH_VIZ_IMPORT_SCRIPT]),
+        shell: false,
+        timeoutMs: 20000,
+        label: `${candidate.label} -c math-viz-libs-check`,
+      })),
+    ]
   }
 
   const ENV_CHECKS = {
-    python: { attempts: [{ cmd: 'python', args: ['--version'] }, { cmd: 'python3', args: ['--version'] }, { cmd: 'py', args: ['--version'] }], parse: (s) => (s.match(/Python\s+([\d.]+)/i)?.[1] || '') },
+    python: { attempts: [{ cmd: 'python', args: ['--version'] }, { cmd: 'python3', args: ['--version'] }, { cmd: 'py', args: ['--version'] }], parse: (s) => (s.match(/Python\s+([\d.]+)/i)?.[1] || '') }, // builtin/venv prepended dynamically in checkOneEnv
     node: { attempts: [{ cmd: 'node', args: ['--version'] }], parse: (s) => (s.match(/v?([\d.]+)/)?.[1] || '') },
     npm: { attempts: [{ cmd: 'npm', args: ['--version'] }], parse: (s) => (s.match(/([\d.]+)/)?.[1] || '') },
     pnpm: { attempts: [{ cmd: 'pnpm', args: ['--version'] }], parse: (s) => (s.match(/([\d.]+)/)?.[1] || '') },
@@ -167,12 +187,52 @@ export function registerEnvIpc(ipcMain, deps) {
     pythonMathVizLibs: { attempts: pythonMathVizImportAttempts(), parse: (s) => (/math-viz-libs-ok/i.test(s) ? '可用' : '') },
   }
 
+  function _builtinPythonAttempts() {
+    const attempts = []
+    // venv interpreter first (if ready)
+    if (pythonEnvService) {
+      const venvPy = pythonEnvService.getVenvPythonCommand?.()
+      if (venvPy) {
+        attempts.push({ cmd: venvPy, args: ['--version'], label: 'reviva-venv python' })
+      }
+    }
+    // builtin interpreter second
+    if (pythonEnvService?.isBundledReady?.()) {
+      const builtinPy = pythonEnvService.getBuiltinInterpreter?.()
+      if (builtinPy) {
+        attempts.push({ cmd: builtinPy, args: ['--version'], label: 'reviva-builtin python' })
+      }
+    }
+    return attempts
+  }
+
+  function _builtinPipAttempts() {
+    const attempts = []
+    // venv pip first (if ready)
+    if (pythonEnvService) {
+      const venvPy = pythonEnvService.getVenvPythonCommand?.()
+      if (venvPy) {
+        attempts.push({ cmd: venvPy, args: ['-m', 'pip', '--version'], label: 'reviva-venv pip' })
+      }
+    }
+    return attempts
+  }
+
   async function checkOneEnv(key) {
     const def = ENV_CHECKS[key]
     if (!def) return { installed: false, error: 'unknown', raw: '' }
     let lastResult = { installed: false, error: 'not found', raw: '' }
     const baseEnv = await getSystemEnv()
-    for (const attempt of def.attempts) {
+    // For python/pip, prepend builtin and venv candidates before system PATH attempts
+    let attempts = def.attempts
+    if (key === 'python') {
+      const extra = _builtinPythonAttempts()
+      if (extra.length) attempts = [...extra, ...def.attempts]
+    } else if (key === 'pip') {
+      const extra = _builtinPipAttempts()
+      if (extra.length) attempts = [...extra, ...def.attempts]
+    }
+    for (const attempt of attempts) {
       const env = attempt.source ? getOfficeCliSpawnEnv(baseEnv) : baseEnv
       const r = await execVersion(attempt.cmd, attempt.args, def.parse, attempt.timeoutMs || def.timeoutMs || 8000, { ...attempt, env })
       if (r.installed) {
@@ -280,8 +340,8 @@ export function registerEnvIpc(ipcMain, deps) {
       '--user',
       '--upgrade',
       ...packages,
-      '-i', ALIYUN_PYPI_SIMPLE_URL,
-      '--trusted-host', 'mirrors.aliyun.com',
+      ...(pythonEnvService?._pypiMirrorArgs?.() || ['-i', 'https://mirrors.aliyun.com/pypi/simple/']),
+      
     ]
     const installArgs = pythonCandidateArgs(found.candidate, installCoreArgs)
     let result = await runBufferedCommand(found.candidate.cmd, installArgs, { timeoutMs: 10 * 60 * 1000, env: found.env })
@@ -312,27 +372,21 @@ export function registerEnvIpc(ipcMain, deps) {
   }
 
   async function installPythonPdfLibs() {
-    return installPythonPackages({
-      packages: PYTHON_PDF_PACKAGES,
-      checkKey: 'pythonPdfLibs',
-      label: 'PDF 本地解析库',
-    })
+    return pythonEnvService
+      ? pythonEnvService.installPackages({ packages: PYTHON_PDF_PACKAGES, checkScript: PYTHON_PDF_IMPORT_SCRIPT, label: 'PDF 本地解析库' })
+      : installPythonPackages({ packages: PYTHON_PDF_PACKAGES, checkKey: 'pythonPdfLibs', label: 'PDF 本地解析库' })
   }
 
   async function installPythonOfficeLibs() {
-    return installPythonPackages({
-      packages: PYTHON_OFFICE_PACKAGES,
-      checkKey: 'pythonOfficeLibs',
-      label: 'Office Python 库',
-    })
+    return pythonEnvService
+      ? pythonEnvService.installPackages({ packages: PYTHON_OFFICE_PACKAGES, checkScript: PYTHON_OFFICE_IMPORT_SCRIPT, label: 'Office Python 库' })
+      : installPythonPackages({ packages: PYTHON_OFFICE_PACKAGES, checkKey: 'pythonOfficeLibs', label: 'Office Python 库' })
   }
 
   async function installPythonMathVizLibs() {
-    return installPythonPackages({
-      packages: PYTHON_MATH_VIZ_PACKAGES,
-      checkKey: 'pythonMathVizLibs',
-      label: '数学可视化 Python 库',
-    })
+    return pythonEnvService
+      ? pythonEnvService.installPackages({ packages: PYTHON_MATH_VIZ_PACKAGES, checkScript: PYTHON_MATH_VIZ_IMPORT_SCRIPT, label: '数学可视化 Python 库' })
+      : installPythonPackages({ packages: PYTHON_MATH_VIZ_PACKAGES, checkKey: 'pythonMathVizLibs', label: '数学可视化 Python 库' })
   }
 
   ipcMain.handle('env:check', async (_e, keys) => {
@@ -357,6 +411,95 @@ export function registerEnvIpc(ipcMain, deps) {
   ipcMain.handle('env:installPythonMathVizLibs', async () => {
     try { return await installPythonMathVizLibs() }
     catch (err) { return { success: false, error: err.message } }
+  })
+  // ---- Python venv management ----
+  ipcMain.handle('env:getPythonStatus', async () => {
+    try { return { success: true, data: await pythonEnvService?.getStatus?.() || null } }
+    catch (err) { return { success: false, error: err.message } }
+  })
+
+  ipcMain.handle('env:ensureVenv', async () => {
+    try {
+      if (!pythonEnvService) return { success: false, error: 'Python 环境服务未就绪。' }
+      const res = await pythonEnvService.ensureVenv()
+      return res
+    } catch (err) { return { success: false, error: err.message } }
+  })
+
+  ipcMain.handle('env:rebuildVenv', async () => {
+    try {
+      if (!pythonEnvService) return { success: false, error: 'Python 环境服务未就绪。' }
+      return await pythonEnvService.rebuildVenv()
+    } catch (err) { return { success: false, error: err.message } }
+  })
+
+  ipcMain.handle('env:deleteVenv', async () => {
+    try {
+      if (!pythonEnvService) return { success: false, error: 'Python 环境服务未就绪。' }
+      return await pythonEnvService.deleteVenv()
+    } catch (err) { return { success: false, error: err.message } }
+  })
+
+  ipcMain.handle('env:setVenvPath', async (_e, p) => {
+    try {
+      const check = pythonEnvService?.validateVenvPath?.(p)
+      if (check && !check.ok) return { success: false, error: check.error }
+      pythonEnvService?.setVenvPath?.(p)
+      return { success: true }
+    } catch (err) { return { success: false, error: err.message } }
+  })
+
+  ipcMain.handle('env:setInterpreterSource', async (_e, source) => {
+    try {
+      pythonEnvService?.setInterpreterSource?.(source)
+      return { success: true }
+    } catch (err) { return { success: false, error: err.message } }
+  })
+
+  ipcMain.handle('env:getPypiMirror', async () => {
+    try {
+      if (!pythonEnvService) return { success: false, error: 'Python 环境服务未就绪。' }
+      return { success: true, data: { current: pythonEnvService.getPypiMirror(), presets: pythonEnvService.getPypiMirrorPresets() } }
+    } catch (err) { return { success: false, error: err.message } }
+  })
+
+  ipcMain.handle('env:setPypiMirror', async (_e, { id, customUrl } = {}) => {
+    try {
+      pythonEnvService?.setPypiMirror?.(id, customUrl)
+      return { success: true }
+    } catch (err) { return { success: false, error: err.message } }
+  })
+
+  ipcMain.handle('env:detectSystemPython', async () => {
+    try {
+      if (!pythonEnvService) return { success: false, error: 'Python 环境服务未就绪。' }
+      return { success: true, data: await pythonEnvService.detectSystemPython() }
+    } catch (err) { return { success: false, error: err.message } }
+  })
+
+  ipcMain.handle('env:installPackages', async (_e, { packages, checkScript, label } = {}) => {
+    try {
+      if (!pythonEnvService) return { success: false, error: 'Python 环境服务未就绪。' }
+      return await pythonEnvService.installPackages({ packages, checkScript, label })
+    } catch (err) { return { success: false, error: err.message } }
+  })
+  ipcMain.handle('env:listPackages', async () => {
+    try {
+      if (!pythonEnvService) return { success: false, error: 'Python 环境服务未就绪。', packages: [] }
+      return await pythonEnvService.listPackages()
+    } catch (err) { return { success: false, error: err.message, packages: [] } }
+  })
+  ipcMain.handle('env:uninstallPackage', async (_e, name) => {
+    try {
+      if (!pythonEnvService) return { success: false, error: 'Python 环境服务未就绪。' }
+      return await pythonEnvService.uninstallPackage(name)
+    } catch (err) { return { success: false, error: err.message } }
+  })
+  ipcMain.handle('env:getPackageInfo', async (_e, name) => {
+    try {
+      if (!pythonEnvService) return { success: false, error: 'Python 环境服务未就绪。' }
+      return await pythonEnvService.getPackageInfo(name)
+    } catch (err) { return { success: false, error: err.message } }
   })
 
   // Export all settings as JSON

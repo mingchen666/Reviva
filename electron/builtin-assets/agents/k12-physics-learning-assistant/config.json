@@ -44,7 +44,8 @@
     "note-skill",
     "learning-visualization-skill",
     "concept-visualization-generator",
-    "math-explainer"
+    "math-explainer",
+    "edu-physics-video"
   ],
   "sub_agents": [],
   "permissions": {

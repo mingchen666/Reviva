@@ -13,6 +13,7 @@ const installingPythonOfficeLibs = ref(false)
 const pythonOfficeInstallResult = ref(null)
 const installingPythonMathVizLibs = ref(false)
 const pythonMathVizInstallResult = ref(null)
+const pythonStatus = ref(null)
 
 const ENV_GROUPS = [
   {
@@ -20,7 +21,7 @@ const ENV_GROUPS = [
     icon: 'ri-terminal-box-line',
     color: 'brand',
     items: [
-      { key: 'python', name: 'Python', desc: 'Python 解释器，部分脚本和 pip 安装方式会用到', url: 'https://www.python.org/downloads/', usedBy: ['执行一些脚本', 'pip 包管理'] },
+      { key: 'python', name: 'Python', desc: 'Python 解释器。Reviva 默认内置 Python 3.11，无需额外安装；也可在“虚拟环境管理”切换为系统 Python', usedBy: ['内置解释器', 'venv 基础', '脚本执行'] },
       { key: 'node', name: 'Node.js', desc: 'JavaScript 运行时', url: 'https://nodejs.org/', usedBy: ['自定义工具脚本'] },
     ],
   },
@@ -29,7 +30,7 @@ const ENV_GROUPS = [
     icon: 'ri-archive-line',
     color: 'emerald',
     items: [
-      { key: 'pip', name: 'pip', desc: 'Python 包管理器', url: 'https://pip.pypa.io/en/stable/installation/', usedBy: ['Python 包安装'] },
+      { key: 'pip', name: 'pip', desc: 'Python 包管理器。虚拟环境初始化后自带 pip，无需额外安装', usedBy: ['venv 包安装'] },
       // { key: 'npm', name: 'npm', desc: 'Node.js 包管理器（随 Node 安装）', url: 'https://nodejs.org/', usedBy: ['Node 包安装'] },
       // { key: 'pnpm', name: 'pnpm', desc: '快速、磁盘高效的 Node 包管理器', url: 'https://pnpm.io/installation', usedBy: ['npm升级版(可选)'] },
     ],
@@ -48,7 +49,7 @@ const ENV_GROUPS = [
         url: 'https://mirrors.aliyun.com/pypi/simple/',
         usedBy: ['Agent 脚本辅助', 'Office/PDF 解析'],
         installAction: 'pythonOfficeLibs',
-        installHint: '一键安装会使用阿里云 PyPI 镜像，并安装到当前用户 Python 环境。',
+        installHint: '一键安装会使用阿里云 PyPI 镜像，安装到 Reviva 虚拟环境（venv）中。',
         versionPrefix: false,
       },
     ],
@@ -67,7 +68,7 @@ const ENV_GROUPS = [
         url: 'https://mirrors.aliyun.com/pypi/simple/',
         usedBy: ['数学可视化', 'Manim 辅助素材', '学习图表生成'],
         installAction: 'pythonMathVizLibs',
-        installHint: '一键安装会使用阿里云 PyPI 镜像，并安装到当前用户 Python 环境。',
+        installHint: '一键安装会使用阿里云 PyPI 镜像，安装到 Reviva 虚拟环境（venv）中。',
         versionPrefix: false,
       },
       { key: 'latex', name: 'LaTeX 引擎', desc: '检测 latex / pdflatex / xelatex，Manim 公式渲染依赖', url: 'https://miktex.org/download', usedBy: ['manim 公式'] },
@@ -140,6 +141,10 @@ function openInstall(url) {
 
 async function installPythonOfficeLibs() {
   if (installingPythonOfficeLibs.value) return
+  if (!pythonStatus.value?.venv?.ready) {
+    pythonOfficeInstallResult.value = { success: false, error: '请先初始化 Python 虚拟环境。' }
+    return
+  }
   installingPythonOfficeLibs.value = true
   pythonOfficeInstallResult.value = null
   checkingKeys.value.add('pythonOfficeLibs')
@@ -167,6 +172,10 @@ async function installPythonOfficeLibs() {
 
 async function installPythonMathVizLibs() {
   if (installingPythonMathVizLibs.value) return
+  if (!pythonStatus.value?.venv?.ready) {
+    pythonMathVizInstallResult.value = { success: false, error: '请先初始化 Python 虚拟环境。' }
+    return
+  }
   installingPythonMathVizLibs.value = true
   pythonMathVizInstallResult.value = null
   checkingKeys.value.add('pythonMathVizLibs')
@@ -195,6 +204,14 @@ async function installPythonMathVizLibs() {
 function copyCmd(text) {
   navigator.clipboard?.writeText(text)
 }
+async function loadPythonStatus() {
+  try {
+    const res = await window.electronAPI?.getPythonStatus?.()
+    if (res?.success) {
+      pythonStatus.value = res.data
+    }
+  } catch {}
+}
 
 function colorClass(color, isDark, kind = 'text') {
   const map = {
@@ -220,6 +237,7 @@ const formattedTime = computed(() => {
 })
 
 onMounted(() => { checkAll() })
+onMounted(() => { loadPythonStatus() })
 </script>
 
 <template>
@@ -281,7 +299,6 @@ onMounted(() => { checkAll() })
       </button>
     </div>
 
-    <!-- Env Groups -->
     <div v-for="g in ENV_GROUPS" :key="g.label" class="rounded-xl p-4" :class="isDark ? 'bg-d3 border border-bdr' : 'bg-l3 border border-bdrF'">
       <div class="flex items-center gap-2 mb-4">
         <i :class="`${g.icon} text-[14px] ${colorClass(g.color, isDark)}`" />

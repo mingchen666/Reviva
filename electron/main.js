@@ -32,6 +32,10 @@ import { DocsWebImportWriter } from './web-import/DocsWebImportWriter.js'
 import { createMediaModule } from './media/index.js'
 import { registerMediaIpcHandlers } from './media/ipc/mediaIpcHandlers.js'
 import { PdfLifecycleService } from './tools/pdf/PdfLifecycleService.js'
+import { setPythonEnvService as setPdfPythonEnvService } from './tools/pdf/PdfTextExtractor.js'
+import { setPythonEnvServiceForManim } from './tools/ManimToolService.js'
+import { setPythonEnvService as setPdfImagePythonEnvService } from './tools/pdf/PdfImageExtractor.js'
+import { setPythonEnvService as setWikiDocPythonEnvService } from './wiki/DocumentReadService.js'
 import { createLocalGateway } from './local-gateway/index.js'
 import { registerGatewayIpcHandlers } from './local-gateway/ipc/gatewayIpcHandlers.js'
 import { createWeChatBridge } from './wechat-bridge/index.js'
@@ -52,6 +56,7 @@ import { registerSkillIpc } from './ipc/skillIpc.js'
 import { registerMcpPdfIpc } from './ipc/mcpPdfIpc.js'
 import { registerAppSystemIpc } from './ipc/appSystemIpc.js'
 import { registerEnvIpc } from './ipc/envIpc.js'
+import { PythonEnvService } from './PythonEnvService.js'
 import { registerWorkspaceIpc } from './ipc/workspaceIpc.js'
 import { registerTrayIpc } from './ipc/trayIpc.js'
 import { registerModelsIpc } from './ipc/modelsIpc.js'
@@ -108,6 +113,7 @@ let webImportService = null
 let webImportJobService = null
 let mediaModule = null
 let backupService = null
+let pythonEnvService = null
 let themeService = null
 let pdfLifecycleService = null
 let localGateway = null
@@ -353,6 +359,11 @@ app.whenReady().then(async () => {
   if (singleInstance && !singleInstanceResult.ok) return
 
   workDirService = new WorkDirService(dbService)
+  pythonEnvService = new PythonEnvService(dbService, workDirService)
+  setPdfPythonEnvService(pythonEnvService)
+  setPythonEnvServiceForManim(pythonEnvService)
+  setPdfImagePythonEnvService(pythonEnvService)
+  setWikiDocPythonEnvService(pythonEnvService)
   if (startupWorkspace) {
     workDirService.setRootPath(startupWorkspace.rootPath)
     dbService.setSetting('workdir_root', startupWorkspace.rootPath)
@@ -418,6 +429,7 @@ app.whenReady().then(async () => {
     notifyTask: notifyAgentTaskSoundFromMain,
   }, noteFileService)
   agentService.init()
+  agentService.setPythonEnvService?.(pythonEnvService)
   agentService.setMediaModule?.(mediaModule)
 
   knowledgeSourceService = new KnowledgeSourceService(dbService, agentService._kbRegistry)
@@ -436,6 +448,7 @@ app.whenReady().then(async () => {
   })
   agentService.setSkillService(skillService)
   agentHealthService = new AgentHealthService(dbService, skillService)
+  agentHealthService.setPythonEnvService?.(pythonEnvService)
   pptxExportService = new PptxExportService()
   outputScanService = new OutputScanService(workDirService, dbService)
   generationTaskService = new GenerationTaskService(dbService, () => win, workDirService, agentService)
@@ -492,7 +505,7 @@ app.whenReady().then(async () => {
   skillIpcApi = registerSkillIpc(ipcMain, { dbService, skillService, getWin, skillImportSessions })
   registerMcpPdfIpc(ipcMain, { mcpService, dbService, workDirService, validateFsPath, toWorkspaceVirtualPath, outputScanService, pptxExportService })
   registerAppSystemIpc(ipcMain, { getWin, workDirService, storageCleanupService, sharedState })
-  registerEnvIpc(ipcMain, { getWin, dbService, backupService })
+  registerEnvIpc(ipcMain, { getWin, dbService, backupService, pythonEnvService })
   workspaceIpcApi = registerWorkspaceIpc(ipcMain, { getWin, workspaceRegistryService, workspaceMigrationService, workDirService, DatabaseService, dbService, sharedState, initialStartupError: workspaceStartupError })
   trayMgr = registerTrayIpc(ipcMain, { getWin, sharedState, playNotificationSound: playNotificationSoundFromMain, applySingleInstance })
   registerModelsIpc(ipcMain)
@@ -525,9 +538,21 @@ app.whenReady().then(async () => {
   setMainWindowRefForTools(win)
   initAutoUpdater(win)
   if (VITE_DEV_SERVER_URL) {
-    createMenu(win)
+    createMenu(win, true)
   } else {
-    Menu.setApplicationMenu(null)
+    createMenu(win, false)
+    // Lock down DevTools for end users in production builds
+    win.webContents.on('before-input-event', (event, input) => {
+      if (input.key === 'F12' ||
+          (input.control && input.shift && (input.key === 'I' || input.key === 'i')) ||
+          (input.control && input.shift && (input.key === 'J' || input.key === 'j')) ||
+          (input.control && (input.key === 'U' || input.key === 'u'))) {
+        event.preventDefault()
+      }
+    })
+    win.webContents.on('devtools-opened', () => {
+      win.webContents.closeDevTools()
+    })
   }
 }).catch((error) => {
   console.error('[Startup] Application initialization failed:', error)

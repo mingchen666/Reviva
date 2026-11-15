@@ -1,0 +1,9 @@
+{
+ "title": "圆锥侧面积与动点线面平行",
+ "output_name": "圆锥解题_Cone_Parallel",
+ "pop_scenes": [
+  "area",
+  "base",
+  "parallel"
+ ]
+}

@@ -1,0 +1,31 @@
+[
+  {"scene": "intro", "lines": [
+    {"zh": "来看一道化学平衡题：2 L 密闭容器，充入 4 mol SO2 和 2 mol O2。", "tts": "来看一道化学平衡题：两升密闭容器，充入四摩尔二氧化硫和两摩尔氧气。", "en": "An equilibrium problem: a 2 L sealed vessel with 4 mol SO2 and 2 mol O2."},
+    {"zh": "发生可逆反应 2SO2 + O2 ⇌ 2SO3。", "tts": "发生可逆反应，二氧化硫和氧气生成三氧化硫。", "en": "The reversible reaction 2SO2 + O2 ⇌ 2SO3 takes place."},
+    {"zh": "5 min 后达到平衡，SO3 为 2 mol。", "tts": "五分钟后达到平衡，三氧化硫是两摩尔。", "en": "After 5 min it reaches equilibrium with 2 mol SO3."},
+    {"zh": "求反应速率、平衡常数 K 和 SO2 的转化率。", "tts": "求反应速率、平衡常数K，和二氧化硫的转化率。", "en": "Find the rate, the equilibrium constant K, and the conversion of SO2."}
+  ]},
+  {"scene": "ice", "lines": [
+    {"zh": "平衡计算用三段式：起始、转化、平衡，单位都用 mol。", "tts": "平衡计算用三段式：起始、转化、平衡，单位都用摩尔。", "en": "Use the ICE table: initial, change, equilibrium, all in mol."},
+    {"zh": "起始：SO2 4 mol，O2 2 mol，SO3 0。", "tts": "起始：二氧化硫四摩尔，氧气两摩尔，三氧化硫是零。", "en": "Initial: SO2 4 mol, O2 2 mol, SO3 0."},
+    {"zh": "生成 2 mol SO3，按系数比 2 : 1 : 2，转化量是 2、1、2。", "tts": "生成两摩尔三氧化硫，按系数比二比一比二，转化量是二、一、二。", "en": "2 mol SO3 formed; by the 2 : 1 : 2 ratio the changes are 2, 1, 2."},
+    {"zh": "平衡 = 起始 − 转化：SO2 2 mol，O2 1 mol，SO3 2 mol。", "tts": "平衡量等于起始减转化：二氧化硫两摩尔，氧气一摩尔，三氧化硫两摩尔。", "en": "Equilibrium = initial − change: SO2 2 mol, O2 1 mol, SO3 2 mol."}
+  ]},
+  {"scene": "rate", "lines": [
+    {"zh": "SO2 浓度从 2 mol/L 降到 1 mol/L，用了 5 min。", "tts": "二氧化硫的浓度，从每升两摩尔降到每升一摩尔，用了五分钟。", "en": "c(SO2) falls from 2 to 1 mol/L in 5 min."},
+    {"zh": "v(SO2) = Δc/Δt = 1 ÷ 5 = 0.2 mol·L^{-1}·min^{-1}。", "tts": "二氧化硫的速率，等于浓度变化除以时间，一除以五，等于零点二摩尔每升每分钟。", "en": "v(SO2) = Δc/Δt = 1 ÷ 5 = 0.2 mol·L^{-1}·min^{-1}."}
+  ]},
+  {"scene": "kc", "lines": [
+    {"zh": "平衡常数要用平衡浓度：除以体积 2 L。", "tts": "平衡常数要用平衡浓度：物质的量除以体积两升。", "en": "K uses equilibrium concentrations: divide by the 2 L volume."},
+    {"zh": "c(SO2) = 1，c(O2) = 0.5，c(SO3) = 1，单位 mol/L。", "tts": "二氧化硫是一，氧气是零点五，三氧化硫是一，单位是摩尔每升。", "en": "c(SO2) = 1, c(O2) = 0.5, c(SO3) = 1, in mol/L."},
+    {"zh": "K = c^2(SO3) / [c^2(SO2)·c(O2)] = 1 / (1 × 0.5) = 2。", "tts": "K等于三氧化硫浓度的平方，除以二氧化硫浓度的平方乘氧气浓度，等于一除以零点五，等于二。", "en": "K = c^2(SO3) / [c^2(SO2)·c(O2)] = 1 / (1 × 0.5) = 2."}
+  ]},
+  {"scene": "conv", "lines": [
+    {"zh": "转化率 = 转化量 ÷ 起始量。", "tts": "转化率，等于转化量除以起始量。", "en": "Conversion = amount changed ÷ initial amount."},
+    {"zh": "SO2：2 mol ÷ 4 mol = 50%，一半的 SO2 变成了 SO3。", "tts": "二氧化硫：两摩尔除以四摩尔，等于百分之五十，一半变成了三氧化硫。", "en": "SO2: 2 mol ÷ 4 mol = 50%; half of the SO2 became SO3."}
+  ]},
+  {"scene": "outro", "lines": [
+    {"zh": "回顾：三段式列清起始、转化、平衡，转化量按系数比。", "tts": "回顾：三段式列清起始、转化、平衡，转化量按系数比。", "en": "Recap: the ICE table — initial, change, equilibrium; changes follow the coefficients."},
+    {"zh": "答案：0.2 mol·L^{-1}·min^{-1}，K = 2，转化率 50%。下次见！", "tts": "答案：零点二摩尔每升每分钟，K等于二，转化率百分之五十。下次见！", "en": "Answers: 0.2 mol·L^{-1}·min^{-1}, K = 2, 50%. See you next time!"}
+  ]}
+]

@@ -1,0 +1,25 @@
+[
+  {"scene": "intro", "lines": [
+    {"zh": "来看这道题：在直角三角形 ABC 中，∠C = 90°。", "tts": "来看这道题：在直角三角形ABC中，角C等于九十度。", "en": "Here's the problem: in right triangle ABC, angle C = 90°."},
+    {"zh": "两条直角边 AC = 3，BC = 4。", "tts": "两条直角边，AC等于三，BC等于四。", "en": "The legs are AC = 3 and BC = 4."},
+    {"zh": "点 D 是斜边 AB 的中点。", "tts": "点D是斜边AB的中点。", "en": "D is the midpoint of the hypotenuse AB."},
+    {"zh": "求线段 CD 的长。", "tts": "求线段CD的长。", "en": "Find the length of CD."}
+  ]},
+  {"scene": "figure", "lines": [
+    {"zh": "先画图：C 是直角顶点，AC 长 3，BC 长 4。", "tts": "先画图：C是直角顶点，AC长[cháng]三，BC长[cháng]四。", "en": "Draw it first: C is the right angle, AC = 3, BC = 4."},
+    {"zh": "取斜边 AB 的中点 D，连接 CD，这就是要求的线段。", "tts": "取斜边AB的中点D，连接CD，这就是要[yào]求的线段。", "en": "Mark D, the midpoint of AB, and join CD: that's the segment we want."}
+  ]},
+  {"scene": "key", "lines": [
+    {"zh": "关键结论：直角三角形斜边上的中线，等于斜边的一半。", "tts": "关键结论：直角三角形斜边上的中线，等于斜边的一半。", "en": "Key fact: in a right triangle, the median to the hypotenuse is half the hypotenuse."},
+    {"zh": "为什么？把 CD 延长一倍到 E，四边形 ACBE 就是矩形。", "tts": "为什么？把CD延长一倍到E，四边形ACBE就是矩形。", "en": "Why? Extend CD to E with DE = CD; then ACBE is a rectangle."},
+    {"zh": "矩形的对角线相等且互相平分，所以 CD 是 AB 的一半。", "tts": "矩形的对角线相等且互相平分，所以CD是AB的一半。", "en": "A rectangle's diagonals are equal and bisect each other, so CD is half of AB."}
+  ]},
+  {"scene": "solve", "lines": [
+    {"zh": "用勾股定理求斜边：AB^2 = 3^2 + 4^2 = 25，所以 AB = 5。", "tts": "用勾股定理求斜边：AB的平方，等于三的平方加四的平方，等于二十五，所以AB等于五。", "en": "Pythagoras gives the hypotenuse: AB^2 = 3^2 + 4^2 = 25, so AB = 5."},
+    {"zh": "于是 CD = AB ÷ 2 = 2.5。", "tts": "于是CD等于AB除以二，等于二点五。", "en": "So CD = AB ÷ 2 = 2.5."}
+  ]},
+  {"scene": "outro", "lines": [
+    {"zh": "回顾：看到直角三角形斜边的中点，就想到“斜边中线等于斜边一半”。", "tts": "回顾：看到直角三角形斜边的中点，就想到，斜边中线等于斜边一半。", "en": "Recap: a midpoint on the hypotenuse means the median equals half the hypotenuse."},
+    {"zh": "答案：CD = 2.5。我是小气团，下道题见！", "tts": "答案：CD等于二点五。我是小气团，下道题见！", "en": "Answer: CD = 2.5. See you next problem!"}
+  ]}
+]

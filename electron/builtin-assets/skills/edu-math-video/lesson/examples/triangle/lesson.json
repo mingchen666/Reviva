@@ -1,0 +1,30 @@
+{
+  "meta": { "title": "三角形中位线", "grade": "初二", "topic": "平面几何", "style": "notebook" },
+  "intro": [
+    {"show": "如图，在 $\\triangle ABC$ 中，$M$、$N$ 分别是 $AB$、$AC$ 的中点，$BC=6$。", "say": "如图，在三角形 ABC 中，M、N 分别是 AB、AC 的中点，BC 等于 6。"},
+    {"show": "求 $MN$ 的长。", "say": "求 MN 的长。"}
+  ],
+  "figure": {
+    "type": "plane2d",
+    "points": { "A": [1.2, 3.2], "B": [0, 0], "C": [4, 0] },
+    "edges": [["A", "B"], ["B", "C"], ["C", "A"]],
+    "extra": [{ "name": "M", "mid": ["A", "B"] }, { "name": "N", "mid": ["A", "C"] }]
+  },
+  "scenes": [
+    {
+      "title": "例题",
+      "goal": "{M}、{N} 是中点，{BC}=6，求 {MN}",
+      "beats": [
+        { "say": "M、N 分别是 AB、AC 的中点，连接 MN。",
+          "do": [ { "fig": "seg", "a": "M", "b": "N", "role": "key", "at": "连接" },
+                  { "write": "{M}、{N} 是 {AB}、{AC} 的中点", "at": "M" } ] },
+        { "say": "MN 是三角形的中位线，它平行于 BC，并且等于 BC 的一半。",
+          "do": [ { "fig": "par", "a": "M", "b": "N", "at": "平行" }, { "fig": "par", "a": "B", "b": "C", "role": "aux", "at": "平行" },
+                  { "write": "$\\therefore MN\\parallel BC$，$MN=\\dfrac{1}{2}BC$" },
+                  { "tip": "看到**两个中点**，想想「中位线」！", "at": "中位线", "hold": 5 } ] },
+        { "say": "所以 MN 等于 3。",
+          "do": [ { "write": "∴ !!{MN} = 3!!" }, { "emph": "last", "text": "真棒" } ] }
+      ]
+    }
+  ]
+}

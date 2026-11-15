@@ -7,7 +7,7 @@ import { tool } from 'langchain'
 import { z } from 'zod'
 import { validateSafeCommand } from '../../security/SafeCommandRunner.js'
 import { _validateCommand } from './execCommandTools.js'
-import { _workDirService, _toolRunContext, _cloudCtx } from './toolContext.js'
+import { _workDirService, _toolRunContext, _cloudCtx, _pythonEnvService } from './toolContext.js'
 
 
 const CUSTOM_SCRIPT_TOOLS_ENABLED = false
@@ -125,7 +125,10 @@ async function _runApiCustomTool(def, input = {}) {
 
 function _scriptRunnerFor(filePath) {
   const ext = path.extname(filePath).toLowerCase()
-  if (ext === '.py') return { command: 'python', args: [filePath], kind: 'python' }
+  if (ext === '.py') {
+    const venvPy = _pythonEnvService?.getVenvPythonCommand?.()
+    return { command: venvPy || 'python', args: [filePath], kind: 'python' }
+  }
   if (['.js', '.mjs', '.cjs'].includes(ext)) return { command: 'node', args: [filePath], kind: 'node' }
   return null
 }

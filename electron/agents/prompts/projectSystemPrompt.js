@@ -141,6 +141,7 @@ function buildBehaviorSection() {
 - Reviva 不使用内置 execute 工具作为产品能力；需要运行受控命令时使用 exec_command，需要 Manim/FFmpeg/Pandoc 时使用对应的 *_tool 路由工具
 - bash、sh、command、shell 都不是 Reviva 可调用工具；不要把命令行程序名当工具名。需要执行命令时只能调用 exec_command({ cmd, args, cwd }) 或兼容旧参数 exec_command({ command })
 - 如果当前可用工具列表里没有 exec_command，说明这个 Agent 没有命令执行能力；不要尝试 bash、execute 或其他替代工具，应直接说明需要在 Agent 工具/权限中开启“执行命令”
+- 执行 Python 脚本或 python/python3/py 命令时，系统会自动使用 Reviva 托管的 Python 虚拟环境（venv），无需手动指定路径。用户在“设置 > 虚拟环境管理”安装的 Python 库（如 matplotlib、manim、pymupdf 等）会自动可用。如果 venv 未初始化，命令会回退到系统 Python——此时应提示用户在“设置 > 虚拟环境管理”中初始化虚拟环境。
 - 绝不要调用 execute({ path: ... }) 或 execute({ operation: ... })；execute 即使出现在底层提示中，也不是 Reviva 的文件/媒体工具调用方式`
 }
 
@@ -202,7 +203,7 @@ function buildLocalToolsetsSection(agentDirName, today) {
 - office_write 支持通用 add/clone/set/remove/get/query/raw_set/replace_text/move/swap，也支持 docx、pptx、xlsx 常用快捷 actions。move 用于移动元素（支持 to/after/before/index 定位），swap 用于交换两个元素；重排段落、幻灯片、行/列时优先用 move/swap 而非 remove+add，以保留 stable ID 和交叉引用。你可以按需自行决定 useBatch=true 节省大量稳定动作的执行时间，也可以在 typed actions 无法表达时使用 raw_set。raw_set 需要 allowRawXml=true 且对应 action.confirm=true；使用 batch/raw_set 时工具会强制运行后置 issues/validate 检查；编辑现有 Office 文件时默认输出副本，不覆盖原文件；执行前应先用 document_read 理解文档结构。
 - Manim 渲染必须调用 manim_tool({ operation: "render", path, sceneName, quality })，不要用 execute、exec_command 或 Python 命令直接渲染，除非 manim_tool 不可用且用户明确要求手动命令。
 - 工具生成的文件会写入当前 Agent 的 /agents/${agentDirName}/outputs/${today}/ 目录，后续可把返回的 outputPath 作为上下文继续使用。
-- 如果工具返回 TOOL_DEPENDENCY_MISSING，告诉用户需要在“设置 > 环境检测”安装或修复对应依赖。`
+- 如果工具返回 TOOL_DEPENDENCY_MISSING（如 PDF 读取缺 pymupdf），应先尝试用 python_env(action="install_packages") 或 exec_command({cmd:"python",args:["-m","pip","install","对应包名"]}) 安装到 venv，安装成功后重试原工具。只有在 venv 未初始化或安装失败时，才提示用户去“设置 > 虚拟环境管理”手动处理。`
 }
 
 function buildAnswerStyleSection(answerStyle) {
@@ -295,6 +296,27 @@ ${fileList.join('\n')}
 工作目录外的附件已暂存到 /context/YYYY-MM-DD/ 目录（如 /context/2026-05-29/测试术语表.txt）。`
 }
 
+function buildPythonEnvSection(info) {
+  if (!info) return null
+  const venvReady = info.venvReady
+  const interpreterSource = info.interpreterSource || "builtin"
+  const interpreterVersion = info.interpreterVersion || "3.11"
+  const lines = []
+  lines.push("## Python 虚拟环境")
+  if (venvReady) {
+    lines.push("- Reviva 托管的 Python 虚拟环境（venv）已就绪。")
+    lines.push("- 解释器来源：" + interpreterSource + "（版本 " + interpreterVersion + "）。")
+    lines.push("- 你执行的 python/python3/py 命令会自动使用该 venv；用户在“设置 > 虚拟环境管理”安装的库会自动可用。")
+    lines.push("- 执行 Skill 的 Python 脚本前，可用 python_env 工具查询 venv 状态和已安装包，确认依赖是否满足。")
+    lines.push("- 如果缺少某个库，用 python_env(action=\"check_package\", package_name=\"库名\") 确认后，提示用户在“设置 > 虚拟环境管理”安装。")
+  } else {
+    lines.push("- Python 虚拟环境（venv）当前未初始化。")
+    lines.push("- python/python3/py 命令会回退到系统 Python；系统 Python 可能缺少 Reviva 所需的库（pymupdf、matplotlib、manim 等）。")
+    lines.push("- 如果接下来需要执行 Python 脚本或使用依赖 Python 库的 Skill，建议提示用户在“设置 > 虚拟环境管理”中初始化虚拟环境。")
+  }
+  return lines.join("\n")
+}
+
 export function buildProjectSystemPrompt({
   workRoot,
   ctxPaths = [],
@@ -306,6 +328,7 @@ export function buildProjectSystemPrompt({
   agentMemoryDirName = null,
   modelHasVision = false,
   visionAvailable = modelHasVision,
+  pythonEnvInfo = null,
 } = {}) {
   const today = new Date().toISOString().slice(0, 10)
   const agentDirName = explicitAgentDirName || agentEnglishName || '_shared'
@@ -316,6 +339,7 @@ export function buildProjectSystemPrompt({
     buildIdentitySection(),
     buildWorkspaceSection(workRoot),
     buildRuntimeEnvironmentSection(),
+    buildPythonEnvSection(pythonEnvInfo),
     buildOutputRulesSection(agentDirName, today),
     buildBehaviorSection(),
     buildDocumentReadSection({ modelHasVision, visionAvailable }),

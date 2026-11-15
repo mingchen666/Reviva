@@ -1,7 +1,7 @@
 // electron/menu.js
 import { app, shell, Menu } from 'electron'
 
-export function createMenu(win) {
+export function createMenu(win, isDev = true) {
   const template = [
     // 1. Mac 专属：应用名称菜单 (左上角第一个)
     ...(process.platform === 'darwin'
@@ -39,14 +39,19 @@ export function createMenu(win) {
     {
       label: '开发',
       submenu: [
-        {
+        ...(isDev ? [{
           label: '打开开发者工具',
           accelerator: 'CmdOrCtrl+Shift+I', // 设置快捷键
           click: () => {
-            // 打开当前窗口的开发者工具
             win.webContents.openDevTools()
           }
-        },
+        }, {
+          label: 'DevTools (F12)',
+          accelerator: 'F12',
+          click: () => {
+            win.webContents.openDevTools()
+          }
+        }] : []),
         { type: 'separator' },
         {
           label: '重新加载',

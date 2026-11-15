@@ -55,7 +55,7 @@ import {
 
 import { MemorySaver, InMemoryStore, Command } from '@langchain/langgraph'
 import { HumanMessage } from '@langchain/core/messages'
-import { getLangchainTools, getUserDefinedLangchainTools, setToolProviderConfig, setWorkDirService, setDbService, setWikiService as setWikiServiceForTools, setMcpService as setMcpServiceForTools, setMediaQueryService as setMediaQueryServiceForTools, setNoteFileService as setNoteFileServiceForTools, setVisionAnalyzeHandler, resetTaskCounters, setExecCommandConfig, setCloudContext, setToolRunContext } from './agents/langchainTools.js'
+import { getLangchainTools, getUserDefinedLangchainTools, setToolProviderConfig, setWorkDirService, setDbService, setWikiService as setWikiServiceForTools, setMcpService as setMcpServiceForTools, setMediaQueryService as setMediaQueryServiceForTools, setNoteFileService as setNoteFileServiceForTools, setVisionAnalyzeHandler, resetTaskCounters, setExecCommandConfig, setCloudContext, setToolRunContext, setPythonEnvService } from './agents/langchainTools.js'
 import { setSkillService as setSkillServiceForTools } from './agents/langchainTools.js'
 import { setLearningMemoryService as setLearningMemoryServiceForTools } from './agents/langchainTools.js'
 import { setMainWindowRef as setMainWindowRefForTools } from './agents/langchainTools.js'
@@ -109,6 +109,7 @@ export class AgentService {
     this._mediaIngestionService = null
     this._mediaQueryService = null
     this._skillService = null
+    this._pythonEnvService = null
     this._tokenRecorder = new TokenRecorder(dbService)
     this._errorClassifier = new ErrorClassifier()
     this._runStateManager = new RunStateManager(dbService)
@@ -145,6 +146,7 @@ export class AgentService {
     setWorkDirService(this._workDirService)
     // Inject DatabaseService for reading security settings (allowFileDelete, deleteScope)
     setDbService(this._db)
+    setPythonEnvService(this._pythonEnvService)
     setNoteFileServiceForTools(this._noteFileService)
     setMcpServiceForTools(this._mcpService)
     setVisionAnalyzeHandler((args, context) => this._visionAnalyzeService.analyze(args, context))
@@ -202,6 +204,11 @@ export class AgentService {
   setSkillService(skillService) {
     this._skillService = skillService || null
     setSkillServiceForTools(skillService)
+  }
+
+  setPythonEnvService(svc) {
+    this._pythonEnvService = svc || null
+    setPythonEnvService(svc)
   }
 
   setMediaQueryService(mediaQueryService) {
@@ -2053,9 +2060,27 @@ async handleStartRun(request) {
       agentMemoryDirName,
       modelHasVision: !!options.modelHasVision,
       visionAvailable: !!(options.visionAvailable ?? options.modelHasVision),
+      pythonEnvInfo: this._gatherPythonEnvInfo(),
     })
   }
 
+
+  _gatherPythonEnvInfo() {
+    const svc = this._pythonEnvService
+    if (!svc) return null
+    try {
+      const venvPy = svc.getVenvPythonCommand?.()
+      const status = svc.getStatus?.()
+      // getStatus is async but we need sync; use the sync-ready venv check instead
+      return {
+        venvReady: !!venvPy,
+        interpreterSource: svc.getInterpreterSource?.() || "builtin",
+        interpreterVersion: svc.getInterpreterSource?.() === "system" ? "(系统)" : "3.11",
+      }
+    } catch {
+      return null
+    }
+  }
 
   /**
    * Prepare context paths for agent runs.

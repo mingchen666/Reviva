@@ -1,7 +1,27 @@
 import { spawn } from 'node:child_process'
 import { getSystemEnv } from '../../systemEnv.js'
+import path from 'node:path'
 
 const MAX_BUFFER = 8 * 1024 * 1024
+
+// Module-level reference to PythonEnvService, set via setPythonEnvService().
+// When set and the venv is ready, the venv interpreter is preferred over system candidates.
+let _pythonEnvService = null
+
+export function setPythonEnvService(svc) { _pythonEnvService = svc }
+
+// Build the candidate list: venv first (if interpreter exists), then system fallbacks.
+// isVenvReady is async and can't be awaited in this sync context; instead we push
+// the venv interpreter first and rely on spawnBuffered failing fast if it is broken.
+function getPythonCandidates() {
+  const candidates = []
+  if (_pythonEnvService) {
+    const venvPy = _pythonEnvService.getVenvInterpreter?.()
+    if (venvPy && fs.existsSync(venvPy)) candidates.push({ command: venvPy, args: [], label: 'reviva-venv' })
+  }
+  for (const c of PDF_PYTHON_CANDIDATES) candidates.push(c)
+  return candidates
+}
 
 const PDF_PYTHON_SCRIPT = String.raw`
 import json
@@ -186,7 +206,7 @@ export class PdfTextExtractor {
     let lastNotFound = null
     let lastFailure = null
     const pythonEnv = await this._pythonEnv(env)
-    for (const candidate of PDF_PYTHON_CANDIDATES) {
+    for (const candidate of getPythonCandidates()) {
       const result = await spawnBuffered(candidate.command, [...candidate.args, '-c', PDF_DEPENDENCY_SCRIPT], {
         shell: false,
         env: pythonEnv,
@@ -241,7 +261,7 @@ export class PdfTextExtractor {
     let lastNotFound = null
     let lastFailure = null
     const pythonEnv = await this._pythonEnv(env)
-    for (const candidate of PDF_PYTHON_CANDIDATES) {
+    for (const candidate of getPythonCandidates()) {
       const result = await spawnBuffered(candidate.command, [...candidate.args, '-c', PDF_PYTHON_SCRIPT], {
         input: JSON.stringify({ path: filePath, startPage, maxPages }),
         shell: false,

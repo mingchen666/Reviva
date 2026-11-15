@@ -1,0 +1,24 @@
+{
+  "id": "edu-physics-video",
+  "name": "物理题讲解视频",
+  "description": "把物理题做成带中文配音、中英双语字幕、蓝图风格动画的讲解视频，先给浏览器预览，用户要时再导出 MP4。适用于力学、光学、电磁等题型。",
+  "icon": "ri-video-line",
+  "color": "#F97316",
+  "category": "学习",
+  "source": "platform",
+  "allowedTools": [
+    "file_read",
+    "file_write",
+    "vision_analyze",
+    "exec_command"
+  ],
+  "outputTypes": [
+    "HTML",
+    "MP4",
+    "Markdown",
+    "SRT"
+  ],
+  "version": "1.0.0",
+  "author": "reviva",
+  "license": "MIT"
+}

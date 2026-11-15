@@ -5,6 +5,22 @@ import { tool } from 'langchain'
 import { z } from 'zod'
 import { ToolPathGuard } from './ToolPathGuard.js'
 
+// Module-level reference to PythonEnvService for venv-aware manim execution.
+let _pythonEnvService = null
+export function setPythonEnvServiceForManim(svc) { _pythonEnvService = svc }
+
+function _venvManimCandidate() {
+  if (!_pythonEnvService) return null
+  const venvPy = _pythonEnvService.getVenvInterpreter?.()
+  if (!venvPy || !fs.existsSync(venvPy)) return null
+  return {
+    command: venvPy,
+    args: ['-m', 'manim', '--version'],
+    runArgsPrefix: ['-m', 'manim', 'render'],
+    kind: 'python-module',
+  }
+}
+
 const SCRIPT_EXTS = new Set(['.py'])
 const MAX_SCRIPT_BYTES = 2 * 1024 * 1024
 const SCENE_BASES = new Set(['Scene', 'MovingCameraScene', 'ThreeDScene', 'ZoomedScene', 'GraphScene', 'LinearTransformationScene'])
@@ -198,23 +214,35 @@ async function _runCandidate(candidate, runtimeArgs, options) {
 }
 
 function _manimCandidates() {
-  return [
+  const list = []
+  const venvCand = _venvManimCandidate()
+  if (venvCand) list.push(venvCand)
+  list.push(...[
     { command: 'python', args: ['-m', 'manim', '--version'], runArgsPrefix: ['-m', 'manim', 'render'], kind: 'python-module' },
     { command: 'py', args: ['-3', '-m', 'manim', '--version'], runArgsPrefix: ['-3', '-m', 'manim', 'render'], kind: 'python-module' },
     { command: 'py', args: ['-m', 'manim', '--version'], runArgsPrefix: ['-m', 'manim', 'render'], kind: 'python-module' },
     { command: 'python3', args: ['-m', 'manim', '--version'], runArgsPrefix: ['-m', 'manim', 'render'], kind: 'python-module' },
     { command: 'manim', args: ['--version'], runArgsPrefix: ['render'], kind: 'cli-wrapper' },
     { command: 'manimce', args: ['--version'], runArgsPrefix: ['render'], kind: 'cli-wrapper' },
-  ]
+  ])
+  return list
 }
 
 function _pipInstallCandidates() {
-  return [
+  const candidates = []
+  if (_pythonEnvService) {
+    const venvPy = _pythonEnvService.getVenvInterpreter?.()
+    if (venvPy && fs.existsSync(venvPy)) {
+      candidates.push({ command: venvPy, args: ['-m', 'pip', 'install', 'manim'] })
+    }
+  }
+  candidates.push(
     { command: 'python', args: ['-m', 'pip', 'install', '--user', 'manim'] },
     { command: 'py', args: ['-3', '-m', 'pip', 'install', '--user', 'manim'] },
     { command: 'py', args: ['-m', 'pip', 'install', '--user', 'manim'] },
     { command: 'python3', args: ['-m', 'pip', 'install', '--user', 'manim'] },
-  ]
+  )
+  return candidates
 }
 
 async function _installManimModule() {

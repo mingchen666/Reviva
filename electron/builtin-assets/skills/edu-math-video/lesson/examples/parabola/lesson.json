@@ -1,0 +1,32 @@
+{
+  "meta": { "title": "二次函数的最小值", "grade": "初三", "topic": "二次函数", "style": "whiteboard" },
+  "intro": [
+    {"show": "求二次函数 $y=x^2-2x+3$ 的最小值。", "say": "求二次函数 y=x²−2x+3 的最小值。", "speak": "求二次函数 y 等于 x 的平方 减 2 x 加 3 的最小值。"}
+  ],
+  "figure": {
+    "type": "graph",
+    "view": { "xmin": -2, "xmax": 4, "ymin": -1, "ymax": 7 },
+    "points": { "P": [1, 2] },
+    "labels": false
+  },
+  "scenes": [
+    {
+      "title": "例题",
+      "goal": "求 $y=x^2-2x+3$ 的最小值",
+      "beats": [
+        { "say": "先配方，把二次函数写成顶点式。",
+          "do": [ { "write": "$y=x^2-2x+3=(x-1)^2+2$", "at": "配方" } ] },
+        { "say": "画出图像，抛物线开口向上，对称轴是 x 等于 1。",
+          "do": [ { "fig": "curve", "f": "x^2-2*x+3", "role": "key", "label": "y=x²−2x+3", "at": "画出" },
+                  { "fig": "seg", "id": "axis1", "a": "Q", "b": "R", "role": "aux", "dash": true, "at": "对称轴" },
+                  { "fig": "point", "name": "Q", "pos": [1, -1], "show": false },
+                  { "fig": "point", "name": "R", "pos": [1, 7], "show": false },
+                  { "write": "开口向上，对称轴 $x=1$", "at": "开口" } ] },
+        { "say": "所以当[dāng] x 等于 1 时，y 取得最小值 2。",
+          "do": [ { "fig": "dot", "p": "P", "at": "最小值" }, { "fig": "label", "p": "P", "text": "P", "at": "最小值" },
+                  { "write": "∴ 当 $x=1$ 时，!!$y_{\\min}=2$!!" }, { "emph": "last", "text": "答案\n2" },
+                  { "tip": "求最值：**配方** → 看顶点", "at": "所以", "hold": 5 } ] }
+      ]
+    }
+  ]
+}

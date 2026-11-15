@@ -1,0 +1,5 @@
+{
+  "title": "激光测曲率：手机屏幕鼓包检测",
+  "output_name": "激光测曲率_Laser_Curvature",
+  "pop_scenes": ["slab", "arc"]
+}

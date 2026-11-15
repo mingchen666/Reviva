@@ -1,0 +1,151 @@
+# 手绘模板流程（handdrawn）
+
+选了 `handdrawn` 时，做完 SKILL.md 的第 0、1 步后按本文件做第 2~11 步。`SKILL` / `WS` / `PROJ` / `PY` 的含义见 SKILL.md。
+
+手绘模板流水线（每个视频一个文件夹）：
+
+```
+script.json ──build_audio.py──► build/timeline.json + build/mix.wav + ../<name>.srt
+     (旁白)     (TTS + 合成音乐)              │
+anim.js + engine.js ◄─────────────────────────┘ (按旁白时间点驱动动画)
+     ├──open index.html ──► 浏览器直接播放（预览）
+     └──node render.mjs video──► ../<name>.mp4（用户要时才导出）
+```
+
+**核心原则：画面跟着旁白走，而且图会"讲题"。** 每句旁白，图上都有一个动作把这句推理演出来（线段滑过去重合、三角形叠上去、相机转到俯视、动点移动……），不是只多出一条线、一个标签。每个动画都用"第 k 句旁白开始的时刻"`S.at(k, f)` 定时，绝不写死秒数。
+
+本流程用到的文件：`template/`（可直接运行的完整示例项目：直角三角形斜边中线题；`engine.js` 是通用引擎不改，`anim.js` / `script.json` / `episode.json` / `problem.png` 每题重写）、`examples/cone-parallel/`（立体几何完整示例：相机斜视↔俯视、侧面展开成扇形、内错角旋转、平面平移；做立体几何、圆、多问题时先读它）、`scripts/`（`new_video.sh` 建项目、`setup_check.sh` 查环境、`make_problem_png.py` 文字题→图片+高亮框、`problem_boxes.py` 截图→高亮框坐标、`contact_sheet.py` 截图拼图审查）。
+
+## 手绘模板专用规则
+
+1. **严格按下面的步骤顺序做，每步的"通过标准"满足了才能进入下一步。** 不要跳步，不要"最后一起检查"。
+2. **先讲清楚题目。** 视频第一幕必须展示原题图片（截图或 `make_problem_png.py` 生成的图），旁白逐条读条件，每读一条就在图上框出那一条。
+3. **`tts` 字段只能是能念出来的中文。** 不能有阿拉伯数字、`= + − × ÷ / ^ √ ∠ △ ∥ ° ( )` 等符号：`AC=3` 写成 `AC等于三`，`x²` 写成 `x的平方`。字幕 `zh` 字段保留正常数学写法。`--check` 会报错拦住。
+4. **读音必须固定。** 调 TTS 之前 `--check` 必须显示 `未固定读音的生僻字/多音字: 0` 且 `script errors: 0`。多音字的标注写在该字**后面**：`长[cháng]`、`要[yào]求`。**不能**写成 `中点[zhōng]`（那会把"点"读成 zhōng）。
+6. **所有画面内容在 y ≤ 860 以内**（y≈914~1044 是字幕框）。图形放左半边 x 60~900，推导文字写在右边的横线板 `board()` 上。
+7. **先写分镜，再写动画。** `storyboard.md` 给每句旁白规划"指/动/留"，按 [reference/visual-design.md](visual-design.md) 的动作表选动作；`node render.mjs motion` 必须通过。
+10. **不要修改 `engine.js`**，除非用户要求换风格；需要新图形就在 `anim.js` 里写函数。
+11. **不要把 `node_modules`、`package*.json` 复制进视频文件夹**，依赖在 `WS` 根目录装一次，所有视频共享。
+
+## 步骤
+
+### 第 2 步：建项目、查环境
+```bash
+bash SKILL/scripts/new_video.sh "$PWD" <ascii_folder_name>     # WS 就是当前目录
+bash SKILL/scripts/setup_check.sh WS/<ascii_folder_name>
+```
+- `new_video.sh` 会把 `pron.py`/`pron.json` 链接到技能自带的共享词表，并在找得到时把 `node_modules` 链接到已有安装（不复制）；找不到才需要在 `WS` 下 `npm install`。python 包用 `PY -m pip install --user numpy requests pypinyin pillow`。
+- `new_video.sh` 报 `ERROR: ... is where the skill is installed` 说明你把 WS 设成了技能所在的项目，改用当前目录。
+- 把第 0 步选的引擎写进 `episode.json`：`"tts": "doubao"`（不写 = `TTS_ENGINE` / 自动）。音色用 `.env` 里的 `GLM_VOICE` / `DOUBAO_VOICE` / `MINIMAX_VOICE`。
+- key 已在 SKILL.md 第 0 步确认过；`setup_check.sh` 这里还报缺 key（比如用户后来改了 `.env`），就回到第 0 步第 3 点处理。**不要去别的项目里找 `.env` 用，也不要因此换工作目录。**
+- **通过标准：** `setup_check.sh` 输出 `ALL OK`。
+
+### 第 3 步：测试 TTS（验证 key 和音色）
+```bash
+cd PROJ && PY build_audio.py --say "你好，我们来看一道数学题。"
+```
+- 成功会打印 `WROTE build/say_xxxx.wav` 和 `voice: ...`（`doubao:` / `minimax:` 开头 = 豆包 / MiniMax，`edge:` / `say:` = 兜底引擎，没有前缀 = GLM）。401/403 = key 错或没余额，告诉用户，不要重试 10 次。
+- 第一次给这个用户做视频时，把这个 wav 路径告诉用户试听，确认音色（音色见 tts-setup.md）。想对比引擎：加 `--tts <引擎>` 再合成一句。
+- **通过标准：** 生成了 wav。
+
+### 第 4 步：准备题目图片 `problem.png` 和高亮框
+二选一（细节见 [reference/animation.md](animation.md#题目图片与高亮框)）：
+- **只有文字**：`PY SKILL/scripts/make_problem_png.py --text "完整题目" --mark "条件1" "条件2" ... "所求" --out PROJ/problem.png`，它直接输出 `srcW/srcH/boxes`。
+- **有截图**：复制到 `PROJ/`，必要时 `problem_boxes.py crop` 裁掉无关部分并存为 `problem.png`；然后 `problem_boxes.py grid` 出坐标网格图，读出每个条件的像素框；再 `problem_boxes.py check` 画框确认。
+- 把尺寸和框填进 `anim.js` 顶部的 `PROBLEM`。
+- **通过标准：** 你打开了 `*.preview.png` 或 `*.check.png`，文字完整（没有 ☒/□ 方框），每个框都恰好罩住对应文字。
+
+### 第 5 步：写 `episode.json` 和 `script.json`
+按 [reference/script-writing.md](script-writing.md) 写。要点：
+- `episode.json`：`title`（视频标题）、`output_name`（输出文件名，如 `斜边中线_Median_to_Hypotenuse`）、`pop_scenes`（要加"啵"音效的幕）。
+- `script.json`：幕的数组，每幕 `{"scene": "英文id", "lines": [{"zh","tts","en"}, ...]}`。第一幕 `intro` 读题，最后一幕 `outro` 回顾 + 报答案。
+- 每句旁白 ≤ 36 个汉字宽（否则字幕折两行），一句只讲一件事。
+- **通过标准：** JSON 合法；每一幕的 id 都有计划好的画面。
+
+### 第 6 步：写分镜 `storyboard.md`
+**先读 [reference/visual-design.md](visual-design.md)**，再按 `template/storyboard.md` 的格式给每句旁白写一行：`| 幕id 句号 | 旁白要点 | 指 | 动 | 留 | 板书 |`。
+- "指"：这句提到的元素怎么点亮。"动"：图上**一个**体现推理的动作，从动作表里选（相等→复制滑过去重合，全等→三角形叠上去，立体↔平面→相机转动，求长度→数字计数……）。"留"：动作后留下的标记。
+- 除第一幕和最后一幕外，"动"不能空，也不能只写"出现/显示"。每幕至少一个连续运动。
+- 先想清楚：只看图、不看板子，观众能不能看懂这一步为什么成立？不能就换动作。
+- 先在 storyboard.md 顶部写**图形清单**：题目里所有的点、线段、平行/垂直/中点关系、已知长度，全部要画出来，位置按数据计算。
+- **通过标准：** 每句都有一行；图形清单完整；你能说出每一幕里"最能让人看懂"的那个动作。
+
+### 第 7 步：读音与脚本检查，修到 0
+```bash
+cd PROJ && PY build_audio.py --check      # 只打印要修的句子；完整报告在 build/pron_report.txt
+```
+- `ERROR` 行：按提示改 `script.json`（通常是 tts 里有数字/符号，或 anim.js 缺 `SC.<id>`；第 8 步写完 anim.js 前后者会报错，属正常）。
+- `⚠ 多音/生僻` 行：按 [reference/pronunciation.md](pronunciation.md) 处理：该字后面加 `[拼音]`，或反复出现的词加进 `pron.json` 的 `words`，确认默认读音正确的词加进 `ok`。
+- **通过标准：** `未固定读音的生僻字/多音字: 0` 且 `script errors: 0`，退出码 0。
+
+### 第 8 步：写 `anim.js`
+按 storyboard.md 逐句实现，API 见 [reference/animation.md](animation.md)。先通读 `template/anim.js`（示例）再动手，结构保持一致：
+- `PROBLEM`（第 4 步的数据）、`TAGS`（每幕左上角标签）、图形函数（如 `fig(st)`）、`SC.<id> = (lt, S) => {...}`（每幕一个）。
+- 每个元素的出现时间 = 旁白提到它的时刻：`S.P(S.at(k, f), 时长)`。
+- 每句：`glow(..., bump(lt, at(k)))` 点亮提到的元素 → 分镜里的动作（`slideSeg`、`movePoly`、`camTween`、动点、`countTo`…）→ 留下标记。
+- 右侧 `board()` + `bl(行号, 文字, S.at(k, f), lt)` 逐行写推导（与图同色），最后 `stamp()` 盖章给答案。
+- **通过标准：** `PY build_audio.py --check` 无 ERROR。
+
+### 第 9 步：免费预览：动作检查 + 版面检查
+```bash
+cd PROJ && PY build_audio.py --preview && node render.mjs motion && node render.mjs stills auto && PY SKILL/scripts/contact_sheet.py .
+```
+- `motion` 在每句里取 6 帧，比较左半边图形区的变化：`STATIC`（没变化）必须修；每幕至少一句 `MOVE`。不通过就回到分镜换更好的动作，不要只加一个无意义的晃动来凑数。
+- `stills auto` 在每句旁白快结束时截一帧（此时这句该出现的东西都应在画面上）。命令输出 `FAILED: page error` 说明 anim.js 有 JS 错误，先修。
+- 打开 `build/sheet.png`（多于 12 张时是 `sheet_1.png`、`sheet_2.png`…）检查，拼图上看不清的那一帧再打开 `build/stills/` 里的原图；对照 [reference/animation.md 的审查清单](animation.md#审查清单)：没有重叠、没有出界、没有挡住字幕、每句提到的东西都画出来了、数值与解答一致。
+- 有问题 → 改 anim.js → 重跑本步。
+- **通过标准：** `motion check passed`；全部截图检查通过（在回复里逐幕说明你看到了什么）。
+
+### 第 10 步：真正生成配音，自动听写核对，再检查一次画面
+```bash
+cd PROJ && PY build_audio.py && PY build_audio.py --asr && node render.mjs stills auto && PY SKILL/scripts/contact_sheet.py .
+```
+- TTS 按文本缓存在 `build/tts/`，改了某句只会重新合成那一句。
+- `--asr` 用智谱语音识别（需要 `GLM_API_KEY`，与配音用哪个引擎无关）把每句配音转回文字，写入 `build/asr_report.txt`（结果有缓存）。**字母序列对不上的句子标 ✗，退出码 1**：修改那句（见 pronunciation.md 的"字母"一节）后重跑这两条命令。报告里的汉字也要扫一遍，发现明显读错的字（不是同音字，也不是 ASR 把"三"写成"3"这种）就按第 7 步处理。
+- 真实时长与预览不同，重新看一遍 sheet。
+- **通过标准：** 打印 `mix + srt written`；`--asr` 显示 `字母读错的句子: 0`（没有 GLM key 时显示 `ASR SKIPPED`：交付时告诉用户字母读音没有机器核对，列出含点名的句子请用户重点听）；截图检查通过。
+
+### 第 11 步：打开预览并交付，再问要不要导出 MP4
+```bash
+open PROJ/index.html
+```
+- `index.html` 在浏览器里直接播放（带配音和背景音乐）：点画面或空格 播放/暂停，拖进度条跳转，←/→ 快退/快进 5 秒。画面与导出的 MP4 完全一致。
+- **打开预览的这条消息就是交付**：`PROJ/index.html`（直接播放）和 srt 路径、时长、各幕内容、答案；**说明你无法听音频，请用户试听读音**，特别列出你标注过读音的字。然后再问要不要导出。
+- **MP4 是可选项**：用户在请求里已经明确要 MP4 文件（发给别人、上传）就直接导出；否则用 AskUserQuestion 问"要不要导出 MP4？"——"先不导出"（`index.html` 依赖项目文件夹里的文件，只能在这台电脑上看）/"导出 MP4"（约需视频时长的 2～3 倍，适合分享、上传、手机上看）。
+- **用户选"先不导出"：任务结束。** 不再运行任何命令、不再重复交付内容，回一句"好的，index.html 就是成品，以后要 MP4 随时说"即可。
+- 用户选导出：
+  ```bash
+  cd PROJ && node render.mjs video 6      # 6 = 并行浏览器页数（不是帧率！帧率固定 30）
+  ```
+  输出 `WS/<output_name>.mp4`；完成后只告诉用户 mp4 路径（前面说过的不再重复），结束。以后想要 MP4 随时跑这一条，不用重新配音。
+- 用户之后反馈读错：加到 `pron.json` 或行内标注 → 再跑第 10 步（只会重合成改过的句子），导出过 MP4 的再导出一次。
+
+## 常见错误（真实发生过）
+
+| 错误做法 | 正确做法 |
+|---|---|
+| 当前目录没有 `.env`/`node_modules`，就把项目建到有这些东西的别的目录（例如技能所在的项目） | WS 永远是用户当前目录；缺依赖由 new_video.sh 链接，缺 key 在第 0 步用 `init_env.sh` 建 `WS/.env` 请用户填 |
+| 从别的视频文件夹（化学 chem 等）复制代码 | 用 `new_video.sh` 从本技能 `template/` 建项目 |
+| 编造 `GLM_MODEL=glm-4-voice`、`api.zhipuai.cn`、豆包/MiniMax 音色 id 等配置 | 接口和模型都写在 `shared/tts.py`；只需用户提供 key，音色从 tts-setup.md 或用户的控制台里来 |
+| `node render.mjs video 24` 以为是 24fps | 参数是并行数；预览版面用 `stills auto`，不要反复渲染整段视频 |
+| `中点[zhōng]` | 标注只作用于紧挨着的前一个字：`中[zhōng]点`（其实"中点"不需要标） |
+| tts 里写 `AC=3`、`60 − 7t`、`x²` | `AC等于三`、`六十减七t`、`x的平方` |
+| 题目截图随便放在 (50,50) 400×400 | 用 `PROBLEM` + `problemCard()` 自动适配到标题下方的卡片里 |
+| 用绝对秒数定时 `if (lt > 12.5)` | `S.at(k, f)`：第 k 句开始后 f 比例处 |
+| 渲染完不看画面就交付 | 每次都看 `build/sheet.png` |
+| tts 里手动写 `C、O` 或 `C,O` 来分开字母 | 不用管：pron.py 自动把相邻字母拆成 `C O`（实测逗号、顿号会多出停顿） |
+| `--check` 还有 ⚠ 就调 TTS | 修到 0；否则会花钱合成出错误读音 |
+| 为了"保险"把常见词都加进 `pron.json` 或行内标注 | 只标会读错的字；替换成同音字会破坏断句（`直搅三搅形`），`pron.py` 已经只在上下文会读错时才替换 |
+| 一个分句二十多个字不加标点 | 在换气处加逗号，分句 ≤ 18 字（`--check` 会 warn），否则 TTS 自己在词中间停 |
+| 题目图片里 `x²` 显示成 `x☒` 却没发现 | 审查时放大看文字；make_problem_png.py 已自动换字体 |
+| 用编辑工具改 JSON 后出现弯引号 `“`，解析失败 | JSON 语法引号必须是英文 `"`；见 troubleshooting.md |
+| 图一次画好，之后每句只多一条线/一个标签，解释全在板子上 | 每句都有"指→动→留"；相等就滑过去重合，立体↔俯视用 `camTween`；`render.mjs motion` 必须通过 |
+| 需要俯视图时在旁边另画一张图 | 同一个 3D 模型 `camTween` 转到 pitch = π/2 |
+| 一句旁白塞三四个知识点 | 一句一个点，画面同步出现一个元素 |
+
+## 本流程的参考文件
+- [script-writing.md](script-writing.md)：`script.json` 格式、幕的设计、数学式子的口语写法对照表。
+- [pronunciation.md](pronunciation.md)：读音控制原理、标注语法、`pron.json`、数学常见多音字。
+- [visual-design.md](visual-design.md)：**讲解动画怎么设计**：指→动→留→连、推理→动画动作表、立体转俯视、圆锥展开、分镜格式。写分镜前必读。
+- [animation.md](animation.md)：engine.js API、场景写法、版面坐标、几何/函数/立体/行程题画法、审查清单。
+- [troubleshooting.md](troubleshooting.md)：报错与处理。

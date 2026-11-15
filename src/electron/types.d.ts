@@ -150,6 +150,21 @@ declare global {
           userMessage: string
         }) => Promise<{ success: boolean; text?: string; error?: string }>
       }
+      checkEnv: (keys?: string[]) => Promise<{ success: boolean; data?: Record<string, any> }>
+      installPythonPdfLibs: () => Promise<any>
+      installPythonOfficeLibs: () => Promise<any>
+      installPythonMathVizLibs: () => Promise<any>
+      getPythonStatus: () => Promise<{ success: boolean; data?: any }>
+      ensureVenv: () => Promise<any>
+      rebuildVenv: () => Promise<any>
+ deleteVenv: () => Promise<{ success: boolean; removed?: boolean; venvPath?: string; error?: string }>
+      setVenvPath: (p: string) => Promise<{ success: boolean; error?: string }>
+      setInterpreterSource: (source: 'builtin' | 'system') => Promise<{ success: boolean; error?: string }>
+      detectSystemPython: () => Promise<{ success: boolean; data?: any }>
+      installPackages: (opts: { packages: string[]; checkScript?: string; label?: string }) => Promise<any>
+      listPackages: () => Promise<{ success: boolean; packages?: any[]; error?: string }>
+      uninstallPackage: (name: string) => Promise<any>
+      getPackageInfo: (name: string) => Promise<any>
       onMainProcessMessage: (callback: (...args: any[]) => void) => void
       onRevivaSettingsChanged?: (callback: (data: { keys: string[] }) => void) => any
       removeRevivaSettingsChangedListener?: (handler: any) => void

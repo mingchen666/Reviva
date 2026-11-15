@@ -655,6 +655,10 @@ async function onGroupDelete(gid) {
   await convStore.deleteGroup(gid)
  msg.success('分组已移入回收站')
 }
+function onMoveConv({ id, groupId }) {
+  convStore.updateConv(id, { groupId })
+  msg.success('移动到分组')
+}
 
 // Agent selection
 function selectAgent(agent) {
@@ -1080,7 +1084,7 @@ watch(() => currentMessages.value.map(m => m.id).join('|'), () => {
           @select="selectConv" @create="createChat"
           @rename="onConvRename" @export="openConversationExport" @delete="deleteConv"
           @group-create="onGroupCreate" @group-rename="onGroupRename" @group-delete="onGroupDelete"
-          @add-conv-to-group="createChat" />
+          @add-conv-to-group="createChat" @move-conv="onMoveConv" />
         <Suspense v-if="renderedLeftPanels.docs">
           <DocumentSelector v-show="leftTab === 'docs'"
             :is-dark="isDark" :selected-docs="currentCtxItems"

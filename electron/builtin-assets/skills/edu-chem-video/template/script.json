@@ -1,0 +1,40 @@
+[
+  {"scene": "intro", "lines": [
+    {"zh": "来看这道氧化还原题：铜和稀硝酸反应，方程式还没配平。", "tts": "来看这道氧化还原题：铜和稀硝酸反应，方程式还没配平。", "en": "A redox problem: copper reacts with dilute nitric acid; the equation is unbalanced."},
+    {"zh": "19.2 g 铜加入足量稀硝酸，铜全部反应。", "tts": "十九点二克铜，加入足量稀硝酸，铜全部反应。", "en": "19.2 g of copper goes into excess dilute nitric acid and reacts completely."},
+    {"zh": "第一问：配平，并用双线桥标出电子转移。", "tts": "第一问：配平，并用双线桥标出电子转移。", "en": "Part 1: balance it and show the electron transfer with double bridges."},
+    {"zh": "第二、三问：求 NO 的体积，和被还原的 HNO3 的物质的量。", "tts": "第二、三问：求一氧化氮的体积，和被还原的硝酸的物质的量。", "en": "Parts 2 and 3: the volume of NO, and the moles of HNO3 that are reduced."}
+  ]},
+  {"scene": "valence", "lines": [
+    {"zh": "配平氧化还原反应，第一步：标出变价元素的化合价。", "tts": "配平氧化还原反应，第一步：标出变价元素的化合价。", "en": "To balance a redox equation, first mark the oxidation states that change."},
+    {"zh": "铜从 0 价升到 +2 价，每个铜原子失去 2 个电子。", "tts": "铜从零价升到正二价，每个铜原子失去两个电子。", "en": "Copper goes from 0 to +2: each Cu atom loses 2 electrons."},
+    {"zh": "氮从 +5 价降到 +2 价，每生成一个 NO 得到 3 个电子。", "tts": "氮从正五价降到正二价，每生成一个一氧化氮，得到三个电子。", "en": "Nitrogen goes from +5 to +2: each NO formed gains 3 electrons."},
+    {"zh": "Cu 是还原剂，被氧化；HNO3 是氧化剂，被还原。", "tts": "铜是还原剂，被氧化；硝酸是氧化剂，被还原。", "en": "Cu is the reducing agent and is oxidised; HNO3 is the oxidising agent and is reduced."}
+  ]},
+  {"scene": "balance", "lines": [
+    {"zh": "得失电子必须相等：2 和 3 的最小公倍数是 6。", "tts": "得失电子必须相等：二和三的最小公倍数是六。", "en": "Electrons lost must equal electrons gained: the LCM of 2 and 3 is 6."},
+    {"zh": "所以 Cu 配 3，NO 配 2，Cu(NO3)2 也是 3。", "tts": "所以铜配三，一氧化氮配二，硝酸铜也是三。", "en": "So Cu gets 3, NO gets 2, and Cu(NO3)2 is also 3."},
+    {"zh": "再按原子守恒：氮共 3×2 + 2 = 8，HNO3 配 8。", "tts": "再按原子守恒：氮原子共有三乘二加二，等于八，硝酸配八。", "en": "Then conserve atoms: N totals 3×2 + 2 = 8, so HNO3 gets 8."},
+    {"zh": "氢 8 个，H2O 配 4；最后数氧：24 = 24，配平完成。", "tts": "氢原子八个，水配四；最后数一数氧，二十四等于二十四，配平完成。", "en": "8 H atoms, so H2O gets 4; check O: 24 = 24. Balanced."}
+  ]},
+  {"scene": "bridge", "lines": [
+    {"zh": "双线桥：反应物的铜连到生成物的铜，标“失去 3×2e^-”。", "tts": "双线桥：从反应物的铜，连到生成物里的铜，标上失去三乘二个电子。", "en": "Double bridge: Cu on the left to Cu on the right, labelled 'loses 3×2e^-'."},
+    {"zh": "另一条从 HNO3 中的氮连到 NO，标“得到 2×3e^-”。", "tts": "另一条，从硝酸中的氮，连到一氧化氮，标上得到二乘三个电子。", "en": "The other runs from N in HNO3 to NO, labelled 'gains 2×3e^-'."},
+    {"zh": "失去 6 个、得到 6 个，转移电子总数是 6e^-。", "tts": "失去六个，得到六个，转移的电子总数是六个。", "en": "6 lost, 6 gained: 6e^- are transferred in total."}
+  ]},
+  {"scene": "mole", "lines": [
+    {"zh": "第二问，先求铜：n(Cu) = 19.2 g ÷ 64 g/mol = 0.3 mol。", "tts": "第二问，先求铜的物质的量：十九点二克，除以六十四克每摩尔，等于零点三摩尔。", "en": "Part 2. First copper: n(Cu) = 19.2 g ÷ 64 g/mol = 0.3 mol."},
+    {"zh": "由方程式，Cu 与 NO 的物质的量之比为 3 : 2。", "tts": "由方程式，铜和一氧化氮的物质的量之比，是三比二。", "en": "From the equation, n(Cu) : n(NO) = 3 : 2."},
+    {"zh": "所以 n(NO) = 0.2 mol。", "tts": "所以一氧化氮的物质的量，是零点二摩尔。", "en": "So n(NO) = 0.2 mol."},
+    {"zh": "标准状况下 V = 0.2 mol × 22.4 L/mol = 4.48 L。", "tts": "标准状况下，体积等于零点二摩尔，乘二十二点四升每摩尔，等于四点四八升。", "en": "At STP, V = 0.2 mol × 22.4 L/mol = 4.48 L."}
+  ]},
+  {"scene": "reduced", "lines": [
+    {"zh": "第三问：8 个 HNO3 里，并不是都被还原了。", "tts": "第三问：八个硝酸分子里，并不是都被还原了。", "en": "Part 3: not all 8 HNO3 are reduced."},
+    {"zh": "只有 2 个变成 NO，被还原；6 个留在硝酸铜里，起酸性作用。", "tts": "只有两个变成了一氧化氮，被还原；另外六个留在硝酸铜里，起酸性作用。", "en": "Only 2 become NO and are reduced; 6 stay in Cu(NO3)2, acting as an acid."},
+    {"zh": "所以被还原的 HNO3 与 NO 一样多：0.2 mol。", "tts": "所以被还原的硝酸，和一氧化氮一样多，是零点二摩尔。", "en": "So the reduced HNO3 equals the NO: 0.2 mol."}
+  ]},
+  {"scene": "outro", "lines": [
+    {"zh": "回顾：标价态，电子守恒定系数，原子守恒补全，再用物质的量计算。", "tts": "回顾：标价态，用电子守恒定系数，用原子守恒补全，再用物质的量计算。", "en": "Recap: oxidation states, electron balance, atom balance, then moles."},
+    {"zh": "答案：4.48 L，0.2 mol。我们下道题见！", "tts": "答案：四点四八升，零点二摩尔。我们下道题见！", "en": "Answers: 4.48 L and 0.2 mol. See you next problem!"}
+  ]}
+]

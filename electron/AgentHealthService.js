@@ -55,6 +55,11 @@ export class AgentHealthService {
   constructor(dbService, skillService) {
     this._db = dbService
     this._skill = skillService
+    this._pythonEnvService = null
+  }
+
+  setPythonEnvService(svc) {
+    this._pythonEnvService = svc || null
   }
 
   _getProviders() {
@@ -474,14 +479,18 @@ export class AgentHealthService {
       attempts = getOfficeCliCommandCandidates(args)
     } else if (cmd === 'pymupdf') {
       const code = 'import fitz; print(getattr(fitz, "version", ["PyMuPDF"])[0])'
+      const venvPy = this._pythonEnvService?.getVenvPythonCommand?.()
       attempts = [
+        ...(venvPy ? [{ cmd: venvPy, args: ['-c', code], shell: false }] : []),
         { cmd: 'python', args: ['-c', code], shell: false },
         { cmd: 'py', args: ['-3', '-c', code], shell: false },
         { cmd: 'py', args: ['-c', code], shell: false },
         { cmd: 'python3', args: ['-c', code], shell: false },
       ]
     } else if (cmd === 'manim') {
+      const venvPy = this._pythonEnvService?.getVenvPythonCommand?.()
       attempts = [
+        ...(venvPy ? [{ cmd: venvPy, args: ['-m', 'manim', ...args] }] : []),
         { cmd: 'python', args: ['-m', 'manim', ...args] },
         { cmd: 'py', args: ['-3', '-m', 'manim', ...args] },
         { cmd: 'py', args: ['-m', 'manim', ...args] },

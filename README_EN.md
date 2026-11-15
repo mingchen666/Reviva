@@ -72,11 +72,11 @@ It is for anyone who wants AI to become part of a real learning and knowledge wo
 <table width="100%">
   <tr>
     <td align="center">
-      <h2>🎉 Reviva v1.4.2 Official Release</h2>
+      <h2>🎉 Reviva v1.5.1 Official Release</h2>
       <p>With Agent at its core, it connects local materials, knowledge bases, notes, and learning tools to complete the full learning workflow from understanding and review to creative output.</p>
       <p><b>Agent-driven · Local-first · 13 creation tools · Bring your own knowledge base · Learning profile (Beta)</b></p>
       <p>
-        <a href="https://github.com/mingchen666/Reviva/releases/latest"><img src="https://img.shields.io/badge/Download-Reviva_1.4.2-4A6CFF?style=for-the-badge&logo=github&logoColor=white" alt="Download Reviva 1.4.2" /></a>
+        <a href="https://github.com/mingchen666/Reviva/releases/latest"><img src="https://img.shields.io/badge/Download-Reviva_1.5.1-4A6CFF?style=for-the-badge&logo=github&logoColor=white" alt="Download Reviva 1.5.1" /></a>
         <a href="https://github.com/mingchen666/Reviva/releases"><img src="https://img.shields.io/badge/Release-Changelog-111827?style=for-the-badge" alt="Changelog" /></a>
         <a href="#contact-and-community"><img src="https://img.shields.io/badge/Join-Community-16A34A?style=for-the-badge" alt="Join the community" /></a>
       </p>
@@ -381,7 +381,7 @@ For detailed installation, environment, and feature documentation, see the docum
 
 ## Project Status
 
-Reviva's current official version is `1.4.2`. Features and UI continue to evolve. The project currently targets Windows and macOS desktop users; back up important data before long-term use.
+Reviva's current official version is `1.5.1`. Features and UI continue to evolve. The project currently targets Windows and macOS desktop users; back up important data before long-term use.
 
 For issues, please open a [GitHub Issue](https://github.com/mingchen666/Reviva/issues).
 

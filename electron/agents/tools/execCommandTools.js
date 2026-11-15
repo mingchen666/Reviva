@@ -5,7 +5,7 @@ import { tool } from 'langchain'
 import { z } from 'zod'
 import { SAFE_COMMAND_TOOL_DESCRIPTION, runSafeCommand, runSafeStructuredCommand, validateSafeCommand } from '../../security/SafeCommandRunner.js'
 import { _vfsResolver, _vfsContext } from './vfsHelpers.js'
-import { _workDirService, _dbService, _toolRunContext, _execCommandConfig } from './toolContext.js'
+import { _workDirService, _dbService, _toolRunContext, _execCommandConfig, _pythonEnvService } from './toolContext.js'
 
 function _safeCommandContext() {
   return {
@@ -15,6 +15,25 @@ function _safeCommandContext() {
     vfsResolver: _vfsResolver(),
     vfsContext: _vfsContext(),
   }
+}
+
+// Transparent Python-to-venv rewrite: when the Agent invokes python/python3/py,
+// redirect to the Reviva managed venv interpreter so skill scripts use the same
+// packages the user installed via Settings > Python 虚拟环境. Falls through
+// unchanged when venv is not ready, preserving system-Python fallback.
+const PYTHON_COMMAND_NAMES = new Set(['python', 'python3', 'py', 'python.exe', 'python3.exe', 'py.exe'])
+
+function _rewritePythonToVenv(cmd, args) {
+  const svc = _pythonEnvService
+  if (!svc) return { cmd, args }
+  const venvPy = svc.getVenvPythonCommand?.()
+  if (!venvPy) return { cmd, args }
+  const baseCmd = String(cmd || '').toLowerCase()
+  const cmdName = baseCmd.replace(/\.exe$/, '').replace(/^.*[\\/]/, '')
+  if (!PYTHON_COMMAND_NAMES.has(baseCmd) && !PYTHON_COMMAND_NAMES.has(cmdName)) return { cmd, args }
+  // Drop version-selector flags that the venv interpreter does not need (e.g. py -3)
+  const filteredArgs = (Array.isArray(args) ? args : []).filter(a => a !== '-3' && a !== '-3.11' && a !== '-2')
+  return { cmd: venvPy, args: filteredArgs }
 }
 
 export function _validateCommand(command) {
@@ -48,9 +67,10 @@ export async function invokeCommandCompatibilityTool(input = {}, sourceTool = 'e
     : { command: String(input || '') }
 
   if (args.cmd) {
+    const rewritten = _rewritePythonToVenv(args.cmd, Array.isArray(args.args) ? args.args : [])
     const result = await runSafeStructuredCommand({
-      cmd: args.cmd,
-      args: Array.isArray(args.args) ? args.args : [],
+      cmd: rewritten.cmd,
+      args: rewritten.args,
       cwd: args.cwd,
     }, _safeCommandContext())
     return JSON.stringify({ ...result, routed_from: sourceTool })
@@ -75,7 +95,8 @@ export const execCommand = tool(
       return JSON.stringify({ status: 'unavailable', message: unavailable })
     }
     if (cmd) {
-      const result = await runSafeStructuredCommand({ cmd, args, cwd }, _safeCommandContext())
+      const rewritten = _rewritePythonToVenv(cmd, args)
+      const result = await runSafeStructuredCommand({ cmd: rewritten.cmd, args: rewritten.args, cwd }, _safeCommandContext())
       return JSON.stringify(result)
     }
     if (!command) throw new Error('exec_command: missing command or cmd')

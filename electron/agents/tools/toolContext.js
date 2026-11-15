@@ -25,6 +25,7 @@ let _cloudCtx = { baseUrl: '', token: '', defaultKbIds: [], defaultDocIds: [], a
 let _externalKbBodyFields = ''
 let _kbRegistry = null
 let _execCommandConfig = { blacklist: null }
+let _pythonEnvService = null
 
 export function setToolProviderConfig(configs) {
   _toolProviderConfigs = configs || {}
@@ -149,10 +150,14 @@ export function setExecCommandConfig(config) {
   _execCommandConfig = config || { blacklist: null }
 }
 
+export function setPythonEnvService(svc) {
+  _pythonEnvService = svc || null
+}
+
 export {
   _toolProviderConfigs, _workDirService, _dbService, _wikiService,
   _mcpService, _mediaQueryService, _noteFileService, _toolRunContext,
   _skillService, _visionAnalyzeHandler, _themeService, _learningMemoryService,
   _mainWindowRef, _revivaWriteCount, _taskCounters, _taskLimits,
-  _cloudCtx, _externalKbBodyFields, _kbRegistry, _execCommandConfig,
+  _cloudCtx, _externalKbBodyFields, _kbRegistry, _execCommandConfig, _pythonEnvService,
 }

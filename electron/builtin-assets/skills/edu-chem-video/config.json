@@ -1,0 +1,24 @@
+{
+  "id": "edu-chem-video",
+  "name": "化学题讲解视频",
+  "description": "把化学题做成带中文配音、中英双语字幕、黑板粉笔风格动画的讲解视频，先给浏览器预览，用户要时再导出 MP4。适用于氧化还原配平、物质的量计算、化学平衡三段式、离子反应、电化学等题型。",
+  "icon": "ri-video-line",
+  "color": "#16A34A",
+  "category": "学习",
+  "source": "platform",
+  "allowedTools": [
+    "file_read",
+    "file_write",
+    "vision_analyze",
+    "exec_command"
+  ],
+  "outputTypes": [
+    "HTML",
+    "MP4",
+    "Markdown",
+    "SRT"
+  ],
+  "version": "1.0.0",
+  "author": "reviva",
+  "license": "MIT"
+}

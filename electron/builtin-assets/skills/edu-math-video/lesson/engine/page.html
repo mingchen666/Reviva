@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="zh"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{{TITLE}}</title>
+{{FONT_LINKS}}
+<style>
+{{THEME_CSS}}
+body.pv{background:#111214;color:#ddd;font-family:-apple-system,"PingFang SC",sans-serif;padding:20px 16px}
+body.pv .shell{max-width:1280px;margin:0 auto}
+body.pv #vp{position:relative;width:100%;overflow:hidden;border-radius:12px;box-shadow:0 20px 60px #000a}
+body.pv #stage{position:absolute;left:0;top:0}
+.ctrl{display:none}
+body.pv .ctrl{display:flex;align-items:center;gap:14px;margin-top:12px;font:12px ui-monospace,Menlo,monospace;color:#9b998f}
+.ctrl button{all:unset;cursor:pointer;width:34px;height:34px;border-radius:50%;display:grid;place-items:center;border:1px solid #33343a;color:#eee}
+.ctrl select{background:#1b1c1f;color:#eee;border:1px solid #33343a;border-radius:6px;padding:6px 8px;font:13px -apple-system,"PingFang SC",sans-serif}
+#bar{position:relative;flex:1;height:26px;cursor:pointer}
+#bar::before{content:"";position:absolute;left:0;right:0;top:12px;height:2px;background:#2a2b2f}
+#bar .fill{position:absolute;left:0;top:12px;height:2px;background:#ffe36e}
+#bar .mk{position:absolute;top:7px;width:2px;height:12px;background:#66676d}
+#bar .knob{position:absolute;top:7px;width:12px;height:12px;margin-left:-6px;border-radius:50%;background:#ffe36e}
+body.pv h1{font-size:18px;font-weight:600;margin:0 0 12px}
+body.pv #vp{cursor:pointer}
+#bigplay{all:unset;position:absolute;left:50%;top:50%;width:96px;height:96px;margin:-48px 0 0 -48px;border-radius:50%;background:#000a;color:#fff;font-size:40px;display:grid;place-items:center;cursor:pointer;z-index:99;box-shadow:0 8px 30px #0008}
+#bigplay[hidden]{display:none}
+body:not(.pv) #bigplay{display:none}
+</style></head>
+<body>
+<div class="shell"><h1 class="ctrl" style="display:block">{{TITLE}}</h1>
+<div id="vp"><div id="stage" class="stage"></div><button id="bigplay" aria-label="播放">▶</button></div>
+<div class="ctrl"><button id="play" aria-label="播放/暂停">▶</button><div id="bar"><div class="fill"></div><div class="knob"></div></div><span id="tm"></span><select id="style" aria-label="风格"></select></div>
+{{AUDIO}}
+</div>
+{{SCRIPTS}}
+<script>
+const LESSON = {{DATA}};
+const mode = new URLSearchParams(location.search).get('mode') || 'preview';
+if (mode === 'render') { document.querySelectorAll('.ctrl,h1').forEach(e => e.remove()); SV.boot(LESSON); }
+else SV.preview(LESSON);
+</script>
+</body></html>

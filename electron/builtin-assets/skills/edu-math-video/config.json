@@ -1,0 +1,24 @@
+{
+  "id": "edu-math-video",
+  "name": "数学题讲解视频",
+  "description": "把数学题做成带中文配音的讲解视频，五种画面模板（手绘动画/粉笔黑板/几何实验室/白板/方格本），先给浏览器预览，用户要时再导出 MP4。适用于几何、代数、函数、行程等题型。",
+  "icon": "ri-video-line",
+  "color": "#0EA5E9",
+  "category": "学习",
+  "source": "platform",
+  "allowedTools": [
+    "file_read",
+    "file_write",
+    "vision_analyze",
+    "exec_command"
+  ],
+  "outputTypes": [
+    "HTML",
+    "MP4",
+    "Markdown",
+    "SRT"
+  ],
+  "version": "1.0.0",
+  "author": "reviva",
+  "license": "MIT"
+}

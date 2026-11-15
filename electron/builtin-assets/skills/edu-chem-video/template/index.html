@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<title>Chemistry explainer</title>
+<style>
+  @font-face { font-family: 'Kuaile'; src: url(fonts/ZCOOLKuaiLe-Regular.ttf); }
+  @font-face { font-family: 'PHand'; src: url(fonts/PatrickHand-Regular.ttf); }
+  html, body { margin: 0; background: #1a3229; color: #eee; font-family: sans-serif; }
+  canvas { display: block; width: min(100vw, (100vh - 52px) * 16 / 9); max-width: 1920px; height: auto; margin: 0 auto; }
+  body.render canvas { width: 100vw; }
+  canvas { cursor: pointer; }
+  #bar { display: flex; gap: 12px; align-items: center; justify-content: center; padding: 8px; font: 14px/1 sans-serif; }
+  #seek { width: 60%; }
+  #tm { font-variant-numeric: tabular-nums; min-width: 96px; opacity: .8; }
+  body.render #bar { display: none; }
+</style>
+</head>
+<body>
+<canvas id="c" width="1920" height="1080"></canvas>
+<div id="bar"><button id="play">▶ 播放 Play</button> <input id="seek" type="range" min="0" max="1000" value="0"> <span id="tm"></span></div>
+<audio id="au" preload="auto"></audio>
+<script src="build/timeline.js"></script>
+<script>if (!window.TIMELINE.preview_only) document.getElementById("au").src = "build/mix.wav";</script>
+<script src="engine.js"></script>
+<script src="chem.js"></script>
+<script src="anim.js"></script>
+<script>boot();</script>
+</body>
+</html>

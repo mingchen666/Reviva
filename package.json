@@ -4,7 +4,7 @@
   "author": "Reviva",
   "license": "AGPL-3.0",
   "description": "Reviva是AI 学习工作台，围绕你的资料完成问答、笔记、复习和创作输出。是一个面向学习、研究和知识工作的本地桌面 Agent。它把对话、文档、知识库、笔记、复习工具和创作输出放在同一个工作台里。",
-  "version": "1.5.0",
+  "version": "1.5.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -22,7 +22,9 @@
     "test:k12-agents": "node scripts/verify-k12-learning-agents.mjs",
     "test:themes": "node --test electron/ThemeService.test.js src/config/themes.test.js src/styles/themes/themes.test.js",
     "test:web-import": "cross-env ELECTRON_RUN_AS_NODE=1 electron --test electron/web-import/__tests__/core.test.js electron/web-import/__tests__/database.test.js electron/web-import/__tests__/job-service.test.js",
-    "release": "powershell -ExecutionPolicy Bypass -File scripts/release-dev-to-main.ps1"
+    "release": "powershell -ExecutionPolicy Bypass -File scripts/release-dev-to-main.ps1",
+    "build:win": "cross-env NODE_OPTIONS=--max-old-space-size=8192 vite build && electron-builder --win",
+    "build:win-x64": "cross-env NODE_OPTIONS=--max-old-space-size=8192 vite build && electron-builder --win --x64"
   },
   "pnpm": {
     "peerDependencyRules": {

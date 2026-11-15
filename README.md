@@ -365,7 +365,7 @@ Reviva 内置 **KBP（Knowledge Base Protocol）**，让 Agent 在对话时直�
 
 ## 项目状态
 
-Reviva 当前正式版本为 `1.4.2`，功能和界面仍在持续更新。项目主要面向 Windows 和 macOS 桌面端，建议在长期使用前做好重要数据备份。
+Reviva 当前正式版本为 `1.5.1`，功能和界面仍在持续更新。项目主要面向 Windows 和 macOS 桌面端，建议在长期使用前做好重要数据备份。
 
 遇到问题欢迎提交 [GitHub Issues](https://github.com/mingchen666/Reviva/issues)。
 

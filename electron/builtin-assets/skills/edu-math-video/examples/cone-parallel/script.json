@@ -1,0 +1,182 @@
+[
+  {
+    "scene": "intro",
+    "lines": [
+      {
+        "zh": "P 是圆锥顶点，O 是底面圆心。",
+        "tts": "P是圆锥顶点，O是底面圆心。",
+        "en": "P is the cone apex; O is the base center."
+      },
+      {
+        "zh": "AB 是直径，且 AB = 2。",
+        "tts": "AB是直径，而且AB等于二。",
+        "en": "AB is a diameter of length 2."
+      },
+      {
+        "zh": "第一问：PA 与底面所成角为 π/3。",
+        "tts": "第一问，PA与底面所成角为三分之派。",
+        "en": "Part 1: PA makes an angle of pi over 3 with the base."
+      },
+      {
+        "zh": "求圆锥的侧面积。",
+        "tts": "求圆锥的侧面积。",
+        "en": "Find the lateral surface area."
+      },
+      {
+        "zh": "第二问：Q 是母线 PA 的中点。",
+        "tts": "第二问，Q是母线PA的中点。",
+        "en": "Part 2: Q is the midpoint of the generator PA."
+      },
+      {
+        "zh": "C、D 在底面圆周上。",
+        "tts": "C和D在底面圆周上。",
+        "en": "C and D lie on the base circle."
+      },
+      {
+        "zh": "弧 AC 的长为 π/3。",
+        "tts": "弧AC的长为三分之派。",
+        "en": "Arc AC has length pi over 3."
+      },
+      {
+        "zh": "CD ∥ AB。",
+        "tts": "CD平行于AB。",
+        "en": "CD is parallel to AB."
+      },
+      {
+        "zh": "T 是线段 OC 上的动点。",
+        "tts": "T是线段OC上的动点。",
+        "en": "T moves along segment OC."
+      },
+      {
+        "zh": "求证：QT ∥ 平面 PBD。",
+        "tts": "求证，QT平行于平面PBD。",
+        "en": "Prove that QT is parallel to plane PBD."
+      }
+    ]
+  },
+  {
+    "scene": "area",
+    "lines": [
+      {
+        "zh": "半径 OA = AB/2 = 1。",
+        "tts": "半径OA等于AB的一半，也就是一。",
+        "en": "The radius is OA = AB/2 = 1."
+      },
+      {
+        "zh": "PO 垂直底面，PA 的射影是 AO。",
+        "tts": "PO垂直底面，PA在底面的射影是AO。",
+        "en": "PO is perpendicular to the base; PA projects onto AO."
+      },
+      {
+        "zh": "所以 ∠PAO = π/3 = 60°。",
+        "tts": "所以角PAO等于三分之派，也就是六十度。",
+        "en": "Thus angle PAO is pi over 3, or 60 degrees."
+      },
+      {
+        "zh": "cos 60° = OA/PA，得母线 PA = 2。",
+        "tts": "六十度的余弦，等于OA除以PA，得到母线PA等于二。",
+        "en": "Since cos 60 degrees = OA/PA, the slant height PA is 2."
+      },
+      {
+        "zh": "侧面积 S = πrl = π × 1 × 2 = 2π。",
+        "tts": "侧面积等于派乘半径乘母线长[cháng]，结果是二派。",
+        "en": "The lateral area is pi times radius times slant height: 2 pi."
+      }
+    ]
+  },
+  {
+    "scene": "base",
+    "lines": [
+      {
+        "zh": "看底面俯视图：弧长除以半径，得圆心角 60°。",
+        "tts": "看底面俯视图，弧长[cháng]除以半径，得到圆心角六十度。",
+        "en": "In the top view, arc length divided by radius gives 60 degrees."
+      },
+      {
+        "zh": "作 OM ⊥ CD，垂径定理给出 CM = MD。",
+        "tts": "作OM垂直于CD，垂径定理给出CM等于MD。",
+        "en": "Draw OM perpendicular to CD. Then CM = MD."
+      },
+      {
+        "zh": "由 CD ∥ AB，得 ∠OCM = ∠COA = 60°。",
+        "tts": "由CD平行于AB，得到角OCM等于角COA，都是六十度。",
+        "en": "Since CD is parallel to AB, angle OCM equals angle COA: 60 degrees."
+      },
+      {
+        "zh": "CM = OC cos 60° = 1/2，因此 CD = 1。",
+        "tts": "CM等于OC乘六十度的余弦，也就是二分之一，所以CD等于一。",
+        "en": "CM = OC cos 60 degrees = 1/2, so CD = 1."
+      },
+      {
+        "zh": "CD 与 OB 平行且相等。",
+        "tts": "CD与OB平行，而且相等。",
+        "en": "CD and OB are parallel and have equal lengths."
+      },
+      {
+        "zh": "四边形 OCDB 是平行四边形，所以 OC ∥ BD。",
+        "tts": "四边形OCDB是平行四边形，所以OC平行于BD。",
+        "en": "OCDB is a parallelogram, so OC is parallel to BD."
+      }
+    ]
+  },
+  {
+    "scene": "parallel",
+    "lines": [
+      {
+        "zh": "回到空间图：连接 OQ。",
+        "tts": "回到空[kōng]间[jiān]图，连接OQ。",
+        "en": "Return to the spatial view and join OQ."
+      },
+      {
+        "zh": "在三角形 PAB 中，O、Q 分别是 AB、AP 的中点。",
+        "tts": "在三角形PAB中，O和Q分别是AB和AP的中点。",
+        "en": "In triangle PAB, O and Q are the midpoints of AB and AP."
+      },
+      {
+        "zh": "由中位线定理，OQ ∥ BP。",
+        "tts": "由中位线定理，OQ平行于BP。",
+        "en": "The midpoint theorem gives OQ parallel to BP."
+      },
+      {
+        "zh": "再结合 OC ∥ BD，两组相交直线分别平行。",
+        "tts": "再结合OC平行于BD，两组相交直线分别平行。",
+        "en": "Together with OC parallel to BD, two intersecting pairs are parallel."
+      },
+      {
+        "zh": "由面面平行判定，平面 QOC ∥ 平面 PBD。",
+        "tts": "由面面平行判定，平面QOC平行于平面PBD。",
+        "en": "The plane parallelism criterion gives plane QOC parallel to plane PBD."
+      },
+      {
+        "zh": "T 在 OC 上，故直线 QT 在平面 QOC 内。",
+        "tts": "T在线段OC上，所以直线QT在平面QOC内。",
+        "en": "As T lies on OC, line QT lies in plane QOC."
+      },
+      {
+        "zh": "两平面没有公共点，因此 QT ∥ 平面 PBD。",
+        "tts": "两个平面没有公共点，因此QT平行于平面PBD。",
+        "en": "The planes are disjoint, so QT is parallel to plane PBD."
+      }
+    ]
+  },
+  {
+    "scene": "outro",
+    "lines": [
+      {
+        "zh": "第一问：找射影，求母线，侧面积为 2π。",
+        "tts": "第一问，找射影，求母线，侧面积为二派。",
+        "en": "Part 1: find the projection and slant height. The area is 2 pi."
+      },
+      {
+        "zh": "第二问：先证底面平行，再用中位线得到面面平行。",
+        "tts": "第二问，先证底面平行，再用中位线得到面面平行。",
+        "en": "Part 2: combine the base geometry with the midpoint theorem."
+      },
+      {
+        "zh": "T 取 OC 上任意位置，都有 QT ∥ 平面 PBD。",
+        "tts": "T取OC上的任意位置，都有QT平行于平面PBD。",
+        "en": "For every T on OC, QT is parallel to plane PBD."
+      }
+    ]
+  }
+]
