@@ -111,7 +111,7 @@ jobs:
           if [ "${{ matrix.arch }}" = "x64" ]; then TRIPLE="x86_64-apple-darwin"; else TRIPLE="aarch64-apple-darwin"; fi
           curl -fsSL -o /tmp/python.tar.gz \
             "https://github.com/astral-sh/python-build-standalone/releases/download/20261026/cpython-3.11.18+20261026-${TRIPLE}-install_only_stripped.tar.gz"
-          tar -xzf /tmp/python.tar.gz -C "electron/builtin-assets/bin/python/macos-${{ matrix.arch }}"
+          tar -xzf /tmp/python.tar.gz --strip-components=1 -C "electron/builtin-assets/bin/python/macos-${{ matrix.arch }}"
           ls "electron/builtin-assets/bin/python/macos-${{ matrix.arch }}/bin/python3.11" && echo "Python OK"
 
       - name: Build macOS DMG
@@ -186,7 +186,7 @@ jobs:
           if [ "${{ matrix.arch }}" = "x64" ]; then TRIPLE="x86_64-unknown-linux-gnu"; else TRIPLE="aarch64-unknown-linux-gnu"; fi
           curl -fsSL -o /tmp/python.tar.gz \
             "https://github.com/astral-sh/python-build-standalone/releases/download/20261026/cpython-3.11.18+20261026-${TRIPLE}-install_only_stripped.tar.gz"
-          tar -xzf /tmp/python.tar.gz -C "electron/builtin-assets/bin/python/linux-${{ matrix.arch }}"
+          tar -xzf /tmp/python.tar.gz --strip-components=1 -C "electron/builtin-assets/bin/python/linux-${{ matrix.arch }}"
           ls "electron/builtin-assets/bin/python/linux-${{ matrix.arch }}/bin/python3.11" && echo "Python OK"
 
       - name: Build Linux AppImage
