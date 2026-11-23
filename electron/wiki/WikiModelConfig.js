@@ -1,6 +1,7 @@
 // wiki/WikiModelConfig.js — extracted from WikiService.js
 // Model/provider config resolution and agent config normalization.
 
+import path from 'node:path'
 import { readJsonSync, parseModelRef, MODEL_REF_SEPARATOR } from './wikiUtils.js'
 
 export function normalizeAgentConfig(agent = {}) {
@@ -12,6 +13,7 @@ export function normalizeAgentConfig(agent = {}) {
     status: agent.status || 'idle',
     default_write_policy: 'direct',
     auto_maintain: agent.auto_maintain !== false,
+    proposal_auto_apply: agent.proposal_auto_apply !== false,
     web_research: {
       ...webResearch,
       mode: ['inherit', 'enabled', 'disabled'].includes(webResearch.mode) ? webResearch.mode : 'inherit',

@@ -1,19 +1,38 @@
 <script setup>
-import { computed } from 'vue'
+import { computed, ref, useId, watch } from 'vue'
 import md from '@/utils/markdown'
 import { toFileUrl } from '@/utils/fileUrl'
 import { parseMarkdownFrontMatter } from '@/utils/markdownFrontMatter'
+import { resolveWikiMarkdownPath } from '@/utils/wikiLinks'
+import { normalizeSourceExtractPath } from '@/utils/wikiSourceExtract'
+import WikiCitationPreview from './WikiCitationPreview.vue'
+import WikiSourceExtractReader from './WikiSourceExtractReader.vue'
 
 const props = defineProps({
   wiki: { type: Object, default: null },
   agent: { type: Object, default: null },
   page: { type: Object, default: null },
+  sources: { type: Array, default: () => [] },
+  sourceExtract: { type: Object, default: null },
+  readerMode: { type: String, default: 'page' },
   error: { type: String, default: '' },
   sourceError: { type: String, default: '' },
   isDark: { type: Boolean, default: false },
 })
 
-const emit = defineEmits(['add-source', 'open-page', 'open-status', 'configure-agent'])
+const emit = defineEmits(['add-source', 'open-page', 'open-source-extract', 'open-status', 'configure-agent', 'open-review-queue', 'change-mode'])
+const citationId = ref('')
+const modeId = useId()
+watch(() => [props.wiki?.id, props.page?.path], () => { citationId.value = '' })
+watch(() => props.readerMode, () => { citationId.value = '' })
+
+function moveMode(event) {
+  if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return
+  event.preventDefault()
+  const mode = event.key === 'Home' ? 'page' : event.key === 'End' ? 'source' : props.readerMode === 'page' ? 'source' : 'page'
+  emit('change-mode', mode)
+  event.currentTarget.querySelector(`[data-reader-mode="${mode}"]`)?.focus()
+}
 
 const WIKI_AUTO_NAV_MARKERS = [
   '<!-- wiki:auto-navigation:start -->',
@@ -49,7 +68,7 @@ const pageTypeLabel = computed(() => ({
 })[pageMetadata.value?.type] || pageMetadata.value?.type || '知识页')
 
 const pageStatusLabel = computed(() => ({
-  active: '正常', stale: '待更新', unsupported: '不支持', review_required: '待审核',
+  active: '正常', stale: '待更新', unsupported: '不支持', review_required: '待完善',
 })[pageMetadata.value?.status] || pageMetadata.value?.status || '未知')
 
 const pageStatusClasses = computed(() => {
@@ -145,7 +164,9 @@ function preprocessWikiLinks(markdown) {
 function preprocessSourceRefs(markdown) {
   return String(markdown || '').replace(/\[src:\s*([^\]]+)\]/gi, (match, sourceId) => {
     const clean = String(sourceId || '').trim()
-    return clean ? `（来源：\`${clean}\`）` : match
+    const label = clean.replace(/[\[\]\\`*_<>]/g, '\\$&')
+    const encodedSourceId = encodeURIComponent(clean).replace(/\(/g, '%28').replace(/\)/g, '%29')
+    return clean ? `[来源：${label}](wiki-source:${encodedSourceId})` : match
   })
 }
 
@@ -157,33 +178,51 @@ function preprocessWikiAutoNavigation(markdown) {
 }
 
 function resolveRelativeMarkdownPath(href) {
-  const clean = decodeHtmlAttr(href).split('#')[0].split('?')[0]
-  if (!clean || !/\.md$/i.test(clean)) return ''
-  if (clean.startsWith('/')) return normalizePosixPath(clean.replace(/^\/+/, ''))
-  const pagePath = String(props.page?.path || 'index.md').replace(/\\/g, '/')
-  const pageDir = pagePath.includes('/') ? pagePath.slice(0, pagePath.lastIndexOf('/')) : ''
-  return normalizePosixPath(`${pageDir}/${clean}`)
+  return resolveWikiMarkdownPath(decodeHtmlAttr(href), props.page?.path || 'index.md')
+}
+
+function openSourcePath(pagePath) {
+  if (!/^sources\//i.test(pagePath)) return false
+  const extractPath = normalizeSourceExtractPath(pagePath)
+  const source = extractPath && props.sources.find(item => normalizeSourceExtractPath(item.extract_path) === extractPath)
+  if (source) emit('open-source-extract', { sourceId: source.id })
+  return true
 }
 
 function handleMarkdownClick(event) {
   const target = event.target?.closest?.('a')
   if (!target) return
   const href = target.getAttribute('href') || ''
+  if (/^#passage_[a-z\d]+$/i.test(href)) {
+    event.preventDefault()
+    citationId.value = href.slice(1)
+    return
+  }
+  if (href.startsWith('wiki-source:')) {
+    event.preventDefault()
+    try { emit('open-source-extract', { sourceId: decodeURIComponent(href.slice(12)) }) } catch { /* malformed source ID */ }
+    return
+  }
   if (href.startsWith('wiki:')) {
     event.preventDefault()
-    emit('open-page', decodeURIComponent(href.slice(5)))
+    try {
+      const value = decodeURIComponent(href.slice(5))
+      const resolved = resolveWikiMarkdownPath(value, props.page?.path || 'index.md')
+      if (!openSourcePath(resolved || value)) emit('open-page', value)
+    } catch { /* malformed link */ }
     return
   }
   const relPath = resolveRelativeMarkdownPath(href)
   if (relPath) {
     event.preventDefault()
-    emit('open-page', relPath)
+    if (!openSourcePath(relPath)) emit('open-page', relPath)
   }
 }
 </script>
 
 <template>
   <div class="wiki-reader-root h-full flex flex-col min-w-0" :class="isDark ? 'bg-d0' : 'bg-l0'">
+    <WikiCitationPreview v-if="citationId && wiki?.id" :key="`${wiki.id}:${citationId}`" :wiki-id="wiki.id" :passage-id="citationId" :is-dark="isDark" @close="citationId = ''" @open-source-extract="emit('open-source-extract', $event)" />
     <div class="h-12 px-5 flex items-center gap-3 border-b shrink-0" :class="isDark ? 'border-d4 bg-d1' : 'border-bdrL bg-l1'">
       <div class="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" :class="isDark ? 'bg-brand-400/10 text-brand-400' : 'bg-brand-50 text-brand-500'">
         <i class="ri-book-3-line text-[18px]" />
@@ -198,6 +237,14 @@ function handleMarkdownClick(event) {
       </div>
 
       <div v-if="wiki" class="reader-actions flex items-center gap-1.5 shrink-0">
+        <button
+          class="reader-btn reader-btn--ghost h-7 px-2.5 rounded-lg text-[13px] font-medium border relative"
+          :class="isDark ? 'bg-transparent text-wt-sub border-bdr hover:bg-d2 hover:text-wt-main hover:border-d3' : 'bg-transparent text-lt-sub border-bdrF hover:bg-l3 hover:text-lt-main'"
+          title="Proposal Review Queue"
+          @click="emit('open-review-queue')">
+          <i class="ri-inbox-archive-line text-[14.5px]" />
+          <span class="reader-btn__label">Review Queue</span>
+        </button>
         <button
           class="reader-btn reader-btn--ghost h-7 px-2.5 rounded-lg text-[13px] font-medium border"
           :class="isDark ? 'bg-transparent text-wt-sub border-bdr hover:bg-d2 hover:text-wt-main hover:border-d3' : 'bg-transparent text-lt-sub border-bdrF hover:bg-l3 hover:text-lt-main'"
@@ -225,6 +272,12 @@ function handleMarkdownClick(event) {
       </div>
     </div>
 
+    <div v-if="wiki" class="reader-mode-switch" role="tablist" aria-label="阅读模式" @keydown="moveMode">
+      <button v-for="mode in [{ value: 'page', label: '知识页', icon: 'ri-file-text-line' }, { value: 'source', label: '来源摘录', icon: 'ri-file-search-line' }]" :id="`${modeId}-${mode.value}-tab`" :key="mode.value" :data-reader-mode="mode.value" type="button" role="tab" :aria-selected="readerMode === mode.value" :aria-controls="`${modeId}-${mode.value}-panel`" :tabindex="readerMode === mode.value ? 0 : -1" :class="{ active: readerMode === mode.value }" @click="emit('change-mode', mode.value)"><i :class="mode.icon" />{{ mode.label }}</button>
+    </div>
+
+    <div v-show="readerMode === 'page'" :id="`${modeId}-page-panel`" role="tabpanel" :aria-labelledby="wiki ? `${modeId}-page-tab` : undefined" class="reader-content-panel">
+
     <div v-if="error" class="mx-5 mt-4 px-3 py-2 rounded-lg text-[12px]" :class="isDark ? 'bg-red-400/10 text-red-300' : 'bg-red-50 text-red-600'">
       {{ error }}
     </div>
@@ -232,7 +285,7 @@ function handleMarkdownClick(event) {
       {{ sourceError }}
     </div>
 
-    <div v-if="page" class="flex-1 overflow-y-auto px-4 py-3">
+    <div v-if="page" class="knowledge-page-content flex-1 overflow-y-auto px-4 py-3">
       <div class="max-w-4xl mx-auto fade-up">
         <div class="mb-2 flex items-center justify-between gap-3">
           <div class="flex items-center gap-1.5 min-w-0 text-[13px]" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">
@@ -262,7 +315,7 @@ function handleMarkdownClick(event) {
                   <div><span>页面 ID</span><code>{{ pageMetadata.id || '-' }}</code></div>
                   <div><span>Schema</span><code>v{{ pageMetadata.schemaVersion || '-' }}</code></div>
                   <div><span>创建时间</span><code>{{ formatDate(pageMetadata.createdAt) }}</code></div>
-                  <div><span>来源 ID</span><code>{{ pageMetadata.sourceIds.length ? pageMetadata.sourceIds.join(', ') : '无' }}</code></div>
+                  <div><span>来源 ID</span><span v-if="pageMetadata.sourceIds.length"><button v-for="sourceId in pageMetadata.sourceIds" :key="sourceId" class="source-ref-button" :aria-label="`查看来源摘录 ${sourceId}`" @click="emit('open-source-extract', { sourceId })">{{ sourceId }} <i class="ri-file-search-line" /></button></span><code v-else>无</code></div>
                 </div>
               </details>
             </div>
@@ -324,10 +377,33 @@ function handleMarkdownClick(event) {
         </p>
       </div>
     </div>
+    </div>
+
+    <div v-show="readerMode === 'source'" :id="`${modeId}-source-panel`" role="tabpanel" :aria-labelledby="`${modeId}-source-tab`" class="reader-content-panel">
+      <WikiSourceExtractReader
+        v-if="wiki"
+        :key="wiki.id"
+        :state="sourceExtract"
+        :sources="sources"
+        :is-dark="isDark"
+        :active="readerMode === 'source'"
+        :return-title="pageMetadata?.title || page?.path || ''"
+        @select-source="emit('open-source-extract', { sourceId: $event })"
+        @retry="sourceExtract && emit('open-source-extract', { sourceId: sourceExtract.sourceId, location: sourceExtract.requestedLocation })"
+        @back="emit('change-mode', 'page')" />
+    </div>
   </div>
 </template>
 
 <style scoped>
+.source-ref-button { display: inline-flex; align-items: center; gap: 4px; padding: 2px 4px; min-height: 28px; color: var(--ui-brand-500); border-radius: 4px; overflow-wrap: anywhere; }
+.source-ref-button:hover { background: var(--ui-bg-3); }
+.reader-mode-switch { display: flex; align-items: stretch; flex-shrink: 0; gap: 18px; padding: 0 20px; border-bottom: 2px solid var(--ui-border-panel); background: var(--ui-bg-1); }
+.reader-mode-switch button { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 6px 1px; border-bottom: 2px solid transparent; color: var(--ui-text-aux); font-size: 13px; font-weight: 500; }
+.reader-mode-switch button.active { margin-bottom: -1px; color: var(--ui-brand-500); border-bottom-color: currentColor; font-weight: 650; }
+.reader-mode-switch button:hover { color: var(--ui-text-main); }
+.reader-mode-switch button:focus-visible { outline: 2px solid var(--ui-brand-400); outline-offset: -2px; }
+.reader-content-panel { flex: 1; min-height: 0; min-width: 0; display: flex; flex-direction: column; }
 .wiki-reader-root {
   container-type: inline-size;
 }
@@ -340,6 +416,9 @@ function handleMarkdownClick(event) {
 }
 .reader-btn:hover {
   transform: translateY(-1px);
+}
+.knowledge-page-content {
+  scrollbar-gutter: stable;
 }
 .reader-btn--ghost:hover {
   box-shadow: 0 3px 10px rgba(0, 0, 0, 0.10);
@@ -373,6 +452,12 @@ function handleMarkdownClick(event) {
   }
   .reader-btn--ghost .reader-btn__label {
     display: none;
+  }
+}
+@container (max-width: 560px) {
+  .reader-mode-switch {
+    gap: 12px;
+    padding-inline: 12px;
   }
 }
 @container (max-width: 440px) {

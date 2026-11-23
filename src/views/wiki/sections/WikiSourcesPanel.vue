@@ -10,7 +10,7 @@ const props = defineProps({
   ocrConfigured: { type: Boolean, default: false },
 })
 
-const emit = defineEmits(['reparse', 'run-ocr', 'delete', 'open-media'])
+const emit = defineEmits(['reparse', 'run-ocr', 'delete', 'open-media', 'view-extract'])
 
 const sources = computed(() => props.sources)
 const isDark = computed(() => props.isDark)
@@ -79,6 +79,7 @@ function canRunOcr(source) {
           <p v-if="source.parser_message" class="mt-1 text-[10px] line-clamp-2" :class="source.status === 'failed' ? (isDark ? 'text-red-300' : 'text-red-600') : (isDark ? 'text-wt-dim' : 'text-lt-aux')">
             {{ source.parser_message }}
           </p>
+          <button class="view-extract-btn" :class="isDark ? 'text-brand-400 hover:bg-brand-400/10' : 'text-brand-600 hover:bg-brand-50'" :aria-label="`查看摘录：${source.title || source.id}`" @click="emit('view-extract', source.id)"><i class="ri-file-search-line" /> 查看摘录</button>
         </div>
         <div class="source-actions">
           <span class="status-pill" :class="statusClass(source, isDark)">
@@ -154,7 +155,11 @@ function canRunOcr(source) {
   display: flex;
   align-items: center;
   gap: 4px;
+  max-width: 45%;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
+.view-extract-btn { display: inline-flex; align-items: center; gap: 4px; min-height: 28px; margin-top: 4px; padding: 2px 4px; border-radius: 5px; font-size: 11px; }
 .status-pill {
   flex-shrink: 0;
   border-radius: 6px;

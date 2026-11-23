@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process'
+import fs from 'node:fs'
 import { getSystemEnv } from '../../systemEnv.js'
 import path from 'node:path'
 

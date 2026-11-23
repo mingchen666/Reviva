@@ -2,6 +2,7 @@
 // User-defined custom tools: API and script type.
 
 import { spawn } from 'node:child_process'
+import fs from 'node:fs'
 import path from 'node:path'
 import { tool } from 'langchain'
 import { z } from 'zod'

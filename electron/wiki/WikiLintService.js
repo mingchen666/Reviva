@@ -1,5 +1,6 @@
 import fs from 'node:fs'
 import path from 'node:path'
+import { resolveWikiMarkdownPath } from '../../src/utils/wikiLinks.js'
 import {
   WIKI_PAGE_STATUSES,
   WIKI_PAGE_TYPES,
@@ -61,12 +62,7 @@ function cleanTarget(value = '') {
 function resolveMarkdownTarget(pagePath, target) {
   const clean = cleanTarget(target)
   if (!clean || /^(https?:|mailto:|data:|blob:|file:|#)/i.test(clean)) return ''
-  const baseDir = path.posix.dirname(toPosix(pagePath))
-  let resolved = path.posix.normalize(path.posix.join(clean.startsWith('/') || baseDir === '.' ? '' : baseDir, clean.replace(/^\/+/, '')))
-  if (!path.posix.extname(resolved)) resolved += '.md'
-  if (resolved === 'pages/index.md') resolved = 'index.md'
-  if (resolved === 'pages/overview.md') resolved = 'overview.md'
-  return resolved.startsWith('../') ? '' : resolved
+  return resolveWikiMarkdownPath(path.posix.extname(clean) ? clean : `${clean}.md`, pagePath)
 }
 
 function resolveWikiTarget(target, pageByPath, pageByTitle) {

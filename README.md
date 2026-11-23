@@ -33,7 +33,7 @@
   <a href="#开源协议与商业授权">
     <img src="https://img.shields.io/badge/license-AGPL--3.0%20%2B%20Commercial-111827" alt="License AGPL-3.0 + Commercial" />
   </a>
-  <img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS-2E2E3A" alt="Platform Windows and macOS" />
+  <img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-2E2E3A" alt="Platform Windows、macOS and Linux" />
   <img src="https://img.shields.io/github/downloads/mingchen666/Reviva/total?logo=github&label=Downloads&color=4A6CFF" alt="Downloads" />
   <img src="https://img.shields.io/badge/SQLite-Local--First-003B57?logo=sqlite&logoColor=white" alt="Local First" />
 </p>
@@ -365,7 +365,7 @@ Reviva 内置 **KBP（Knowledge Base Protocol）**，让 Agent 在对话时直�
 
 ## 项目状态
 
-Reviva 当前正式版本为 `1.5.1`，功能和界面仍在持续更新。项目主要面向 Windows 和 macOS 桌面端，建议在长期使用前做好重要数据备份。
+Reviva 当前正式版本为 `1.5.2`，功能和界面仍在持续更新。项目主要面向 Windows 和 macOS 桌面端，建议在长期使用前做好重要数据备份。
 
 遇到问题欢迎提交 [GitHub Issues](https://github.com/mingchen666/Reviva/issues)。
 

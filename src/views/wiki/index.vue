@@ -11,6 +11,8 @@ import WikiSidebar from './sections/WikiSidebar.vue'
 import WikiPageList from './sections/WikiPageList.vue'
 import WikiReader from './sections/WikiReader.vue'
 import WikiInspector from './sections/WikiInspector.vue'
+import WikiReviewPanel from './sections/WikiReviewPanel.vue'
+import WikiChecksPanel from './sections/WikiChecksPanel.vue'
 import WikiCreateModal from './sections/WikiCreateModal.vue'
 import WikiDeleteConfirmModal from './sections/WikiDeleteConfirmModal.vue'
 import WikiSourceDeleteConfirmModal from './sections/WikiSourceDeleteConfirmModal.vue'
@@ -74,8 +76,10 @@ const showSourcePicker = ref(false)
 const showSourceDelete = ref(false)
 const showAgentSettings = ref(false)
 const showInspectorDrawer = ref(false)
+const reviewInspectorTab = ref('status')
 const showDocumentProcessingSettings = ref(false)
 const showMediaDetail = ref(false)
+const readerMode = ref('page')
 const mediaDetailItem = ref(null)
 const createError = ref('')
 const deleteError = ref('')
@@ -91,6 +95,14 @@ const ocrSourceId = ref('')
 const refreshingWiki = ref(false)
 const lintingWiki = ref(false)
 const auditingWiki = ref(false)
+const maintainingWiki = ref(false)
+const loadingProposals = ref(false)
+const reviewBusy = ref(false)
+const evaluatingWiki = ref(false)
+const selectedProposal = ref(null)
+const reviewActionError = ref('')
+let inspectorVersion = 0
+let proposalSelectionRequest = 0
 let pollTimer = null
 let polling = false
 let pollGraceTicks = 0
@@ -108,7 +120,10 @@ async function loadWikiWebSettings() {
 
 async function loadWikiWebJobs() {
   if (!wikiStore.currentWikiId) { wikiWebJobs.value = []; return }
-  const result = await window.electronAPI?.webImport?.listJobs?.({ targetType: 'wiki', targetRef: wikiStore.currentWikiId, limit: 20 })
+  const version = inspectorVersion
+  const wikiId = wikiStore.currentWikiId
+  const result = await window.electronAPI?.webImport?.listJobs?.({ targetType: 'wiki', targetRef: wikiId, limit: 20 })
+  if (version !== inspectorVersion || wikiId !== wikiStore.currentWikiId) return
   wikiWebJobs.value = result?.success ? (result.data || []) : []
 }
 
@@ -139,7 +154,11 @@ async function addUrlSource(url) {
 async function retryWikiWebJob(id) { await window.electronAPI?.webImport?.retryJob?.(id); await loadWikiWebJobs() }
 async function deleteWikiWebJob(id) { await window.electronAPI?.webImport?.deleteJob?.(id); await loadWikiWebJobs() }
 async function clearWikiWebJobs() { await window.electronAPI?.webImport?.clearFinishedJobs?.({ targetType: 'wiki', targetRef: wikiStore.currentWikiId }); await loadWikiWebJobs() }
-function openWikiWebSource() { showSourcePicker.value = false; showInspectorDrawer.value = true }
+function openWikiWebSource() {
+  showSourcePicker.value = false
+  reviewInspectorTab.value = 'status'
+  showInspectorDrawer.value = true
+}
 
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, Math.round(Number(value) || min)))
@@ -223,6 +242,7 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
+  wikiStore.closeSourceExtract()
   if (pollTimer) clearInterval(pollTimer)
   stopResize()
   window.electronAPI?.webImport?.removeJobUpdatedListener?.(webJobUpdatedHandler)
@@ -237,8 +257,20 @@ watch(() => settingsStore.workDirRoot, async (root) => {
 })
 
 watch(() => wikiStore.currentWikiId, () => {
+  readerMode.value = 'page'
+  inspectorVersion += 1
+  proposalSelectionRequest += 1
+  selectedProposal.value = null
+  reviewActionError.value = ''
+  loadingProposals.value = false
+  reviewBusy.value = false
+  maintainingWiki.value = false
+  lintingWiki.value = false
+  auditingWiki.value = false
+  evaluatingWiki.value = false
+  wikiWebJobs.value = []
   if (showSourcePicker.value) loadWikiWebJobs()
-})
+}, { flush: 'sync' })
 
 async function createWiki(data) {
   createError.value = ''
@@ -303,10 +335,41 @@ async function refreshWiki() {
 }
 
 async function openPage(pagePath) {
+  if (/^(?:\/?sources[\\/])/.test(String(pagePath || ''))) return
+  readerMode.value = 'page'
   try {
     await wikiStore.readPage(resolveWikiPagePath(pagePath))
   } catch (err) {
     wikiStore.error = err.message
+  }
+}
+
+async function openSourceExtract(target) {
+  const { sourceId, location } = typeof target === 'string' ? { sourceId: target } : target || {}
+  if (!wikiStore.currentWikiId) return
+  showInspectorDrawer.value = false
+  readerMode.value = 'source'
+  await wikiStore.openSourceExtract(sourceId, location)
+}
+
+function changeReaderMode(mode) {
+  readerMode.value = mode === 'source' ? 'source' : 'page'
+}
+
+async function openCheckedPage(pagePath) {
+  const version = inspectorVersion
+  if (!wikiStore.pages.some(page => page.path === pagePath)) {
+    msg.error('该页面已不在当前 Wiki 中，请刷新后重新检查')
+    return
+  }
+  try {
+    const page = await wikiStore.readPage(pagePath)
+    if (version === inspectorVersion && page) {
+      readerMode.value = 'page'
+      showInspectorDrawer.value = false
+    }
+  } catch (err) {
+    if (version === inspectorVersion) msg.error(err.message || '打开问题页面失败')
   }
 }
 
@@ -505,30 +568,170 @@ async function saveAgentConfig(config) {
 
 async function runWikiLint() {
   if (lintingWiki.value) return
+  const version = inspectorVersion
   lintingWiki.value = true
   try {
     const report = await wikiStore.runLint()
+    if (version !== inspectorVersion) return
     const errors = report?.summary?.error || 0
     const warnings = report?.summary?.warning || 0
     msg.success(errors || warnings ? `检查完成：${errors} 个错误，${warnings} 个警告` : 'Wiki 结构检查通过')
   } catch (err) {
+    if (version !== inspectorVersion) return
     msg.error(err.message || 'Wiki 结构检查失败')
   } finally {
-    lintingWiki.value = false
+    if (version === inspectorVersion) lintingWiki.value = false
   }
 }
 
 async function runSemanticAudit() {
   if (auditingWiki.value) return
+  const version = inspectorVersion
   auditingWiki.value = true
   try {
     await wikiStore.runSemanticAudit()
+    if (version !== inspectorVersion) return
     msg.success('AI 语义巡检报告已生成')
   } catch (err) {
+    if (version !== inspectorVersion) return
     msg.error(err.message || 'AI 语义巡检失败')
   } finally {
-    auditingWiki.value = false
+    if (version === inspectorVersion) auditingWiki.value = false
   }
+}
+
+async function runWikiMaintenance() {
+  if (maintainingWiki.value || selectedAgent.value?.status === 'running') return
+  const version = inspectorVersion
+  maintainingWiki.value = true
+  try {
+    const result = await wikiStore.draftWithAgent({})
+    if (version !== inspectorVersion) return
+    msg.success(`WikiAgent 维护完成，生成或更新 ${result?.maintenance?.generated_page_count || 0} 个知识页`)
+  } catch (err) {
+    if (version !== inspectorVersion) return
+    msg.error(err.message || 'WikiAgent 维护失败')
+  } finally {
+    if (version === inspectorVersion) maintainingWiki.value = false
+  }
+}
+
+async function loadReviewQueue() {
+  if (!wikiStore.currentWikiId || loadingProposals.value) return
+  const version = inspectorVersion
+  loadingProposals.value = true
+  reviewActionError.value = ''
+  try {
+    await wikiStore.listProposals('pending_review,confirmed')
+    if (version !== inspectorVersion) return
+    if (selectedProposal.value && !wikiStore.proposals.some(item => item.proposal_id === selectedProposal.value.proposal_id)) {
+      selectedProposal.value = null
+    }
+  } catch (err) {
+    if (version !== inspectorVersion) return
+    reviewActionError.value = err.message || '加载 Proposal Review Queue 失败'
+    msg.error(err.message || '加载 Proposal Review Queue 失败')
+  } finally {
+    if (version === inspectorVersion) loadingProposals.value = false
+  }
+}
+
+function openReviewQueue() {
+  if (!selectedWiki.value) return
+  showInspectorDrawer.value = true
+  reviewInspectorTab.value = 'review'
+  void loadReviewQueue()
+}
+
+function openWikiStatus() {
+  reviewInspectorTab.value = 'status'
+  showInspectorDrawer.value = true
+}
+
+async function selectProposal(proposal) {
+  if (!proposal?.proposal_id) return
+  const version = inspectorVersion
+  const request = ++proposalSelectionRequest
+  reviewActionError.value = ''
+  try {
+    const detail = await wikiStore.getProposal(proposal.proposal_id)
+    if (version !== inspectorVersion || request !== proposalSelectionRequest) return
+    selectedProposal.value = detail
+  } catch (err) {
+    if (version !== inspectorVersion || request !== proposalSelectionRequest) return
+    reviewActionError.value = err.message || '读取提案详情失败'
+    msg.error(err.message || '读取提案详情失败')
+  }
+}
+
+async function reviewProposalAction(proposal, status) {
+  if (!proposal?.proposal_id || reviewBusy.value) return
+  if (proposal.wiki_id && proposal.wiki_id !== wikiStore.currentWikiId) return
+  const version = inspectorVersion
+  reviewBusy.value = true
+  reviewActionError.value = ''
+  try {
+    const reviewed = await wikiStore.reviewProposal(proposal.proposal_id, status)
+    if (version !== inspectorVersion) return
+    selectedProposal.value = reviewed
+    if (status === 'rejected') {
+      selectedProposal.value = null
+      await loadReviewQueue()
+    }
+    if (version !== inspectorVersion) return
+    msg.success(status === 'confirmed' ? '提案已确认，可由用户应用' : '提案已拒绝')
+  } catch (err) {
+    if (version !== inspectorVersion) return
+    reviewActionError.value = err.message || '更新提案状态失败'
+    msg.error(err.message || '更新提案状态失败')
+  } finally {
+    if (version === inspectorVersion) reviewBusy.value = false
+  }
+}
+
+async function applyProposalAction(proposal) {
+  if (!proposal?.proposal_id || reviewBusy.value) return
+  if (proposal.wiki_id && proposal.wiki_id !== wikiStore.currentWikiId) return
+  const version = inspectorVersion
+  reviewBusy.value = true
+  reviewActionError.value = ''
+  try {
+    await wikiStore.applyProposal(proposal.proposal_id)
+    if (version !== inspectorVersion) return
+    selectedProposal.value = null
+    await loadReviewQueue()
+    if (version !== inspectorVersion) return
+    msg.success('提案已应用')
+  } catch (err) {
+    if (version !== inspectorVersion) return
+    reviewActionError.value = err.message || '应用提案失败'
+    msg.error(err.message || '应用提案失败')
+  } finally {
+    if (version === inspectorVersion) reviewBusy.value = false
+  }
+}
+
+async function runWikiEvaluation() {
+  if (evaluatingWiki.value) return
+  const version = inspectorVersion
+  evaluatingWiki.value = true
+  try {
+    await wikiStore.runEvaluation({ reason: 'manual' })
+    if (version !== inspectorVersion) return
+    await wikiStore.getEvaluation()
+    if (version !== inspectorVersion) return
+    msg.success('Wiki 检索评估已完成')
+  } catch (err) {
+    if (version !== inspectorVersion) return
+    msg.error(err.message || 'Wiki 检索评估失败')
+  } finally {
+    if (version === inspectorVersion) evaluatingWiki.value = false
+  }
+}
+
+function changeInspectorTab(tab) {
+  reviewInspectorTab.value = tab
+  if (tab === 'review') void loadReviewQueue()
 }
 
 function openOcrSettings() {
@@ -592,15 +795,22 @@ function openOcrSettings() {
 
         <div class="wiki-reader min-w-0">
           <WikiReader
+            :key="wikiStore.currentWikiId"
             :wiki="selectedWiki"
             :agent="selectedAgent"
             :page="wikiStore.currentPage"
+            :sources="wikiStore.sources"
+            :source-extract="wikiStore.sourceExtract"
+            :reader-mode="readerMode"
             :error="wikiStore.error"
             :source-error="sourceError"
             :is-dark="isDark"
             @add-source="openSourcePicker"
             @open-page="openPage"
-            @open-status="showInspectorDrawer = true"
+            @open-source-extract="openSourceExtract"
+            @change-mode="changeReaderMode"
+            @open-status="openWikiStatus"
+            @open-review-queue="openReviewQueue"
             @configure-agent="showAgentSettings = true"
           />
         </div>
@@ -609,36 +819,65 @@ function openOcrSettings() {
           <div v-if="showInspectorDrawer" class="drawer-layer">
             <div class="drawer-backdrop" @click="showInspectorDrawer = false" />
             <div class="wiki-inspector drawer-panel border-l" :class="isDark ? 'border-d4 shadow-[0_20px_60px_rgba(0,0,0,0.36)]' : 'border-bdrL shadow-[0_20px_60px_rgba(15,23,42,0.16)]'">
-              <button
-                class="drawer-close h-8 w-8 rounded-md"
-                :class="isDark ? 'text-wt-dim hover:text-wt-main hover:bg-white/5' : 'text-lt-aux hover:text-lt-main hover:bg-l4'"
-                title="关闭"
-                @click="showInspectorDrawer = false">
-                <i class="ri-close-line text-[16px]" />
-              </button>
               <WikiInspector
+                :key="wikiStore.currentWikiId"
                 :wiki="selectedWiki"
                 :agent="selectedAgent"
                 :sources="wikiStore.sources"
                 :jobs="wikiStore.jobs"
                 :ocr-providers="wikiStore.ocrProviders"
                 :ocr-jobs="wikiStore.ocrJobs"
-                :lint-report="wikiStore.lintReport"
-                :semantic-audit="wikiStore.semanticAudit"
-                :linting="lintingWiki"
-                :auditing="auditingWiki"
+                :maintaining="maintainingWiki"
                 :reparse-source-id="reparseSourceId"
                 :ocr-source-id="ocrSourceId"
                 :delete-source-id="deletingSourceId"
                 :is-dark="isDark"
+                :initial-tab="reviewInspectorTab"
+                :review-count="wikiStore.proposals.length"
                 @configure-ocr="openOcrSettings"
                 @reparse-source="reparseSource"
                 @run-ocr="runOcr"
                 @delete-source="openDeleteSource"
                 @open-media="openWikiMedia"
-                @run-lint="runWikiLint"
-                @run-semantic-audit="runSemanticAudit"
-              />
+                @view-source-extract="openSourceExtract"
+                @run-maintenance="runWikiMaintenance"
+                @close="showInspectorDrawer = false"
+                @tab-change="changeInspectorTab"
+              >
+                <template #review>
+                  <WikiReviewPanel
+                    :proposals="wikiStore.proposals"
+                    :selected-proposal="selectedProposal"
+                    :loading="loadingProposals"
+                    :review-busy="reviewBusy"
+                    :action-error="reviewActionError"
+                    :is-dark="isDark"
+                    @refresh="loadReviewQueue"
+                    @select="selectProposal"
+                    @reject="proposal => reviewProposalAction(proposal, 'rejected')"
+                    @confirm="proposal => reviewProposalAction(proposal, 'confirmed')"
+                    @apply="applyProposalAction"
+                  />
+                </template>
+                <template #checks>
+                  <WikiChecksPanel
+                    :lint-report="wikiStore.lintReport"
+                    :pages="wikiStore.pages"
+                    :semantic-audit="wikiStore.semanticAudit"
+                    :semantic-audit-enabled="!!selectedAgent?.semantic_audit?.enabled"
+                    :evaluation="wikiStore.evaluation"
+                    :health="wikiStore.evaluationHealth"
+                    :linting="lintingWiki"
+                    :auditing="auditingWiki"
+                    :evaluating="evaluatingWiki"
+                    :is-dark="isDark"
+                    @run-lint="runWikiLint"
+                    @run-semantic-audit="runSemanticAudit"
+                    @run-evaluation="runWikiEvaluation"
+                    @open-page="openCheckedPage"
+                  />
+                </template>
+              </WikiInspector>
             </div>
           </div>
         </Transition>
@@ -783,15 +1022,9 @@ function openOcrSettings() {
   position: absolute;
   top: 0;
   right: 0;
-  width: min(360px, 92vw);
+  width: min(420px, 100%);
   height: 100%;
   pointer-events: auto;
-}
-.drawer-close {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  z-index: 2;
 }
 .drawer-fade-enter-active,
 .drawer-fade-leave-active {
@@ -823,6 +1056,8 @@ function openOcrSettings() {
   }
 }
 @media (prefers-reduced-motion: reduce) {
+  .drawer-fade-enter-active, .drawer-fade-leave-active,
+  .drawer-fade-enter-active .drawer-panel, .drawer-fade-leave-active .drawer-panel,
   .wiki-resize-handle span {
     transition: none;
   }

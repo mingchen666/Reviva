@@ -19,6 +19,7 @@ const form = reactive({
   default_write_policy: 'direct',
   instruction: '',
   auto_maintain: true,
+  proposal_auto_apply: true,
   web_research_mode: 'inherit',
   semantic_audit_enabled: false,
   semantic_audit_trigger: 'manual',
@@ -90,6 +91,7 @@ watch(() => props.show, (show) => {
   form.default_write_policy = props.agent?.default_write_policy || 'direct'
   form.instruction = props.agent?.instruction || ''
   form.auto_maintain = props.agent?.auto_maintain !== false
+  form.proposal_auto_apply = props.agent?.proposal_auto_apply !== false
   form.web_research_mode = props.agent?.web_research?.mode || 'inherit'
   form.semantic_audit_enabled = !!props.agent?.semantic_audit?.enabled
   form.semantic_audit_trigger = props.agent?.semantic_audit?.trigger || 'manual'
@@ -103,6 +105,7 @@ function save() {
     default_write_policy: 'direct',
     instruction: form.instruction.trim(),
     auto_maintain: form.auto_maintain,
+    proposal_auto_apply: form.proposal_auto_apply,
     web_research: { mode: form.web_research_mode },
     semantic_audit: {
       enabled: form.semantic_audit_enabled,
@@ -173,6 +176,18 @@ function save() {
             <div class="rounded-xl p-3 border" :class="isDark ? 'bg-d0 border-bdr' : 'bg-l1 border-bdrF'">
               <div class="text-[11px] font-semibold" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">确定性结构检查</div>
               <div class="mt-1 flex items-center gap-1 text-[10px] text-emerald-500"><i class="ri-checkbox-circle-line" />始终开启 · 不使用模型</div>
+            </div>
+          </div>
+
+          <div class="rounded-xl p-3 border" :class="isDark ? 'bg-d0 border-bdr' : 'bg-l1 border-bdrF'">
+            <div class="flex items-center justify-between gap-4">
+              <div>
+                <div class="text-[11px] font-semibold" :class="isDark ? 'text-wt-sub' : 'text-lt-sub'">低/中风险提案自动应用</div>
+                <div class="mt-1 text-[10px] leading-relaxed" :class="isDark ? 'text-wt-dim' : 'text-lt-aux'">
+                  开启后，Agent 提交的低风险和中风险修改会自动写入；高风险修改始终保留在 Review Queue，等待人工确认。
+                </div>
+              </div>
+              <div class="toggle shrink-0 cursor-pointer" :class="form.proposal_auto_apply ? 'on' : (isDark ? 'off' : 'light-off')" @click="form.proposal_auto_apply = !form.proposal_auto_apply" />
             </div>
           </div>
 
